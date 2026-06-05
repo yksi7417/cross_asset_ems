@@ -2,7 +2,10 @@
 
 Atomic-notes Obsidian vault covering execution workflows across every asset class an EMS must support.
 
+**New here?** → [[USAGE]] — install, navigate, author, maintain.
+
 ## Reference
+- [[USAGE]] — how to use this vault (runbook)
 - [[asset-class-matrix]] — side-by-side comparison of all asset classes
 - [[workflow-index]] — every workflow grouped by category
 

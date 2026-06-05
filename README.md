@@ -18,6 +18,10 @@ flatpak run md.obsidian.Obsidian
 
 Then **Open folder as vault** → point at this directory.
 
+## Documentation
+
+The full how-to lives inside the vault at [`00_index/USAGE.md`](00_index/USAGE.md) — install, navigate, author, maintain. Open it in Obsidian (Quick Switcher: <kbd>Ctrl+O</kbd> → `usage`) or read it on GitHub.
+
 ## Layout
 
 ```
