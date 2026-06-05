@@ -1,0 +1,15 @@
+# Obsidian workspace cruft (per-machine state)
+.obsidian/workspace*
+.obsidian/cache
+.obsidian/plugins/*/data.json
+
+# Local trash
+.trash/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
