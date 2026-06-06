@@ -22,7 +22,7 @@ Foundation for everything else. ~1-2 weeks of work.
 - [x] **0.5** Docker Compose dev environment (claude) ← blocks: 0.2 `(c74f4c4)`
 - [x] **0.6** SBE codegen Gradle plugin wired up (claude) ← blocks: 0.2 `(ab1fd79)`
 - [ ] **0.7** Aeron Cluster + Archive toy ping/pong (claude) ← blocks: 0.6
-- [ ] **0.8** OpenTelemetry SDK + collector + Jaeger toy trace (local)
+- [x] **0.8** OpenTelemetry SDK + collector + Jaeger toy trace (local) `(pending sha)`
 - [ ] **0.9** Conventional commit + changelog automation (local)
 - [ ] **0.10** Phase-0 smoke test job in CI (claude) ← blocks: 0.4, 0.7
 
