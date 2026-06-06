@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # ---- Java multi-module Gradle build ----------------------------------------
+  java:
+    name: Java build + unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+          gradle-version: '8.10'
+
+      - name: Resolve Gradle Wrapper (one-time)
+        run: |
+          test -f gradlew || gradle wrapper --gradle-version=8.10
+          chmod +x gradlew || true
+
+      - name: Spotless check
+        run: ./gradlew --no-daemon spotlessCheck
+
+      - name: Compile
+        run: ./gradlew --no-daemon assemble
+
+      - name: Unit tests
+        run: ./gradlew --no-daemon allTests
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-reports
+          path: '**/build/reports/tests/**'
+          retention-days: 7
+
+  # ---- Rust multi-crate Cargo build ------------------------------------------
+  rust:
+    name: Rust build + unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: cargo build
+        run: cargo build --workspace --all-targets
+
+      - name: cargo test
+        run: cargo test --workspace --all-targets
+
+  # ---- Schema lint + reject-code catalog -------------------------------------
+  schemas:
+    name: Schema lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install yamllint
+        run: pip install -q yamllint
+      - name: Lint FSM YAML
+        run: yamllint -d "{rules: {line-length: {max: 200}, indentation: {spaces: 2}}}" schemas/fsm/ || true
+      - name: Lint SBE XML (xmllint)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq libxml2-utils
+          find schemas/sbe -name '*.xml' -print0 \
+            | xargs -0 -r -I{} xmllint --noout --schema schemas/sbe/sbe.xsd {} || true
+
+  # ---- Shell + Markdown lint -------------------------------------------------
+  lint:
+    name: Lint (shell, markdown)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          find scripts .githooks -type f \( -name '*.sh' -o -name '*.bash' \) -print0 \
+            | xargs -0 -r shellcheck
+      - name: markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@v17
+        with:
+          globs: '**/*.md'
+          config: '.markdownlint.jsonc'
+        continue-on-error: true   # warnings only for now
+
+  # ---- SBOM generation + dependency review ----------------------------------
+  sbom:
+    name: SBOM + dep review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate SBOM (CycloneDX)
+        uses: anchore/sbom-action@v0
+        with:
+          format: cyclonedx-json
+          output-file: sbom-cyclonedx.json
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high

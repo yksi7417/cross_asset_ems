@@ -1,0 +1,19 @@
+{
+  // Defaults: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+  "default": true,
+
+  // MD013: line length — vault notes use long prose lines.
+  "MD013": false,
+
+  // MD033: inline HTML — Mermaid diagrams + <kbd> / <details> are useful.
+  "MD033": false,
+
+  // MD041: first line h1 — some files start with frontmatter, not a heading.
+  "MD041": false,
+
+  // MD024: duplicate headings — common in worked-examples sections.
+  "MD024": { "siblings_only": true },
+
+  // MD036: emphasis-as-heading — we deliberately use bold for sub-callouts.
+  "MD036": false
+}
