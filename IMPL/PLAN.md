@@ -15,7 +15,7 @@ The loop protocol is in [[LOOP]]. Notifications in [[HERMES]]. Current cursor in
 
 Foundation for everything else. ~1-2 weeks of work.
 
-- [ ] **0.1** Monorepo layout (java/, rust/, schemas/, infra/, docs/) (local) ← blocks: none
+- [~] **0.1** Monorepo layout (java/, rust/, schemas/, infra/, docs/) (local) ← blocks: none
 - [ ] **0.2** Multi-module Gradle/Cargo workspace (local) ← blocks: 0.1
 - [ ] **0.3** Git hooks (pre-commit lint, conventional commits) (local)
 - [ ] **0.4** GitHub Actions baseline (unit tests, lint, SBOM) (claude) ← blocks: 0.2
