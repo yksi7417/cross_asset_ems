@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+#
+# commit-msg hook — enforce Conventional Commits format.
+#
+# Format: <type>(<scope>): <subject>
+#
+#   type:    feat | fix | docs | style | refactor | perf | test | build |
+#            ci | chore | task | impl | arch | venues | glossary | revert
+#   scope:   optional; for tasks, use the task ID (e.g. "0.2", "1.7", "11.3")
+#   subject: lowercase, no trailing period, imperative mood
+#
+# Examples:
+#   feat(0.1): monorepo layout
+#   task(0.2): claim — Gradle/Cargo workspace
+#   arch: add arch-security-master (cross-asset instrument data model)
+#   fix(7.4): pending-cancel race with late fill
+#   docs(arch-validator): clarify EMS-PRM-1003 admin hint
+#
+# Bypass: pass --no-verify (use sparingly).
+
+set -euo pipefail
+
+COMMIT_MSG_FILE="$1"
+FIRST_LINE=$(head -1 "$COMMIT_MSG_FILE")
+
+# Skip merge commits, revert commits, fixup commits
+case "$FIRST_LINE" in
+    "Merge "* | "Revert "* | "fixup! "* | "squash! "* )
+        exit 0
+        ;;
+esac
+
+# Allow Co-Authored-By lines elsewhere; only check first line.
+PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|task|impl|arch|venues|glossary|home|notes|index|revert)(\([^)]+\))?: .{1,72}$'
+
+if ! echo "$FIRST_LINE" | grep -qE "$PATTERN"; then
+    echo "ERROR: commit message does not follow Conventional Commits."
+    echo
+    echo "Got:    $FIRST_LINE"
+    echo "Expect: <type>(<scope>): <subject>"
+    echo
+    echo "Examples:"
+    echo "  feat(0.1): monorepo layout"
+    echo "  task(0.2): claim — Gradle/Cargo workspace"
+    echo "  arch: add arch-security-master"
+    echo "  fix(7.4): pending-cancel race"
+    echo
+    echo "See .githooks/commit-msg for the full rule."
+    exit 1
+fi
+
+# Subject must be <= 72 chars
+SUBJECT_LEN=${#FIRST_LINE}
+if [ "$SUBJECT_LEN" -gt 72 ]; then
+    echo "WARNING: subject line is $SUBJECT_LEN chars (>72). Consider shortening."
+fi
+
+exit 0

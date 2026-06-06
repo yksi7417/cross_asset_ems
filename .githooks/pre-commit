@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+#
+# pre-commit hook — fast checks only. Slow checks (full Gradle build,
+# full Cargo build) run in CI per task 0.4.
+#
+# Install: `git config core.hooksPath .githooks`
+# (set up by ./scripts/dev/install-hooks.sh)
+
+set -euo pipefail
+
+FAIL=0
+
+# --- 1. Block accidental large-file commits ---
+LARGE=$(git diff --cached --name-only --diff-filter=A \
+    | xargs -I{} -r sh -c 'test -f "{}" && find "{}" -size +10M -print' 2>/dev/null)
+if [ -n "$LARGE" ]; then
+    echo "ERROR: commits would include files larger than 10 MB:"
+    echo "$LARGE"
+    FAIL=1
+fi
+
+# --- 2. Block secrets ---
+# Exclude .githooks/ (this file defines the patterns it would otherwise
+# self-match) and tests/fixtures with intentional sample secrets.
+SECRET_PATTERNS='(AKIA[0-9A-Z]{16}|-----BEGIN (RSA|EC|OPENSSH|DSA|PGP|ENCRYPTED) PRIVATE KEY-----|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36})'
+SECRET_CANDIDATES=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep -vE '^(\.githooks/|tests/.*/fixtures/|docs/decisions/)' || true)
+if [ -n "$SECRET_CANDIDATES" ]; then
+    SECRETS=$(echo "$SECRET_CANDIDATES" | xargs --no-run-if-empty git diff --cached -U0 -- \
+        | grep -E "^\+" \
+        | grep -vE "^\+\+\+" \
+        | grep -oE "$SECRET_PATTERNS" || true)
+    if [ -n "$SECRETS" ]; then
+        echo "ERROR: secret-like patterns detected in staged changes:"
+        echo "$SECRETS"
+        echo "If this is a false positive, commit with --no-verify after review."
+        FAIL=1
+    fi
+fi
+
+# --- 3. Trailing whitespace + tabs/CRLF in text files ---
+WS=$(git diff --cached --check) || {
+    echo "$WS"
+    FAIL=1
+}
+
+# --- 4. YAML lint (FSM definitions, Compose files, CI configs) ---
+YAML_FILES=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep -E '\.ya?ml$' || true)
+if [ -n "$YAML_FILES" ] && command -v yamllint >/dev/null 2>&1; then
+    echo "$YAML_FILES" | xargs yamllint -d "{rules: {line-length: {max: 200}, indentation: {spaces: 2}}}" || FAIL=1
+fi
+
+# --- 5. Markdown lint (vault notes) — best-effort ---
+if command -v markdownlint >/dev/null 2>&1; then
+    git diff --cached --name-only --diff-filter=ACM \
+        | grep -E '\.md$' \
+        | xargs --no-run-if-empty markdownlint --disable MD013 MD033 MD041 \
+        || true   # warnings only; don't fail
+fi
+
+# --- 6. Shell script lint ---
+SHELL_FILES=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep -E '\.(sh|bash)$' || true)
+if [ -n "$SHELL_FILES" ] && command -v shellcheck >/dev/null 2>&1; then
+    echo "$SHELL_FILES" | xargs shellcheck || FAIL=1
+fi
+
+if [ $FAIL -ne 0 ]; then
+    echo
+    echo "pre-commit checks failed. Fix the issues above, or bypass with --no-verify."
+    exit 1
+fi
+
+exit 0
