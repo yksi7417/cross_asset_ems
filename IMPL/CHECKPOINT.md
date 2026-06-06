@@ -8,13 +8,14 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 0.1 — Monorepo layout
-- **Last commit:** `feat(0.1): monorepo layout`
-- **Last commit sha:** `0e2fe6a`
+- **Last completed task:** 0.8 — OpenTelemetry SDK + Jaeger toy trace
+- **Last commit:** `feat(0.8): OTel toy trace + ems-observability application config`
+- **Last commit sha:** `b86e7f8`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-06
-- **Next task:** 0.2 — Multi-module Gradle/Cargo workspace (local) ← blocks: 0.1 ✓
+- **Next task for Claude (when budget resets):** 0.7 — Aeron Cluster + Archive toy ping/pong (claude)
+- **Next tasks for local Gemma (while waiting):** 0.9, 4.22, 4.23, 4.24, 6.1, plus draft 4.5/4.6/4.9/4.11/4.13/4.15/4.16 instrument templates on `wip/` branches per DELEGATION.md
 
 ## Session log
 
@@ -23,6 +24,7 @@ The loop appends a one-line entry per session.
 | Session start | Session end | Trigger | Commits | Completed tasks | Cursor at end |
 |---|---|---|---|---|---|
 | 2026-06-06 | 2026-06-06 | session-already-past-pacing-threshold (prior work) | 1 (`0e2fe6a`) | 0.1 | next = 0.2 |
+| 2026-06-06 | 2026-06-06 | user out of Claude tokens; delegate to local Gemma / Gemini per DELEGATION.md | 11 (0.2-0.8 impl + docs refresh + checkpoint) | 0.2, 0.3, 0.4, 0.5, 0.6, 0.8 + README/DEVELOPMENT/KNOWLEDGE_BASE refresh | next = 0.7 (claude) OR local-tier tasks (0.9, 4.22-4.24, 6.1, instrument drafts) |
 
 ## Phase progress
 
