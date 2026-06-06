@@ -9,6 +9,8 @@ Atomic-notes Obsidian vault covering execution workflows across every asset clas
 - [[architecture-index]] — system architecture (API, FIX bridge, SBE/Aeron, OMS layers, validator, perms)
 - [[asset-class-matrix]] — side-by-side comparison of all asset classes
 - [[workflow-index]] — every workflow grouped by category
+- [[_venue-index]] — venue categorization (FI / FX / Equity / Brokers / Multi-asset)
+- [[glossary-index]] — industry-jargon glossary (on-the-run, BWIC, NBBO, MAT, CFTC SDR, etc.)
 
 ## Asset Classes
 
