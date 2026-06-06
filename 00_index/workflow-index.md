@@ -37,19 +37,19 @@ All workflows grouped under the FX taxonomy headings. Cross-asset where applicab
 - [[tradedate-roll|TradeDate Roll]]
 
 ## Routing
-- [[route-single|Route Single (All Venues)]]
+- [[route-single|Route Single (All Venues)]] **(draft)**
 - [[route-to-algo|Route to Algo]] **(draft)**
-- [[route-to-cnf|Route to CNF (Confirmation)]]
-- [[route-to-local|Route to Local]]
-- [[route-to-resting|Route to Resting]]
+- [[route-to-cnf|Route to CNF (Confirmation)]] **(draft)**
+- [[route-to-local|Route to Local]] **(draft)**
+- [[route-to-resting|Route to Resting]] **(draft)**
 - [[route-to-rfq|Route to RFQ]] **(draft)**
-- [[multi-route-rfq|Multi-Route to RFQ (FXPF setting)]]
-- [[auto-route|Auto-Route to RFQ / FXOM / CNF]]
-- [[partial-routes|Partial Routes (Single & Netted)]]
-- [[spot-first|Spot-First]]
-- [[auto-route-fixing-aim|Auto-Route — Fixing Orders from AIM]]
-- [[fx-automation-tradebest|FX Automation — TradeBest]]
-- [[fx-automation-rbld|FX Automation — RBLD]]
+- [[multi-route-rfq|Multi-Route to RFQ (FXPF setting)]] **(draft)**
+- [[auto-route|Auto-Route to RFQ / FXOM / CNF]] **(draft)**
+- [[partial-routes|Partial Routes (Single & Netted)]] **(draft)**
+- [[spot-first|Spot-First]] **(draft)**
+- [[auto-route-fixing-aim|Auto-Route — Fixing Orders from AIM]] **(draft)**
+- [[fx-automation-tradebest|FX Automation — TradeBest]] **(draft)**
+- [[fx-automation-rbld|FX Automation — RBLD]] **(draft)**
 
 ## Corporate Treasury
 - [[fxel|FXEL<GO>]]
