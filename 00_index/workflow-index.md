@@ -52,12 +52,12 @@ All workflows grouped under the FX taxonomy headings. Cross-asset where applicab
 - [[fx-automation-rbld|FX Automation — RBLD]] **(draft)**
 
 ## Corporate Treasury
-- [[fxel|FXEL<GO>]]
-- [[staging-restrictions|Staging Restrictions]]
-- [[basic-workflow|Corp Treasury — Basic Workflow]]
-- [[markup|Markup]]
-- [[staging-on-behalf|Staging on Behalf of]]
-- [[trading-limits|Trading Limits]]
+- [[fxel|FXEL<GO>]] **(draft)**
+- [[staging-restrictions|Staging Restrictions]] **(draft)**
+- [[basic-workflow|Corp Treasury — Basic Workflow]] **(draft)**
+- [[markup|Markup]] **(draft)**
+- [[staging-on-behalf|Staging on Behalf of]] **(draft)**
+- [[trading-limits|Trading Limits]] **(draft)**
 
 ## Others
 - [[stp-summary|STP Summary]]
