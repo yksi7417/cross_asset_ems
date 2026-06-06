@@ -85,6 +85,41 @@ Persisted on the [[arch-event-sourcing|event log]]'s surveillance stream. Alerts
 
 Surveillance **only raises alerts**; it does not block in real time (that would require sub-second pattern detection for cross-event patterns, which is incompatible with reliable detection). Severe-alert auto-freeze is the link back to compliance's synchronous gate.
 
+## Jurisdiction-specific surveillance regimes
+
+Surveillance detector configuration is jurisdiction-aware per the matrix in [[arch-jurisdictional-compliance]]:
+
+### MAR (EU Market Abuse Regulation)
+
+For EU-MiFID instruments:
+
+- **Insider dealing**: trades preceding material public disclosures.
+- **Market manipulation**: spoofing, layering, marking the close, ramping, wash trades, momentum ignition.
+- **STOR filing**: Suspicious Transaction & Order Reports to the relevant NCA, **without delay** on detection. Drafting workflow in the compliance officer queue; filing via [[arch-regulatory-reporting-service]].
+
+```
+StorDrafted { stor_id, suspect_actor, subject_alert_ids, drafted_by, rationale }
+StorFiled { stor_id, nca, filed_at, filing_ref }
+StorClosed { stor_id, outcome: filed | not_filed_after_review }
+```
+
+STOR retention: 5 years minimum.
+
+### US — SEC Rule 10b-5 / FINRA / Reg SHO
+
+- **Spoofing / layering** under Dodd-Frank.
+- **Manipulative trading** generally.
+- Reports filed to FINRA / SEC where appropriate.
+
+### Other regimes
+
+- **UK FCA MAR mirror** (post-Brexit).
+- **HK SFC Code of Conduct surveillance**.
+- **Singapore MAS securities-misconduct surveillance**.
+- **Japan JFSA financial-instruments-and-exchange surveillance**.
+
+Detectors run with **per-jurisdiction thresholds**: a pattern that's reportable in the EU may not meet the US threshold and vice versa. The threshold table is reference data managed by Compliance.
+
 ## Determinism / replay
 
 Detectors are pure over the event stream + clock + reference data. [[arch-time-replay-server|Replay]] re-emits identical alerts. Useful for: testing new detectors against historical data, regulatory subpoena response, periodic re-runs at new detector versions.
@@ -96,5 +131,7 @@ Detectors have **threshold parameters** tuned per firm / desk / instrument tier.
 ## See also
 
 - [[arch-compliance]] · [[arch-event-sourcing]] · [[arch-time-replay-server]] · [[arch-position-service]]
+- [[arch-jurisdictional-compliance]] (MAR + global surveillance regime mapping)
+- [[arch-regulatory-reporting-service]] (STOR filing path)
 - [[arch-quote-server]] · [[arch-jmx-introspection]] · [[arch-validator]]
 - [[regulatory-base]] · [[trace]] · [[finra]] · [[msrb-rtrs]]

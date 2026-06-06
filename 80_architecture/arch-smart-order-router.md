@@ -330,6 +330,8 @@ Each `register_algo_wheel` / `amend_algo_wheel` emits a `WheelDefinitionChanged`
 ## See also
 
 - [[arch-router-layer]] · [[arch-venue-connectivity]] · [[arch-order-route-lifecycle]] · [[arch-fix-fsm-design]] · [[arch-fix-appendix-d]]
+- [[arch-best-execution]] (SOR is the primary venue/broker-selection mechanism behind best-ex evidence)
+- [[arch-tca]] · [[arch-pretrade-analytics]] · [[arch-jurisdictional-compliance]]
 - [[arch-quote-server]] · [[arch-event-sourcing]] · [[arch-time-replay-server]] · [[arch-validator]] · [[arch-tag-permissions]] · [[arch-firm-desk-user]]
 - [[arch-automation-layer]] (rules can swap SOR strategy per tag)
 - [[route-single]] · [[route-to-algo]] · [[multi-route-rfq]] · [[partial-routes]] · [[fx-automation-tradebest]] · [[fx-automation-rbld]]

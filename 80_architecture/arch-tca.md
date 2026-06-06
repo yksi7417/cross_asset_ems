@@ -139,13 +139,18 @@ The algo wheel's `PERFORMANCE_TIER` selection mode reads from a TCA projection: 
 
 ## Best-Ex reporting (regulatory)
 
-MiFID II RTS 27/28 and US best-ex require demonstrating systematic best execution. TCA produces:
+TCA is one component of the broader **best-execution obligation** capability — see [[arch-best-execution]] for the full audit chain spanning policy, pre-trade recommendation, SOR selection, execution measurement, and reporting.
 
-- **Per-broker quality scores** in standardized format.
-- **Periodic reports** with full audit trail (which fills, which benchmarks, which models).
-- **Selection rationale** for current algo wheel weights with backing TCA evidence.
+TCA's specific contributions to best-ex evidence:
 
-These artifacts are subpoena-ready: each report links to its source event log slice + benchmark versions + decomposition model versions.
+- **Per-fill slippage records** vs every standard benchmark (arrival, VWAP, TWAP, PWP, close), persisted as `FillTcaComputed` events.
+- **Per-broker / per-algo / per-venue quality scores** rolled up per period.
+- **Source for RTS 28 (firm annual) and RTS 27 (venue quarterly)** narratives plus quantitative tables.
+- **Source for US FINRA 5310 "regular and rigorous" reviews**.
+- **Source for client on-demand best-ex reports** via [[arch-bulk-io]].
+- **Outlier identification** for Best-Execution Committee review (top-N largest slippage, manual override candidates).
+
+Each report links to source event log slice + benchmark versions + decomposition model versions — subpoena-ready end-to-end.
 
 ## Determinism / replay
 
@@ -173,7 +178,10 @@ returns: report_artifact
 
 ## See also
 
+- [[arch-best-execution]] (the full best-ex audit chain TCA feeds into)
 - [[arch-realtime-analytics]] · [[arch-pretrade-analytics]] · [[arch-smart-order-router]]
+- [[arch-jurisdictional-compliance]] (per-jurisdiction best-ex obligations)
+- [[arch-regulatory-reporting-service]] (RTS 28 submission)
 - [[arch-event-sourcing]] · [[arch-time-replay-server]] · [[arch-position-service]]
 - [[arch-compliance]] · [[arch-surveillance]] · [[regulatory-base]]
 - [[route-to-algo]] · [[stp-summary]]
