@@ -1,0 +1,140 @@
+# Dev stack for the cross-asset EMS.
+#
+# Brings up the infrastructure tier (Postgres, OpenSearch, Prometheus,
+# Grafana, Jaeger, OTel collector, Aeron Media Driver) needed for local
+# development. EMS service containers themselves get added per-module as
+# Phase 7+ tasks land.
+#
+# Up:    docker compose -f infra/docker-compose/compose.dev.yaml up -d
+# Down:  docker compose -f infra/docker-compose/compose.dev.yaml down -v
+# Logs:  docker compose -f infra/docker-compose/compose.dev.yaml logs -f
+
+name: ems-dev
+
+services:
+
+  # ---- Postgres — projection store + reference data --------------------------
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ems
+      POSTGRES_PASSWORD: ems_dev
+      POSTGRES_DB: ems
+    ports: ["5432:5432"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ems"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ---- OpenSearch — logs + post-trade audit queries --------------------------
+  opensearch:
+    image: opensearchproject/opensearch:2.18.0
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=AdminLocal_4321!
+      - DISABLE_SECURITY_PLUGIN=true   # dev only
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile:  { soft: 65536, hard: 65536 }
+    ports: ["9200:9200", "9600:9600"]
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.18.0
+    restart: unless-stopped
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    ports: ["5601:5601"]
+    depends_on:
+      opensearch: { condition: service_healthy }
+
+  # ---- Prometheus + Grafana --------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v3.0.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    ports: ["9090:9090"]
+    volumes:
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    restart: unless-stopped
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    ports: ["3000:3000"]
+    volumes:
+      - ../grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus: { condition: service_started }
+
+  # ---- Tracing: OTel collector + Jaeger -------------------------------------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ../otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # collector self metrics
+    depends_on:
+      jaeger:       { condition: service_started }
+      opensearch:   { condition: service_healthy }
+
+  jaeger:
+    image: jaegertracing/jaeger:2.0.0
+    restart: unless-stopped
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"   # UI
+      - "4319:4317"     # OTLP gRPC (offset so OTel collector keeps 4317)
+
+  # ---- Aeron Media Driver (single-node dev cluster) -------------------------
+  # The "real" Aeron cluster lives in task 2.5; this dev MD is for ping/pong
+  # development.
+  aeron-md:
+    image: ghcr.io/real-logic/aeron-md:1.46.6   # placeholder; build from
+                                                # source in task 0.7
+    restart: unless-stopped
+    ipc: host
+    volumes:
+      - aeron-data:/dev/shm/aeron
+    environment:
+      - AERON_DIR=/dev/shm/aeron
+      - AERON_THREADING_MODE=SHARED
+    profiles: ["aeron"]   # opt-in until task 0.7 lands
+
+volumes:
+  postgres-data:
+  opensearch-data:
+  prometheus-data:
+  grafana-data:
+  aeron-data:
+
+networks:
+  default:
+    name: ems-dev

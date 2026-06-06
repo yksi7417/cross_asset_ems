@@ -1,0 +1,78 @@
+# OTel collector dev configuration.
+#
+# Receivers: OTLP gRPC + HTTP from EMS services.
+# Processors: batch + memory limiter + resource attribution.
+# Exporters: Jaeger (traces), OpenSearch (logs), Prometheus (metrics).
+#
+# Production config: infra/k8s/otel-collector/ (added in task 13.1).
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: dev
+        action: upsert
+      - key: ems.pod
+        value: dev-pod-default
+        action: upsert
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls: { insecure: true }
+
+  opensearch/logs:
+    endpoints: ["http://opensearch:9200"]
+    logs_index: "ems-logs-%{yyyy.MM.dd}"
+
+  # Prometheus pulls from us via the collector's prometheus endpoint
+  # (configured in infra/prometheus/prometheus.yml).
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  debug:
+    verbosity: basic
+
+extensions:
+  health_check: {}
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, zpages]
+  telemetry:
+    metrics:
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/jaeger, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [opensearch/logs]
