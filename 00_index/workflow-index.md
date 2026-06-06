@@ -60,9 +60,9 @@ All workflows grouped under the FX taxonomy headings. Cross-asset where applicab
 - [[trading-limits|Trading Limits]] **(draft)**
 
 ## Others
-- [[stp-summary|STP Summary]]
-- [[tsox-aim-to-fxem|TSOX (AIM) → FXEM Workflow]]
-- [[counterparty-enablement|Counterparty Enablement]]
-- [[internal-notes|Internal Notes]]
-- [[group-id|Group ID (vs. BatchName)]]
-- [[temporal|Temporal — ???]]
+- [[stp-summary|STP Summary]] **(draft)**
+- [[tsox-aim-to-fxem|TSOX (AIM) → FXEM Workflow]] **(draft)**
+- [[counterparty-enablement|Counterparty Enablement]] **(draft)**
+- [[internal-notes|Internal Notes]] **(draft)**
+- [[group-id|Group ID (vs. BatchName)]] **(draft)**
+- [[temporal|Temporal]] **(draft)**
