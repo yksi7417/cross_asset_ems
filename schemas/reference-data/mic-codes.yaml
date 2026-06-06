@@ -1,0 +1,649 @@
+mic_codes:
+  - mic: XNYS
+    name: New York Stock Exchange
+    country: "US"
+    city: New York
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XNYS
+    status: active
+    notes: ""
+  - mic: XNAS
+    name: Nasdaq Stock Market
+    country: "US"
+    city: New York
+    type: OPRT
+    asset_classes: [equities, derivatives, etfs, options, futures]
+    operating_mic: XNAS
+    status: active
+    notes: ""
+  - mic: XCHI
+    name: Chicago Stock Exchange (MEMX segment)
+    country: "US"
+    city: Chicago
+    type: SGMT
+    asset_classes: [equities, options]
+    operating_mic: MEMX
+    status: active
+    notes: "MEMX acquired part of CSE"
+  - mic: XCBO
+    name: CBOE Exchange
+    country: "US"
+    city: Chicago
+    type: OPRT
+    asset_classes: [equities, derivatives, options, futures]
+    operating_mic: XCBO
+    status: active
+    notes: ""
+  - mic: XISX
+    name: International Securities Exchange
+    country: "US"
+    city: New York
+    type: OPRT
+    asset_classes: [equities, options]
+    operating_mic: XISX
+    status: active
+    notes: ""
+  - mic: IEXG
+    name: Investors Exchange
+    country: "US"
+    city: New York
+    type: OPRT
+    asset_classes: [equities]
+    operating_mic: IEXG
+    status: active
+    notes: ""
+  - mic: EDGX
+    name: Cboe EDGX Exchange
+    country: "US"
+    city: Chicago
+    type: OPRT
+    asset_classes: [equities, options]
+    operating_mic: EDGX
+    status: active
+    notes: ""
+  - mic: ARCX
+    name: NYSE Arca
+    country: "US"
+    city: New York
+    type: OPRT
+    asset_classes: [equities, options, etfs]
+    operating_mic: ARCX
+    status: active
+    notes: ""
+  - mic: BTSY
+    name: BATS Y-Exchange
+    country: "US"
+    city: Lenexa
+    type: OPRT
+    asset_classes: [equities, options]
+    operating_mic: BTSY
+    status: active
+    notes: ""
+  - mic: BATS
+    name: BATS BZX Exchange
+    country: "US"
+    city: Lenexa
+    type: OPRT
+    asset_classes: [equities, options]
+    operating_mic: BATS
+    status: active
+    notes: ""
+  - mic: XBOX
+    name: Cboe C2 Exchange
+    country: "US"
+    city: Chicago
+    type: OPRT
+    asset_classes: [equities, options]
+    operating_mic: XBOX
+    status: active
+    notes: ""
+  - mic: MEMX
+    name: Members Exchange
+    country: "US"
+    city: Chicago
+    type: OPRT
+    asset_classes: [equities, options]
+    operating_mic: MEMX
+    status: active
+    notes: ""
+  - mic: XNDQ
+    name: Nasdaq BX
+    country: "US"
+    city: New York
+    type: OPRT
+    asset_classes: [equities, options]
+    operating_mic: XNDQ
+    status: active
+    notes: ""
+  - mic: XPSX
+    name: Nasdaq PSX
+    country: "US"
+    city: New York
+    type: OPRT
+    asset_classes: [equities, options]
+    operating_mic: XPSX
+    status: active
+    notes: ""
+  - mic: MIPX
+    name: MIAX Pearl
+    country: "US"
+    city: Chicago
+    type: OPRT
+    asset_classes: [options, futures]
+    operating_mic: MIPX
+    status: active
+    notes: ""
+  - mic: XLON
+    name: London Stock Exchange
+    country: "GB"
+    city: London
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XLON
+    status: active
+    notes: ""
+  - mic: XPAR
+    name: Euronext Paris
+    country: "FR"
+    city: Paris
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XPAR
+    status: active
+    notes: ""
+  - mic: XAMS
+    name: Euronext Amsterdam
+    country: "NL"
+    city: Amsterdam
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XAMS
+    status: active
+    notes: ""
+  - mic: XBRU
+    name: Euronext Brussels
+    country: "BE"
+    city: Brussels
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XBRU
+    status: active
+    notes: ""
+  - mic: XLIS
+    name: Euronext Lisbon
+    country: "PT"
+    city: Lisbon
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XLIS
+    status: active
+    notes: ""
+  - mic: XMIL
+    name: Borsa Italiana
+    country: "IT"
+    city: Milan
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XMIL
+    status: active
+    notes: ""
+  - mic: XETR
+    name: Xetra (Deutsche Börse)
+    country: "DE"
+    city: Frankfurt
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XETR
+    status: active
+    notes: ""
+  - mic: XFRA
+    name: Frankfurt Floor Trading
+    country: "DE"
+    city: Frankfurt
+    type: OPRT
+    asset_classes: [equities, derivatives]
+    operating_mic: XFRA
+    status: active
+    notes: ""
+  - mic: XSWX
+    name: SIX Swiss Exchange
+    country: "CH"
+    city: Zurich
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XSWX
+    status: active
+    notes: ""
+  - mic: XOSL
+    name: Oslo Børs
+    country: "NO"
+    city: Oslo
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XOSL
+    status: active
+    notes: ""
+  - mic: XSTO
+    name: Nasdaq Stockholm
+    country: "SE"
+    city: Stockholm
+    type: OPRT
+    asset_classes: [equities, derivatives, etfs, options]
+    operating_mic: XSTO
+    status: active
+    notes: ""
+  - mic: XHEL
+    name: Nasdaq Helsinki
+    country: "FI"
+    city: Helsinki
+    type: OPRT
+    asset_classes: [equities, derivatives, etfs, options]
+    operating_mic: XHEL
+    status: active
+    notes: ""
+  - mic: XCSE
+    name: Nasdaq Copenhagen
+    country: "DK"
+    city: Copenhagen
+    type: OPRT
+    asset_classes: [equities, derivatives, etfs, options]
+    operating_mic: XCSE
+    status: active
+    notes: ""
+  - mic: XDUB
+    name: Euronext Dublin
+    country: "IE"
+    city: Dublin
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XDUB
+    status: active
+    notes: ""
+  - mic: XWBO
+    name: Wiener Börse
+    country: "AT"
+    city: Vienna
+    type: OPRT
+    asset_classes: [equities, bonds, derivatives]
+    operating_mic: XWBO
+    status: active
+    notes: ""
+  - mic: XJPX
+    name: Japan Exchange Group
+    country: "JP"
+    city: Tokyo
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XJPX
+    status: active
+    notes: ""
+  - mic: XHKG
+    name: Hong Kong Exchanges and Clearing
+    country: "HK"
+    city: Hong Kong
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XHKG
+    status: active
+    notes: ""
+  - mic: XSES
+    name: Singapore Exchange
+    country: "SG"
+    city: Singapore
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XSES
+    status: active
+    notes: ""
+  - mic: XASX
+    name: Australian Securities Exchange
+    country: "AU"
+    city: Sydney
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XASX
+    status: active
+    notes: ""
+  - mic: XKRX
+    name: Korea Exchange
+    country: "KR"
+    city: Seoul
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs, options]
+    operating_mic: XKRX
+    status: active
+    notes: ""
+  - mic: XTAI
+    name: Taiwan Stock Exchange
+    country: "TW"
+    city: Taipei
+    type: OPRT
+    asset_classes: [equities, derivatives, etfs, options]
+    operating_mic: XTAI
+    status: active
+    notes: ""
+  - mic: XBOM
+    name: Bombay Stock Exchange
+    country: "IN"
+    city: Mumbai
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs]
+    operating_mic: XBOM
+    status: active
+    notes: ""
+  - mic: XNSE
+    name: National Stock Exchange of India
+    country: "IN"
+    city: Mumbai
+    type: OPRT
+    asset_classes: [equities, derivatives, etfs, options]
+    operating_mic: XNSE
+    status: active
+    notes: ""
+  - mic: XSHE
+    name: Shenzhen Stock Exchange
+    country: "CN"
+    city: Shenzhen
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs]
+    operating_mic: XSHE
+    status: active
+    notes: ""
+  - mic: XSHG
+    name: Shanghai Stock Exchange
+    country: "CN"
+    city: Shanghai
+    type: OPRT
+    asset_classes: [equities, derivatives, bonds, etfs]
+    operating_mic: XSHG
+    status: active
+    notes: ""
+  - mic: EBSC
+    name: EBS Spot Market
+    country: "GB"
+    city: London
+    type: OTF
+    asset_classes: [fx]
+    operating_mic: EBSC
+    status: active
+    notes: ""
+  - mic: EBSM
+    name: EBS Market
+    country: "GB"
+    city: London
+    type: OTF
+    asset_classes: [fx]
+    operating_mic: EBSM
+    status: active
+    notes: ""
+  - mic: FXCM
+    name: FXCM ECN
+    country: "US"
+    city: New York
+    type: OTF
+    asset_classes: [fx]
+    operating_mic: FXCM
+    status: active
+    notes: ""
+  - mic: HOTS
+    name: Hotspot FX
+    country: "GB"
+    city: London
+    type: OTF
+    asset_classes: [fx]
+    operating_mic: HOTS
+    status: active
+    notes: ""
+  - mic: NEXF
+    name: NEX SEF FX
+    country: "GB"
+    city: London
+    type: OTF
+    asset_classes: [fx]
+    operating_mic: NEXF
+    status: active
+    notes: ""
+  - mic: XTXD
+    name: XTX Markets
+    country: "GB"
+    city: London
+    type: OTF
+    asset_classes: [fx]
+    operating_mic: XTXD
+    status: active
+    notes: ""
+  - mic: CBOEFX
+    name: Cboe FX
+    country: "US"
+    city: Chicago
+    type: OTF
+    asset_classes: [fx]
+    operating_mic: CBOEFX
+    status: active
+    notes: ""
+  - mic: LMAX
+    name: LMAX Exchange
+    country: "GB"
+    city: London
+    type: OTF
+    asset_classes: [fx]
+    operating_mic: LMAX
+    status: active
+    notes: ""
+  - mic: REUT
+    name: Refinitiv Matching
+    country: "GB"
+    city: London
+    type: OTF
+    asset_classes: [fx]
+    operating_mic: REUT
+    status: active
+    notes: ""
+  - mic: "360T"
+    name: 360T ECN
+    country: "GB"
+    city: London
+    type: OTF
+    asset_classes: [fx]
+    operating_mic: "360T"
+    status: active
+    notes: ""
+  - mic: MESI
+    name: MarketAxess MTF
+    country: "US"
+    city: New York
+    type: MTF
+    asset_classes: [bonds, derivatives]
+    operating_mic: MESI
+    status: active
+    notes: ""
+  - mic: BTEC
+    name: BrokerTec MTF
+    country: "US"
+    city: New York
+    type: MTF
+    asset_classes: [bonds, derivatives]
+    operating_mic: BTEC
+    status: active
+    notes: ""
+  - mic: TRWB
+    name: Tradeweb MTF
+    country: "US"
+    city: New York
+    type: MTF
+    asset_classes: [bonds, derivatives, repos]
+    operating_mic: TRWB
+    status: active
+    notes: ""
+  - mic: TREA
+    name: Tradeweb EU MTF
+    country: "GB"
+    city: London
+    type: MTF
+    asset_classes: [bonds, derivatives, repos]
+    operating_mic: TREA
+    status: active
+    notes: ""
+  - mic: MQCP
+    name: MarketAxess CP
+    country: "US"
+    city: New York
+    type: MTF
+    asset_classes: [bonds, derivatives]
+    operating_mic: MQCP
+    status: active
+    notes: ""
+  - mic: XBER
+    name: Berlin Stock Exchange
+    country: "DE"
+    city: Berlin
+    type: MTF
+    asset_classes: [equities, derivatives]
+    operating_mic: XBER
+    status: active
+    notes: ""
+  - mic: XHAM
+    name: Hamburg Stock Exchange
+    country: "DE"
+    city: Hamburg
+    type: MTF
+    asset_classes: [equities, derivatives]
+    operating_mic: XHAM
+    status: active
+    notes: ""
+  - mic: XDUS
+    name: Düsseldorf Stock Exchange
+    country: "DE"
+    city: Düsseldorf
+    type: MTF
+    asset_classes: [equities, derivatives]
+    operating_mic: XDUS
+    status: active
+    notes: ""
+  - mic: XSTU
+    name: Stuttgart Stock Exchange
+    country: "DE"
+    city: Stuttgart
+    type: MTF
+    asset_classes: [equities, derivatives]
+    operating_mic: XSTU
+    status: active
+    notes: ""
+  - mic: XINV
+    name: Borsa Istanbul
+    country: "TR"
+    city: Istanbul
+    type: MTF
+    asset_classes: [equities, bonds, derivatives]
+    operating_mic: XINV
+    status: active
+    notes: ""
+  - mic: BSEF
+    name: Bloomberg SEF
+    country: "US"
+    city: New York
+    type: MTF
+    asset_classes: [swaps, derivatives]
+    operating_mic: BSEF
+    status: active
+    notes: ""
+  - mic: GMEG
+    name: GMEX/ICE Swap Trade
+    country: "GB"
+    city: London
+    type: MTF
+    asset_classes: [swaps, derivatives]
+    operating_mic: GMEG
+    status: active
+    notes: ""
+  - mic: ICEL
+    name: ICE Swap Trade
+    country: "US"
+    city: New York
+    type: MTF
+    asset_classes: [swaps, derivatives]
+    operating_mic: ICEL
+    status: active
+    notes: ""
+  - mic: TRSF
+    name: TruMid SEF
+    country: "US"
+    city: New York
+    type: MTF
+    asset_classes: [swaps, derivatives]
+    operating_mic: TRSF
+    status: active
+    notes: ""
+  - mic: MSBI
+    name: Morgan Stanley SEF
+    country: "US"
+    city: New York
+    type: MTF
+    asset_classes: [swaps, derivatives]
+    operating_mic: MSBI
+    status: active
+    notes: ""
+  - mic: DWFI
+    name: Deutsche Bank SEF
+    country: "DE"
+    city: Frankfurt
+    type: MTF
+    asset_classes: [swaps, derivatives]
+    operating_mic: DWFI
+    status: active
+    notes: ""
+  - mic: BGCF
+    name: BGC SEF
+    country: "US"
+    city: New York
+    type: MTF
+    asset_classes: [swaps, derivatives]
+    operating_mic: BGCF
+    status: active
+    notes: ""
+  - mic: CSEC
+    name: Citi SEF
+    country: "US"
+    city: New York
+    type: MTF
+    asset_classes: [swaps, derivatives]
+    operating_mic: CSEC
+    status: active
+    notes: ""
+  - mic: JEFS
+    name: Jefferies SEF
+    country: "US"
+    city: New York
+    type: MTF
+    asset_classes: [swaps, derivatives]
+    operating_mic: JEFS
+    status: active
+    notes: ""
+  - mic: TWSE
+    name: Tradeweb SEF
+    country: "US"
+    city: New York
+    type: MTF
+    asset_classes: [swaps, derivatives]
+    operating_mic: TWSE
+    status: active
+    notes: ""
+  - mic: MARKIT
+    name: Markit RED
+    country: "GB"
+    city: London
+    type: APA
+    asset_classes: [credit, derivatives]
+    operating_mic: MARKIT
+    status: active
+    notes: ""
+  - mic: REDR
+    name: RED Indices
+    country: "GB"
+    city: London
+    type: APA
+    asset_classes: [credit, derivatives]
+    operating_mic: REDR
+    status: active
+    notes: ""

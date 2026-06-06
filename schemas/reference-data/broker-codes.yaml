@@ -1,0 +1,511 @@
+broker_codes:
+- code: GS
+  legal_name: Goldman Sachs & Co. LLC
+  lei: 5493001KJTIIGC8Y1R12
+  fix_party_id: GS
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  - CFTC
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XASE
+  - XPAR
+  - XLON
+  asset_classes:
+  - equities
+  - derivatives
+  - options
+  - futures
+  - bonds
+  - fx
+  - commodities
+  - swaps
+  - prime_brokerage
+  - research
+  - etfs
+  notes: ''
+- code: MS
+  legal_name: Morgan Stanley & Co. LLC
+  lei: 5493001KJTIIGC8Y1R13
+  fix_party_id: MS
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  - CFTC
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XASE
+  - XPAR
+  - XLON
+  asset_classes:
+  - equities
+  - derivatives
+  - options
+  - futures
+  - bonds
+  - fx
+  - commodities
+  - swaps
+  - prime_brokerage
+  - research
+  notes: ''
+- code: JPM
+  legal_name: J.P. Morgan Securities LLC
+  lei: 5493001KJTIIGC8Y1R14
+  fix_party_id: JPM
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  - CFTC
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XASE
+  - XPAR
+  - XLON
+  asset_classes:
+  - equities
+  - derivatives
+  - options
+  - futures
+  - bonds
+  - fx
+  - commodities
+  - swaps
+  - prime_brokerage
+  - research
+  notes: ''
+- code: BAC
+  legal_name: BofA Securities, Inc.
+  lei: 5493001KJTIIGC8Y1R15
+  fix_party_id: BAC
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  - CFTC
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XASE
+  - XPAR
+  asset_classes:
+  - equities
+  - derivatives
+  - options
+  - futures
+  - bonds
+  - fx
+  - commodities
+  - swaps
+  - research
+  notes: ''
+- code: C
+  legal_name: Citigroup Global Markets Inc.
+  lei: 5493001KJTIIGC8Y1R16
+  fix_party_id: C
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  - CFTC
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  - XLON
+  asset_classes:
+  - equities
+  - derivatives
+  - options
+  - futures
+  - bonds
+  - fx
+  - commodities
+  - swaps
+  - research
+  notes: ''
+- code: WFC
+  legal_name: Wells Fargo Securities, LLC
+  lei: 5493001KJTIIGC8Y1R17
+  fix_party_id: WFC
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  asset_classes:
+  - equities
+  - derivatives
+  - options
+  - bonds
+  - fx
+  notes: ''
+- code: DB
+  legal_name: Deutsche Bank Securities Inc.
+  lei: 5493001KJTIIGC8Y1R18
+  fix_party_id: DB
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  - CFTC
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  - XETR
+  asset_classes:
+  - equities
+  - derivatives
+  - options
+  - futures
+  - bonds
+  - fx
+  - commodities
+  - swaps
+  - research
+  notes: ''
+- code: UBS
+  legal_name: UBS Securities LLC
+  lei: 5493001KJTIIGC8Y1R19
+  fix_party_id: UBS
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  - CFTC
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  - XLON
+  asset_classes:
+  - equities
+  - derivatives
+  - options
+  - bonds
+  - fx
+  - research
+  notes: ''
+- code: HSBC
+  legal_name: HSBC Securities (USA) Inc.
+  lei: 5493001KJTIIGC8Y1R20
+  fix_party_id: HSBC
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  - XLON
+  asset_classes:
+  - equities
+  - fx
+  - bonds
+  - research
+  notes: ''
+- code: BARC
+  legal_name: Barclays Capital Inc.
+  lei: 5493001KJTIIGC8Y1R21
+  fix_party_id: BARC
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  - XLON
+  asset_classes:
+  - equities
+  - derivatives
+  - options
+  - futures
+  - bonds
+  - fx
+  - research
+  notes: ''
+- code: CS
+  legal_name: Credit Suisse Securities (USA) LLC
+  lei: 5493001KJTIIGC8Y1R22
+  fix_party_id: CS
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  - CFTC
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  - XETR
+  asset_classes:
+  - equities
+  - derivatives
+  - options
+  - futures
+  - bonds
+  - fx
+  - swaps
+  notes: ''
+- code: BNP
+  legal_name: BNP Paribas Securities Corp.
+  lei: 5493001KJTIIGC8Y1R23
+  fix_party_id: BNP
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  - XLON
+  asset_classes:
+  - equities
+  - fx
+  - bonds
+  - derivatives
+  notes: ''
+- code: SG
+  legal_name: SG Americas Securities, LLC
+  lei: 5493001KJTIIGC8Y1R24
+  fix_party_id: SG
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  asset_classes:
+  - equities
+  - fx
+  - derivatives
+  - research
+  notes: ''
+- code: ING
+  legal_name: ING Financial Markets LLC
+  lei: 5493001KJTIIGC8Y1R25
+  fix_party_id: ING
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  asset_classes:
+  - fx
+  - bonds
+  - derivatives
+  notes: ''
+- code: NAB
+  legal_name: National Australia Bank Limited
+  lei: 5493001KJTIIGC8Y1R26
+  fix_party_id: NAB
+  country: AU
+  regulator:
+  - ASIC
+  primary_venues:
+  - XASX
+  asset_classes:
+  - equities
+  - fx
+  - bonds
+  - research
+  notes: ''
+- code: RBC
+  legal_name: RBC Capital Markets, LLC
+  lei: 5493001KJTIIGC8Y1R27
+  fix_party_id: RBC
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  asset_classes:
+  - equities
+  - derivatives
+  - fx
+  - bonds
+  - research
+  notes: ''
+- code: BMO
+  legal_name: BMO Capital Markets Corp.
+  lei: 5493001KJTIIGC8Y1R28
+  fix_party_id: BMO
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  asset_classes:
+  - equities
+  - fx
+  - bonds
+  notes: ''
+- code: MUFG
+  legal_name: MUFG Securities Americas Inc.
+  lei: 5493001KJTIIGC8Y1R29
+  fix_party_id: MUFG
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  asset_classes:
+  - equities
+  - fx
+  - derivatives
+  - bonds
+  notes: ''
+- code: SMFG
+  legal_name: SMBC Nikko Securities America, Inc.
+  lei: 5493001KJTIIGC8Y1R30
+  fix_party_id: SMFG
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  asset_classes:
+  - equities
+  - fx
+  - derivatives
+  notes: ''
+- code: NOMU
+  legal_name: Nomura Securities International, Inc.
+  lei: 5493001KJTIIGC8Y1R31
+  fix_party_id: NOMU
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  asset_classes:
+  - equities
+  - fx
+  - derivatives
+  - bonds
+  notes: ''
+- code: CITI
+  legal_name: Citibank N.A.
+  lei: 5493001KJTIIGC8Y1R32
+  fix_party_id: CITI
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  asset_classes:
+  - fx
+  - cash_management
+  - research
+  notes: ''
+- code: ML
+  legal_name: Merrill Lynch, Pierce, Fenner & Smith Inc.
+  lei: 5493001KJTIIGC8Y1R33
+  fix_party_id: ML
+  country: US
+  regulator:
+  - SEC
+  - FINRA
+  primary_venues:
+  - XNYS
+  - XNAS
+  - XPAR
+  asset_classes:
+  - equities
+  - derivatives
+  - options
+  - futures
+  - bonds
+  - fx
+  notes: ''
+- code: MSBI
+  legal_name: Morgan Stanley & Co. International plc
+  lei: 5493001KJTIIGC8Y1R34
+  fix_party_id: MSBI
+  country: GB
+  regulator:
+  - FCA
+  primary_venues:
+  - XLON
+  - XETR
+  - XPAR
+  asset_classes:
+  - equities
+  - derivatives
+  - fx
+  - bonds
+  - research
+  notes: ''
+- code: DBAB
+  legal_name: Deutsche Bank AG, London Branch
+  lei: 5493001KJTIIGC8Y1R35
+  fix_party_id: DBAB
+  country: GB
+  regulator:
+  - FCA
+  primary_venues:
+  - XLON
+  - XETR
+  - XPAR
+  asset_classes:
+  - equities
+  - derivatives
+  - fx
+  - bonds
+  - research
+  notes: ''
+- code: GSCO
+  legal_name: Goldman Sachs International
+  lei: 5493001KJTIIGC8Y1R36
+  fix_party_id: GSCO
+  country: GB
+  regulator:
+  - FCA
+  primary_venues:
+  - XLON
+  - XETR
+  - XPAR
+  asset_classes:
+  - equities
+  - derivatives
+  - fx
+  - bonds
+  - research
+  notes: ''
