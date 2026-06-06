@@ -9,7 +9,7 @@ tags: [architecture/reference_data]
 
 A unified **reference data registry and distribution layer** for slow-moving "facts" the EMS depends on: accounts, broker codes, counterparty enablement, allocation templates, compliance lists, broker registries, calendars, holiday tables, market microstructure (tick sizes, lot sizes), and the universe of instrument metadata beyond [[arch-symbology-figi|FIGI]].
 
-The FIGI-specific symbology layer is its own service ([[arch-symbology-figi]]) because of licensing; this service handles **everything else** that's reference data.
+The FIGI-specific symbology layer is its own service ([[arch-symbology-figi]]) because of licensing; **the security-master instrument data model** (per-asset-class SBE templates, supersession, hot-path snapshot) is its own service ([[arch-security-master]]) because of its scale and lifecycle integration with [[arch-corporate-actions]]; this service handles **everything else** that's reference data.
 
 ## What goes here
 

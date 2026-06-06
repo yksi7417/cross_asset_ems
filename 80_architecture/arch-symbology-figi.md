@@ -9,6 +9,8 @@ tags: [architecture/reference_data]
 
 The canonical security identifier inside the EMS is the **FIGI** (Financial Instrument Global Identifier). [SEDOL](https://en.wikipedia.org/wiki/SEDOL), [CUSIP](https://www.cusip.com/), and [ISIN](https://www.isin.org/) are stored as **licensed secondary identifiers** with access metering.
 
+> This note covers **identifier licensing and metering discipline**. The broader instrument data model — core+extension SBE schemas per asset class, package vs instrument, composition by ID, effective-dated supersession driven by corporate actions, hot-path snapshot access — is in [[arch-security-master]].
+
 ## Why FIGI
 
 - **Open.** [OpenFIGI](https://www.openfigi.com/) is free to redistribute, no per-call licensing.

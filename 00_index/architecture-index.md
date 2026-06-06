@@ -49,6 +49,7 @@ The architectural spine the workflows and asset notes link back to. Captured in 
 ## Reference Data
 
 - [[arch-symbology-figi]] — FIGI-first; SEDOL/CUSIP/ISIN as licensed/metered
+- [[arch-security-master]] — **cross-asset instrument data model**. One SBE `template_id` per asset class (EquityInstrument, BondInstrument, IrsInstrument, FxNdfInstrument, TbaMbsInstrument, etc.), each sharing a fixed-offset `InstrumentCore` block that any generic consumer can read zero-copy. Specialised consumers dispatch on `template_id`. **Package vs Instrument** as separate entities (the package is what gets traded/routed; instruments are what exist). **Composition by ID only** — never embedded subtrees. **Effective-dated supersession driven by [[arch-corporate-actions]]** — every change creates an immutable new version with `effective_from` matching the action's date. **Hot-path snapshot** pattern matching [[arch-configuration-service]] — local cache, atomic swap at message boundary, replay resolves `(figi, version)` against historical snapshot. Internal-allocated identifier namespace (`ems_iid:{firm}:...`) for OTC bilateral derivatives without public FIGI. Worked examples for equity / bond / IRS / TBA / FX NDF / listed option; gnarly cases (NDF fixing source as identity, TBA fungibility surfacing in core, monthly factor updates as supersession events, ETF basket composition).
 
 ## Validation & Identity
 

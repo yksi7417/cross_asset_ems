@@ -11,6 +11,8 @@ Service handling **corporate actions** — splits, dividends, mergers, spin-offs
 
 Corporate actions are **events on instruments** that ripple through every dependent projection. Mis-handling causes position errors that compound: a split missed today is a 100% wrong position tomorrow.
 
+> Corporate actions are also the **driver of security-master supersession** — see [[arch-security-master]]. Each applied corporate action produces a new instrument version with `caused_by_corporate_action_event_id` pointing at the action, and `effective_from` matching the action's effective date.
+
 ## Action types
 
 | Type | Effect |
