@@ -208,5 +208,6 @@ operation: query_rfq_history(filter)
 - [[arch-router-layer]] · [[arch-venue-connectivity]] · [[arch-quote-server]] · [[arch-smart-order-router]]
 - [[arch-ioi]] · [[arch-realtime-analytics]] (iNAV) · [[arch-tca]]
 - [[arch-event-sourcing]] · [[arch-validator]] · [[arch-compliance]] · [[arch-tag-permissions]]
-- [[route-to-rfq]] · [[multi-route-rfq]] · [[bloomberg-allq]] · [[bloomberg-bwic-owic]] · [[bloomberg-tba]]
-- [[marketaxess]] · [[tradeweb]] · [[neptune]] · [[sef-platforms]]
+- [[route-to-rfq]] · [[multi-route-rfq]] · [[bloomberg-bwic-owic]] · [[bloomberg-tba]] · [[bloomberg-rfqe]] (ETF RFQ)
+- [[marketaxess]] · [[tradeweb]] · [[bloomberg-bridge]] · [[trumid]] · [[neptune]] (pre-trade axes) · [[sef-platforms]] · [[bloomberg-sef]]
+- [[bloomberg-allq]] · [[bloomberg-fit]] (price-discovery screens — observed, not routed to)

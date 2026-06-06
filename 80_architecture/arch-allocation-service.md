@@ -167,4 +167,4 @@ operation: query_allocation_history(filter)
 - [[allocation-prime-broker]] · [[arch-aggregation]] · [[arch-fx-netting]] · [[stp-summary]]
 - [[arch-position-service]] · [[arch-stp-pipeline]] · [[arch-tca]] · [[arch-validator]]
 - [[arch-event-sourcing]] · [[arch-fix-appendix-d]] · [[arch-router-layer]] · [[arch-order-staged]]
-- [[counterparty-enablement]] · [[bloomberg-fit]] (PB FIX channel)
+- [[counterparty-enablement]] · [[bloomberg-toms]] (sell-side FIX channel for allocations to dealers)

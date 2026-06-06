@@ -71,7 +71,9 @@ Discover liquidity by sending an enquiry to a curated set of counterparties and 
 
 ## Relevant venues (see also `30_venues/`)
 
-[[marketaxess]], [[tradeweb]], [[bloomberg-allq]], [[bloomberg-fit]], [[neptune]], [[ice-bondpoint]], [[bloomberg-bwic-owic]], [[bloomberg-tba]] (TBA RFQ), [[sef-platforms]] (mandatory for cleared OTC swaps).
+[[marketaxess]], [[tradeweb]], [[bloomberg-bridge]] (EM all-to-all), [[bloomberg-bmtf]] (EU MTF), [[trumid]], [[neptune]] (axes/IOIs pre-trade — not an execution venue), [[ice-bondpoint]], [[municenter]], [[bloomberg-bwic-owic]], [[bloomberg-tba]] (TBA RFQ), [[sef-platforms]] (mandatory for cleared OTC swaps), [[refinitiv-fxall]] · [[360t]] · [[currenex]] · [[fxspotstream]] · [[fx-connect]] (FX RFQ).
+
+> Terminal monitor screens like [[bloomberg-allq]] / [[bloomberg-fit]] are price-discovery surfaces, **not** routable destinations — see [[_venue-index]].
 
 ## API mapping
 
@@ -106,4 +108,5 @@ items: [{ route_id, dealer, accepted_price, accepted_qty }]
 
 - [[arch-router-layer]] · [[arch-venue-connectivity]] · [[arch-quote-server]] · [[arch-automation-layer]]
 - [[route-single]] · [[multi-route-rfq]] · [[auto-route]] · [[partial-routes]] · [[spot-first]]
-- [[allocation-prime-broker]] · [[bloomberg-allq]] · [[marketaxess]] · [[tradeweb]]
+- [[allocation-prime-broker]] · [[marketaxess]] · [[tradeweb]] · [[bloomberg-bridge]] · [[trumid]]
+- [[bloomberg-allq]] · [[bloomberg-fit]] (price-discovery screens — observed, not routed to)

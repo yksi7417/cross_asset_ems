@@ -126,4 +126,5 @@ items: [{ parent_route_id, child_route_id, dealer, accepted_price, accepted_qty 
 
 - [[arch-router-layer]] · [[arch-quote-server]] · [[arch-venue-connectivity]] · [[arch-validator]]
 - [[route-to-rfq]] · [[auto-route]] · [[fx-automation-tradebest]]
-- [[bloomberg-allq]] · [[marketaxess]] · [[tradeweb]] · [[neptune]]
+- [[marketaxess]] · [[tradeweb]] · [[bloomberg-bridge]] · [[trumid]] · [[neptune]] (pre-trade axes/IOIs only)
+- [[bloomberg-allq]] (price-discovery screen — observed, not routed to)

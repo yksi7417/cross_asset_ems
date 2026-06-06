@@ -1,32 +1,43 @@
 # Asset Class Matrix
 
-One row per sub-asset class. Cells are wikilinks where helpful — click through to drill in.
+One row per sub-asset class. Venues column lists the **routable execution destinations** (not terminal monitor screens — those live in [[70_concepts/terminal_screens]]). See [[_venue-index]] for the venue categorization.
 
-| Asset | Venues | Access | RFQ | Netting | Reg Reporting | Clearing/Settlement | Documentation | Trade Type | Liquidity |
-|---|---|---|---|---|---|---|---|---|---|
-| [[cash-equity\|Cash Equity]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | very_high |
-| [[equity-derivatives\|Equity Derivatives]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | high |
-| [[equity-swaps\|Equity Swaps]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | moderate |
-| [[govt-bonds\|Government Bonds]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | very_high |
-| [[corp-bonds-ig\|Corporate Bonds — Investment Grade]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | high |
-| [[corp-bonds-hy\|Corporate Bonds — High Yield]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | moderate |
-| [[municipal-bonds\|Municipal Bonds]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | low |
-| [[money-market-tbills\|Money Market — Treasury Bills]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | very_high |
-| [[money-market-cp-cd\|Money Market — CP / CD]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | high |
-| [[money-market-repo\|Money Market — Repo / Reverse Repo]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | very_high |
-| [[whole-loans\|Whole Loans / Mortgages]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | low |
-| [[convertibles\|Convertible Bonds]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | low |
-| [[mbs\|Mortgage-Backed Securities (MBS)]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | high |
-| [[abs\|Asset-Backed Securities (ABS)]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | moderate |
-| [[interest-rate-swaps\|Interest Rate Swaps (IRS)]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | derivative | very_high |
-| [[credit-default-swaps\|Credit Default Swaps (CDS)]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | derivative | high |
-| [[structured-products\|Structured Products]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | derivative | low |
-| [[fx-spot\|FX Spot]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | very_high |
-| [[fx-forward\|FX Forward]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | high |
-| [[fx-swap\|FX Swap]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | high |
-| [[fx-ndf\|FX NDF]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | moderate |
-| [[fx-options\|FX Options]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | cash_security | moderate |
-| [[commodity-futures\|Commodity Futures]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | derivative | high |
-| [[commodity-physical\|Commodity Physical]] | TODO | TODO | [[route-to-rfq]] | [[netting-swap-net]] | TODO | TODO | TODO | derivative | low |
+| Asset | Venues | RFQ | Netting |
+|---|---|---|---|
+| [[cash-equity\|Cash Equity]] | [[nyse]] · [[nasdaq]] · [[cboe-bzx]] · [[iex]] · [[memx]] · [[lse]] · [[xetra]] · [[euronext]] · [[cboe-europe]] · [[jpx-tse]] · [[hkex]] + [[_brokers-overview\|Brokers]] | [[bloomberg-rfqe]] (ETF block) · [[route-to-rfq]] | n/a |
+| [[equity-derivatives\|Equity Derivatives]] | [[nasdaq]] options · [[cboe-bzx]] options · [[nyse]] options + [[_brokers-overview\|Brokers]] (capital commitment, dark pools) | [[route-to-rfq]] | [[netting-swap-net]] |
+| [[equity-swaps\|Equity Swaps]] | Dealer-direct bilateral; ISDA-documented | [[route-to-rfq]] | [[netting-swap-net]] |
+| [[govt-bonds\|Government Bonds]] | [[brokertec]] · [[tradeweb]] · [[mts]] · [[opendoor]] · [[treasury-direct]] (primary) · [[yieldbroker]] (AUD) | [[route-to-rfq]] | [[netting-swap-net]] |
+| [[corp-bonds-ig\|Corporate Bonds — IG]] | [[marketaxess]] · [[tradeweb]] · [[trumid]] · [[bloomberg-bridge]] (EM/global) · [[neptune]] (axes) | [[route-to-rfq]] | [[netting-swap-net]] |
+| [[corp-bonds-hy\|Corporate Bonds — HY]] | [[marketaxess]] (OT) · [[trumid]] (Swarms) · [[bloomberg-bridge]] · [[tradeweb]] · [[bloomberg-ib]] (chat) | [[route-to-rfq]] · [[bloomberg-bwic-owic]] | [[netting-swap-net]] |
+| [[municipal-bonds\|Municipal Bonds]] | [[municenter]] · [[ice-bondpoint]] · [[marketaxess]] | [[route-to-rfq]] · [[bloomberg-bwic-owic]] | [[netting-swap-net]] |
+| [[money-market-tbills\|MMkt — T-Bills]] | [[treasury-direct]] (primary) · [[brokertec]] · [[tradeweb]] | [[route-to-rfq]] | [[netting-swap-net]] |
+| [[money-market-cp-cd\|MMkt — CP / CD]] | Dealer-direct · [[marketaxess]] (limited) · [[ice-bondpoint]] (CD) | [[route-to-rfq]] | [[netting-swap-net]] |
+| [[money-market-repo\|MMkt — Repo]] | [[triparty-bnym-jpm]] · [[brokertec]] · [[mts]] (EU) | dealer-direct | [[netting-swap-net]] |
+| [[whole-loans\|Whole Loans]] | Dealer-direct via [[bloomberg-ib]] (chat); BWICs via [[bloomberg-bwic-owic]] | list-RFQ | n/a |
+| [[convertibles\|Convertibles]] | Dealer-direct · [[marketaxess]] (selected) | [[route-to-rfq]] | [[netting-swap-net]] |
+| [[mbs\|MBS]] | [[bloomberg-tba]] (TBA) · [[tradeweb]] (D2C TBA + spec pools) · dealer-direct | [[route-to-rfq]] | [[netting-swap-net]] |
+| [[abs\|ABS]] | Dealer-direct · [[marketaxess]] (selected) · BWICs via [[bloomberg-bwic-owic]] | list-RFQ | [[netting-swap-net]] |
+| [[interest-rate-swaps\|IRS]] | [[bloomberg-sef]] · [[tradeweb]] · [[bloomberg-bmtf]] (EU) · [[sef-platforms]] | RFQ-to-3 | n/a (cleared) |
+| [[credit-default-swaps\|CDS]] | [[bloomberg-sef]] · [[tradeweb]] · ICE Swap Trade · [[sef-platforms]] | RFQ-to-3 | n/a (cleared) |
+| [[structured-products\|Structured Products]] | Dealer-direct · [[bloomberg-ib]] (chat) | bespoke | n/a |
+| [[fx-spot\|FX Spot]] | [[ebs]] · [[hotspot-fx]] (CLOB) · [[refinitiv-fxall]] · [[360t]] · [[currenex]] · [[fxspotstream]] · [[fx-connect]] | [[route-to-rfq]] | [[netting-swap-net]] |
+| [[fx-forward\|FX Forward]] | [[refinitiv-fxall]] · [[360t]] · [[currenex]] · [[fx-connect]] | [[route-to-rfq]] | [[netting-swap-net]] |
+| [[fx-swap\|FX Swap]] | [[refinitiv-fxall]] · [[360t]] · [[currenex]] · [[fx-connect]] | [[route-to-rfq]] | [[netting-swap-net]] |
+| [[fx-ndf\|FX NDF]] | [[bloomberg-sef]] · [[refinitiv-fxall]] · [[360t]] · [[sef-platforms]] | RFQ | [[netting-swap-net]] |
+| [[fx-options\|FX Options]] | [[refinitiv-fxall]] · [[360t]] · dealer-direct via [[bloomberg-ib]] | [[route-to-rfq]] | [[netting-swap-net]] |
+| [[commodity-futures\|Commodity Futures]] | CME / ICE / EUREX (futures exchanges — not in venue notes yet) | n/a | n/a (cleared) |
+| [[commodity-physical\|Commodity Physical]] | Bilateral via [[bloomberg-ib]] (chat); broker-platforms | bespoke | n/a |
 
-> Fill cells in as you progress each note from `stub` → `draft` → `reviewed`.
+## Notes
+
+- "n/a (cleared)" — netting is replaced by CCP novation; CCP handles position netting.
+- "n/a" — pre-trade netting concept doesn't apply (single instrument is the trade).
+- Reg-reporting / clearing / documentation columns deferred to per-asset notes — see each asset's individual file.
+- Terminal monitor screens (ALLQ, BTMM, FIT, CDSW, SWPM, CBND, CP/CD, TBILL, REPO) are explicitly **not** in this matrix — see [[70_concepts/terminal_screens/]].
+
+## Related
+
+- [[_venue-index]] (venue categorization map)
+- [[_brokers-overview]] (broker routing concept + dual-role disclaimer)
+- [[architecture-index]] · [[workflow-index]]
