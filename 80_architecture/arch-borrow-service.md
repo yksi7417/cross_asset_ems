@@ -43,7 +43,7 @@ flowchart LR
 
   subgraph Out
     CMP[Compliance check]
-    POSS[[[arch-position-service]] short positions]
+    POSS[arch-position-service short positions]
     OPS[Recall ops queue]
   end
 

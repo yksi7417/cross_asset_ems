@@ -70,14 +70,14 @@ flowchart LR
 ```mermaid
 sequenceDiagram
   participant T as Trader / Rule
-  participant O as Staged Order Mgr<br/>[[arch-order-staged]]
-  participant R as Router<br/>[[arch-router-layer]]
+  participant O as Staged Order Mgr<br/>arch-order-staged
+  participant R as Router<br/>arch-router-layer
   participant V as Venue / Algo
 
   T->>O: aggregate_orders([A, B, C], policy=pro_rata)
   O->>O: validate, freeze children, persist AggGroup event
   O->>R: route(aggregated_parent, mode=ALGO, strategy=VWAP)
-  R->>V: send (per [[arch-venue-connectivity]])
+  R->>V: send (per arch-venue-connectivity)
   V-->>R: ChildFill 80k
   R-->>O: RouteChildFill 80k
   O->>O: allocate 80k pro-rata → A=40k, B=24k, C=16k

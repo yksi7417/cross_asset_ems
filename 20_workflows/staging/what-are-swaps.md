@@ -36,7 +36,7 @@ flowchart TB
   S --> FXS[FX Swap<br/>= multileg<br/>2 legs same pair opposite sides]:::fx
   S --> FXF[FX Forward<br/>= single-leg with value_date > spot]:::fx
   S --> NDF[NDF<br/>= single-leg with is_ndf=true + fixing_ref]:::fx
-  S --> IRS["IRS / CDS<br/>= derivative envelope, see [[arch-symbology-figi]] extension"]:::deriv
+  S --> IRS["IRS / CDS<br/>= derivative envelope, see arch-symbology-figi extension"]:::deriv
   S --> AST[Asset Swap<br/>= multileg with cash bond + IRS]:::deriv
   S --> TRS[TRS / Equity Swap<br/>= derivative envelope]:::deriv
 

@@ -58,7 +58,7 @@ flowchart LR
     TC[Type Coercion<br/>per column rules]
     SV[Structural Validation<br/>required cols, no nulls, ID consistency]
     BA[Batch Assembler<br/>build API batch envelope]
-    API[[arch-api-first|API]]
+    APIAPI
   end
 
   subgraph "Outbound (Export)"

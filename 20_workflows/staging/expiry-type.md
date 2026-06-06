@@ -56,7 +56,7 @@ flowchart LR
   R --> A[Adapter translates to venue TIF dialect<br/>e.g. FIX tag 59 enum]
   A --> X[Venue accepts]
   X -. on expiry .-> E[Venue or clock fires expiry]
-  E --> O2[OrderExpired event<br/>via [[arch-time-replay-server]]]
+  E --> O2[OrderExpired event<br/>via arch-time-replay-server]
 ```
 
 ## Inputs

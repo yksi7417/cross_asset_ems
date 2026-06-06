@@ -60,7 +60,7 @@ sequenceDiagram
     Note over B: schedule fires
     B->>B: BatchClosed event
   end
-  Note over O: BatchClosed may trigger auto-net rules (see [[netting-auto-via-excel]])
+  Note over O: BatchClosed may trigger auto-net rules (see netting-auto-via-excel)
 ```
 
 1. Create with name + optional schedule + policies (`auto_net_on_close`, `auto_route_on_close`).

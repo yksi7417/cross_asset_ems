@@ -89,8 +89,8 @@ For `LEGS_INDEPENDENT` the router materialises one route per leg instead of a si
 ```mermaid
 sequenceDiagram
   participant T as Trader / Automation
-  participant O as Order Layer<br/>[[arch-order-staged]]
-  participant R as Router<br/>[[arch-router-layer]]
+  participant O as Order Layer<br/>arch-order-staged
+  participant R as Router<br/>arch-router-layer
   participant V as Venue Adapter
   participant X as Venue
 

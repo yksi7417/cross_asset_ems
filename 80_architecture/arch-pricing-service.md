@@ -42,7 +42,7 @@ Distinct because:
 ```mermaid
 flowchart LR
   subgraph Inputs
-    Q[[[arch-quote-server]]]
+    Q[arch-quote-server]
     HD[Historical data]
     REF[Curves / surfaces / parameters]
     MM[Manual marks]

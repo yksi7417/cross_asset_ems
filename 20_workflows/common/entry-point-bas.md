@@ -41,8 +41,8 @@ Nothing past this point operates on unauthenticated traffic.
 sequenceDiagram
   participant C as Client
   participant B as BAS Entry Point
-  participant ID as Identity Service<br/>[[arch-firm-desk-user]]
-  participant S as Session Layer<br/>[[arch-sequence-recovery]]
+  participant ID as Identity Service<br/>arch-firm-desk-user
+  participant S as Session Layer<br/>arch-sequence-recovery
   participant API as API Surface
 
   C->>B: connect + credentials (+ next_expected_seq for FIX)

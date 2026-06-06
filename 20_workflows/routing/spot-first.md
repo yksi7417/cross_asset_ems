@@ -32,8 +32,8 @@ Eliminate the leg-risk window: if the forward leg goes first and the spot leg fa
 ```mermaid
 sequenceDiagram
   participant T as Trader / Rule
-  participant O as Order Layer<br/>[[arch-order-staged]]
-  participant R as Router<br/>[[arch-router-layer]]
+  participant O as Order Layer<br/>arch-order-staged
+  participant R as Router<br/>arch-router-layer
   participant V as Venue
 
   T->>O: stage_orders(multileg, mode=SEQUENCED, policy=spot_first)

@@ -40,7 +40,7 @@ sequenceDiagram
   participant API as API
   participant V as Validator
   participant O as Order Layer
-  participant T as Time Server<br/>[[arch-time-replay-server]]
+  participant T as Time Server<br/>arch-time-replay-server
 
   U->>API: stage_orders(activation_at=tomorrow 09:30 NY)
   API->>V: validate activation_at sane (future, within window)

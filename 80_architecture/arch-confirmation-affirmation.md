@@ -22,8 +22,8 @@ Without this layer, trades may settle on bad assumptions or fail at the clearer;
 ```mermaid
 flowchart LR
   subgraph "Trade Sources"
-    CNF[CNF Routes<br/>[[route-to-cnf]]]
-    EV[Venue Trades<br/>via [[arch-venue-connectivity]]]
+    CNF[CNF Routes<br/>route-to-cnf]
+    EV[Venue Trades<br/>via arch-venue-connectivity]
     BL[Block Trades / Voice Tickets]
   end
 
@@ -106,7 +106,7 @@ stateDiagram-v2
 
 ```mermaid
 sequenceDiagram
-  participant E as EMS<br/>([[arch-allocation-service]])
+  participant E as EMS<br/>(arch-allocation-service)
   participant N as Network (e.g. DTCC CTM)
   participant C as Counterparty / Custodian
 

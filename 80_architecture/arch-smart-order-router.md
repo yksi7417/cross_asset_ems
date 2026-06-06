@@ -23,8 +23,8 @@ Common SOR use cases:
 
 ```mermaid
 flowchart LR
-  O[Order Layer<br/>[[arch-order-staged]]]
-  R[Router Layer<br/>[[arch-router-layer]]]
+  O[Order Layer<br/>arch-order-staged]
+  R[Router Layer<br/>arch-router-layer]
   S[Smart Order Router<br/>this note]
   V1[Venue Adapter A]
   V2[Venue Adapter B]

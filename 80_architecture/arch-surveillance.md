@@ -25,7 +25,7 @@ Run continuous detectors for:
 
 ```mermaid
 flowchart LR
-  EL[Event Log<br/>[[arch-event-sourcing]]] --> SUB[Subscriber: all order/route/fill events]
+  EL[Event Log<br/>arch-event-sourcing] --> SUB[Subscriber: all order/route/fill events]
   SUB --> D1[Spoofing Detector]
   SUB --> D2[Wash-trade Detector]
   SUB --> D3[Quote-stuffing Detector]
@@ -42,7 +42,7 @@ flowchart LR
   D7 --> A
   A --> Q[Compliance Officer Queue]
   A --> F{Severe?}
-  F -- yes --> FR[Freeze actor via [[arch-compliance]]]
+  F -- yes --> FR[Freeze actor via arch-compliance]
 ```
 
 ## Detector model

@@ -106,7 +106,7 @@ flowchart LR
   STORE --> SUB
   SUB --> TR[Trader Blotter]
   SUB --> AU[Automation Rules]
-  SUB --> SOR[[[arch-smart-order-router]] strategies]
+  SUB --> SOR[arch-smart-order-router strategies]
   SUB --> CMP[Compliance / Watch]
 ```
 

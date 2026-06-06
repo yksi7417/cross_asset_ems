@@ -46,7 +46,7 @@ Reducers are pure. State is typed.
 
 ```mermaid
 flowchart LR
-  EL[Event Log<br/>[[arch-event-sourcing]]] --> P[Projector Workers<br/>partitioned by entity]
+  EL[Event Log<br/>arch-event-sourcing] --> P[Projector Workers<br/>partitioned by entity]
   CFG[Projection registry] --> P
   P --> SS[(Snapshot Store)]
   P --> LT[Live Tail Cache]

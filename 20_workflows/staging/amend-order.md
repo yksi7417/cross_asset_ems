@@ -63,7 +63,7 @@ sequenceDiagram
   participant U as User
   participant API as API
   participant V as Validator
-  participant R as Router<br/>[[arch-router-layer]]
+  participant R as Router<br/>arch-router-layer
   participant A as Venue Adapter
   participant X as Venue
 

@@ -41,7 +41,7 @@ Computing them in N places is wrong (drift, inconsistency, cost). Computing them
 ```mermaid
 flowchart LR
   subgraph Inputs
-    MD[Market Data Feeds<br/>via [[arch-quote-server]]]
+    MD[Market Data Feeds<br/>via arch-quote-server]
     OF[Own Fills<br/>from event log]
   end
 

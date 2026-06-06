@@ -101,7 +101,7 @@ Each is an independent `RegReportTriggered` event with its own deadline, retry p
 ```mermaid
 flowchart LR
   subgraph Inputs
-    E[Allocation events<br/>[[arch-allocation-service]]]
+    E[Allocation events<br/>arch-allocation-service]
     F[Fill events<br/>direct from venues]
     T[Trade Bust / Correct<br/>amendment triggers]
   end

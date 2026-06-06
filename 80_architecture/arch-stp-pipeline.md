@@ -31,10 +31,10 @@ With a documented pipeline:
 
 ```mermaid
 flowchart LR
-  F[Fill event] --> ALLOC[Allocation Service<br/>[[arch-allocation-service]]]
-  ALLOC --> CONF[Confirmation / Affirmation<br/>[[arch-confirmation-affirmation]]]
+  F[Fill event] --> ALLOC[Allocation Service<br/>arch-allocation-service]
+  ALLOC --> CONF[Confirmation / Affirmation<br/>arch-confirmation-affirmation]
   ALLOC --> SI[Settlement Instruction<br/>(per clearer)]
-  ALLOC --> REG[Regulatory Reporting<br/>[[arch-regulatory-reporting-service]]]
+  ALLOC --> REG[Regulatory Reporting<br/>arch-regulatory-reporting-service]
   ALLOC --> BR[Books & Records<br/>internal accounting]
 
   CONF -.unmatched.-> OPS1[Ops Queue]

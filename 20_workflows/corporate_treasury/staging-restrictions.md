@@ -29,7 +29,7 @@ Treasury users should not be able to do anything that's not part of "request a q
 ```mermaid
 flowchart LR
   CT[Treasury User]:::user
-  CT --> A{[[arch-validator]]<br/>checks tag}:::v
+  CT --> A{arch-validator<br/>checks tag}:::v
   A -->|stage one order| OK1[Allowed]:::ok
   A -->|accept/reject quote| OK2[Allowed]:::ok
   A -->|amend notes / value_date| OK3[Allowed]:::ok

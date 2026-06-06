@@ -24,9 +24,9 @@ TCA is **post-trade** but **continuous** — slippage events stream out per fill
 ```mermaid
 flowchart LR
   subgraph Inputs
-    F[Fill events<br/>from [[arch-event-sourcing]]]
-    B[Benchmarks<br/>from [[arch-realtime-analytics]]]
-    R[Pre-trade recommendations<br/>from [[arch-pretrade-analytics]]]
+    F[Fill events<br/>from arch-event-sourcing]
+    B[Benchmarks<br/>from arch-realtime-analytics]
+    R[Pre-trade recommendations<br/>from arch-pretrade-analytics]
     M[Market state at fill]
   end
 

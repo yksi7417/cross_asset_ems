@@ -28,7 +28,7 @@ The recommendations are **advisory** — they inform automation and humans but d
 flowchart LR
   subgraph Inputs
     O[Order intent<br/>instrument, side, qty, urgency, account]
-    M[Market state<br/>[[arch-realtime-analytics]], [[arch-quote-server]]]
+    M[Market state<br/>arch-realtime-analytics, arch-quote-server]
     H[Historical context<br/>own-fills + market history]
     R[Reference data<br/>liquidity tiers, spread profiles]
   end

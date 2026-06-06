@@ -40,7 +40,7 @@ sequenceDiagram
   Note over S,C: Price agreed off-platform (voice / IB)
   S->>O: route_orders(mode=CONFIRMATION, cpty, price, qty, agreement_ref)
   O->>O: validate (cpty enabled, agreement_ref unique)
-  O->>R: create Route(state=Pending, mode=CONFIRMATION) — see [[arch-order-route-lifecycle]]
+  O->>R: create Route(state=Pending, mode=CONFIRMATION) — see arch-order-route-lifecycle
   R->>A: send confirmation
   A->>C: wire confirmation message
   C-->>A: ack / affirm

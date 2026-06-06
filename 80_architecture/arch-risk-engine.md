@@ -25,13 +25,13 @@ Quantify the position and P&L impact of an action and compare against firm/desk/
 ```mermaid
 flowchart LR
   OP[Operations] --> RE[Risk Engine]
-  P[Position Service<br/>[[arch-position-service]]] --> RE
-  Q[Quote / Mark<br/>[[arch-quote-server]]] --> RE
+  P[Position Service<br/>arch-position-service] --> RE
+  Q[Quote / Mark<br/>arch-quote-server] --> RE
   RP[Risk Parameters<br/>limits, appetite] --> RE
   SC[Scenarios<br/>VaR / stress / DV01 / greeks] --> RE
   RE --> D[Decision: ALLOW / WARN / BLOCK]
   RE --> A[Alerts]
-  RE --> LO[Audit via [[arch-event-sourcing]]]
+  RE --> LO[Audit via arch-event-sourcing]
 ```
 
 ## Check categories

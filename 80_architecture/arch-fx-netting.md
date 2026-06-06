@@ -133,10 +133,10 @@ See [[tradedate-roll]].
 ```mermaid
 sequenceDiagram
   participant U as Operator / Excel upload
-  participant O as Staged Order Mgr<br/>[[arch-order-staged]]
-  participant V as Validator<br/>[[arch-validator]]
+  participant O as Staged Order Mgr<br/>arch-order-staged
+  participant V as Validator<br/>arch-validator
   participant N as Netting Engine
-  participant R as Router<br/>[[arch-router-layer]]
+  participant R as Router<br/>arch-router-layer
 
   U->>O: stage_orders([batch], net_within_batch=true)
   loop per child

@@ -32,7 +32,7 @@ A user who lacks `#trade-fx` is hard-rejected by the validator — no override e
 flowchart TB
   subgraph Inputs
     OP[Operations<br/>stage / amend / route / cancel]
-    EV[Event Bus<br/>[[arch-sbe-aeron-transport]]<br/>all entity events]
+    EV[Event Bus<br/>arch-sbe-aeron-transport<br/>all entity events]
   end
 
   subgraph "Compliance Engine"
@@ -48,7 +48,7 @@ flowchart TB
     LL[Allow / Block / Watch Lists]
     AC[Account / KYC]
     HC[Historical Counters<br/>(rolling windows)]
-    POS[Position Service<br/>[[arch-position-service]]]
+    POS[Position Service<br/>arch-position-service]
   end
 
   subgraph Outputs
@@ -56,7 +56,7 @@ flowchart TB
     O2[BLOCK → PendingCompliance state]
     O3[Compliance officer queue]
     O4[Alerts / Notifications]
-    O5[Audit log via [[arch-event-sourcing]]]
+    O5[Audit log via arch-event-sourcing]
   end
 
   OP --> PT

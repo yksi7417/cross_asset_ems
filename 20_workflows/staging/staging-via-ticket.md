@@ -46,7 +46,7 @@ sequenceDiagram
   T->>UI: click "Stage"
   UI->>API: stage_orders([order])
   API->>V: full validate
-  V-->>API: pass / reject (per [[arch-validator]])
+  V-->>API: pass / reject (per arch-validator)
   API->>O: persist OrderStaged event
   O-->>UI: order_id, state=STAGED
   UI-->>T: confirmation

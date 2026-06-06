@@ -35,7 +35,7 @@ flowchart LR
   O[Staged Order] --> R[Router]
   R --> L{Local Match<br/>candidates?}
   L -- yes --> M[Local Engine]
-  L -- no --> X[External Venue<br/>via [[arch-venue-connectivity]]]
+  L -- no --> X[External Venue<br/>via arch-venue-connectivity]
   M --> F[Local Fill]
   X --> Y[External Fill]
   F --> A[Allocation]

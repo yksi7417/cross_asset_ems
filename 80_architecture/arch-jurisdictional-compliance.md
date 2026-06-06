@@ -246,7 +246,7 @@ StorClosed { stor_id, outcome }
 
 ```mermaid
 flowchart LR
-  M[Jurisdiction Matrix<br/>config in [[arch-reference-data-service]]] --> V[Validator]
+  M[Jurisdiction Matrix<br/>config in arch-reference-data-service] --> V[Validator]
   M --> C[Compliance]
   M --> S[Surveillance]
   M --> R[Reg Reporting]

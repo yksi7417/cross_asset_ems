@@ -32,9 +32,9 @@ Make the EMS a clean, predictable destination for any upstream FIX-capable OMS. 
 ```mermaid
 sequenceDiagram
   participant OMS as Buy-Side OMS
-  participant FIX as FIX Bridge<br/>[[arch-fix-api-bridge]]
+  participant FIX as FIX Bridge<br/>arch-fix-api-bridge
   participant V as Validator
-  participant CMP as Compliance<br/>[[arch-compliance]]
+  participant CMP as Compliance<br/>arch-compliance
   participant O as Order Layer
   participant ST as Sales/Trader
 
@@ -50,7 +50,7 @@ sequenceDiagram
   Note over O,ST: sales-trader / automation works the order via EMS workflows
   loop while order alive
     O-->>FIX: lifecycle events (RouteSent, RoutePartiallyFilled, RouteFilled,<br/>OrderReplaceRequested, OrderReplaced, OrderCanceled, ...)
-    FIX-->>OMS: 35=8 ExecutionReport (or 35=9 OrderCancelReject)<br/>per [[arch-order-route-lifecycle]]
+    FIX-->>OMS: 35=8 ExecutionReport (or 35=9 OrderCancelReject)<br/>per arch-order-route-lifecycle
   end
 ```
 

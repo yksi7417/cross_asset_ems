@@ -66,7 +66,7 @@ sequenceDiagram
   loop interactive
     T->>OM: click order, see detail (envelope, history, routes, fills)
     T->>OM: amend / route / cancel
-    OM->>O: action via [[actions-framework]]
+    OM->>O: action via actions-framework
     O-->>OM: state updates
   end
 ```

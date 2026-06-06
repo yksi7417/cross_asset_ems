@@ -33,9 +33,9 @@ Send one route to one venue. This is the simplest invocation of [[arch-router-la
 sequenceDiagram
   participant U as User / Rule
   participant O as Order Layer
-  participant V as Validator<br/>[[arch-validator]]
-  participant R as Router<br/>[[arch-router-layer]]
-  participant A as Venue Adapter<br/>[[arch-venue-connectivity]]
+  participant V as Validator<br/>arch-validator
+  participant R as Router<br/>arch-router-layer
+  participant A as Venue Adapter<br/>arch-venue-connectivity
   participant X as Venue
 
   U->>O: route_orders([{order_id, venue, qty, mode}])

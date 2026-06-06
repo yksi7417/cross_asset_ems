@@ -396,31 +396,31 @@ flowchart TB
     L1 --> L3
   end
 
-  subgraph "Component: Order layer<br/>[[arch-order-staged]]"
+  subgraph "Component: Order layer<br/>arch-order-staged"
     O[Order FSM Runtime]
     OL[(order event log)]
     L3 --> O
     O --> OL
   end
 
-  subgraph "Component: Router<br/>[[arch-router-layer]]"
+  subgraph "Component: Router<br/>arch-router-layer"
     R[Route FSM Runtime]
     RL[(route event log)]
     L3 --> R
     R --> RL
   end
 
-  subgraph "Component: Venue Adapter<br/>[[arch-venue-connectivity]]"
+  subgraph "Component: Venue Adapter<br/>arch-venue-connectivity"
     A[Route FSM Runtime<br/>(adapter's view)]
     L3 --> A
   end
 
-  subgraph "Component: Automation<br/>[[arch-automation-layer]]"
+  subgraph "Component: Automation<br/>arch-automation-layer"
     AU[Read-only FSM projection]
     L3 --> AU
   end
 
-  subgraph "SBE/Aeron bus<br/>[[arch-sbe-aeron-transport]]"
+  subgraph "SBE/Aeron bus<br/>arch-sbe-aeron-transport"
     BUS[(events)]
   end
 

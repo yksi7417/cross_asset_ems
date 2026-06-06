@@ -39,7 +39,7 @@ flowchart LR
   M -- no --> END[no action]
   M -- yes --> C{Condition pass?}
   C -- no --> SUP[Suppressed event logged]
-  C -- yes --> P{Actor permission check<br/>per [[arch-tag-permissions]]}
+  C -- yes --> P{Actor permission check<br/>per arch-tag-permissions}
   P -- denied --> SUP2[Suppressed: PermissionDenied event]
   P -- ok --> A[Fire route_orders<br/>same API as human]
   A --> R[Router]

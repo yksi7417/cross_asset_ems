@@ -43,7 +43,7 @@ sequenceDiagram
   participant ALG as Broker Fix Algo
 
   OMS->>FIX: NewOrderSingle (is_fixing=true, benchmark=WMR_4PM)
-  FIX->>O: stage_orders (mapped per [[arch-fix-api-bridge]])
+  FIX->>O: stage_orders (mapped per arch-fix-api-bridge)
   O->>A: OrderStaged event
   Note over A: Rule evaluates time_until_fix
   alt within execution window
@@ -54,7 +54,7 @@ sequenceDiagram
     R-->>O: order fills incrementally
   else outside window
     A-->>A: schedule callback at start_of_window
-    Note over A: [[arch-time-replay-server]] clock used for determinism
+    Note over A: arch-time-replay-server clock used for determinism
   end
 ```
 

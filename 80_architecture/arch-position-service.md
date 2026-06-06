@@ -36,10 +36,10 @@ Aggregated views supported: per-instrument, per-sector, per-issuer, per-currency
 
 ```mermaid
 flowchart LR
-  EL[Event Log<br/>[[arch-event-sourcing]]] --> P[Position Projector]
+  EL[Event Log<br/>arch-event-sourcing] --> P[Position Projector]
   P --> S[(snapshot store)]
   P --> T[live tail]
-  Q[[arch-quote-server]] --> M[Mark engine]
+  Qarch-quote-server --> M[Mark engine]
   S --> M
   M --> R[Read API: position + valuation]
   T --> R

@@ -35,14 +35,14 @@ stateDiagram-v2
   New --> Staged: pending_actions remain<br/>(EMS sub-state; FIX still sees OrdStatus=0 New)
   Staged --> Staged: amend / set field
   Staged --> Ready: pending_actions cleared<br/>(EMS sub-state)
-  Ready --> Routing: route_orders<br/>(ownership transfers to [[arch-router-layer|router]])
+  Ready --> Routing: route_orders<br/>(ownership transfers to router)
   New --> PendingReplace: amend_orders / 35=G<br/>ExecType=E, OrdStatus=E
   PendingReplace --> New: ExecType=5 Replaced
   PendingReplace --> New: 35=9 OrderCancelReject<br/>(order stays in prior state — replace failed, order did not)
   New --> PendingCancel: cancel_orders / 35=F<br/>ExecType=6, OrdStatus=6
   PendingCancel --> Canceled: ExecType=4
   PendingCancel --> New: 35=9 OrderCancelReject
-  Routing --> Routing: see [[arch-router-layer]]
+  Routing --> Routing: see arch-router-layer
   Canceled --> [*]
   Rejected --> [*]
 ```
