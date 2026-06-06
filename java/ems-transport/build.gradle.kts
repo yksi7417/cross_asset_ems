@@ -6,6 +6,7 @@
 
 plugins {
     id("ems.java-conventions")
+    id("ems.sbe-codegen")
 }
 
 dependencies {
