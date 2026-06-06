@@ -1,0 +1,126 @@
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe" byteOrder="littleEndian" package="LoanInstrument" id="0x2004" version="0" semanticVersion="1.0">
+  <types>
+    <composite name="MessageHeader" description="Standard SBE message header (8 bytes)">
+      <type name="blockLength" id="1" primitiveType="uint16" offset="0"/>
+      <type name="templateId" id="2" primitiveType="uint16" offset="2"/>
+      <type name="schemaId" id="3" primitiveType="uint16" offset="4"/>
+      <type name="version" id="4" primitiveType="uint16" offset="6"/>
+    </composite>
+    <composite name="InstrumentCore" description="Fixed-offset core reference data block (315 bytes) carried at the start of every LoanInstrument message">
+      <type name="figi"                id="1"  primitiveType="char"  length="12"  offset="0"/>
+      <type name="internalIid"         id="2"  primitiveType="char"  length="20"  offset="12"/>
+      <type name="compositeFigi"       id="3"  presence="optional"   primitiveType="char"  length="12"  offset="32"/>
+      <type name="shareClassFigi"      id="4"  presence="optional"   primitiveType="char"  length="12"  offset="44"/>
+      <type name="assetClass"          id="5"  nullValue="255"       primitiveType="uint8"  offset="56"/>
+      <type name="instrumentType"      id="6"  nullValue="255"       primitiveType="uint8"  offset="57"/>
+      <type name="displayName"         id="7"                       primitiveType="char"  length="64"  offset="58"/>
+      <type name="legalName"           id="8"                       primitiveType="char"  length="128" offset="122"/>
+      <type name="issuerLei"           id="9"  presence="optional"   primitiveType="char"  length="20"  offset="250"/>
+      <type name="currency"            id="10" nullValue="65535"      primitiveType="uint16" offset="270"/>
+      <type name="countryOfIssue"      id="11"                       primitiveType="char"  length="2"   offset="272"/>
+      <type name="countryOfListing"    id="12" presence="optional"   primitiveType="char"  length="2"   offset="274"/>
+      <type name="fungibility"         id="13" nullValue="255"       primitiveType="uint8"  offset="276"/>
+      <type name="settlementConvention" id="14" nullValue="255"      primitiveType="uint8"  offset="277"/>
+      <type name="effectiveDate"       id="15"                       primitiveType="uint64" offset="278"/>
+      <type name="expiryDate"          id="16" presence="optional"   primitiveType="uint64" offset="286"/>
+      <type name="status"              id="17" nullValue="255"       primitiveType="uint8"  offset="294"/>
+      <type name="createdAt"           id="18"                       primitiveType="uint64" offset="295"/>
+      <type name="updatedAt"           id="19"                       primitiveType="uint64" offset="303"/>
+      <type name="version"             id="20"                       primitiveType="uint32" offset="311"/>
+    </composite>
+    <enum name="AssetClass" encodingType="uint8">
+      <validValue name="EQUITY">0</validValue>
+      <validValue name="DEBT">1</validValue>
+      <validValue name="LOAN">2</validValue>
+      <validValue name="DERIVATIVE">3</validValue>
+      <validValue name="FUTURE">4</validValue>
+      <validValue name="OPTION">5</validValue>
+      <validValue name="COMMODITY">6</validValue>
+      <validValue name="FX">7</validValue>
+    </enum>
+    <enum name="InstrumentType" encodingType="uint8">
+      <validValue name="COMMON_STOCK">0</validValue>
+      <validValue name="PREFERRED">1</validValue>
+      <validValue name="BOND">2</validValue>
+      <validValue name="TERM_LOAN">3</validValue>
+      <validValue name="REVOLVER">4</validValue>
+      <validValue name="NOTE">5</validValue>
+    </enum>
+    <enum name="Fungibility" encodingType="uint8">
+      <validValue name="FUNGIBLE">0</validValue>
+      <validValue name="NON_FUNGIBLE">1</validValue>
+    </enum>
+    <enum name="SettlementConvention" encodingType="uint8">
+      <validValue name="T_PLUS_0">0</validValue>
+      <validValue name="T_PLUS_1">1</validValue>
+      <validValue name="T_PLUS_2">2</validValue>
+      <validValue name="T_PLUS_3">3</validValue>
+    </enum>
+    <enum name="Status" encodingType="uint8">
+      <validValue name="ACTIVE">0</validValue>
+      <validValue name="INACTIVE">1</validValue>
+      <validValue name="DELISTED">2</validValue>
+      <validValue name="PENDING">3</validValue>
+    </enum>
+    <enum name="FacilityType" encodingType="uint8">
+      <validValue name="TERM_LOAN_A">1</validValue>
+      <validValue name="TERM_LOAN_B">2</validValue>
+      <validValue name="REVOLVER">3</validValue>
+      <validValue name="BRIDGE">4</validValue>
+      <validValue name="LETTER_OF_CREDIT">5</validValue>
+      <validValue name="MEZZ">6</validValue>
+      <validValue name="SECOND_LIEN">7</validValue>
+    </enum>
+    <enum name="Seniority" encodingType="uint8">
+      <validValue name="SENIOR_SECURED">1</validValue>
+      <validValue name="SENIOR_UNSECURED">2</validValue>
+      <validValue name="SUBORDINATED">3</validValue>
+      <validValue name="JUNIOR">4</validValue>
+    </enum>
+    <enum name="CouponType" encodingType="uint8">
+      <validValue name="FIXED">1</validValue>
+      <validValue name="FLOAT">2</validValue>
+      <validValue name="PIK">3</validValue>
+      <validValue name="OID">4</validValue>
+    </enum>
+    <enum name="BenchmarkIndex" encodingType="uint8">
+      <validValue name="LIBOR_3M">1</validValue>
+      <validValue name="SOFR">2</validValue>
+      <validValue name="EURIBOR_3M">3</validValue>
+      <validValue name="PRIME">4</validValue>
+      <validValue name="T_BILL">5</validValue>
+    </enum>
+    <enum name="CollateralType" encodingType="uint8">
+      <validValue name="SENIOR_LOAN">1</validValue>
+      <validValue name="MEZZ">2</validValue>
+      <validValue name="SECOND_LIEN">3</validValue>
+      <validValue name="UNSECURED">4</validValue>
+    </enum>
+  </types>
+  <group name="LoanAttributes" id="2" blockLength="96" description="Loan-specific attribute block (96 bytes)">
+    <field name="loanId" id="1" type="char" length="20" offset="0"/>
+    <field name="borrowerLei" id="2" type="char" length="20" offset="20"/>
+    <field name="facilityType" id="3" type="FacilityType" offset="40"/>
+    <field name="seniority" id="4" type="Seniority" offset="41"/>
+    <field name="couponType" id="5" type="CouponType" offset="42"/>
+    <field name="couponRateMantissa" id="6" type="int64" offset="43"/>
+    <field name="couponRateExponent" id="7" type="int8" offset="51"/>
+    <field name="benchmarkIndex" id="8" type="BenchmarkIndex" offset="52"/>
+    <field name="spreadBps" id="9" type="uint32" offset="53"/>
+    <field name="currency" id="10" type="uint16" offset="57"/>
+    <field name="issueDate" id="11" type="uint64" offset="59"/>
+    <field name="maturityDate" id="12" type="uint64" offset="67"/>
+    <field name="isAmortizing" id="13" type="uint8" offset="75"/>
+    <field name="originalPrincipal" id="14" type="uint64" offset="76"/>
+    <field name="currentPrincipal" id="15" type="uint64" offset="84"/>
+    <field name="collateralType" id="16" type="CollateralType" offset="92"/>
+    <field name="ratingSp" id="17" type="uint8" offset="93"/>
+    <field name="ratingMoodys" id="18" type="uint8" offset="94"/>
+    <field name="ratingFitch" id="19" type="uint8" offset="95"/>
+  </group>
+  <sbe:message name="LoanInstrument" id="0x2004">
+    <sbe:header>MessageHeader</sbe:header>
+    <field name="instrumentCore" id="1" type="InstrumentCore" offset="0"/>
+    <group name="loanAttributes" id="2" type="LoanAttributes" blockLength="96"/>
+  </sbe:message>
+</sbe:messageSchema>

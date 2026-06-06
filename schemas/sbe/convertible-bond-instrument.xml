@@ -1,0 +1,136 @@
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
+                   byteOrder="littleEndian"
+                   package="ConvertibleBondInstrument"
+                   id="0x2003"
+                   version="0"
+                   semanticVersion="1.0">
+  <sbe:types>
+    <sbe:composite name="MessageHeader" description="Standard SBE message header">
+      <sbe:type name="blockLength" primitiveType="uint16" offset="0"/>
+      <sbe:type name="templateId"  primitiveType="uint16" offset="2"/>
+      <sbe:type name="schemaId"    primitiveType="uint16" offset="4"/>
+      <sbe:type name="version"     primitiveType="uint16" offset="6"/>
+    </sbe:composite>
+
+    <sbe:composite name="InstrumentCore" description="Fixed-offset core reference data block (315 bytes) carried at the start of every ConvertibleBondInstrument message">
+      <sbe:type name="figi"                 id="1"  primitiveType="char"   length="12"  offset="0"/>
+      <sbe:type name="internalIid"          id="2"  primitiveType="char"   length="20"  offset="12"/>
+      <sbe:type name="compositeFigi"        id="3"  presence="optional"   primitiveType="char"   length="12"  offset="32"/>
+      <sbe:type name="shareClassFigi"       id="4"  presence="optional"   primitiveType="char"   length="12"  offset="44"/>
+      <sbe:type name="assetClass"           id="5"  nullValue="255"       primitiveType="uint8"            offset="56"/>
+      <sbe:type name="instrumentType"       id="6"  nullValue="255"       primitiveType="uint8"            offset="57"/>
+      <sbe:type name="displayName"          id="7"                        primitiveType="char"   length="64"  offset="58"/>
+      <sbe:type name="legalName"            id="8"                        primitiveType="char"   length="128" offset="122"/>
+      <sbe:type name="issuerLei"            id="9"  presence="optional"   primitiveType="char"   length="20"  offset="250"/>
+      <sbe:type name="currency"             id="10" nullValue="65535"      primitiveType="uint16"           offset="270"/>
+      <sbe:type name="countryOfIssue"       id="11"                       primitiveType="char"   length="2"   offset="272"/>
+      <sbe:type name="countryOfListing"     id="12" presence="optional"   primitiveType="char"   length="2"   offset="274"/>
+      <sbe:type name="fungibility"          id="13" nullValue="255"       primitiveType="uint8"            offset="276"/>
+      <sbe:type name="settlementConvention" id="14" nullValue="255"       primitiveType="uint8"            offset="277"/>
+      <sbe:type name="effectiveDate"        id="15"                       primitiveType="uint64"           offset="278"/>
+      <sbe:type name="expiryDate"           id="16" presence="optional"   primitiveType="uint64"           offset="286"/>
+      <sbe:type name="status"               id="17" nullValue="255"       primitiveType="uint8"            offset="294"/>
+      <sbe:type name="createdAt"            id="18"                       primitiveType="uint64"           offset="295"/>
+      <sbe:type name="updatedAt"            id="19"                       primitiveType="uint64"           offset="303"/>
+      <sbe:type name="version"              id="20"                       primitiveType="uint32"           offset="311"/>
+    </sbe:composite>
+
+    <sbe:enum name="AssetClass" encodingType="uint8">
+      <sbe:validValue name="EQUITY">0</sbe:validValue>
+      <sbe:validValue name="FIXED_INCOME">1</sbe:validValue>
+      <sbe:validValue name="CONVERTIBLE">2</sbe:validValue>
+      <sbe:validValue name="DERIVATIVE">3</sbe:validValue>
+      <sbe:validValue name="FUND">4</sbe:validValue>
+      <sbe:validValue name="COMMODITY">5</sbe:validValue>
+      <sbe:validValue name="FX">6</sbe:validValue>
+      <sbe:validValue name="MONEY_MARKET">7</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="InstrumentType" encodingType="uint8">
+      <sbe:validValue name="COMMON_STOCK">0</sbe:validValue>
+      <sbe:validValue name="PREFERRED_STOCK">1</sbe:validValue>
+      <sbe:validValue name="DEPOSITORY_RECEIPT">2</sbe:validValue>
+      <sbe:validValue name="CORPORATE_BOND">3</sbe:validValue>
+      <sbe:validValue name="GOVERNMENT_BOND">4</sbe:validValue>
+      <sbe:validValue name="CONVERTIBLE_BOND">5</sbe:validValue>
+      <sbe:validValue name="CONVERTIBLE_NOTE">6</sbe:validValue>
+      <sbe:validValue name="WARRANT">7</sbe:validValue>
+      <sbe:validValue name="RIGHT">8</sbe:validValue>
+      <sbe:validValue name="OPTION">9</sbe:validValue>
+      <sbe:validValue name="FUTURE">10</sbe:validValue>
+      <sbe:validValue name="ETF">11</sbe:validValue>
+      <sbe:validValue name="MUTUAL_FUND">12</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="Status" encodingType="uint8">
+      <sbe:validValue name="ACTIVE">0</sbe:validValue>
+      <sbe:validValue name="INACTIVE">1</sbe:validValue>
+      <sbe:validValue name="PENDING">2</sbe:validValue>
+      <sbe:validValue name="SUSPENDED">3</sbe:validValue>
+      <sbe:validValue name="DELISTED">4</sbe:validValue>
+      <sbe:validValue name="MATURED">5</sbe:validValue>
+      <sbe:validValue name="DEFAULTED">6</sbe:validValue>
+      <sbe:validValue name="EARLY_REDEMPTION">7</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="Fungibility" encodingType="uint8">
+      <sbe:validValue name="FUNGIBLE">0</sbe:validValue>
+      <sbe:validValue name="NON_FUNGIBLE">1</sbe:validValue>
+      <sbe:validValue name="SINGLE_ISSUER_FUNGIBLE">2</sbe:validValue>
+      <sbe:validValue name="GLOBAL_FUNGIBLE">3</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="SettlementConvention" encodingType="uint8">
+      <sbe:validValue name="T_PLUS_0">0</sbe:validValue>
+      <sbe:validValue name="T_PLUS_1">1</sbe:validValue>
+      <sbe:validValue name="T_PLUS_2">2</sbe:validValue>
+      <sbe:validValue name="T_PLUS_3">3</sbe:validValue>
+      <sbe:validValue name="T_PLUS_4">4</sbe:validValue>
+      <sbe:validValue name="T_PLUS_5">5</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="IssuerCallFeature" encodingType="uint8">
+      <sbe:validValue name="CALLABLE">1</sbe:validValue>
+      <sbe:validValue name="MAKE_WHOLE">2</sbe:validValue>
+      <sbe:validValue name="NONE">3</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="DilutionProtection" encodingType="uint8">
+      <sbe:validValue name="NONE">1</sbe:validValue>
+      <sbe:validValue name="FULL_RATIO">2</sbe:validValue>
+      <sbe:validValue name="MAKE_WHOLE">3</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="SettlementStyle" encodingType="uint8">
+      <sbe:validValue name="CASH">1</sbe:validValue>
+      <sbe:validValue name="PHYSICAL">2</sbe:validValue>
+      <sbe:validValue name="ELECTION">3</sbe:validValue>
+    </sbe:enum>
+  </sbe:types>
+
+  <sbe:group name="ConvertibleAttributes" id="1" description="Asset-class-specific attributes for convertible bond instruments">
+    <sbe:field name="underlyingEquityFigi"     id="1"  primitiveType="char"  length="12" offset="0"/>
+    <sbe:field name="conversionRatioMantissa"  id="2"  primitiveType="int64"            offset="12"/>
+    <sbe:field name="conversionRatioExponent"  id="3"  primitiveType="int8"             offset="20"/>
+    <sbe:field name="conversionPriceMantissa"  id="4"  primitiveType="int64"            offset="21"/>
+    <sbe:field name="conversionPriceExponent"  id="5"  primitiveType="int8"             offset="29"/>
+    <sbe:field name="conversionPremiumBps"     id="6"  primitiveType="uint32"           offset="30"/>
+    <sbe:field name="issuerCallFeature"        id="7"  type="IssuerCallFeature"         offset="34"/>
+    <sbe:field name="dilutionProtection"       id="8"  type="DilutionProtection"        offset="35"/>
+    <sbe:field name="couponRateMantissa"       id="9"  primitiveType="int64"            offset="36"/>
+    <sbe:field name="couponRateExponent"       id="10" primitiveType="int8"             offset="44"/>
+    <sbe:field name="couponFrequency"          id="11" primitiveType="uint8"            offset="45"/>
+    <sbe:field name="dayCountConvention"       id="12" primitiveType="uint8"            offset="46"/>
+    <sbe:field name="issueDate"                id="13" primitiveType="uint64"           offset="47"/>
+    <sbe:field name="maturityDate"             id="14" primitiveType="uint64"           offset="55"/>
+    <sbe:field name="isPerpetual"              id="15" primitiveType="uint8"            offset="63"/>
+    <sbe:field name="isMandatory"              id="16" primitiveType="uint8"            offset="64"/>
+    <sbe:field name="settlementStyle"          id="17" type="SettlementStyle"           offset="65"/>
+  </sbe:group>
+
+  <sbe:message name="ConvertibleBondInstrument" id="0x2003" description="Convertible bond instrument reference data message">
+    <sbe:header>MessageHeader</sbe:header>
+    <sbe:field name="instrumentCore" id="1" type="InstrumentCore" offset="0"/>
+    <sbe:group name="convertibleAttributes" id="2" type="ConvertibleAttributes" blockLength="66" dimensionType="groupSizeEncoding"/>
+  </sbe:message>
+</sbe:messageSchema>
