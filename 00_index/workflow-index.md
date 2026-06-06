@@ -2,15 +2,15 @@
 
 All workflows grouped under the FX taxonomy headings. Cross-asset where applicable.
 
-> Notes marked **(draft)** have been expanded with full architecture mappings; others remain stubs awaiting expansion. See [[architecture-index]] for the system spine each workflow links back to.
+> All workflow notes are now **(draft)** — first-draft expansion complete. See [[architecture-index]] for the system spine each workflow links back to, including the **Gaps Surfaced** section listing architecture concepts the workflow expansion revealed need future `arch-*` notes.
 
 ## Common
-- [[entry-point-bas|Entry Point (BAS)]]
-- [[actions-framework|Actions Framework]]
-- [[order-manager|Order Manager]]
-- [[permissioning-config|Permissioning / Config (FXPV & PF)]]
-- [[validation|Validation]]
-- [[regulatory-base|Regulatory (Cross-Asset Base)]]
+- [[entry-point-bas|Entry Point (BAS)]] **(draft)**
+- [[actions-framework|Actions Framework]] **(draft)**
+- [[order-manager|Order Manager]] **(draft)**
+- [[permissioning-config|Permissioning / Config (FXPV & PF)]] **(draft)**
+- [[validation|Validation]] **(draft)**
+- [[regulatory-base|Regulatory (Cross-Asset Base)]] **(draft)**
 
 ## Staging
 - [[staging-via-ticket|Staging via Ticket]] **(draft)**
