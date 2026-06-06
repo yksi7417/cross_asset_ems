@@ -9,13 +9,25 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 ## Current cursor
 
 - **Last completed task:** 0.8 — OpenTelemetry SDK + Jaeger toy trace
-- **Last commit:** `feat(0.8): OTel toy trace + ems-observability application config`
-- **Last commit sha:** `b86e7f8`
+- **Last commit (main):** `feat(0.8): OTel toy trace + ems-observability application config`
+- **Last commit sha (main):** `b86e7f8`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-06
 - **Next task for Claude (when budget resets):** 0.7 — Aeron Cluster + Archive toy ping/pong (claude)
-- **Next tasks for local Gemma (while waiting):** 0.9, 4.22, 4.23, 4.24, 6.1, plus draft 4.5/4.6/4.9/4.11/4.13/4.15/4.16 instrument templates on `wip/` branches per DELEGATION.md
+- **Next tasks for local-tier delegation (parallel subagents via openRouter paid + Google Gemini free):** 4.22 holiday calendars, then SBE template drafts (4.5/4.6/4.9/4.11/4.13/4.15/4.16). Code review of bootstrap 0.1–0.8 via Gemini.
+
+## WIP branches awaiting Claude review-and-merge
+
+Drafted by openRouter (paid `minimax/minimax-m3`) and Google Gemini free tier while
+Claude tokens are out. Claude to review and merge when budget resets.
+
+| Branch | Task | Commit | Status | Notes |
+|---|---|---|---|---|
+| `wip/0.9-changelog` | 0.9 | `f90a549` | ready | cliff.toml + scripts/release/gen-changelog.sh |
+| `wip/4.23-day-counts` | 4.23 | `ec73df9` | ready | 13 ISDA 2006 conventions in schemas/reference-data/day-counts.yaml |
+| `wip/4.24-mic-codes` | 4.24 | `569cc47` + `ed13df4` | ready | 72 MICs + 25 brokers; 3 LEI flags (BNP NULL, ML INACTIVE, DBAB name mismatch) |
+| `wip/6.1-reject-codes` | 6.1 | `ee3ec32` | ready | 47 reject codes across 10 categories in schemas/reject-codes/catalog.yaml |
 
 ## Session log
 
