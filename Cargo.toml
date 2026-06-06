@@ -1,0 +1,74 @@
+# Root Cargo workspace — Rust counterpart to the Java multi-module tree.
+#
+# Each crate under rust/ corresponds 1:1 to a Java module. SBE schemas
+# codegen for both languages from schemas/sbe/.
+
+[workspace]
+resolver = "2"
+members = [
+    "rust/ems-core",
+    "rust/ems-fsm",
+    "rust/ems-transport",
+    "rust/ems-aaa",
+    "rust/ems-validator",
+    "rust/ems-oms",
+    "rust/ems-fix-bridge",
+    "rust/ems-market-data",
+    "rust/ems-pretrade",
+    "rust/ems-venue-connectivity",
+    "rust/ems-posttrade",
+    "rust/ems-observability",
+    "rust/ems-ops",
+    "rust/ems-bench",
+    "rust/ems-it",
+]
+
+[workspace.package]
+version       = "0.0.1"
+edition       = "2021"
+rust-version  = "1.83"
+license       = "Apache-2.0"
+authors       = ["Cross-Asset EMS Contributors"]
+repository    = "https://github.com/yksi7417/cross_asset_ems"
+
+[workspace.dependencies]
+# Async runtime
+tokio              = { version = "1.41", features = ["full"] }
+tokio-stream       = "0.1.16"
+
+# Error handling
+anyhow             = "1.0.93"
+thiserror          = "2.0.3"
+
+# Serialization
+serde              = { version = "1.0.215", features = ["derive"] }
+serde_json         = "1.0.133"
+serde_yaml         = "0.9.34"
+
+# Logging / tracing — see arch-observability
+tracing            = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
+opentelemetry      = "0.27.0"
+opentelemetry_sdk  = { version = "0.27.0", features = ["rt-tokio"] }
+
+# Aeron (Rust bindings) — see arch-sbe-aeron-transport
+# Note: aeron-rs is the community port; we may switch to a custom FFI layer.
+# Treat as TBD until task 2.5 lands.
+aeron-rs           = "0.4"
+
+# Time & UUIDs
+chrono             = { version = "0.4.38", default-features = false, features = ["clock"] }
+uuid               = { version = "1.11", features = ["v4", "v7", "serde"] }
+
+# Testing
+proptest           = "1.5.0"
+criterion          = { version = "0.5.1", features = ["html_reports"] }
+
+[profile.release]
+lto             = "fat"
+codegen-units   = 1
+strip           = "symbols"
+panic           = "abort"
+
+[profile.bench]
+debug = true

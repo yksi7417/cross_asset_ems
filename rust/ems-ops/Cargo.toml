@@ -1,0 +1,23 @@
+[package]
+name             = "ems-ops"
+description      = "JMX-equivalent introspection + Time/Replay + Configuration service."
+version          = { workspace = true }
+edition          = { workspace = true }
+rust-version     = { workspace = true }
+license          = { workspace = true }
+authors          = { workspace = true }
+repository       = { workspace = true }
+
+[dependencies]
+anyhow    = { workspace = true }
+thiserror = { workspace = true }
+tracing   = { workspace = true }
+ems-core      = { path = "../ems-core" }
+ems-transport = { path = "../ems-transport" }
+
+[dev-dependencies]
+proptest  = { workspace = true }
+
+
+[lints.clippy]
+all       = "deny"

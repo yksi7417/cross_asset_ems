@@ -1,0 +1,25 @@
+[package]
+name             = "ems-observability"
+description      = "OpenTelemetry + ELK ingest + Prometheus exporters."
+version          = { workspace = true }
+edition          = { workspace = true }
+rust-version     = { workspace = true }
+license          = { workspace = true }
+authors          = { workspace = true }
+repository       = { workspace = true }
+
+[dependencies]
+anyhow    = { workspace = true }
+thiserror = { workspace = true }
+tracing   = { workspace = true }
+ems-core              = { path = "../ems-core" }
+tracing-subscriber    = { workspace = true }
+opentelemetry         = { workspace = true }
+opentelemetry_sdk     = { workspace = true }
+
+[dev-dependencies]
+proptest  = { workspace = true }
+
+
+[lints.clippy]
+all       = "deny"

@@ -1,0 +1,24 @@
+[package]
+name             = "ems-posttrade"
+description      = "Allocation + STP + Confirmation/Affirmation + Reg reporting + Best-ex audit."
+version          = { workspace = true }
+edition          = { workspace = true }
+rust-version     = { workspace = true }
+license          = { workspace = true }
+authors          = { workspace = true }
+repository       = { workspace = true }
+
+[dependencies]
+anyhow    = { workspace = true }
+thiserror = { workspace = true }
+tracing   = { workspace = true }
+ems-core      = { path = "../ems-core" }
+ems-oms       = { path = "../ems-oms" }
+ems-pretrade  = { path = "../ems-pretrade" }
+
+[dev-dependencies]
+proptest  = { workspace = true }
+
+
+[lints.clippy]
+all       = "deny"

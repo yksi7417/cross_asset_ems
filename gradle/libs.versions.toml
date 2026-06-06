@@ -1,0 +1,76 @@
+# Gradle Version Catalog — single source of truth for Java dependency versions.
+#
+# Add new entries here, then reference as `libs.xxx` in module build.gradle.kts.
+
+[versions]
+junit              = "5.11.3"
+assertj            = "3.26.3"
+mockito            = "5.14.2"
+slf4j              = "2.0.16"
+logback            = "1.5.12"
+
+# Transport — see arch-sbe-aeron-transport
+aeron              = "1.46.6"
+agrona             = "1.23.1"
+sbe-tool           = "1.34.1"
+
+# Cluster + Archive — see arch-resilience-24x7
+aeron-cluster      = "1.46.6"
+
+# Observability — see arch-observability
+opentelemetry      = "1.43.0"
+micrometer         = "1.13.6"
+opensearch         = "2.18.0"
+
+# FIX — see arch-fix-api-bridge
+quickfixj          = "2.3.1"
+
+# Reference data + serialization
+jackson            = "2.18.1"
+snakeyaml          = "2.3"
+
+# Code generation
+javapoet           = "1.13.0"
+
+# Aeron-cluster Cargo / Rust counterparts pinned in rust/Cargo.toml workspace.toml
+
+[libraries]
+junit-jupiter      = { module = "org.junit.jupiter:junit-jupiter",         version.ref = "junit" }
+junit-jupiter-api  = { module = "org.junit.jupiter:junit-jupiter-api",     version.ref = "junit" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
+assertj-core       = { module = "org.assertj:assertj-core",                version.ref = "assertj" }
+mockito-core       = { module = "org.mockito:mockito-core",                version.ref = "mockito" }
+
+slf4j-api          = { module = "org.slf4j:slf4j-api",                     version.ref = "slf4j" }
+logback-classic    = { module = "ch.qos.logback:logback-classic",          version.ref = "logback" }
+
+aeron-driver       = { module = "io.aeron:aeron-driver",                   version.ref = "aeron" }
+aeron-client       = { module = "io.aeron:aeron-client",                   version.ref = "aeron" }
+aeron-cluster      = { module = "io.aeron:aeron-cluster",                  version.ref = "aeron-cluster" }
+aeron-archive      = { module = "io.aeron:aeron-archive",                  version.ref = "aeron" }
+agrona             = { module = "org.agrona:agrona",                       version.ref = "agrona" }
+sbe-tool           = { module = "uk.co.real-logic:sbe-tool",               version.ref = "sbe-tool" }
+
+opentelemetry-api  = { module = "io.opentelemetry:opentelemetry-api",      version.ref = "opentelemetry" }
+opentelemetry-sdk  = { module = "io.opentelemetry:opentelemetry-sdk",      version.ref = "opentelemetry" }
+opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "opentelemetry" }
+micrometer-core    = { module = "io.micrometer:micrometer-core",           version.ref = "micrometer" }
+micrometer-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
+
+quickfixj-core     = { module = "org.quickfixj:quickfixj-core",            version.ref = "quickfixj" }
+
+jackson-databind   = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jackson-yaml       = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml", version.ref = "jackson" }
+snakeyaml          = { module = "org.yaml:snakeyaml",                      version.ref = "snakeyaml" }
+
+javapoet           = { module = "com.squareup:javapoet",                   version.ref = "javapoet" }
+
+[bundles]
+junit              = ["junit-jupiter-api", "junit-jupiter-engine"]
+test-common        = ["junit-jupiter-api", "junit-jupiter-engine", "assertj-core", "mockito-core"]
+aeron              = ["aeron-driver", "aeron-client", "agrona"]
+otel               = ["opentelemetry-api", "opentelemetry-sdk", "opentelemetry-exporter-otlp"]
+
+[plugins]
+spotless           = { id = "com.diffplug.spotless",         version = "6.25.0" }
+errorprone         = { id = "net.ltgt.errorprone",           version = "4.0.1" }
