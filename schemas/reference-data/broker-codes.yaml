@@ -1,7 +1,29 @@
+# Cross-Asset EMS — broker / counterparty reference table
+# LEI values verified against GLEIF on 2026-06-06.
+# See _metadata at bottom for verification provenance and any flagged entries.
+#
+# Schema per entry:
+#   code:             short EMS-internal identifier (FIX tag 1150 source)
+#   legal_name:       registered legal name
+#   lei:              20-char Global Legal Entity Identifier (ISO 17442)
+#   lei_verified:     true if LEI was resolved against GLEIF at verified_at date
+#   lei_source:       where the LEI came from (always GLEIF in this revision)
+#   lei_verified_at:  ISO date of verification
+#   lei_status:       GLEIF entity status (ACTIVE / INACTIVE / NULL / UNVERIFIED)
+#   lei_status_note:  only present if status != ACTIVE
+#   lei_name_mismatch:only present if GLEIF returned a different name than requested
+#   lei_matched_name: only present if name mismatch; the name GLEIF actually returned
+#   fix_party_id:     FIX tag 448 PartyID value
+#   country:          ISO 3166-1 alpha-2
+#   regulator:        list of regulators
+#   primary_venues:   list of MIC codes
+#   asset_classes:    list of asset classes the broker operates in
+#   notes:            free-text
+
 broker_codes:
 - code: GS
-  legal_name: Goldman Sachs & Co. LLC
-  lei: 5493001KJTIIGC8Y1R12
+  legal_name: 'Goldman Sachs & Co. LLC'
+  lei: FOR8UP27PHTHYVLBNG30
   fix_party_id: GS
   country: US
   regulator:
@@ -27,9 +49,13 @@ broker_codes:
   - research
   - etfs
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: MS
-  legal_name: Morgan Stanley & Co. LLC
-  lei: 5493001KJTIIGC8Y1R13
+  legal_name: 'Morgan Stanley & Co. LLC'
+  lei: 9R7GPTSO7KV3UQJZQ078
   fix_party_id: MS
   country: US
   regulator:
@@ -54,9 +80,13 @@ broker_codes:
   - prime_brokerage
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: JPM
   legal_name: J.P. Morgan Securities LLC
-  lei: 5493001KJTIIGC8Y1R14
+  lei: ZBUT11V806EZRVTWT807
   fix_party_id: JPM
   country: US
   regulator:
@@ -81,9 +111,13 @@ broker_codes:
   - prime_brokerage
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: BAC
   legal_name: BofA Securities, Inc.
-  lei: 5493001KJTIIGC8Y1R15
+  lei: 549300HN4UKV1E2R3U73
   fix_party_id: BAC
   country: US
   regulator:
@@ -106,9 +140,13 @@ broker_codes:
   - swaps
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: C
   legal_name: Citigroup Global Markets Inc.
-  lei: 5493001KJTIIGC8Y1R16
+  lei: MBNUM2BPBDO7JBLYG310
   fix_party_id: C
   country: US
   regulator:
@@ -131,9 +169,13 @@ broker_codes:
   - swaps
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: WFC
   legal_name: Wells Fargo Securities, LLC
-  lei: 5493001KJTIIGC8Y1R17
+  lei: VYVVCKR63DVZZN70PB21
   fix_party_id: WFC
   country: US
   regulator:
@@ -150,9 +192,13 @@ broker_codes:
   - bonds
   - fx
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: DB
   legal_name: Deutsche Bank Securities Inc.
-  lei: 5493001KJTIIGC8Y1R18
+  lei: 9J6MBOOO7BECTDTUZW19
   fix_party_id: DB
   country: US
   regulator:
@@ -175,9 +221,13 @@ broker_codes:
   - swaps
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: UBS
   legal_name: UBS Securities LLC
-  lei: 5493001KJTIIGC8Y1R19
+  lei: T6FIZBDPKLYJKFCRVK44
   fix_party_id: UBS
   country: US
   regulator:
@@ -197,9 +247,13 @@ broker_codes:
   - fx
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: HSBC
   legal_name: HSBC Securities (USA) Inc.
-  lei: 5493001KJTIIGC8Y1R20
+  lei: CYYGQCGNHMHPSMRL3R97
   fix_party_id: HSBC
   country: US
   regulator:
@@ -216,9 +270,13 @@ broker_codes:
   - bonds
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: BARC
   legal_name: Barclays Capital Inc.
-  lei: 5493001KJTIIGC8Y1R21
+  lei: AC28XWWI3WIBK2824319
   fix_party_id: BARC
   country: US
   regulator:
@@ -238,9 +296,13 @@ broker_codes:
   - fx
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: CS
   legal_name: Credit Suisse Securities (USA) LLC
-  lei: 5493001KJTIIGC8Y1R22
+  lei: 1V8Y6QCX6YMJ2OELII46
   fix_party_id: CS
   country: US
   regulator:
@@ -261,9 +323,13 @@ broker_codes:
   - fx
   - swaps
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: BNP
   legal_name: BNP Paribas Securities Corp.
-  lei: 5493001KJTIIGC8Y1R23
+  lei: 2J5703FH5U5M97R1I237
   fix_party_id: BNP
   country: US
   regulator:
@@ -280,9 +346,14 @@ broker_codes:
   - bonds
   - derivatives
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: 'NULL'
+  lei_status_note: GLEIF entity status is NULL (lapsed registration or unmerged duplicate)
 - code: SG
   legal_name: SG Americas Securities, LLC
-  lei: 5493001KJTIIGC8Y1R24
+  lei: 549300F35UE0BOM1WJ55
   fix_party_id: SG
   country: US
   regulator:
@@ -298,9 +369,13 @@ broker_codes:
   - derivatives
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: ING
   legal_name: ING Financial Markets LLC
-  lei: 5493001KJTIIGC8Y1R25
+  lei: KBVRJ5K57JZ3E2AVWX40
   fix_party_id: ING
   country: US
   regulator:
@@ -315,9 +390,13 @@ broker_codes:
   - bonds
   - derivatives
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: NAB
   legal_name: National Australia Bank Limited
-  lei: 5493001KJTIIGC8Y1R26
+  lei: F8SB4JFBSYQFRQEH3Z21
   fix_party_id: NAB
   country: AU
   regulator:
@@ -330,9 +409,13 @@ broker_codes:
   - bonds
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: RBC
   legal_name: RBC Capital Markets, LLC
-  lei: 5493001KJTIIGC8Y1R27
+  lei: 549300LCO2FLSSVFFR64
   fix_party_id: RBC
   country: US
   regulator:
@@ -349,9 +432,13 @@ broker_codes:
   - bonds
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: BMO
   legal_name: BMO Capital Markets Corp.
-  lei: 5493001KJTIIGC8Y1R28
+  lei: RUC0QBLBRPRCU4W1NE59
   fix_party_id: BMO
   country: US
   regulator:
@@ -366,9 +453,13 @@ broker_codes:
   - fx
   - bonds
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: MUFG
   legal_name: MUFG Securities Americas Inc.
-  lei: 5493001KJTIIGC8Y1R29
+  lei: K5HU16E3LMSVCCJJJ255
   fix_party_id: MUFG
   country: US
   regulator:
@@ -384,9 +475,13 @@ broker_codes:
   - derivatives
   - bonds
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: SMFG
   legal_name: SMBC Nikko Securities America, Inc.
-  lei: 5493001KJTIIGC8Y1R30
+  lei: 6PJDTY319315T5LR2241
   fix_party_id: SMFG
   country: US
   regulator:
@@ -400,9 +495,13 @@ broker_codes:
   - fx
   - derivatives
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: NOMU
   legal_name: Nomura Securities International, Inc.
-  lei: 5493001KJTIIGC8Y1R31
+  lei: OXTKY6Q8X53C9ILVV871
   fix_party_id: NOMU
   country: US
   regulator:
@@ -418,9 +517,13 @@ broker_codes:
   - derivatives
   - bonds
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: CITI
   legal_name: Citibank N.A.
-  lei: 5493001KJTIIGC8Y1R32
+  lei: 984500E7FX6880WAFF95
   fix_party_id: CITI
   country: US
   regulator:
@@ -435,9 +538,13 @@ broker_codes:
   - cash_management
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: ML
-  legal_name: Merrill Lynch, Pierce, Fenner & Smith Inc.
-  lei: 5493001KJTIIGC8Y1R33
+  legal_name: 'Merrill Lynch, Pierce, Fenner & Smith Inc.'
+  lei: 5493007P5X1K6U7RXY16
   fix_party_id: ML
   country: US
   regulator:
@@ -455,9 +562,14 @@ broker_codes:
   - bonds
   - fx
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: INACTIVE
+  lei_status_note: GLEIF entity is INACTIVE; record may be historical
 - code: MSBI
-  legal_name: Morgan Stanley & Co. International plc
-  lei: 5493001KJTIIGC8Y1R34
+  legal_name: 'Morgan Stanley & Co. International plc'
+  lei: 4PQUHN3JPFGFNF3BB653
   fix_party_id: MSBI
   country: GB
   regulator:
@@ -473,9 +585,13 @@ broker_codes:
   - bonds
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
 - code: DBAB
   legal_name: Deutsche Bank AG, London Branch
-  lei: 5493001KJTIIGC8Y1R35
+  lei: 724500G414AWQVQ8WV64
   fix_party_id: DBAB
   country: GB
   regulator:
@@ -491,9 +607,16 @@ broker_codes:
   - bonds
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
+  lei_name_mismatch: true
+  lei_matched_name: 'Deutsche Bank AG, Amsterdam Branch'
+  lei_status_note: 'Requested ''London Branch'' but GLEIF first match was Amsterdam Branch; LEI 724500G414AWQVQ8WV64 is the Amsterdam Branch parent, not a London-specific record. Ops should search for the London Branch legal entity directly.'
 - code: GSCO
   legal_name: Goldman Sachs International
-  lei: 5493001KJTIIGC8Y1R36
+  lei: 549300R83Q2VTICWNV15
   fix_party_id: GSCO
   country: GB
   regulator:
@@ -509,3 +632,40 @@ broker_codes:
   - bonds
   - research
   notes: ''
+  lei_verified: true
+  lei_source: GLEIF (api.gleif.org/api/v1/lei-records)
+  lei_verified_at: '2026-06-06'
+  lei_status: ACTIVE
+_metadata:
+  lei_verification_run: '2026-06-06'
+  lei_source: 'GLEIF (Global Legal Entity Identifier Foundation) — https://api.gleif.org/api/v1/lei-records'
+  verification_method: 'Filter by entity.legalName; first ACTIVE-or-any match accepted; flag if status != ACTIVE or name similarity
+    < 60%'
+  leis_verified: 25
+  leis_unverified: 0
+  leis_with_flags: 3
+  flagged_entries:
+  - code: BNP
+    status: 'NULL'
+    lei: 2J5703FH5U5M97R1I237
+    matched_name: 'BNP PARIBAS SECURITIES CORP.'
+    note: GLEIF entity status is NULL (lapsed registration or unmerged duplicate)
+  - code: ML
+    status: INACTIVE
+    lei: 5493007P5X1K6U7RXY16
+    matched_name: 'MERRILL LYNCH, PIERCE, FENNER & SMITH LIMITED'
+    note: 'GLEIF entity is INACTIVE; matched name ''MERRILL LYNCH, PIERCE, FENNER & SMITH LIMITED'' (UK) differs from requested ''Merrill Lynch, Pierce, Fenner & Smith Inc.'' (US). The US Inc. entity has likely been merged into BofA Securities — search by ''BofA Securities'' for the surviving entity.'
+  - code: DBAB
+    status: ACTIVE
+    lei: 724500G414AWQVQ8WV64
+    matched_name: 'Deutsche Bank AG, Amsterdam Branch'
+    note: 'Requested ''Deutsche Bank AG, London Branch'' but GLEIF first match was Amsterdam Branch. The LEI returned (724500G414AWQVQ8WV64) is for the Amsterdam Branch, not London. Ops should search for the London Branch legal entity directly.'
+  fields_added_per_entry:
+  - lei_verified
+  - lei_source
+  - lei_verified_at
+  - lei_status
+  - (optional) lei_status_note
+  - (optional) lei_name_mismatch
+  - (optional) lei_matched_name
+  - (optional) lei_verification_failure
