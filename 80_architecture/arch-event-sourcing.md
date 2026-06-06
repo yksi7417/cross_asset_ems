@@ -20,19 +20,27 @@ All system state is derived from an **append-only sequence of events**. There is
 
 ```
 Event {
-  event_id      UUID
-  global_seq    uint64           // append order, log-wide
-  stream_id     string           // partition key (order_id, route_id, session_id, etc.)
-  stream_seq    uint64           // monotonic within stream_id
-  template_id   uint16           // SBE template, see [[arch-sbe-aeron-transport]]
-  payload       bytes            // SBE-encoded
-  occurred_at   timestamp        // wall or simulated, see [[arch-time-replay-server]]
-  recorded_at   timestamp        // when the event store persisted it
-  caused_by     UUID             // upstream event_id, optional
-  source        FIX|API|AUTO|REPLAY
-  actor         identity         // see [[arch-firm-desk-user]]
+  event_id          UUID
+  global_seq        uint64       // append order, log-wide
+  stream_id         string       // partition key (order_id, route_id, session_id, etc.)
+  stream_seq        uint64       // monotonic within stream_id
+  template_id       uint16       // SBE template, see [[arch-sbe-aeron-transport]]
+  payload           bytes        // SBE-encoded
+  occurred_at       timestamp    // wall or simulated, see [[arch-time-replay-server]]
+  recorded_at       timestamp    // when the event store persisted it
+  caused_by         UUID         // upstream event_id, optional
+  source            FIX|API|AUTO|REPLAY|CLUSTER
+  actor             identity     // see [[arch-firm-desk-user]]
+
+  // Correlation (carried through every event for end-to-end joins)
+  trace_id          bytes[16]    // W3C trace context — see [[arch-observability]]
+  parent_span_id    bytes[8]
+  initial_order_id  UUID?        // see [[arch-identity-chaining]]
+  initial_route_id  UUID?
 }
 ```
+
+The `trace_id` + `initial_order_id` + `initial_route_id` fields are indexed on the event store; queries like "every event for this order" or "every span for this trace" are one-key lookups, not log scans. See [[arch-observability]] and [[arch-identity-chaining]] for the disciplines that keep these values stable across the entire chain lifetime.
 
 ## Streams
 

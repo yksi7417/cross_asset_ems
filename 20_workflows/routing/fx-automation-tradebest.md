@@ -8,7 +8,7 @@ tags: [workflow/routing, workflow/automation, workflow/algo]
 
 # FX Automation — TradeBest
 
-TradeBest is a class of FX execution-automation rules that **continuously evaluate quotes** and elect the best executable response (often an RFQ winner or a resting-order reprice) without trader intervention. Bloomberg's TradeBest is the canonical example; firm-internal variants follow the same shape.
+TradeBest is a class of FX execution-automation rules that **continuously evaluate quotes** and elect the best executable response (often an RFQ winner or a resting-order reprice) without trader intervention. Several vendor and firm-internal implementations of this pattern exist; the shape captured here is generic.
 
 ## Purpose
 

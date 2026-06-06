@@ -16,6 +16,16 @@ The architectural spine the workflows and asset notes link back to. Captured in 
 - [[arch-event-sourcing]] — append-only log; deterministic state derivation
 - [[arch-time-replay-server]] — clock interface; deterministic replay
 
+## Observability & Continuity
+
+- [[arch-observability]] — three-pillar observability stack: **structured logs (ELK/OpenSearch)**, **distributed traces (OpenTelemetry, W3C trace context)**, **metrics (OTel → Prometheus → Grafana)**. Trace ID originates at the AAA service per operation and flows through every SBE event, FIX message (custom tag), log line, and metric exemplar — one query joins all three pillars. Sampling: 1-5% routine, 100% errors/audit. Span links preserve correlation across long-lived orders.
+- [[arch-identity-chaining]] — **stable chain identifiers** (`initial_order_id`, `initial_cl_ord_id`, `initial_route_id`, `chain_id`) stamped write-once on every event so cancel/replace ClOrdID transitions, busts, corrects, multi-leg expansion, aggregation, and netted-parent fan-out are all reconstructable with one indexed lookup. Maps to FIX `526 SecondaryClOrdID` / `583 ClOrdLinkID` on the wire. Enforced by the shared FSM.
+- [[arch-resilience-24x7]] — **24/7 trading + planned power-cycling + hot-warm failover** leveraging Aeron Cluster (Raft consensus, snapshots, sub-second leader election) and Aeron Archive (position-precise recorded replay). Per-asset-class maintenance windows (crypto = none, FX = weekend, futures = daily Globex pause). Continuity tiers: hot active / hot follower / warm standby / cold standby / archive. Rolling restart pattern. Cross-region active-passive. Drill discipline.
+
+## Methodology
+
+- [[arch-ddd-tdd]] — **Domain-Driven Design + Test-Driven Development** as the build methodology. Ubiquitous language taken from industry terminology (FIX OrdStatus values, FIX tag names, regulatory terms like RTS 27/28, etc.) used identically across SBE schemas, codegen output, test scenario names, log fields, trader-facing messages, and Mermaid diagrams. Bounded contexts per architectural layer. Test-first: integration scenarios in trader-readable language, unit tests generated from the FSM YAML, component tests using in-process Aeron + SBE mocks. Replay-as-test enabled because every component contract is an SBE message on an Aeron channel.
+
 ## OMS Core
 
 - [[arch-order-staged]] — Staged Order Manager (Layer 1)

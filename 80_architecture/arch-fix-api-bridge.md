@@ -40,6 +40,23 @@ The order/route lifecycle states this matrix references — `Pending Replace` / 
 | `9` OrderCancelReject | (outbound) emitted on rejected `F` or `G` | Carries `CxlRejReason` (102). **Does not terminate the original order** — it stays in its prior state. |
 | `j` BusinessMessageReject | (outbound) translated from pre-state validator reject | See [[arch-validator]]. |
 
+## Identity chaining over FIX
+
+The [[arch-identity-chaining|chain identity]] discipline crosses the FIX wire via two standard tags:
+
+| FIX tag | Use |
+|---|---|
+| `526` `SecondaryClOrdID` | the chain's `initial_cl_ord_id` — stamped on every outbound message (where the venue tolerates it). Survives all 35=G ClOrdID transitions. |
+| `583` `ClOrdLinkID` | alternative chain identifier per FIX spec; used by some venues for grouping replaces. |
+| `11` `ClOrdID` | the current ClOrdID (changes per replace). |
+| `41` `OrigClOrdID` | the prior ClOrdID on a 35=G — same as our `prev_cl_ord_id`. |
+
+Inbound from upstream OMSs: if they supply `526` or `583`, we adopt it as the chain identity. Otherwise the bridge mints `initial_cl_ord_id = ClOrdID` at first sight. For venues that don't tolerate `526`, the bridge keeps a local `cl_ord_id → initial_cl_ord_id` map keyed on session.
+
+## Distributed tracing over FIX
+
+The [[arch-observability|W3C trace context]] propagates over FIX via a custom tag (we propose `9700 TraceparentHex`, hex-encoded W3C `traceparent`). For trace-aware venues this gives end-to-end trace continuity across the wire. For venues that strip unknown tags, the bridge **keeps a local map** `cl_ord_id → trace context` keyed on session — when the venue's response arrives, the trace context is re-attached using ClOrdID as the rejoining key.
+
 ## The mixed-client (FIX + API) rule
 
 A single client may operate both a FIX session and an API session simultaneously. To prevent state divergence:

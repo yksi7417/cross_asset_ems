@@ -8,7 +8,7 @@ tags: [workflow/corporate_treasury]
 
 # FXEL<GO>
 
-FXEL (Bloomberg's FX Electronic execution platform for corporate clients) and equivalent corporate-treasury entry surfaces sit on top of the same EMS API but with a **restricted operation set, sales-trader pairing model, and markup pipeline**. This note captures the EMS architecture's view of the FXEL-style workflow.
+FXEL — the corporate-treasury FX entry surface — sits on top of the same EMS API but with a **restricted operation set, sales-trader pairing model, and markup pipeline**. This note captures the EMS architecture's view of the corporate-treasury FX workflow.
 
 ## Purpose
 
