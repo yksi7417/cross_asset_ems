@@ -29,6 +29,7 @@ The architectural spine the workflows and asset notes link back to. Captured in 
 - [[arch-fx-netting]] — value-date arithmetic, PB isolation, PAC constraints, swap-aware netting
 - [[arch-order-route-lifecycle]] — **FIX-aligned canonical state machines** for orders and routes (Pending Replace `150=E`, Pending Cancel `150=6`, Replaced `150=5`, Canceled `150=4`, OrderCancelReject `35=9`, post-fill TradeCorrect `150=G` / TradeCancel `150=H`). Referenced by every workflow that touches amend/cancel semantics.
 - [[arch-fix-appendix-d]] — **FIX Appendix D race conditions** that every production EMS must handle: Too-Late-to-Cancel (D4/D5), Fill-during-Pending-Replace (D7/D10), over-allocation prevention, PossResend / duplicate ClOrdID (D31), unsolicited cancel / restate, trade bust / correct cascade, concurrent cancel+replace, late-ack-after-local-terminal anomalies. Ends with an implementation contract checklist every venue adapter must pass.
+- [[arch-fix-fsm-design]] — **Shared FIX-compliant FSM design.** The core load-bearing component: pure transition function `(state, event, context) -> (state', effects, events)` declared in versioned YAML definitions, codegen'd to all consuming languages, shared by Order / Route / Multileg / VenueSession / SOR. Covers definition format, composition, **lifecycle chaining + cascading cancellations** (the cancel-stuck-in-Pending problem), single-writer runtime, versioning, replay determinism, and the 5-layer testing strategy.
 
 ## Market Data
 
@@ -47,6 +48,7 @@ The architectural spine the workflows and asset notes link back to. Captured in 
 ## Connectivity & Ops
 
 - [[arch-venue-connectivity]] — outbound venue adapters (FIX / binary / REST)
+- [[arch-smart-order-router]] — **pluggable layer between Route → Venue.** Appears to the router as a virtual venue; internally composes child routes per the selected strategy (algo wheel, slicer, dark-first, Reg-NMS-compliant, anti-gaming, cost optimizer). Plug-and-play: bypassed by default; activated by firm/desk setting. Algo wheel section covers WEIGHTED_RANDOM / ROUND_ROBIN / PERFORMANCE_TIER / COMMISSION_TIER selection with replay-stable seeding and best-ex audit chain.
 - [[arch-jmx-introspection]] — per-component introspection & privileged injection
 
 ## Gaps Surfaced During Workflow Expansion

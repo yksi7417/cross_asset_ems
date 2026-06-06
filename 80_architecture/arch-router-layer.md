@@ -109,11 +109,10 @@ Every fill emits:
 - Building or evaluating rules. That is [[arch-automation-layer]].
 - Deciding which broker/account to use. That is set on the [[arch-order-staged|staged order]] before routing.
 - Quote distribution. That is [[arch-quote-server]].
+- **Cross-venue split decisions, algo-wheel selection, dark-first probing, Reg-NMS slicing.** Those are [[arch-smart-order-router|SOR]]'s job. The router routes to a venue; if that venue is an SOR instance, SOR fans out to real venues. From the router's perspective the decomposition is invisible.
 
 ## See also
 
-- [[arch-order-staged]]
-- [[arch-automation-layer]]
-- [[arch-venue-connectivity]]
-- [[arch-validator]]
-- [[arch-fix-api-bridge]]
+- [[arch-order-route-lifecycle]] · [[arch-fix-appendix-d]] · [[arch-fix-fsm-design]]
+- [[arch-order-staged]] · [[arch-automation-layer]] · [[arch-venue-connectivity]] · [[arch-smart-order-router]]
+- [[arch-validator]] · [[arch-fix-api-bridge]]

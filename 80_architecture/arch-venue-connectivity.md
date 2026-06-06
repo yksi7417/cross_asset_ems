@@ -73,11 +73,12 @@ Adapters publish a `Capability` set at startup. The router consults this when de
 - **Adapter crash** — supervisor restarts. State is rebuilt from the [[arch-event-sourcing|event log]].
 - **Venue-side reject with unmappable code** — translated to `EMS-RTE-9999 venue_unmapped_reject` with the original code preserved in metadata. Ops triage and add a mapping.
 
+## SOR as a virtual venue
+
+[[arch-smart-order-router|Smart Order Routing]] is implemented as a special venue adapter from the router's perspective. SOR receives a parent route and **internally fans out to N child routes** to real venues, each managed via its own concrete adapter from this layer. This keeps the router-side surface uniform: route-to-MarketAxess and route-to-SOR_EQ_US use the same envelope. SOR's plug-and-play property is the entire reason it's a venue, not a router modification.
+
 ## See also
 
-- [[arch-router-layer]]
-- [[arch-validator]]
-- [[arch-sbe-aeron-transport]]
-- [[arch-event-sourcing]]
-- [[arch-time-replay-server]]
-- [[arch-jmx-introspection]]
+- [[arch-router-layer]] · [[arch-smart-order-router]]
+- [[arch-order-route-lifecycle]] · [[arch-fix-appendix-d]] · [[arch-fix-fsm-design]]
+- [[arch-validator]] · [[arch-sbe-aeron-transport]] · [[arch-event-sourcing]] · [[arch-time-replay-server]] · [[arch-jmx-introspection]]
