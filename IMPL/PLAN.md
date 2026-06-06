@@ -20,7 +20,7 @@ Foundation for everything else. ~1-2 weeks of work.
 - [x] **0.3** Git hooks (pre-commit lint, conventional commits) (local) `(e6b411b)`
 - [x] **0.4** GitHub Actions baseline (unit tests, lint, SBOM) (claude) ← blocks: 0.2 `(5283807)`
 - [x] **0.5** Docker Compose dev environment (claude) ← blocks: 0.2 `(c74f4c4)`
-- [x] **0.6** SBE codegen Gradle plugin wired up (claude) ← blocks: 0.2 `(pending sha)`
+- [x] **0.6** SBE codegen Gradle plugin wired up (claude) ← blocks: 0.2 `(ab1fd79)`
 - [ ] **0.7** Aeron Cluster + Archive toy ping/pong (claude) ← blocks: 0.6
 - [ ] **0.8** OpenTelemetry SDK + collector + Jaeger toy trace (local)
 - [ ] **0.9** Conventional commit + changelog automation (local)
