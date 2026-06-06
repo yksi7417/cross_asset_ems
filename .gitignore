@@ -57,3 +57,6 @@ logs/
 *.tmp
 *.swp
 *.swo
+
+# local secrets
+open-router.key
