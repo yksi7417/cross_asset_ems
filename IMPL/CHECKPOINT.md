@@ -25,12 +25,20 @@ Claude tokens are out. Claude to review and merge when budget resets.
 | Branch | Task | Commit(s) | Status | Notes |
 |---|---|---|---|---|
 | `wip/0.9-changelog` | 0.9 | `f90a549` | ready | cliff.toml + scripts/release/gen-changelog.sh |
-| `wip/4.5-equity-instrument` | 4.5 | `5752d7c` | ready | EquityInstrument SBE template (template_id=0x2001); xmllint-clean. Caveat: namespace prefix style is mixed. |
-| `wip/4.6-bond-instrument` | 4.6 | `4159279` | ready | BondInstrument SBE template (template_id=0x2002); xmllint-clean. Initial openRouter draft had 3 issues (sparse InstrumentCore, wrong xmlns URI, duplicate day-count enum value 11) — all fixed in this commit. |
-| `wip/4.22-calendars` | 4.22 | `56052aa`, `2322aad` | ready | 298 holiday entries across USD/EUR/GBP/JPY/HKD/SGD (2025-2028) + Gemini code review of bootstrap 0.1-0.8. 4 documented limitations (SGD is country-level only, etc.). |
-| `wip/4.23-day-counts` | 4.23 | `ec73df9` | ready | 13 ISDA 2006 conventions in schemas/reference-data/day-counts.yaml |
-| `wip/4.24-mic-codes` | 4.24 | `569cc47`, `ed13df4` | ready | 72 MICs + 25 brokers; 3 LEI flags (BNP NULL, ML INACTIVE, DBAB name mismatch) — all LEIs re-verified against GLEIF |
-| `wip/6.1-reject-codes` | 6.1 | `ee3ec32` | ready | 47 reject codes across 10 categories in schemas/reject-codes/catalog.yaml |
+| `wip/4.5-equity-instrument` | 4.5 | `5752d7c` | ready | EquityInstrument SBE template (template_id=0x2001) |
+| `wip/4.6-bond-instrument` | 4.6 | `4159279` | ready | BondInstrument SBE template (template_id=0x2002) |
+| `wip/4.9-fx-instruments` | 4.9 | (4 commits) | ready | 4 Fx templates (0x2040-0x2043): FxSpot, FxForward, FxSwap, FxNdf |
+| `wip/4.11-listed-instruments` | 4.11 | (2 commits) | ready | 2 Listed templates (0x2030, 0x2031). Caveat: InstrumentCore is 22 fields/328 bytes (non-canonical); needs sync to 20/315 |
+| `wip/4.13-4.15-4.16-sbe-batch` | 4.13, 4.15, 4.16 | (7 commits) | ready | 7 SBE templates: ABS, ConvertibleBond, Loan, CommodityFuture, CommodityPhysical, CryptoFungible, NFT. All use canonical 20/315 InstrumentCore. |
+| `wip/4.22-calendars` | 4.22 | `56052aa`, `2322aad` | ready | 298 holiday entries + Gemini code review of bootstrap 0.1-0.8 |
+| `wip/4.23-day-counts` | 4.23 | `ec73df9` | ready | 13 ISDA 2006 conventions |
+| `wip/4.24-mic-codes` | 4.24 | `569cc47`, `ed13df4` | ready | 72 MICs + 25 brokers with GLEIF-verified LEIs (3 flags) |
+| `wip/6.1-reject-codes` | 6.1 | `ee3ec32` | ready | 47 reject codes across 10 categories |
+| `wip/6.4-validation-rules` | 6.4 | (1 commit) | ready | 185 per-asset validation rules across 8 YAML files; 155 distinct reject codes (some fabricated pending 6.1 main-merge) |
+| `wip/6.5-validator-golden` | 6.5 | (1 commit) | ready | 47 JSON test fixtures across 10 categories (one file per category) |
+| `wip/13.2-13.4-observability` | 13.2, 13.3, 13.4 | (1 commit) | ready | 13 observability files: OpenSearch pipeline, Logstash conf, OpenSearch template, Filebeat input, Prometheus scrape + 5 service exporter samples, 3 Grafana dashboards. Caveats: Grafana dashboards under-delivered on panel count (9/6/9 vs 12/24/12 target); prometheus.yml has wrong target ports and missing jobs — needs follow-up pass. |
+| `wip/14.3-14.4-ui-scaffolds` | 14.3, 14.4 | (1 commit) | ready | 2 Next.js 14 / React / TypeScript scaffolds (34 files each): time-replay console + config-service admin console. Mock-data backed; runnable as-is. |
+| `wip/14.8-14.9-drills` | 14.8, 14.9 | (1 commit) | ready | 2 drill scripts: weekly-leader-kill.sh (401 lines) + monthly-cold-start.sh (624 lines). Both follow set -euo pipefail, --dry-run + --help flags, configurable via env vars. |
 
 ## Session log
 
