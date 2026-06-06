@@ -47,7 +47,7 @@ All workflows grouped under the FX taxonomy headings. Cross-asset where applicab
 - [[auto-route|Auto-Route to RFQ / FXOM / CNF]] **(draft)**
 - [[partial-routes|Partial Routes (Single & Netted)]] **(draft)**
 - [[spot-first|Spot-First]] **(draft)**
-- [[auto-route-fixing-aim|Auto-Route — Fixing Orders from AIM]] **(draft)**
+- [[auto-route-fixing-orders|Auto-Route — Fixing Orders]] **(draft)**
 - [[fx-automation-tradebest|FX Automation — TradeBest]] **(draft)**
 - [[fx-automation-rbld|FX Automation — RBLD]] **(draft)**
 
@@ -61,7 +61,7 @@ All workflows grouped under the FX taxonomy headings. Cross-asset where applicab
 
 ## Others
 - [[stp-summary|STP Summary]] **(draft)**
-- [[tsox-aim-to-fxem|TSOX (AIM) → FXEM Workflow]] **(draft)**
+- [[buy-side-oms-integration|Buy-Side OMS Integration]] **(draft)**
 - [[counterparty-enablement|Counterparty Enablement]] **(draft)**
 - [[internal-notes|Internal Notes]] **(draft)**
 - [[group-id|Group ID (vs. BatchName)]] **(draft)**

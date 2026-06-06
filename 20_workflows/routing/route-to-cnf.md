@@ -18,7 +18,7 @@ Capture an off-platform agreement as a first-class trade in the EMS: full audit,
 
 - Sales-trader has agreed a price with a counterparty by voice or IB ([[bloomberg-ib]]) and wants to book it.
 - API: `route_orders([{order_id, venue: CNF, mode: CONFIRMATION, counterparty, agreed_price, agreed_qty, agreement_ref}])`.
-- Bloomberg FXEM / FIT-style screens expose a "Confirm" action that calls the same API.
+- A trader UI or dealer-facing confirmation screen exposes a "Confirm" action that calls the same API.
 
 ## Actors
 

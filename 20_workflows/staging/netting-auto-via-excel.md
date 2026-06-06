@@ -8,7 +8,7 @@ tags: [workflow/staging, workflow/netting]
 
 # Netting — Auto via Excel / `35=E` (`58=Netted`) / Limits
 
-Buy-side desks (especially corporate treasuries via FXEL/FXEM) frequently stage many small same-currency-pair orders from spreadsheets; the EMS nets these into fewer market-facing orders before routing. Auto-netting can be requested **explicitly** (FIX `35=E` with `58=Netted`) or **implicitly** by firm policy when an Excel batch arrives.
+Buy-side desks (especially corporate treasuries) frequently stage many small same-currency-pair orders from spreadsheets; the EMS nets these into fewer market-facing orders before routing. Auto-netting can be requested **explicitly** (FIX `35=E` with `58=Netted`) or **implicitly** by firm policy when an Excel batch arrives.
 
 ## Purpose
 

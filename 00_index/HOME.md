@@ -14,8 +14,10 @@ Atomic-notes Obsidian vault covering execution workflows across every asset clas
 
 ### Equity
 - [[cash-equity|Cash Equity]]
-- [[equity-derivatives|Equity Derivatives]]
+- [[equity-options|Equity Options]]
+- [[equity-futures|Equity Futures (Index + SSF)]]
 - [[equity-swaps|Equity Swaps]]
+- [[equity-derivatives|Equity Derivatives (overview)]]
 
 ### Fixed Income
 - [[govt-bonds|Government Bonds]]
@@ -30,21 +32,34 @@ Atomic-notes Obsidian vault covering execution workflows across every asset clas
 - [[mbs|Mortgage-Backed Securities (MBS)]]
 - [[abs|Asset-Backed Securities (ABS)]]
 
-### Rates Credit Deriv
+### Rates / Credit Derivatives
 - [[interest-rate-swaps|Interest Rate Swaps (IRS)]]
 - [[credit-default-swaps|Credit Default Swaps (CDS)]]
 - [[structured-products|Structured Products]]
 
-### Fx
+### FX
 - [[fx-spot|FX Spot]]
 - [[fx-forward|FX Forward]]
 - [[fx-swap|FX Swap]]
 - [[fx-ndf|FX NDF]]
 - [[fx-options|FX Options]]
+- [[fx-futures|FX Futures (CME, EUREX, ICE)]]
+
+### Crypto / Digital Assets
+- [[crypto-spot|Crypto Spot]]
+- [[crypto-perpetual|Crypto Perpetuals (Perp Swaps)]]
+- [[crypto-futures|Crypto Futures (CME, Deribit, etc.)]]
+- [[crypto-options|Crypto Options (Deribit, CME, DeFi)]]
 
 ### Commodity
 - [[commodity-futures|Commodity Futures]]
 - [[commodity-physical|Commodity Physical]]
+
+### CFD (Contract For Difference)
+- [[cfd-overview|CFD Overview — Equity / Index / FX / Commodity / Crypto / Bond CFDs]]
+
+### Event Contracts / Prediction Markets
+- [[prediction-markets|Prediction Markets — Polymarket / Kalshi / CME event contracts]]
 
 ## Common Reference Domains
 - Venues — see `30_venues/`
@@ -53,3 +68,5 @@ Atomic-notes Obsidian vault covering execution workflows across every asset clas
 - Documentation — see `60_documentation/`
 - Concepts / Glossary — see `70_concepts/`
 - **System Architecture** — see `80_architecture/` and [[architecture-index]]
+- FSM definitions — see `fsm/` (per [[arch-fix-fsm-design]])
+- Evaluations (local-LLM trial outputs etc.) — see `fsm/EVALUATION-*` and `evaluation/`

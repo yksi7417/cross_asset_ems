@@ -18,7 +18,7 @@ Eliminate the leg-risk window: if the forward leg goes first and the spot leg fa
 
 - A multileg ([[arch-multileg]]) order with `execution_mode = SEQUENCED` and `sequence_policy = spot_first`.
 - A pair of single orders (spot + forward) tied by `group_id` with a "spot before forward" automation rule bound.
-- FXEM/FXEL workflows with the desk setting `enforce_spot_first = true` for swap-shaped orders.
+- FX execution workflows (including corporate-treasury flows via [[fxel]]) with the desk setting `enforce_spot_first = true` for swap-shaped orders.
 
 ## Actors
 

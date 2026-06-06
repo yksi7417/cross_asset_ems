@@ -1,0 +1,118 @@
+fsm:
+  name: FIXVenueSession
+  version: 1.0.0
+states:
+  - name: Disconnected
+    terminal: false
+    description: Session is offline.
+  - name: Connecting
+    terminal: false
+    description: TCP connection attempt in progress.
+  - name: LogonSent
+    terminal: false
+    description: TCP established, awaiting Logon (35=A) confirmation.
+  - name: Active
+    terminal: false
+    description: Session established and exchanging application messages.
+  - name: ResendInProgress
+    terminal: false
+    description: Sequence gap detected, awaiting retransmission (35=2).
+  - name: LogoutInProgress
+    terminal: false
+    description: Logout (35=5) sent, awaiting confirmation.
+events:
+  - name: connect_request
+    direction: in
+  - name: tcp_connected
+    direction: in
+  - name: tcp_failed
+    direction: in
+  - name: logon_ack
+    direction: in
+  - name: logon_reject
+    direction: in
+  - name: heartbeat_received
+    direction: in
+  - name: heartbeat_missed
+    direction: in
+  - name: gap_detected
+    direction: in
+  - name: resend_complete
+    direction: in
+  - name: logout_request
+    direction: out
+  - name: logout_ack
+    direction: in
+  - name: unexpected_disconnect
+    direction: in
+transitions:
+  - from: Disconnected
+    on: connect_request
+    to: Connecting
+    emit: []
+    effects: [initiate_tcp_handshake]
+  - from: Connecting
+    on: tcp_connected
+    to: LogonSent
+    emit: [send_logon_message]
+    effects: [start_logon_timer]
+  - from: Connecting
+    on: tcp_failed
+    to: Disconnected
+    emit: []
+    effects: [log_connection_error]
+  - from: LogonSent
+    on: logon_ack
+    to: Active
+    emit: []
+    effects: [reset_heartbeat_timer]
+  - from: LogonSent
+    on: logon_reject
+    to: Disconnected
+    emit: []
+    effects: [close_socket]
+  - from: Active
+    on: heartbeat_received
+    to: Active
+    emit: []
+    effects: [reset_heartbeat_timer]
+  - from: Active
+    on: heartbeat_missed
+    to: Disconnected
+    emit: []
+    effects: [close_socket]
+  - from: Active
+    on: gap_detected
+    to: ResendInProgress
+    emit: [send_resend_request]
+    effects: [pause_application_messages]
+  - from: ResendInProgress
+    on: resend_complete
+    to: Active
+    emit: []
+    effects: [resume_application_messages]
+  - from: Active
+    on: logout_request
+    to: LogoutInProgress
+    emit: [send_logout_message]
+    effects: []
+  - from: LogoutInProgress
+    on: logout_ack
+    to: Disconnected
+    emit: []
+    effects: [close_socket]
+  - from: Active
+    on: unexpected_disconnect
+    to: Disconnected
+    emit: []
+    effects: [cleanup_session]
+  - from: LogonSent
+    on: unexpected_disconnect
+    to: Disconnected
+    emit: []
+    effects: [cleanup_session]
+  - from: ResendInProgress
+    on: unexpected_disconnect
+    to: Disconnected
+    emit: []
+    effects: [cleanup_session]

@@ -86,7 +86,7 @@ A rule firing inherits an `actor` equal to the rule owner (the user or service w
 - [[fx-automation-tradebest]] — best-quote chasing
 - [[fx-automation-rbld]] — rebalancing routing
 - [[auto-route]] — generic auto-routing to RFQ / FXOM / CNF
-- [[auto-route-fixing-aim]] — fixing-orders auto-route from AIM
+- [[auto-route-fixing-orders]] — fixing-orders auto-route from an upstream OMS
 - [[spot-first]] — route spot leg before forward leg
 
 ## Out of scope

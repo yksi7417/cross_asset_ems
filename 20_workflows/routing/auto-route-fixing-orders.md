@@ -6,9 +6,9 @@ status: draft
 tags: [workflow/routing, workflow/fixing]
 ---
 
-# Auto-Route — Fixing Orders from AIM
+# Auto-Route — Fixing Orders
 
-**Fixing orders** are FX orders that price against a published benchmark fix (e.g. WMR/Refinitiv 4pm London, ECB 1:15pm CET, BFIX). AIM (Bloomberg Asset and Investment Manager — the buy-side OMS) is a common source of fixing orders flowing to FXEM. This workflow auto-routes them at the correct moment under the correct execution policy.
+**Fixing orders** are FX orders that price against a published benchmark fix (e.g. WMR/Refinitiv 4pm London, ECB 1:15pm CET, BFIX, iNAV for ETFs). They commonly arrive from buy-side OMSs (institutional asset managers, corporate treasurers, hedge funds) where the client wants to track a published benchmark. This workflow auto-routes them at the correct moment under the correct execution policy.
 
 ## Purpose
 
@@ -20,13 +20,13 @@ Manual handling at scale is impractical; this workflow uses a bound [[arch-autom
 
 ## Trigger / Entry Point
 
-- An order arrives from AIM via [[arch-fix-api-bridge|FIX]] with an extension tag indicating `is_fixing = true` and `benchmark = WMR_4PM | ECB_115 | BFIX | ...`.
+- An order arrives via [[arch-fix-api-bridge|FIX]] (or API) from an upstream buy-side system with an extension tag indicating `is_fixing = true` and `benchmark = WMR_4PM | ECB_115 | BFIX | iNAV | ...`. See [[buy-side-oms-integration]] for the integration boundary.
 - A bound auto-route rule with trigger pattern matching `OrderStaged where extension.is_fixing = true` and condition `time_until_fix(extension.benchmark) <= execution_window`.
 - The rule's action template selects the strategy and venue: typically `route_to_algo` with a fixing-TWAP strategy or `route_to_rfq` for a fix-locked dealer offer.
 
 ## Actors
 
-- AIM (buy-side OMS) — order source.
+- Upstream buy-side OMS — order source.
 - [[arch-automation-layer]] — the bound rule.
 - [[arch-router-layer]] — executes the rule's action.
 - Fix-aware venue / algo — usually a broker offering a fixing benchmark strategy.
@@ -35,14 +35,14 @@ Manual handling at scale is impractical; this workflow uses a bound [[arch-autom
 
 ```mermaid
 sequenceDiagram
-  participant AIM as AIM (buy-side OMS)
+  participant OMS as Upstream Buy-Side OMS
   participant FIX as FIX Bridge
   participant O as Order Layer
   participant A as Automation
   participant R as Router
   participant ALG as Broker Fix Algo
 
-  AIM->>FIX: NewOrderSingle (is_fixing=true, benchmark=WMR_4PM)
+  OMS->>FIX: NewOrderSingle (is_fixing=true, benchmark=WMR_4PM)
   FIX->>O: stage_orders (mapped per [[arch-fix-api-bridge]])
   O->>A: OrderStaged event
   Note over A: Rule evaluates time_until_fix
@@ -58,7 +58,7 @@ sequenceDiagram
   end
 ```
 
-1. AIM stages the order; the fixing extension fields decode into the staged order's `extension` block.
+1. Upstream OMS stages the order; the fixing extension fields decode into the staged order's `extension` block.
 2. Automation rule matches; condition checks `time_until_fix`.
 3. If outside the execution window, rule schedules a re-evaluation at the window start via the [[arch-time-replay-server|clock interface]] (not wall-clock directly — deterministic).
 4. At window start, rule fires `route_orders` with the appropriate strategy.
@@ -82,9 +82,9 @@ sequenceDiagram
 - **Late order arrival.** Order arrives after the execution window has started; rule fires with the residual window only. Tracking error grows; flagged in audit.
 - **Multiple fixings same day.** Some orders specify "fill at any of WMR 10am or 4pm"; rule has multiple triggers, fires on the first viable fix.
 - **Cancel during window.** Cancellation accepted but late fills from the broker algo may still arrive — reconciled per [[arch-venue-connectivity|adapter anomaly rules]].
-- **Multiple currency pairs from one AIM batch.** One AIM upload can carry orders across many pairs; each rule fires independently. Aggregation rules (firm-policy) may consolidate same-pair orders before routing.
+- **Multiple currency pairs from one upstream batch.** A single upstream upload can carry orders across many pairs; each rule fires independently. Aggregation rules (firm-policy) may consolidate same-pair orders before routing.
 - **Replay.** The clock-bound condition is the trickiest determinism case; [[arch-time-replay-server|simulated clock]] in replay must reproduce window-start firings exactly. No wall-clock reads anywhere in the rule.
-- **Cross-time-zone fixes.** WMR 4pm is London; ECB 1:15pm is CET. Mixed-fix portfolios from a single AIM upload schedule at different absolute times.
+- **Cross-time-zone fixes.** WMR 4pm is London; ECB 1:15pm is CET. Mixed-fix portfolios from a single upstream upload schedule at different absolute times.
 
 ## API mapping
 
@@ -123,4 +123,4 @@ items: [{
 
 - [[arch-automation-layer]] · [[arch-time-replay-server]] · [[arch-fix-api-bridge]] · [[arch-router-layer]]
 - [[route-to-algo]] · [[auto-route]] · [[multi-route-rfq]]
-- [[tsox-aim-to-fxem]] · [[fx-automation-tradebest]] · [[fx-automation-rbld]]
+- [[buy-side-oms-integration]] · [[fx-automation-tradebest]] · [[fx-automation-rbld]]

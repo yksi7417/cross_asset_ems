@@ -17,7 +17,7 @@ Hand off working-the-order responsibility to a counterparty's algorithm under ex
 ## Trigger / Entry Point
 
 - Trader calls `route_orders([{order_id, venue: <broker_algo>, mode: ALGO, strategy, algo_params}])`.
-- [[arch-automation-layer|Automation]] rule with action `route_to_algo` — see [[fx-automation-tradebest]] / [[fx-automation-rbld]] for FX analogues; equity examples use a [[bloomberg-fit|FIT]]-like or EMSX-style route with `Strategy=VWAP` and parameter binding.
+- [[arch-automation-layer|Automation]] rule with action `route_to_algo` — see [[fx-automation-tradebest]] / [[fx-automation-rbld]] for FX analogues; equity examples route to a broker-hosted algo via FIX `Strategy=VWAP` (or other vendor strategy name) with parameter binding.
 
 ## Actors
 
@@ -72,7 +72,7 @@ Hand off working-the-order responsibility to a counterparty's algorithm under ex
 | POV | participation_rate | start, end, limit |
 | IS (Implementation Shortfall) | urgency | start, end, limit |
 | Liquidity seeker | — | limit, dark_pct, anti_gaming |
-| FX TWAP (FXEM-style) | start, end, value_date | benchmark, max_clip_qty |
+| FX TWAP | start, end, value_date | benchmark, max_clip_qty |
 
 ## API mapping
 

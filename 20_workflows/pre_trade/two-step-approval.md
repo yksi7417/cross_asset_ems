@@ -8,7 +8,7 @@ tags: [workflow/pre_trade]
 
 # Two-Step Approval
 
-A firm-policy gate that requires a **second user** (beyond the order originator) to approve before an order can leave the [[arch-order-staged|staged state]] and become routable. Common in FX corporate-treasury workflows (FXEM), sensitive cross-asset blocks, and certain regulated entities.
+A firm-policy gate that requires a **second user** (beyond the order originator) to approve before an order can leave the [[arch-order-staged|staged state]] and become routable. Common in FX corporate-treasury workflows, sensitive cross-asset blocks, and certain regulated entities.
 
 ## Purpose
 
@@ -30,12 +30,12 @@ When invoked, the order's `pending_actions` includes `NeedApproval2`. It cannot 
 - **Approver** — a second user holding `#two-step-approval-approver` evaluated under the [[arch-tag-permissions|3-layer AND-gate]].
 - **Validator** — enforces invariants (originator ≠ approver, scope match).
 - **OMS staged order layer** — owner of state.
-- **FXPV (FX Trader Pre-trade Validation) / FXPF (preferences) consumer** — in FXEM-style workflows the approver acts inside the **solicited trading screen** (FXPV), which calls the same API.
+- **Pre-trade validation / preferences consumer** — in solicited-trading workflows the approver acts inside the pre-trade validation screen which calls the same API as any other approval surface.
 
 ## Steps (canonical flow)
 
 1. Originator stages an order. Validator marks `pending_actions: [NeedApproval2]`. Event `ApprovalRequested` is logged.
-2. Order surfaces in approvers' queue (any UI / FXPV / TSOX-equivalent calling `list_pending_approvals`).
+2. Order surfaces in approvers' queue (any UI / pre-trade-validation screen / external OMS calling `list_pending_approvals`).
 3. Approver inspects, optionally amends (subject to amend rules below), then calls `approve_orders([order_id, {comment?}])`.
 4. Validator re-runs full validation against the order **as it stands at approval time**. Same code path as routing-time validation — see [[arch-validator]].
 5. On pass: `pending_actions` clears `NeedApproval2`. If no other pending actions remain, order auto-transitions to `READY`. Event `OrderApproved` is logged.

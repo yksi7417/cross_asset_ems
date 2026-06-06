@@ -8,7 +8,7 @@ tags: [workflow/staging, workflow/fix]
 
 # Staging via FIX — Nuances
 
-Inbound FIX is the predominant institutional entry point for buy-side staging. Sell-side TSOX users, FXEM clients, and many EMSX equity flows route through a FIX session before any human in the EMS sees the order. This note captures how the FIX wire decodes into the cross-asset API, and what the FIX-paired-with-API rule (see [[arch-fix-api-bridge]]) implies for handling.
+Inbound FIX is the predominant institutional entry point for buy-side staging. Buy-side OMSs across fixed income, FX, and equity route through a FIX session before any human in the EMS sees the order. This note captures how the FIX wire decodes into the cross-asset API, and what the FIX-paired-with-API rule (see [[arch-fix-api-bridge]]) implies for handling. See [[buy-side-oms-integration]] for the broader integration view.
 
 ## Purpose
 
@@ -30,7 +30,7 @@ The bridge resolves `11`/`41` (`ClOrdID` / `OrigClOrdID`) against per-session ID
 
 ## Actors
 
-- Buy-side OMS / TSOX-equivalent — sender.
+- Buy-side OMS — sender.
 - Sales-trader / execution trader at the receiving firm — operator.
 - The [[arch-validator|validator]] — gatekeeper.
 - The [[arch-order-staged|staged order manager]] — owner of state.

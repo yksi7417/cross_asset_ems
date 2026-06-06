@@ -8,7 +8,7 @@ tags: [workflow/routing, workflow/rfq]
 
 # Route to RFQ
 
-Route a [[arch-order-staged|staged order]] to one or more dealers and collect competitive responses before electing an execution. Predominant in fixed income (Bloomberg ALLQ/FIT, MarketAxess, Tradeweb) and FX (FXConnect, FXEM, BBG ALLQ).
+Route a [[arch-order-staged|staged order]] to one or more dealers and collect competitive responses before electing an execution. Predominant in fixed income (Bloomberg ALLQ/FIT, MarketAxess, Tradeweb) and FX (FXConnect, BBG ALLQ, dealer-direct platforms).
 
 ## Purpose
 
@@ -18,7 +18,7 @@ Discover liquidity by sending an enquiry to a curated set of counterparties and 
 
 - Trader / sales calls `route_orders([{order_id, venue: <rfq_venue>, mode: RFQ, dealers: [...]}])`.
 - Or [[auto-route]] / [[multi-route-rfq]] rule fires the same API call.
-- For FXEM-style flows, the route operation is implicitly created by accepting a price on the FXPV screen — semantically identical at the API level.
+- For solicited-trading flows, the route operation is implicitly created by accepting a price on the pre-trade validation screen — semantically identical at the API level (see [[two-step-approval]] for the approval interaction).
 
 ## Actors
 

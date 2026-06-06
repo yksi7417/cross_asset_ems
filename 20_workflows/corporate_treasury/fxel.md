@@ -97,7 +97,7 @@ sequenceDiagram
 - **Markup compliance.** Markup must respect firm/region rules (e.g. Dodd-Frank for swap dealers); see [[markup]] for detail.
 - **Mid-life amend.** Treasury can edit notes after quote-offered without invalidating the quote; but qty/value_date changes invalidate the offer (sales-trader re-prices).
 - **Cross-time-zone close.** Treasury operates US-EU-AS hours; the sales-trader desk may not be open. Orders queue until sales-trader becomes available.
-- **TSOX (buy-side OMS) integration.** Large corporates use TSOX to manage their order flow; FXEL is the dealer-side entry surface. See [[tsox-aim-to-fxem]].
+- **Buy-side OMS integration.** Large corporates frequently use a treasury OMS to manage cash-flow and FX hedging order flow; this EMS provides the dealer-side entry surface. See [[buy-side-oms-integration]].
 
 ## API mapping
 
