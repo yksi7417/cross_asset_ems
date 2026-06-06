@@ -4,52 +4,56 @@ asset_class: fixed_income
 sub_class: corp-bonds-ig
 trade_type: cash_security
 liquidity: high
-status: stub
+status: draft
 tags: [asset/fixed_income/corp-bonds-ig]
 ---
 
 # Corporate Bonds — Investment Grade
 
-> **Status:** stub — fill in details from your reference matrix.
+USD / EUR / GBP and major-EM corporate bonds rated BBB- / Baa3 or higher. **Massively electronified** over the last decade — IG corp is one of the highest-success stories of fixed-income electronification, driven by all-to-all venues and portfolio trading.
 
 ## Venues
-- TODO — list venues, link to [[30_venues]] entries.
+
+- **Primary**: [[marketaxess]] (dominant US IG; Open Trading all-to-all), [[tradeweb]] (dominant EU IG; growing US), [[trumid]] (HY-leaning but also IG), [[bloomberg-bridge]] (EM IG all-to-all).
+- **Pre-trade**: [[neptune]] (axes/IOIs; vendor-neutral aggregation), [[bloomberg-ib]] (chat for high-touch).
+- **Reference**: [[bloomberg-allq]] / [[bloomberg-fit]] / [[bloomberg-cbnd]] (price-discovery screens — not routable).
 
 ## How to Access Market
-- TODO — e.g. `FIT<GO>`, `BWIC<GO>`, `ALLQ<GO>`.
 
-## Monitor Dealer Response
-- TODO — see [[bloomberg-allq]].
+Buy-side EMS routes via FIX to [[marketaxess]] and [[tradeweb]] for [[rfq]]. For block sizes consider [[bloomberg-bridge]] or [[trumid]] all-to-all. [[composite-price]] (CBBT / BVAL / CP+) anchors pre-trade reference.
 
-## Request for Quote (RFQ)
-- See [[route-to-rfq]].
+## RFQ vs CLOB
 
-## Execution / Allocation
-- See [[route-single]] / [[allocation-prime-broker]].
+Almost entirely [[rfq]]-based. **Open Trading** ([[marketaxess]]) and **Bridge** ([[bloomberg-bridge]]) extend the model to [[all-to-all]] anonymous matching. Some venues run "Live Markets" CLOB-like books for the most liquid issues but RFQ dominates.
 
-## Basket Trading
-- TODO.
+## Aggregations / Basket / Netting
 
-## Aggregations
-- TODO.
-
-## Netting
-- See [[netting-swap-net]]; cleared via [[dtc]] / [[ficc-clearing]] / [[triparty-bnym-jpm]] as applicable.
+[[portfolio-trading]] is enormous — many buy-side IG rebalances trade as 100-500-line baskets through a single dealer at risk-price. Allocation back to underlying accounts post-trade. [[netting]] applies to same-CUSIP offsetting flow.
 
 ## Regulatory Reporting
-- TODO — link to [[trace]] / [[msrb-rtrs]] / [[cftc-sdr]] / [[finra]] etc.
+
+US: [[trace]] within 15 minutes (1 minute for some categories). EU: MiFID II post-trade transparency via APAs ([[rts-22-27-28]]). UK: UK MiFIR equivalent. Per-trade transaction reporting under RTS 22.
 
 ## Clearing / Settlement
-- TODO — link to [[50_clearing_settlement]] entries.
+
+US: T+2 at [[dtc]] via DVP; transitioning toward T+1 alignment with equity. EU: T+2 at [[euroclear]] / [[clearstream]]. Post-trade matching via [[markitserv]] / DTCC CTM / Bloomberg VCON — see [[allocation-affirmation-confirmation]].
 
 ## Documentation Required
-- TODO — link to [[isda]] / [[csa]] / [[gmra]] / [[dvp]] as applicable.
+
+Per-bond: prospectus and indenture (proprietary per issuer). Repo financing: [[gmra]]. Any related derivatives: [[isda]] / [[csa]].
 
 ## Market Notes
-- TODO — liquidity, spreads, electronification, structural quirks.
+
+- **Fungibility**: Fungible per CUSIP. Each bond issue is its own CUSIP (with the same coupon / maturity / covenants); units within a CUSIP are interchangeable. See [[fungible-vs-non-fungible]].
+- **All-to-all** all-but-killed the dealer-monopoly model in US IG over 2015-2024.
+- **CBBT / BVAL** composite pricing is the price-discovery reference even for trades not routed through MarketAxess.
+- **Portfolio trading** (blocks of 100-500 names) is now ~15% of US IG e-volume.
+- **TRACE** dissemination shapes algo behaviour — large prints trigger pricing adjustments across the market.
 
 ## Typical Counterparties
-- TODO.
+
+Major dealers: GS, MS, JPM, Citi, BAML, Barclays, Deutsche, BNP, UBS, Credit Suisse (now UBS), HSBC, Wells Fargo, Mizuho, MUFG, Nomura.
 
 ## Related Workflows
-- [[staging-via-fix]], [[two-step-approval]], [[stp-summary]].
+
+[[staging-via-fix]] · [[route-to-rfq]] · [[multi-route-rfq]] · [[bloomberg-bwic-owic]] (BWICs for rebalancing) · [[portfolio-trading]].

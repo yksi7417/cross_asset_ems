@@ -4,52 +4,56 @@ asset_class: fx
 sub_class: fx-ndf
 trade_type: cash_security
 liquidity: moderate
-status: stub
+status: draft
 tags: [asset/fx/fx-ndf]
 ---
 
-# FX NDF
+# FX NDF (Non-Deliverable Forward)
 
-> **Status:** stub — fill in details from your reference matrix.
+FX forward in a **non-deliverable currency** — settled in cash in a freely-traded currency (typically USD) rather than via physical exchange of the local currency. Used for currencies with **capital controls** (CNY, INR, BRL, RUB historically, KRW) where the local currency cannot freely cross borders.
 
 ## Venues
-- TODO — list venues, link to [[30_venues]] entries.
+
+- **Primary**: [[refinitiv-fxall]], [[360t]] NDF, dealer-direct.
+- **SEF-regulated**: [[bloomberg-sef]] for NDFs subject to CFTC SEF mandate.
+- **Reference**: per-currency fixing source (e.g. PBOC Mid for CNY, RBI for INR).
 
 ## How to Access Market
-- TODO — e.g. `FIT<GO>`, `BWIC<GO>`, `ALLQ<GO>`.
 
-## Monitor Dealer Response
-- TODO — see [[bloomberg-allq]].
+Buy-side EMS routes via FIX. RFQ to a permissioned dealer set. For CFTC-jurisdiction NDFs, the SEF mandate applies — see [[mat]] and [[rfq-to-3]].
 
-## Request for Quote (RFQ)
-- See [[route-to-rfq]].
+## RFQ vs CLOB
 
-## Execution / Allocation
-- See [[route-single]] / [[allocation-prime-broker]].
+[[rfq]] dominates; some streaming on the most liquid pairs (USD/CNH, USD/INR).
 
-## Basket Trading
-- TODO.
+## Aggregations / Basket / Netting
 
-## Aggregations
-- TODO.
-
-## Netting
-- See [[netting-swap-net]]; cleared via [[dtc]] / [[ficc-clearing]] / [[triparty-bnym-jpm]] as applicable.
+EM hedging baskets [[netting|net]] across currencies. Multi-currency NDF execution common for EM portfolio hedging.
 
 ## Regulatory Reporting
-- TODO — link to [[trace]] / [[msrb-rtrs]] / [[cftc-sdr]] / [[finra]] etc.
+
+US: [[cftc-sdr]] (Dodd-Frank — NDFs are SEC swaps). EU/UK: [[emir-sftr-csdr|EMIR]] reportable; UK MiFIR.
 
 ## Clearing / Settlement
-- TODO — link to [[50_clearing_settlement]] entries.
+
+Cash-settled at the **fixing date** (typically T+2 from value date) at the fixing rate. No physical local-currency delivery. LCH ForexClear clears NDFs in major EM pairs.
 
 ## Documentation Required
-- TODO — link to [[isda]] / [[csa]] / [[gmra]] / [[dvp]] as applicable.
+
+ISDA Master + EMTA NDF definitions (for the fixing source and disruption fallbacks).
 
 ## Market Notes
-- TODO — liquidity, spreads, electronification, structural quirks.
+
+- **Fungibility**: Fungible per pair + fixing date + fixing source. The fixing source is part of the instrument definition. See [[fungible-vs-non-fungible]].
+- **Onshore vs offshore CNH** — onshore (CNY) is controlled; offshore (CNH) trades freely in HK. NDF references one or the other.
+- **CFTC MAT** ([[mat]]) applies to many NDFs — must execute on a SEF.
+- **EM crises** — NDFs are the leveraged-bet instrument for EM crisis exposure (BRL, RUB, etc.).
+- **Fixing source disruption** — when fixing source becomes unreliable (e.g. RUB in 2022), EMTA defines fallback fixing rules.
 
 ## Typical Counterparties
-- TODO.
+
+EM-specialist FX desks: HSBC (top APAC EM), Standard Chartered (EMEA EM + APAC), Citi (global EM), GS, BNP, MS.
 
 ## Related Workflows
-- [[staging-via-fix]], [[two-step-approval]], [[stp-summary]].
+
+[[staging-via-fix]] · [[route-to-rfq]] · [[multi-route-rfq]] · [[rfq-to-3]] (for MAT NDFs).

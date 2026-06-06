@@ -60,6 +60,7 @@ For Bloomberg-Terminal monitor screens (ALLQ, BTMM, FIT, CDSW, SWPM, CBND, CP/CD
 
 ## Execution Lifecycle
 
+- [[fungible-vs-non-fungible]] — structural driver of market mechanics (CLOB requires fungibility)
 - [[fix-protocol-basics]] — FIX message types and key tags
 - [[clordid-origclordid]] — FIX order identifiers and their lifetimes
 - [[ordstatus-exectype]] — FIX order state vs. event-of-this-report

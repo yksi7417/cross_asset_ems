@@ -4,52 +4,56 @@ asset_class: fx
 sub_class: fx-forward
 trade_type: cash_security
 liquidity: high
-status: stub
+status: draft
 tags: [asset/fx/fx-forward]
 ---
 
-# FX Forward
+# FX Forward (Outright)
 
-> **Status:** stub — fill in details from your reference matrix.
+Single-leg FX trade with **value date later than spot** — e.g. "buy EUR/USD 1M forward." Economically [[fx-spot|spot]] + [[forward-points-swap-points|forward points]], traded as a single instrument.
 
 ## Venues
-- TODO — list venues, link to [[30_venues]] entries.
+
+- **Primary**: [[refinitiv-fxall]], [[360t]], [[currenex]], [[fx-connect]] (multi-dealer RFQ).
+- **Streaming**: [[fxspotstream]] (selected pairs).
+- **Pricing**: forward points reference SOFR/SONIA/ESTR curves via [[arch-pricing-service]].
 
 ## How to Access Market
-- TODO — e.g. `FIT<GO>`, `BWIC<GO>`, `ALLQ<GO>`.
 
-## Monitor Dealer Response
-- TODO — see [[bloomberg-allq]].
+Buy-side EMS routes via FIX, typically [[rfq]] mode. Some streaming-price desks for short-dated standard tenors (1W, 1M, 3M).
 
-## Request for Quote (RFQ)
-- See [[route-to-rfq]].
+## RFQ vs CLOB
 
-## Execution / Allocation
-- See [[route-single]] / [[allocation-prime-broker]].
+Almost entirely [[rfq]]. CLOB doesn't work because forward tenors fragment the order book.
 
-## Basket Trading
-- TODO.
+## Aggregations / Basket / Netting
 
-## Aggregations
-- TODO.
-
-## Netting
-- See [[netting-swap-net]]; cleared via [[dtc]] / [[ficc-clearing]] / [[triparty-bnym-jpm]] as applicable.
+Forward + spot legs often paired as [[fx-swap]]. Multi-currency forward hedging baskets [[netting|net]] same-value-date legs.
 
 ## Regulatory Reporting
-- TODO — link to [[trace]] / [[msrb-rtrs]] / [[cftc-sdr]] / [[finra]] etc.
+
+US: [[cftc-sdr]] for deliverable forwards (Dodd-Frank). EU/UK: [[emir-sftr-csdr|EMIR]] reportable for FX forwards (some carve-outs for commercial use).
 
 ## Clearing / Settlement
-- TODO — link to [[50_clearing_settlement]] entries.
+
+Mostly bilateral. CLS settlement for the major pairs (PvP). Some clearing initiatives via LCH ForexClear but cleared FX forwards remain a minority.
 
 ## Documentation Required
-- TODO — link to [[isda]] / [[csa]] / [[gmra]] / [[dvp]] as applicable.
+
+ISDA Master + FX Definitions. CSA for variation margin (uncleared margin rules under UMR — Uncleared Margin Rules — for in-scope counterparties).
 
 ## Market Notes
-- TODO — liquidity, spreads, electronification, structural quirks.
+
+- **Fungibility**: Fungible per currency pair + value date. Each forward with a specific currency pair and value date is interchangeable. Broken dates create per-trade non-fungible instances. See [[fungible-vs-non-fungible]].
+- **Forward points** ([[forward-points-swap-points]]) reflect rate differentials.
+- **Broken dates** trade at interpolated levels; standard tenors trade tighter.
+- **UMR** ([[arch-jurisdictional-compliance|Uncleared Margin Rules]]) applies — many forwards now require IM exchange.
+- **Hedge accounting** — corporates often use forwards specifically for hedge-accounting documentation purposes.
 
 ## Typical Counterparties
-- TODO.
+
+Same major dealer FX desks as [[fx-spot]]: JPM, Citi, GS, MS, Deutsche, BNP, UBS, BAML, HSBC, plus regional.
 
 ## Related Workflows
-- [[staging-via-fix]], [[two-step-approval]], [[stp-summary]].
+
+[[staging-via-fix]] · [[route-to-rfq]] · [[multi-route-rfq]] · [[fxel]] · [[auto-route-fixing-aim]] (corp-treasury forward execution).
