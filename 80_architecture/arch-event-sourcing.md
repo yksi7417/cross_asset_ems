@@ -40,8 +40,8 @@ Each domain entity has its own stream:
 
 | Stream | Examples of events |
 |---|---|
-| `order.{order_id}` | `OrderStaged`, `OrderAmended`, `OrderRouted`, `OrderCancelled`, `OrderFilled` |
-| `route.{route_id}` | `RouteSent`, `RouteAcked`, `RouteWorking`, `RouteFilled`, `RouteRejected` |
+| `order.{order_id}` | `OrderPendingNew`, `OrderAccepted` (a.k.a. `OrderStaged`), `OrderReplaceRequested`, `OrderReplaced`, `OrderReplaceRejected`, `OrderCancelRequested`, `OrderCanceled`, `OrderPartiallyFilled`, `OrderFilled`, `OrderRejected`, `OrderExpired`, `TradeCorrected`, `TradeCanceled` (see [[arch-order-route-lifecycle]]) |
+| `route.{route_id}` | `RouteSent`, `RouteAcknowledged`, `RouteWorking`, `RoutePartiallyFilled`, `RouteFilled`, `RouteReplaceRequested`, `RouteReplacePendingAtVenue`, `RouteReplaced`, `RouteReplaceRejected`, `RouteCancelRequested`, `RouteCancelPendingAtVenue`, `RouteCanceled`, `RouteCancelRejected`, `RouteRejected`, `RouteExpired`, `RouteSuperseded`, `RouteAnomaly` |
 | `session.{session_id}` | `SessionLogon`, `SessionLogout`, `SessionGapDetected` |
 | `rule.{rule_id}` | `RuleBound`, `RuleFired`, `RuleSuppressed` |
 | `quote.{topic}` | (multicast tail — sampled into log) |
@@ -60,7 +60,7 @@ Projections are **idempotent** in event id. Rebuilds from scratch are routine.
 
 ## Guarantees
 
-1. **Append-only.** No deletes, no edits. Corrections are new events (`OrderCorrected`, `RouteAdjusted`).
+1. **Append-only.** No deletes, no edits. Pre-trade modifications follow the FIX cancel/replace lifecycle (see [[arch-order-route-lifecycle]]): `OrderReplaceRequested` → `OrderReplaced` (success) or `OrderReplaceRejected` (the order stays in its prior state — `35=9` does not terminate). Post-fill corrections follow FIX `TradeCorrect` (`150=G`) and `TradeCancel` (`150=H`) semantics, recorded as `TradeCorrected` / `TradeCanceled` events.
 2. **Total order within stream.** `stream_seq` is contiguous; gaps indicate corruption.
 3. **Global order is partial.** `global_seq` is a tiebreaker, not a causal order claim.
 4. **Causality is explicit.** `caused_by` links downstream events to their trigger.

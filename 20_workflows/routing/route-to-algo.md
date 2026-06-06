@@ -31,11 +31,11 @@ Hand off working-the-order responsibility to a counterparty's algorithm under ex
 1. Validator confirms instrument-broker-strategy support per [[arch-validator]]. Strategy-specific guards (e.g. POV requires a `participation_rate`, IS requires a `risk_aversion` band) are enforced via the asset/strategy extension.
 2. Router materialises a `Route` with `mode=ALGO`, `strategy=VWAP|TWAP|POV|IS|...`, `algo_params={...}`. Event `RouteSent`.
 3. Adapter encodes per broker's FIX dialect — vendor `Strategy` enum, vendor-specific `StrategyParameters` group, vendor-specific `ExecInst`.
-4. Broker acks (`ExecutionReport 150=0`) → `RouteAcked`. Subsequent broker child fills update `cum_qty` / `last_qty` on the route.
+4. Broker acks (`ExecutionReport 150=0`) → `RouteAcknowledged`. Subsequent broker child fills update `cum_qty` / `last_qty` on the route.
 5. Optional in-flight controls:
    - `replace_routes([{route_id, fields}])` to change `participation_rate`, `end_time`, `limit_price`.
    - `cancel_routes([route_id])` to halt; broker confirms; remainder reverts to [[arch-order-staged|order]] for re-decision.
-6. Terminal: `RouteFilled` on full execution, `RouteCancelled` on user/broker cancel, `RouteRejected` on strategy violation.
+6. Terminal: `RouteFilled` on full execution, `RouteCanceled` on user/broker cancel, `RouteRejected` on strategy violation.
 
 ## Inputs
 
@@ -47,7 +47,7 @@ Hand off working-the-order responsibility to a counterparty's algorithm under ex
 
 ## Outputs / Side Effects
 
-- `RouteSent`, `RouteAcked`, repeated `RouteChildFill` events, terminal route state.
+- `RouteSent`, `RouteAcknowledged`, repeated `RouteChildFill` events, terminal route state.
 - Parent `OrderFilled` increments as child fills come in.
 - FIX `ExecutionReport` mirrored to paired FIX client per [[arch-fix-api-bridge]].
 - Possible `AllocationRequested` per attached allocation template.

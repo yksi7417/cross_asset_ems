@@ -24,16 +24,21 @@ The bridge owns:
 
 ## Operation coverage matrix (illustrative)
 
+The order/route lifecycle states this matrix references — `Pending Replace` / `Replaced` / `Pending Cancel` / `Canceled` and the `OrderCancelReject` reject paths — are defined in [[arch-order-route-lifecycle]].
+
 | FIX msg | API op | Notes |
 |---|---|---|
-| `D` NewOrderSingle | `stage_orders` (batch=1) | Optional auto-route via `[[auto-route]]` |
-| `G` OrderCancelReplace | `amend_orders` | Tag 11 → request_id, 41 → orig_request_id |
-| `F` OrderCancelRequest | `cancel_orders` | |
+| `D` NewOrderSingle | `stage_orders` (batch=1) | Optional auto-route via [[auto-route]] |
 | `E` NewOrderList | `stage_orders` (batch=N) | Batch by default — see [[arch-api-first]] |
-| `AB` NewOrderMultileg | `stage_orders` with multileg envelope | See planned `arch-multileg` |
+| `AB` NewOrderMultileg | `stage_orders` with multileg envelope | See [[arch-multileg]] |
 | `s` NewOrderCross | `stage_orders` with cross envelope | |
-| `j` BusinessMessageReject | (outbound) translated from validator reject | See [[arch-validator]] |
-| `8` ExecutionReport | (outbound) emitted from route/fill events | Generated from event log |
+| `G` OrderCancelReplaceRequest | `amend_orders` | Tag 11 (ClOrdID) → new ID, 41 (OrigClOrdID) → prior ID. Generates outbound `35=8 ExecType=E Pending Replace`, then `35=8 ExecType=5 Replaced` on success or `35=9 OrderCancelReject` on failure. See [[amend-order]] and [[arch-order-route-lifecycle]] § "Cancel/replace semantics". |
+| `AC` MultilegOrderCancelReplace | `amend_orders` (multileg) | Same Pending Replace lifecycle, but legs amended atomically. |
+| `F` OrderCancelRequest | `cancel_orders` | Tag 41 (OrigClOrdID) → current ClOrdID. Generates `35=8 ExecType=6 Pending Cancel`, then `35=8 ExecType=4 Canceled` on success or `35=9 OrderCancelReject` on failure. |
+| `H` OrderStatusRequest | `query_order_status` | Returns current state via `35=8`. |
+| `8` ExecutionReport | (outbound) emitted on every state transition | Generated from event log — see [[arch-event-sourcing]]. Carries `OrdStatus` (39) + `ExecType` (150) per [[arch-order-route-lifecycle]] mapping. |
+| `9` OrderCancelReject | (outbound) emitted on rejected `F` or `G` | Carries `CxlRejReason` (102). **Does not terminate the original order** — it stays in its prior state. |
+| `j` BusinessMessageReject | (outbound) translated from pre-state validator reject | See [[arch-validator]]. |
 
 ## The mixed-client (FIX + API) rule
 

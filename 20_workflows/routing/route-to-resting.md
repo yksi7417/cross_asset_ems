@@ -37,30 +37,49 @@ sequenceDiagram
   participant Q as Quote Server
 
   U->>R: route_orders(mode=RESTING, price, tif)
-  R->>V: place passive limit
-  V-->>R: RouteAcked (state=WORKING)
+  R->>V: 35=D NewOrderSingle
+  V-->>R: 35=8 ExecType=0 New<br/>(RouteAcknowledged, state=Working)
   loop until terminal
-    Q-->>R: quote update (best bid/offer moves)
+    Q-->>R: quote update
     alt automation rule fires reprice
       U->>R: replace_routes(new price)
-      R->>V: cancel/replace
-      V-->>R: ack new price
+      R->>V: 35=G OrderCancelReplaceRequest<br/>(new ClOrdID, OrigClOrdID=current)
+      V-->>R: 35=8 ExecType=E Pending Replace<br/>(RouteReplacePendingAtVenue)
+      Note over V: original price still workable until venue confirms
+      alt accepted
+        V-->>R: 35=8 ExecType=5 Replaced<br/>(RouteReplaced; may lose queue priority)
+      else rejected
+        V-->>R: 35=9 OrderCancelReject<br/>(RouteReplaceRejected; route stays in prior Working state)
+      end
+    else cancel
+      U->>R: cancel_routes
+      R->>V: 35=F OrderCancelRequest
+      V-->>R: 35=8 ExecType=6 Pending Cancel
+      alt accepted
+        V-->>R: 35=8 ExecType=4 Canceled (RouteCanceled, terminal)
+      else rejected
+        V-->>R: 35=9 OrderCancelReject (route stays Working)
+      end
     else venue match
-      V-->>R: RouteFilled (full / partial)
+      V-->>R: 35=8 ExecType=F (RouteFilled / RoutePartiallyFilled)
     else TIF expiry
-      V-->>R: RouteExpired
+      V-->>R: 35=8 ExecType=C (RouteExpired)
     end
   end
 ```
 
+The full FIX state-machine reference is in [[arch-order-route-lifecycle]].
+
 1. Validation: passive eligibility (some venues restrict who can rest), tick alignment, lot size, tif compatibility.
-2. Router creates `Route { mode=RESTING, state=PENDING }`; adapter places the limit.
-3. Venue ack → `state=WORKING`. The order sits in the book.
+2. Router creates `Route { mode=RESTING, state=Pending }`; adapter sends `35=D`.
+3. Venue ack → `Working` (`35=8 ExecType=0`). The order sits in the book.
 4. Lifecycle:
-   - **Filled** by an aggressive contra → `RouteFilled` (full or partial).
-   - **Replaced** by trader / rule — adapter issues cancel-replace; new `cl_ord_id` per FIX convention.
-   - **Cancelled** explicitly.
-   - **Expired** on TIF — `DAY` at close, `GTD` at the supplied date, `IOC`/`FOK` rejected as resting requests.
+   - **Filled** by an aggressive contra → `35=8 ExecType=F` (`RouteFilled` full or `RoutePartiallyFilled`).
+   - **Replaced** by trader / rule — adapter issues `35=G` with **new ClOrdID** and `OrigClOrdID` per FIX convention; passes through `Pending Replace` (`150=E/39=E`) before resolving to `Replaced` (`150=5/39=5`) or `OrderCancelReject` (`35=9`, route stays in prior state).
+   - **Canceled** explicitly via `35=F` → `Pending Cancel` (`150=6/39=6`) → `Canceled` (`150=4/39=4`) or `OrderCancelReject` (route stays Working).
+   - **Expired** on TIF — `DAY` at close, `GTD` at supplied date (`150=C/39=C`); `IOC`/`FOK` rejected as resting requests.
+
+> **Key FIX rule for resting orders:** during `Pending Replace` the **original price/qty is still working at the venue** and may fill. A replace's `Qty` ≤ `CumQty` is rejected (venue-side `35=9` or EMS pre-flight `EMS-RTE-2030`). Qty *decrease* typically preserves queue priority; price change or qty *increase* typically loses it — venue-dependent.
 
 ## Inputs
 
@@ -73,9 +92,9 @@ sequenceDiagram
 
 ## Outputs / Side Effects
 
-- `RouteSent`, `RouteAcked`, repeated `RouteReplaced` on each replace, `RouteFilled` / `RouteCancelled` / `RouteExpired` terminal.
-- For partial fills: `RoutePartialFill` events; route remains `WORKING` until terminal.
-- FIX `ExecutionReport` mirrored to paired FIX clients.
+- `RouteSent`, `RouteAcknowledged` (`Working`), `RouteReplaceRequested` / `RouteReplacePendingAtVenue` / `RouteReplaced` per replace, `RouteCancelRequested` / `RouteCancelPendingAtVenue` / `RouteCanceled` per cancel, `RoutePartiallyFilled` per fill, terminal `RouteFilled` / `RouteCanceled` / `RouteRejected` / `RouteExpired`. See [[arch-order-route-lifecycle]] for the FIX-name mapping.
+- `RouteReplaceRejected` / `RouteCancelRejected` when the venue returns `35=9` — these do **not** terminate the route.
+- FIX `35=8` ExecutionReports mirrored to paired FIX clients; outbound `35=9 OrderCancelReject` on a rejected amend/cancel.
 
 ## Edge Cases & Nuances
 
@@ -124,6 +143,6 @@ items: [{ route_id }]
 
 ## Related
 
-- [[arch-router-layer]] · [[arch-venue-connectivity]] · [[arch-quote-server]] · [[arch-automation-layer]]
-- [[route-single]] · [[route-to-rfq]] · [[auto-route]] · [[fx-automation-tradebest]]
+- [[arch-order-route-lifecycle]] · [[arch-router-layer]] · [[arch-venue-connectivity]] · [[arch-quote-server]] · [[arch-automation-layer]]
+- [[route-single]] · [[route-to-rfq]] · [[auto-route]] · [[fx-automation-tradebest]] · [[amend-order]]
 - [[tradedate-roll]] · [[partial-routes]]

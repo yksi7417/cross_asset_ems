@@ -41,11 +41,11 @@ sequenceDiagram
   U->>O: route_orders([{order_id, venue, qty, mode}])
   O->>V: validate route request
   V-->>O: pass | reject
-  O->>R: create Route(state=PENDING)
-  R->>A: send (per adapter dialect)
+  O->>R: create Route(state=Pending)
+  R->>A: send (35=D NewOrderSingle per dialect)
   A->>X: wire-format encode + transmit
-  X-->>A: ack
-  A-->>R: RouteAcked → state=SENT
+  X-->>A: 35=8 ExecType=0 New
+  A-->>R: RouteAcknowledged → state=Working
   X-->>A: fills (one or more)
   A-->>R: RouteFilled / partial fills
   R-->>O: OrderFilled events
@@ -53,11 +53,11 @@ sequenceDiagram
 ```
 
 1. Pre-route validation: venue support for the FIGI, venue capability vs requested instruction, [[arch-tag-permissions|3-layer permission]] check (`#cpty-{venue}`).
-2. Router materializes `Route { state=PENDING }`, deducts `qty` from order's available remaining.
+2. Router materializes `Route { state=Pending }`, deducts `qty` from order's `available_to_route`. State names follow [[arch-order-route-lifecycle]].
 3. Adapter encodes per dialect (FIX `D` for FIX venues, binary frame for binary venues, REST POST for REST venues).
-4. Venue ack → `state=SENT`, then `state=WORKING` on first market-side confirmation (working, not just received).
+4. Venue ack (`35=8 ExecType=0 New`) → `state=Working` (= FIX `OrdStatus=0`). If the venue uses a Pending-New intermediate (`ExecType=A`), the EMS records that transition too. See [[arch-order-route-lifecycle]].
 5. Fills stream in; route advances `cum_qty` / `last_qty` / `avg_px`.
-6. Terminal: `FILLED` on full execution, `CANCELLED` on user/venue cancel, `REJECTED` on venue reject.
+6. Terminal: `Filled` on full execution (`35=8 ExecType=F OrdStatus=2`), `Canceled` on user/venue cancel (after `Pending Cancel` per [[arch-order-route-lifecycle]]), `Rejected` on venue reject (`ExecType=8`), `Expired` on TIF (`ExecType=C`).
 
 ## Inputs
 
@@ -70,7 +70,7 @@ sequenceDiagram
 
 ## Outputs / Side Effects
 
-- `RouteSent`, `RouteAcked`, `RouteFilled`/`RouteCancelled`/`RouteRejected` events into [[arch-event-sourcing]].
+- `RouteSent`, `RouteAcknowledged`, `RouteWorking`, `RoutePartiallyFilled`, `RouteFilled` / `RouteCanceled` / `RouteRejected` / `RouteExpired` events into [[arch-event-sourcing]] — see [[arch-order-route-lifecycle]] for the FIX `ExecType` / `OrdStatus` mappings.
 - Parent `OrderFilled` increments.
 - FIX `ExecutionReport` mirror for paired FIX clients.
 

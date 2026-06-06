@@ -24,19 +24,35 @@ Order ──┐
 
 ## Route state machine
 
-```
-PENDING ─send──► SENT ─ack──► WORKING ──partial──► WORKING
-   │                │           │                     │
-   │                │           ├─fill──► FILLED      │
-   │                │           ├─cancel─► CANCELLED  │
-   │                │           └─reject─► REJECTED   │
-   │                │                                 │
-   │                └────timeout/nack────► REJECTED   │
-   │                                                  │
-   └─validation_fail──► REJECTED ◄────────────────────┘
+The route state machine is **FIX-aligned** end-to-end. State names mirror FIX `OrdStatus` (39) / `ExecType` (150) values. The canonical lifecycle — including `Pending Replace` (`150=E` / `39=E`), `Pending Cancel` (`150=6` / `39=6`), `Replaced` (`150=5`), `Canceled` (`150=4`), and the `OrderCancelReject` (`35=9`) reject paths — is in [[arch-order-route-lifecycle]].
+
+```mermaid
+stateDiagram-v2
+  [*] --> Pending: route_orders
+  Pending --> Sent: 35=D dispatched<br/>(RouteSent)
+  Sent --> Working: venue ack ExecType=0<br/>(RouteAcknowledged / RouteWorking)
+  Sent --> Rejected: venue ExecType=8
+  Working --> PendingReplaceAtVenue: replace_routes / 35=G<br/>ExecType=E
+  PendingReplaceAtVenue --> Working: ExecType=5 Replaced
+  PendingReplaceAtVenue --> Working: 35=9 OrderCancelReject<br/>(route stays in prior Working state)
+  Working --> PendingCancelAtVenue: cancel_routes / 35=F<br/>ExecType=6
+  PendingCancelAtVenue --> Canceled: ExecType=4
+  PendingCancelAtVenue --> Working: 35=9 OrderCancelReject
+  Working --> PartiallyFilled: ExecType=F OrdStatus=1
+  PartiallyFilled --> PartiallyFilled
+  PartiallyFilled --> Filled: ExecType=F OrdStatus=2
+  PartiallyFilled --> PendingReplaceAtVenue
+  PartiallyFilled --> PendingCancelAtVenue
+  Working --> Expired: TIF / ExecType=C
+  Filled --> [*]
+  Canceled --> [*]
+  Rejected --> [*]
+  Expired --> [*]
 ```
 
-`WORKING` is the live-at-venue state. `FILLED` is terminal full execution. `CANCELLED` and `REJECTED` are other terminal states. Replaces are modeled as transitions within `WORKING`.
+`Working` is the live-at-venue state. **Replaces and cancels go through their own pending intermediate state** at the venue — they are not synchronous transitions. While a route sits in `PendingReplaceAtVenue`, the **original parameters remain workable** at the venue and fills may still print on them until the venue confirms `150=5 Replaced`.
+
+> **FIX semantics: rejected cancel/replace does not terminate.** A `35=9 OrderCancelReject` returns the route to its prior `Working` (or `PartiallyFilled`) state. The original ClOrdID is still live. This is universal FIX behaviour and is what the EMS records. See [[arch-order-route-lifecycle]] for the full transition table and ClOrdID chaining rules.
 
 ## Route envelope
 

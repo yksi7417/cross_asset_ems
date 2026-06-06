@@ -38,9 +38,9 @@ Rule {
 
 ### Triggers (examples)
 
-- `OrderStaged` where `asset_class = FX` and `value_date = next_fixing()` → auto-route fixing orders. See [[auto-route-fixing-aim]].
-- `OrderStaged` where `tags ∋ #rebalance` → run [[fx-automation-rbld|RBLD]].
-- `OrderAmended` where `prior.tif = DAY` and `new.tif = GTC` → cancel auto-route policy.
+- `OrderAccepted` (a.k.a. `OrderStaged`) where `asset_class = FX` and `value_date = next_fixing()` → auto-route fixing orders. See [[auto-route-fixing-aim]].
+- `OrderAccepted` where `tags ∋ #rebalance` → run [[fx-automation-rbld|RBLD]].
+- `OrderReplaced` where `prior.tif = DAY` and `new.tif = GTC` → cancel auto-route policy. (FIX-equivalent: `35=8 ExecType=5 Replaced`. See [[arch-order-route-lifecycle]].)
 - `QuoteIncrement` where `spread <= floor` and any matching staged order exists → fire [[fx-automation-tradebest|TradeBest]].
 
 ### Actions (examples)

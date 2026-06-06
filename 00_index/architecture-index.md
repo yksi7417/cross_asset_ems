@@ -27,6 +27,7 @@ The architectural spine the workflows and asset notes link back to. Captured in 
 - [[arch-multileg]] — atomic / sequenced / independent multi-leg orders (FX swap, options spread, futures roll, portfolio trade)
 - [[arch-aggregation]] — N parent orders → one execution unit, allocated back
 - [[arch-fx-netting]] — value-date arithmetic, PB isolation, PAC constraints, swap-aware netting
+- [[arch-order-route-lifecycle]] — **FIX-aligned canonical state machines** for orders and routes (Pending Replace `150=E`, Pending Cancel `150=6`, Replaced `150=5`, Canceled `150=4`, OrderCancelReject `35=9`, post-fill TradeCorrect `150=G` / TradeCancel `150=H`). Referenced by every workflow that touches amend/cancel semantics.
 
 ## Market Data
 

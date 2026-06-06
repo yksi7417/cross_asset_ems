@@ -25,17 +25,31 @@ The staged order is the **point of co-ordination** for all of these. Once the or
 
 ## State machine
 
-```
-                       amend / set field
-                              ↺
-NEW ──validate──► STAGED ──ready─► READY ──route──► ROUTING
-                     │                                  │
-                     │ cancel                           ▼
-                     └─────────► CANCELLED       (ownership transfers
-                                                  to router layer)
+The staged order state machine is **FIX-aligned**. Internal state names map directly to FIX `OrdStatus` (39) / `ExecType` (150) values — see [[arch-order-route-lifecycle]] for the canonical mapping table and the full transition diagram including amend/cancel intermediate states.
+
+```mermaid
+stateDiagram-v2
+  [*] --> PendingNew: stage_orders / FIX 35=D
+  PendingNew --> New: validation pass<br/>ExecType=0, OrdStatus=0<br/>(internal: OrderAccepted / OrderStaged)
+  PendingNew --> Rejected: validation fail<br/>ExecType=8
+  New --> Staged: pending_actions remain<br/>(EMS sub-state; FIX still sees OrdStatus=0 New)
+  Staged --> Staged: amend / set field
+  Staged --> Ready: pending_actions cleared<br/>(EMS sub-state)
+  Ready --> Routing: route_orders<br/>(ownership transfers to [[arch-router-layer|router]])
+  New --> PendingReplace: amend_orders / 35=G<br/>ExecType=E, OrdStatus=E
+  PendingReplace --> New: ExecType=5 Replaced
+  PendingReplace --> New: 35=9 OrderCancelReject<br/>(order stays in prior state — replace failed, order did not)
+  New --> PendingCancel: cancel_orders / 35=F<br/>ExecType=6, OrdStatus=6
+  PendingCancel --> Canceled: ExecType=4
+  PendingCancel --> New: 35=9 OrderCancelReject
+  Routing --> Routing: see [[arch-router-layer]]
+  Canceled --> [*]
+  Rejected --> [*]
 ```
 
-`STAGED` is the working state. An order can sit in `STAGED` indefinitely while users or automation populate it.
+`STAGED` and `READY` are EMS-internal sub-states within the FIX `New` status — FIX clients see one `OrdStatus=0 New` regardless. The sub-states track whether `pending_actions` (broker selection, compliance approval, two-step approval) are still outstanding. See [[arch-order-route-lifecycle]] for the full FIX lifecycle covering Routing → PartiallyFilled → Filled / Canceled / Expired and the post-fill `TradeCorrect` / `TradeCancel` paths.
+
+> **Important FIX rule**: an `OrderCancelReject` (35=9) **does not terminate the order** — it just rejects the cancel/replace request. The order remains in its prior state. See [[arch-order-route-lifecycle]] § "Cancel/replace semantics".
 
 ## Order envelope (canonical)
 

@@ -45,8 +45,8 @@ sequenceDiagram
   FIX-->>AIM: ExecutionReport 150=A (Pending New) → 150=0 (New)
   Note over O,ST: sales-trader works the order per dealer EMS workflows
   loop while order alive
-    O-->>FIX: lifecycle events (RouteSent, RouteFilled, OrderAmended, OrderCancelled)
-    FIX-->>AIM: ExecutionReport per event
+    O-->>FIX: lifecycle events (RouteSent, RoutePartiallyFilled, RouteFilled, OrderReplaceRequested, OrderReplaced, OrderCanceled, ...)
+    FIX-->>AIM: 35=8 ExecutionReport (or 35=9 OrderCancelReject) per event — see [[arch-order-route-lifecycle]]
   end
 ```
 
@@ -73,7 +73,7 @@ Beyond standard tags (see [[staging-via-fix]]), AIM-specific:
 ## Edge Cases & Nuances
 
 - **AIM batch upload pacing.** Some AIM batches arrive over seconds-to-minutes; firm policy decides batch close on quiet-window timeout.
-- **Mixed FIX + manual edit.** AIM expects to drive the order; if a dealer trader manually amends in the EMS, AIM sees the update as `ExecutionReport 150=5` (Replaced). Some AIM versions handle this gracefully, others get out of sync — common integration gotcha.
+- **Mixed FIX + manual edit.** AIM expects to drive the order; if a dealer trader manually amends in the EMS, AIM sees the update as the standard cancel/replace lifecycle echoes — `35=8 ExecType=E Pending Replace` then `35=8 ExecType=5 Replaced` — per [[arch-order-route-lifecycle]]. Some AIM versions handle this gracefully, others get out of sync — common integration gotcha.
 - **Order matching key.** AIM's `ClOrdID` is unique per AIM session per day. EMS-internal `order_id` is the canonical id; both are preserved on the order envelope for cross-system lookups.
 - **Cancel race.** AIM cancel arrives while EMS already routed. The cancel propagates to venue; late venue fill is logged as anomaly.
 - **Extension flexibility.** Different AIM versions encode fixing/batch metadata differently. The bridge supports a per-counterparty extension dialect catalog.

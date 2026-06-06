@@ -56,7 +56,7 @@ flowchart LR
 ## Inputs
 
 - A bound `Rule` with trigger / condition / action.
-- The triggering event (`OrderStaged` typically; can be `OrderAmended`, `QuoteIncrement`, etc.).
+- The triggering event (`OrderAccepted` / `OrderStaged` typically; can be `OrderReplaced`, `QuoteIncrement`, `OrderPartiallyFilled`, etc. — see [[arch-order-route-lifecycle]] for the full event taxonomy).
 
 ## Outputs / Side Effects
 

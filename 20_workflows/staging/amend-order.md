@@ -6,20 +6,20 @@ status: draft
 tags: [workflow/staging]
 ---
 
-# Amend an Order
+# Amend an Order (FIX OrderCancelReplaceRequest 35=G)
 
-Modify fields of a [[arch-order-staged|staged order]] before (or in some cases during) routing. Amend is the single mechanism for any field change after stage — there is no out-of-band edit path.
+Modify fields of a [[arch-order-staged|staged order]] or a working [[arch-router-layer|route]] without losing the order's identity. "Amend" is the EMS-side name for the FIX **OrderCancelReplaceRequest** (`35=G`) operation — also widely called **Modify**. The full lifecycle (Pending Replace → Replaced / OrderCancelReject) is defined in [[arch-order-route-lifecycle]] and obeyed end-to-end.
 
 ## Purpose
 
-Allow user / automation to adjust an order in response to new information (price moved, qty needs adjustment, broker changed mind, allocation template wrong) without losing the order's identity. Every amend is a separate event in [[arch-event-sourcing|the log]] — the order's history is a derivable replay.
+Allow user / automation to adjust an order in response to new information (price moved, qty needs adjustment, broker changed mind, allocation template wrong) without losing the order's identity, **without losing queue priority** where the venue's rules permit (typically: qty decrease preserves priority; price change or qty increase loses it). Every amend is a separate event in [[arch-event-sourcing|the log]] — the order's history is a derivable replay.
 
 ## Trigger / Entry Point
 
 - Trader edits a ticket field after stage.
 - Sales-trader updates allocation template post-stage.
 - [[arch-automation-layer|automation rule]] amends fields (e.g. RBLD adjusts qty after preceding fills).
-- [[arch-fix-api-bridge|FIX]] `OrderCancelReplace` (`G`) → API `amend_orders` — but only from non-mixed-client FIX sessions.
+- [[arch-fix-api-bridge|FIX]] `OrderCancelReplaceRequest` (`35=G`) → API `amend_orders` — but only from non-mixed-client FIX sessions per the mixed-client rule in [[arch-fix-api-bridge]].
 
 ## Actors
 
@@ -28,7 +28,9 @@ Allow user / automation to adjust an order in response to new information (price
 - [[arch-order-staged|order layer]] — persists.
 - Any [[two-step-approval|approver]] queue is recomputed if approval is reset.
 
-## Steps
+## Steps (FIX-aligned)
+
+### Pre-route amend (order is `STAGED`, not yet at a venue)
 
 ```mermaid
 sequenceDiagram
@@ -36,30 +38,77 @@ sequenceDiagram
   participant API as Edge API
   participant V as Validator
   participant O as Order Layer
-  participant R as Router
 
   U->>API: amend_orders([{order_id, fields}])
+  API->>O: emit OrderReplaceRequested (35=8 ExecType=E Pending Replace)
+  Note over O: FIX-paired client sees Pending Replace echo
   API->>V: full re-validate (post-amend state)
-  alt order is STAGED
+  alt validation pass
     V-->>API: pass
-    API->>O: persist OrderAmended event
+    API->>O: persist OrderReplaced (35=8 ExecType=5 Replaced)
+    Note over O: order now reflects new fields; FIX-paired client sees Replaced echo
     O-->>U: ack
-  else order is ROUTING / WORKING
-    V-->>API: check amend-during-routing rules
-    alt allowed
-      O->>R: emit RouteAmendRequested
-      R->>R: replace_routes if amendable; cancel+re-stage if not
-    else not allowed
-      API-->>U: reject (EMS-ORD-2105 cannot_amend_in_state)
-    end
+  else validation fail
+    V-->>API: reject (code)
+    API->>O: emit OrderReplaceRejected (35=9 OrderCancelReject)
+    Note over O: order stays in prior state — replace failed, order did not
+    O-->>U: reject with code + admin hint
   end
 ```
 
+### Working-route amend (order has live routes at a venue)
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant API as API
+  participant V as Validator
+  participant R as Router<br/>[[arch-router-layer]]
+  participant A as Venue Adapter
+  participant X as Venue
+
+  U->>API: amend_orders([{order_id, fields}])
+  API->>V: validate post-amend state + per-field amend-during-routing policy
+  V-->>API: pass / reject
+  alt route is amendable in-place at the venue
+    API->>R: replace_routes (new ClOrdID, OrigClOrdID=current)
+    R->>A: send 35=G
+    A->>X: wire
+    X-->>A: 35=8 ExecType=E Pending Replace
+    A-->>R: RouteReplacePendingAtVenue
+    Note over R: original parameters still workable; fills may still print until venue confirms
+    alt venue accepts
+      X-->>A: 35=8 ExecType=5 Replaced
+      A-->>R: RouteReplaced
+      R-->>API: order reflects new fields
+    else venue rejects
+      X-->>A: 35=9 OrderCancelReject (CxlRejReason)
+      A-->>R: RouteReplaceRejected
+      Note over R: route stays in prior state — NOT terminated
+    end
+  else venue requires cancel-and-resubmit
+    Note over R: e.g. structural field change like instrument
+    R->>A: 35=F cancel original
+    A->>X: send
+    X-->>A: 35=8 ExecType=4 Canceled
+    R->>A: 35=D new order with amended params
+    A->>X: send
+    Note over R: RouteSuperseded event records the supersession
+  end
+```
+
+### Step-by-step
+
 1. User issues `amend_orders` with the fields to change.
-2. Validator runs **the full rule set** against the post-amend state — not a delta-only check. Cheaper field changes still go through every layer (per [[arch-validator]] discipline).
-3. If order in `STAGED`: simple persist. `OrderAmended` event with field-diff payload.
-4. If order in `ROUTING` / `LEGS_WORKING`: amend may translate to route-level `replace_routes` or, if structural, cancel + re-stage. Per-field policy table governs.
-5. Side effects: [[two-step-approval]] reset if firm policy says the amended field is "material".
+2. EMS emits **`OrderReplaceRequested`** (the internal name for FIX `35=8 ExecType=E Pending Replace`) immediately and echoes to any FIX-paired client.
+3. Validator runs **the full rule set** against the post-amend state — not a delta-only check (per [[arch-validator]] discipline).
+4. **If order in `New`/`Staged`** (pre-route): on validation pass, EMS records `OrderReplaced` (`35=8 ExecType=5 Replaced`); on fail, `OrderReplaceRejected` (`35=9 OrderCancelReject`) and the order **stays in its prior state**.
+5. **If order has live routes**: amend may translate to a `replace_routes` call on the affected routes. Each route's lifecycle is independent (see [[arch-router-layer]] / [[arch-order-route-lifecycle]]):
+   - In-place replace at venue: standard 35=G flow, queue priority may be lost per venue rules.
+   - Structural field change (instrument, side): cancel + new-order pattern; `RouteSuperseded` event recorded.
+6. Side effects: [[two-step-approval]] reset if firm policy says the amended field is "material".
+
+> **FIX rule the EMS enforces**: an `OrderCancelReject` (`35=9`) **does not terminate** the original order or route. The order/route stays in its prior state. See [[arch-order-route-lifecycle]] § "Cancel/replace semantics".
 
 ## Inputs
 
@@ -69,10 +118,12 @@ sequenceDiagram
 
 ## Outputs / Side Effects
 
-- `OrderAmended` event with `before/after` diff.
+- `OrderReplaceRequested` (`150=E Pending Replace`) immediately on receipt.
+- `OrderReplaced` (`150=5 Replaced`) on validator pass — with `before/after` field diff in the event payload.
+- `OrderReplaceRejected` (`35=9 OrderCancelReject` with `CxlRejReason` 102) on validator fail — **order stays in prior state**.
 - Possible `ApprovalReset` event (if a material field changed and two-step approval was pending).
-- For routed orders: `RouteAmendRequested`, then `RouteReplaced` or `RouteCancelledForReamend`.
-- FIX mirror echo as `ExecutionReport` (`150=5` Replace) per [[arch-fix-api-bridge]].
+- For routed orders: `RouteReplaceRequested` → `RouteReplacePendingAtVenue` → `RouteReplaced` or `RouteReplaceRejected`, or `RouteSuperseded` if the venue requires cancel-and-resubmit. See [[arch-order-route-lifecycle]].
+- FIX mirror echoes as `35=8` ExecutionReports per [[arch-fix-api-bridge]].
 
 ## Per-field amend policy (illustrative)
 
@@ -90,11 +141,14 @@ sequenceDiagram
 ## Edge Cases & Nuances
 
 - **Material field detection.** Each firm configures which fields are "material" for [[two-step-approval]] reset. Default: `qty`, `limit_price`, `account`. Notes and tags never reset.
-- **Optimistic concurrency.** Two users amend concurrently. Last-writer-wins by default; firms may opt into `expected_version`-guarded amends → second writer gets `EMS-ORD-2106 stale_version`.
-- **Cancel-during-amend.** A cancel arrives while an amend is mid-flight. Cancel wins (terminal state takes precedence); the amend rejects with `EMS-ORD-2107 order_cancelled_during_amend`.
-- **FIX mixed-client.** A mixed FIX+API client cannot amend via FIX — see [[arch-fix-api-bridge]]. API amend echoes back as `ExecutionReport` to the FIX side.
-- **Audit reconstruction.** Order's current state is `replay(events)`. Amend events carry full diff so audit can render any historical moment without snapshots.
-- **Amend chains.** Five amends in a row produce five events; the blotter renders the cumulative state. UI typically lets the user click an order to see the amend history.
+- **Optimistic concurrency.** Two users amend concurrently. Last-writer-wins by default; firms may opt into `expected_version`-guarded amends → second writer gets `EMS-ORD-2106 stale_version` (mapped outbound to `35=9 CxlRejReason=3` "order already pending cancel/replace").
+- **Cancel-during-amend.** A cancel arrives while an amend is mid-flight. The cancel is queued at the EMS until the replace resolves, then issued against the resulting state. FIX convention is one-pending-replace-per-order; the EMS enforces this on outbound to prevent venue `35=9 CxlRejReason=3`.
+- **Fill-during-amend.** A fill arrives while a replace is in `PendingReplaceAtVenue`. The fill applies to the prior (un-replaced) parameters. If the replace's new `Qty` ≤ updated `CumQty`, the validator pre-empts with `EMS-RTE-2030 replace_qty_below_cum_qty`; the venue would otherwise reject with `35=9`.
+- **Queue priority loss.** Venues typically: qty *decrease* preserves time priority; qty *increase* or price change loses it. The EMS surfaces what the venue confirms — it does not pre-warn.
+- **FIX mixed-client.** A mixed FIX+API client cannot amend via FIX — see [[arch-fix-api-bridge]]. API amend still echoes back as `35=8 ExecType=E/5` to the FIX side.
+- **Audit reconstruction.** Order's current state is `replay(events)`. Replace events carry full field diff so audit can render any historical moment without snapshots.
+- **Amend chains.** Five amends in a row produce five replace-request / replace events; the blotter renders the cumulative state. The UI typically lets the user click an order to see the full ClOrdID / OrigClOrdID chain.
+- **ClOrdID minting.** Per FIX convention each `35=G` carries a **new ClOrdID** (tag 11) with `OrigClOrdID` (tag 41) pointing to the prior one. The EMS owns ClOrdID generation for outbound routes; inbound FIX amends honour the client's submitted ClOrdID + OrigClOrdID chain.
 
 ## API mapping
 
@@ -118,6 +172,6 @@ items: [{
 
 ## Related
 
-- [[arch-order-staged]] · [[arch-validator]] · [[arch-event-sourcing]] · [[arch-fix-api-bridge]]
+- [[arch-order-route-lifecycle]] (FIX state-machine reference) · [[arch-order-staged]] · [[arch-router-layer]] · [[arch-validator]] · [[arch-event-sourcing]] · [[arch-fix-api-bridge]]
 - [[two-step-approval]] · [[order-ownership]] · [[staging-via-ticket]] · [[staging-via-fix]]
-- [[notes-and-custom-notes]] · [[bulk-order-update-route]]
+- [[notes-and-custom-notes]] · [[bulk-order-update-route]] · [[route-to-resting]]

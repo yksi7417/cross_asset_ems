@@ -79,7 +79,7 @@ sequenceDiagram
 
 ## Outputs / Side Effects
 
-- `MultiRouteFamilyCreated`, per-child `RouteSent`, `QuoteResponseReceived` (tagged with venue+dealer), `RouteFilled` (winner) / `RouteCancelled` (losers) / `RouteExpired`.
+- `MultiRouteFamilyCreated`, per-child `RouteSent`, `QuoteResponseReceived` (tagged with venue+dealer), `RouteFilled` (winner) / `RouteCanceled` (losers) / `RouteExpired`.
 - Single parent `OrderFilled` event referencing the winning child.
 - Quote-server topic: one per family.
 

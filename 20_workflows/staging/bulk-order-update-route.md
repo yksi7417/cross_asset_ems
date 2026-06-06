@@ -53,10 +53,12 @@ sequenceDiagram
   U->>API: bulk_amend(selector, fields, options:{partial_ok})
   API->>O: resolve selector to N order_ids
   par per-order in parallel
-    O->>V: validate amend for order_i
+    O->>V: validate replace for order_i
     V-->>O: pass/reject
     alt pass
-      O->>O: persist OrderAmended_i
+      O->>O: persist OrderReplaceRequested_i then OrderReplaced_i (150=E -> 150=5)
+    else fail
+      O->>O: persist OrderReplaceRejected_i (35=9; order stays in prior state)
     end
   end
   O-->>API: ItemResult[N]
@@ -83,7 +85,7 @@ sequenceDiagram
 
 ## Outputs / Side Effects
 
-- Per-order events: `OrderAmended`, `RouteSent`, `OrderCancelled` as appropriate.
+- Per-order events per the [[arch-order-route-lifecycle|FIX-aligned lifecycle]]: `OrderReplaceRequested` → `OrderReplaced` / `OrderReplaceRejected` (for `bulk_amend`), `RouteSent` / `RouteAcknowledged` (for `bulk_route`), `OrderCancelRequested` → `OrderCanceled` / `OrderCancelRejected` (for `bulk_cancel`).
 - One `BulkOperationStarted` and `BulkOperationCompleted` envelope event with counts.
 - Summary returned to client.
 

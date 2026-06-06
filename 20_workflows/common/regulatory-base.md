@@ -16,7 +16,7 @@ Reporting is non-optional. Every fill, every amend, every cancel, can have a rep
 
 ## Trigger / Entry Point
 
-- Internal event: `OrderFilled`, `RouteFilled`, sometimes `OrderAmended` or `OrderCancelled`.
+- Internal event: `OrderFilled`, `RouteFilled`, sometimes `OrderReplaced` or `OrderCanceled` (plus `TradeCorrected` / `TradeCanceled` for post-fill busts — see [[arch-order-route-lifecycle]]).
 - Periodic reconciliation: regulator-specific position / exposure reports.
 
 ## Actors
