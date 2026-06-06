@@ -11,6 +11,7 @@ Atomic-notes Obsidian vault covering execution workflows across every asset clas
 - [[workflow-index]] — every workflow grouped by category
 - [[_venue-index]] — venue categorization (FI / FX / Equity / Brokers / Multi-asset)
 - [[glossary-index]] — industry-jargon glossary (on-the-run, BWIC, NBBO, MAT, CFTC SDR, etc.)
+- [[PLAN]] — **implementation plan** (the `/goal` loop queue). Start here when building.
 
 ## Asset Classes
 
