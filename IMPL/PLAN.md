@@ -18,7 +18,7 @@ Foundation for everything else. ~1-2 weeks of work.
 - [x] **0.1** Monorepo layout (java/, rust/, schemas/, infra/, docs/) (local) ← blocks: none `(0e2fe6a)`
 - [x] **0.2** Multi-module Gradle/Cargo workspace (local) ← blocks: 0.1 `(96ca57c)`
 - [x] **0.3** Git hooks (pre-commit lint, conventional commits) (local) `(e6b411b)`
-- [x] **0.4** GitHub Actions baseline (unit tests, lint, SBOM) (claude) ← blocks: 0.2 `(pending sha)`
+- [x] **0.4** GitHub Actions baseline (unit tests, lint, SBOM) (claude) ← blocks: 0.2 `(5283807)`
 - [ ] **0.5** Docker Compose dev environment (claude) ← blocks: 0.2
 - [ ] **0.6** SBE codegen Gradle plugin wired up (claude) ← blocks: 0.2
 - [ ] **0.7** Aeron Cluster + Archive toy ping/pong (claude) ← blocks: 0.6
