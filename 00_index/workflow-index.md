@@ -31,10 +31,10 @@ All workflows grouped under the FX taxonomy headings. Cross-asset where applicab
 
 ## Pre Trade
 - [[two-step-approval|2-Step Approval (+ Amend / FXPV Solicited)]] **(draft)**
-- [[netting-swap-net|Netting & Swap Net]]
-- [[batch-creation|Batch Creation]]
-- [[order-ownership|Order Ownership]]
-- [[tradedate-roll|TradeDate Roll]]
+- [[netting-swap-net|Netting & Swap Net]] **(draft)**
+- [[batch-creation|Batch Creation]] **(draft)**
+- [[order-ownership|Order Ownership]] **(draft)**
+- [[tradedate-roll|TradeDate Roll]] **(draft)**
 
 ## Routing
 - [[route-single|Route Single (All Venues)]] **(draft)**
