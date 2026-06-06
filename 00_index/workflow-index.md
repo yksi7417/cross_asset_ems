@@ -5,7 +5,7 @@ All workflows grouped under the FX taxonomy headings. Cross-asset where applicab
 > All workflow notes are now **(draft)** — first-draft expansion complete. See [[architecture-index]] for the system spine each workflow links back to, including the **Gaps Surfaced** section listing architecture concepts the workflow expansion revealed need future `arch-*` notes.
 
 ## Common
-- [[entry-point-bas|Entry Point (BAS)]] **(draft)**
+- [[entry-point-aaa|Entry Point (AAA Service)]] **(draft)**
 - [[actions-framework|Actions Framework]] **(draft)**
 - [[order-manager|Order Manager]] **(draft)**
 - [[permissioning-config|Permissioning / Config (FXPV & PF)]] **(draft)**

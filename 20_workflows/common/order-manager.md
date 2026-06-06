@@ -99,5 +99,5 @@ Per action workflow.
 ## Related
 
 - [[arch-order-staged]] · [[arch-router-layer]] · [[arch-event-sourcing]] · [[arch-quote-server]] · [[arch-firm-desk-user]]
-- [[actions-framework]] · [[entry-point-bas]] · [[validation]] · [[permissioning-config]]
+- [[actions-framework]] · [[entry-point-aaa]] · [[validation]] · [[permissioning-config]]
 - [[bulk-order-update-route]] · [[amend-order]] · [[order-ownership]]

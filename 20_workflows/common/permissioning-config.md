@@ -123,5 +123,5 @@ items: [{ scope?, scope_ref?, keys? }]
 ## Related
 
 - [[arch-firm-desk-user]] · [[arch-tag-permissions]] · [[arch-validator]] · [[arch-event-sourcing]]
-- [[entry-point-bas]] · [[actions-framework]] · [[validation]]
+- [[entry-point-aaa]] · [[actions-framework]] · [[validation]]
 - [[two-step-approval]] · [[trading-limits]] · [[counterparty-enablement]]

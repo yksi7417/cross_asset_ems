@@ -115,5 +115,5 @@ returns: { code, layer, rule, admin_hint, references_in_code: ["EMS-PRM-1001", .
 ## Related
 
 - [[arch-validator]] · [[arch-event-sourcing]] · [[arch-jmx-introspection]] · [[arch-time-replay-server]]
-- [[entry-point-bas]] · [[actions-framework]] · [[order-manager]] · [[permissioning-config]] · [[regulatory-base]]
+- [[entry-point-aaa]] · [[actions-framework]] · [[order-manager]] · [[permissioning-config]] · [[regulatory-base]]
 - [[trading-limits]] · [[counterparty-enablement]]

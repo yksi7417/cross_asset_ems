@@ -77,7 +77,7 @@ Any action call from any surface:
 
 ## Steps (uniform)
 
-1. Authenticate at [[entry-point-bas|BAS]]; resolve identity.
+1. Authenticate at [[entry-point-aaa|the AAA service]]; resolve identity.
 2. Session seq check ([[arch-sequence-recovery]]).
 3. Batch envelope received; iterate items.
 4. Per-item validation (per [[arch-validator]] layered evaluation order).
@@ -117,4 +117,4 @@ A new workflow that follows the framework gets auth, seq, audit, replay, and par
 ## Related
 
 - [[arch-api-first]] · [[arch-sequence-recovery]] · [[arch-validator]] · [[arch-event-sourcing]] · [[arch-firm-desk-user]] · [[arch-fix-api-bridge]]
-- [[entry-point-bas]] · [[order-manager]] · [[validation]] · [[permissioning-config]] · [[regulatory-base]]
+- [[entry-point-aaa]] · [[order-manager]] · [[validation]] · [[permissioning-config]] · [[regulatory-base]]
