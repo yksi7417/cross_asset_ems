@@ -41,9 +41,16 @@ The architectural spine the workflows and asset notes link back to. Captured in 
 
 ## Validation & Identity
 
-- [[arch-validator]] — single source of "no" with standardized reject codes
+- [[arch-validator]] — single source of **hard reject** with standardized reject codes (no override)
 - [[arch-firm-desk-user]] — three-level hierarchy + settings cascade
 - [[arch-tag-permissions]] — 3-layer AND-gated permissions
+
+## Pre-trade Auxiliary Components (overarching; tap into multiple layers)
+
+- [[arch-compliance]] — **block-with-override** layer distinct from Validation. Pre-trade synchronous gates (fat-finger with price fallback, machine-gun rate + aggregation, allow/restricted/watch lists, account/KYC/ID-market checks, position-aware checks) **plus** continuous stream surveillance. Critical netted-vs-unnetted handling so a typo on a child that nets to zero on the parent still triggers fat-finger. Override mechanics with required tags, optional four-eyes, time-bound releases, mandatory rationale.
+- [[arch-risk-engine]] — pre-trade and continuous **position-aware** risk: notional / VaR / DV01 / greeks / FX exposure / margin / stress. Independent of Compliance: a trade may pass Compliance but fail Risk, or vice versa.
+- [[arch-position-service]] — read-only projection of current positions per account, derived continuously from fill events (and post-fill bust/correct reversals). Foundational for Compliance concentration checks and Risk position-aware caps.
+- [[arch-surveillance]] — **post-trade pattern detection** for market abuse: spoofing / layering / wash / quote-stuffing / marking-close / front-running / cross-market manipulation. Outputs alerts to Compliance; severe alerts auto-freeze actor.
 
 ## Connectivity & Ops
 

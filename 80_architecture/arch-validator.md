@@ -90,11 +90,17 @@ This is the **3-layer rule from [[arch-tag-permissions]]** made user-facing.
 
 Every reject code has at least one **golden test** — input event stream + expected reject envelope. These run on every change to the rule sets.
 
+## Sibling concepts
+
+The validator is the **hard reject** path with no override. Two adjacent concerns sit alongside:
+
+- [[arch-compliance]] — **block-with-override** for soft-fail policy (fat-finger, machine-gun, restricted lists, KYC). Compliance can block what the validator passes; humans with the right tag can override.
+- [[arch-risk-engine]] — **position-aware caps** (VaR, DV01, exposure). Like compliance, can block what the validator passes; overridable.
+
+A typical pre-trade pipeline runs them in order: **Validator → Compliance → Risk**. All three must pass (or be overridden where allowed) for the operation to proceed.
+
 ## See also
 
-- [[arch-api-first]]
-- [[arch-fix-api-bridge]]
-- [[arch-tag-permissions]]
-- [[arch-order-staged]]
-- [[arch-router-layer]]
-- [[arch-event-sourcing]]
+- [[arch-api-first]] · [[arch-fix-api-bridge]] · [[arch-tag-permissions]]
+- [[arch-compliance]] · [[arch-risk-engine]] · [[arch-position-service]] · [[arch-surveillance]]
+- [[arch-order-staged]] · [[arch-router-layer]] · [[arch-event-sourcing]]
