@@ -247,6 +247,8 @@ The EMS translates inbound venue 35=9 codes into `EMS-RTE-*` reject codes for th
 - **Fill received while replace is pending:** fill applies to the prior (un-replaced) parameters. The EMS records both events with explicit ordering; the replace either still goes through (against the diminished remaining qty) or rejects with `EMS-RTE-2030 replace_qty_below_cum_qty`.
 - **Replace `Qty` ≤ `CumQty`:** standard FIX practice; venues typically reject. EMS validator catches this pre-flight when it can.
 
+> **Read [[arch-fix-appendix-d]] for the full race-condition catalogue** — Too-Late-to-Cancel (D4/D5), Fill-during-Pending-Replace (D7/D10), PossResend / duplicate ClOrdID (D31), unsolicited cancel/restate, trade bust/correct, and the implementation contract checklist that every venue adapter must pass. Those are the scenarios production EMSes have to handle correctly; this note covers the state machine, that note covers the races.
+
 ## Asset-class notes
 
 - **FX / OTC:** many venues don't follow strict FIX cancel/replace; they may require cancel + new-order. The adapter normalizes by emitting `RouteSuperseded` events when this happens, so the internal event semantics are still cancel/replace at the API level.
@@ -255,6 +257,7 @@ The EMS translates inbound venue 35=9 codes into `EMS-RTE-*` reject codes for th
 
 ## See also
 
+- [[arch-fix-appendix-d]] — race conditions and edge cases catalogue (D4/D5, D7/D10, D31, etc.)
 - [[arch-fix-api-bridge]] · [[arch-order-staged]] · [[arch-router-layer]] · [[arch-event-sourcing]]
 - [[amend-order]] · [[arch-sequence-recovery]] · [[arch-validator]]
 - [[route-to-resting]] · [[arch-multileg]] · [[arch-venue-connectivity]]

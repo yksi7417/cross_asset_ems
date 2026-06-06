@@ -81,6 +81,8 @@ The full FIX state-machine reference is in [[arch-order-route-lifecycle]].
 
 > **Key FIX rule for resting orders:** during `Pending Replace` the **original price/qty is still working at the venue** and may fill. A replace's `Qty` ≤ `CumQty` is rejected (venue-side `35=9` or EMS pre-flight `EMS-RTE-2030`). Qty *decrease* typically preserves queue priority; price change or qty *increase* typically loses it — venue-dependent.
 
+> **Appendix D race conditions apply.** Resting orders are the most race-prone surface in the system — cancels and replaces frequently race against fills. See [[arch-fix-appendix-d]] for the full catalogue (Too-Late-to-Cancel D4/D5, Fill-during-Pending-Replace D7/D10, over-allocation prevention, PossResend D31, unsolicited venue cancels, trade busts/corrects). The implementation contract checklist at the bottom of that note is what every resting-order adapter must satisfy.
+
 ## Inputs
 
 - `order_id` (`READY`).
