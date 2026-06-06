@@ -8,12 +8,13 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** _(none — initial state)_
-- **Last commit:** _(none)_
-- **Last commit sha:** _(none)_
+- **Last completed task:** 0.1 — Monorepo layout
+- **Last commit:** `feat(0.1): monorepo layout`
+- **Last commit sha:** `0e2fe6a`
 - **In-progress task:** _(none)_
-- **WIP branch:** _(none)_
-- **Last updated:** _(initial)_
+- **WIP branch:** main
+- **Last updated:** 2026-06-06
+- **Next task:** 0.2 — Multi-module Gradle/Cargo workspace (local) ← blocks: 0.1 ✓
 
 ## Session log
 
@@ -21,7 +22,7 @@ The loop appends a one-line entry per session.
 
 | Session start | Session end | Trigger | Commits | Completed tasks | Cursor at end |
 |---|---|---|---|---|---|
-| _(awaiting first session)_ | | | | | |
+| 2026-06-06 | 2026-06-06 | session-already-past-pacing-threshold (prior work) | 1 (`0e2fe6a`) | 0.1 | next = 0.2 |
 
 ## Phase progress
 
