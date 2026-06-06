@@ -11,7 +11,7 @@ logback            = "1.5.12"
 
 # Transport — see arch-sbe-aeron-transport
 aeron              = "1.46.6"
-agrona             = "1.23.1"
+agrona             = "2.4.1"
 sbe-tool           = "1.34.1"
 
 # Cluster + Archive — see arch-resilience-24x7
