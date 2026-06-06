@@ -193,6 +193,7 @@ All drills are scripted; results recorded as events on the ops audit stream.
 | Replay determinism | [[arch-event-sourcing|Event sourcing]] + [[arch-time-replay-server|simulated clock]] + Aeron Archive position-precise replay = same input bytes → same output state on any node, any restart. |
 | Compliance audit trail | Archive + event log preserved across all restarts and failovers. |
 | Asset-class scheduling | Maintenance windows enforced from [[arch-reference-data-service|reference data]]; ops console refuses ill-timed restarts. |
+| Window-aware config changes | [[arch-configuration-service]] consults the same window table — risk-limit loosening and validator rule changes are blocked outside maintenance windows by default; emergency override requires a fourth-signature tag. |
 
 ## Anti-patterns
 

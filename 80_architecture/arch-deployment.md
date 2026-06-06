@@ -35,9 +35,9 @@ Every component ships as an **OCI container image** built via deterministic, rep
 
 Configuration injection:
 
-- Non-secret config: ConfigMap-equivalent (env vars, mounted files), versioned alongside the image release.
-- Secrets (venue credentials, sanctions-list API keys, regulator endpoints): vault-backed, retrieved at startup with short-lived tokens.
-- **Per-pod config overlay** — each PROD pod has its own overlay covering tenants assigned to it, venue connections, compliance-list version, regulatory regimes per [[arch-jurisdictional-compliance]].
+- **Bootstrap config** (image tag, cluster endpoints, AAA roots, vault address): ConfigMap-equivalent (env vars, mounted files), versioned alongside the image release. Just enough to start and connect.
+- **Runtime config** (tenants assigned, limits, compliance-list versions, algo wheel weights, venue routing tables, regulatory regimes per [[arch-jurisdictional-compliance]]): delivered through [[arch-configuration-service]] — published on the config bus, snapshot-swapped at message boundaries on every component without restart. The per-pod manifest **is** a curated set of `ConfigChanged` events scoped to that pod.
+- Secrets (venue credentials, sanctions-list API keys, regulator endpoints): vault-backed, retrieved at startup with short-lived tokens; their config keys reference vault paths rather than carrying the secret value.
 
 ## CI / CD pipeline
 

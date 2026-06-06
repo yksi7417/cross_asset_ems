@@ -72,6 +72,7 @@ If Anne moves to D2, evaluation passes.
 | Data sensitivity | `#lvl2-equity-na`, `#cusip-license` | Firm |
 | Counterparty | `#cpty-marketaxess-rfq`, `#cpty-bbg-tba` | Firm + Desk |
 | Special operations | `#superuser-inject` | User only (rare, audited) |
+| Configuration | `#config-author-{scope}`, `#config-approver-{scope}`, `#config-approver-window-emergency` | Per scope; **author and approver tags must be distinct on a single identity for any given change** (see [[arch-configuration-service]]) |
 
 ## Audit
 

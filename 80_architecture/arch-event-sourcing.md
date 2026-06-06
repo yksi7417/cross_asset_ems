@@ -53,7 +53,7 @@ Each domain entity has its own stream:
 | `session.{session_id}` | `SessionLogon`, `SessionLogout`, `SessionGapDetected` |
 | `rule.{rule_id}` | `RuleBound`, `RuleFired`, `RuleSuppressed` |
 | `quote.{topic}` | (multicast tail — sampled into log) |
-| `admin` | `EventInjected`, `SequenceReset`, `ConfigChanged` |
+| `admin` | `EventInjected`, `SequenceReset`, `ConfigChangeProposed`, `ConfigChangeApproved`, `ConfigChangeRejected`, `ConfigChanged`, `ConfigKeyArchived` (see [[arch-configuration-service]]) |
 
 ## Projections
 

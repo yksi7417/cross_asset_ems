@@ -103,3 +103,4 @@ items: [{ order_id, reason }]
 - [[arch-order-staged]] · [[arch-tag-permissions]] · [[arch-validator]] · [[arch-event-sourcing]]
 - [[order-ownership]] · [[amend-order]] · [[batch-creation]]
 - [[fxel]] (corp-treasury approval pairing) · [[auto-route]]
+- [[arch-configuration-service]] — same pattern specialized for configuration changes (distinct author/approver tag families; window-aware in UAT/PROD)

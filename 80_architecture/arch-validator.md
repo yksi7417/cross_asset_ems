@@ -46,6 +46,7 @@ The code is `EMS-<CAT><NNNN>` where `CAT` is a short category prefix:
 | Order | `ORD` | `EMS-ORD-1014` missing limit, `EMS-ORD-2003` qty exceeds max |
 | Route | `RTE` | `EMS-RTE-1001` venue not enabled for instrument, `EMS-RTE-2005` cl_ord_id collision |
 | Automation | `AUT` | `EMS-AUT-1001` rule scope mismatch, `EMS-AUT-2001` action not permitted for actor |
+| Configuration | `CFG` | `EMS-CFG-1001` unknown key, `EMS-CFG-1201` self-approval blocked, `EMS-CFG-1301` out of maintenance window, `EMS-CFG-1401` cannot delete (archive required) — see [[arch-configuration-service]] |
 
 The full code list is its own document, linked from the validator service's [[arch-jmx-introspection|introspection endpoint]] (planned).
 
