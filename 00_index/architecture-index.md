@@ -22,6 +22,12 @@ The architectural spine the workflows and asset notes link back to. Captured in 
 - [[arch-router-layer]] — Router (Layer 2)
 - [[arch-automation-layer]] — rules between order and route
 
+## Order Model Extensions
+
+- [[arch-multileg]] — atomic / sequenced / independent multi-leg orders (FX swap, options spread, futures roll, portfolio trade)
+- [[arch-aggregation]] — N parent orders → one execution unit, allocated back
+- [[arch-fx-netting]] — value-date arithmetic, PB isolation, PAC constraints, swap-aware netting
+
 ## Market Data
 
 - [[arch-quote-server]] — PubSub with subscriber visibility, even over multicast
@@ -45,6 +51,4 @@ The architectural spine the workflows and asset notes link back to. Captured in 
 
 These wikilinks are intentional TODOs — the references show where future architecture work should land.
 
-- `arch-multileg` — atomic multi-leg execution model
-- `arch-aggregation` — order aggregation and allocation
-- `arch-fx-netting` — full FX netting semantics (swap legs, value dates, prime brokers)
+_(none currently — all referenced architecture notes are now written)_
