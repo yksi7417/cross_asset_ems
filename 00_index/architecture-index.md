@@ -52,6 +52,21 @@ The architectural spine the workflows and asset notes link back to. Captured in 
 - [[arch-position-service]] — read-only projection of current positions per account, derived continuously from fill events (and post-fill bust/correct reversals). Foundational for Compliance concentration checks and Risk position-aware caps.
 - [[arch-surveillance]] — **post-trade pattern detection** for market abuse: spoofing / layering / wash / quote-stuffing / marking-close / front-running / cross-market manipulation. Outputs alerts to Compliance; severe alerts auto-freeze actor.
 
+## Analytics
+
+- [[arch-realtime-analytics]] — streaming benchmark service: VWAP, TWAP, **PWP** (participation-weighted price), arrival, NBBO/EBBO, mid, iNAV. Single source of truth consumed by Compliance (fat-finger ref price), SOR strategies, automation rules, TCA. Versioned formulas; replay-deterministic.
+- [[arch-pretrade-analytics]] — **pluggable quant model registry** for execution strategy recommendation. Market-impact / liquidity-profile / spread-forecast / optimal-trajectory / strategy-recommender models. Output: cost estimate + ranked strategies. Consumed by SOR algo wheel as input; advisory, not blocking.
+- [[arch-tca]] — **post-trade transaction cost analysis**: slippage vs arrival / VWAP / TWAP / PWP / close; impact / timing / opportunity / spread-capture decomposition; per-broker / per-algo / per-venue aggregation; MiFID II RTS 27/28 and US best-ex reporting; **feedback loop** to algo wheel `PERFORMANCE_TIER` scoring.
+
+## Market Intelligence
+
+- [[arch-ioi]] — **pluggable IOI network integration** (Autex, Bloomberg IOI, Liquidnet, Cantor, dealer-direct) with canonical IOI data model **differentiated** from orders and quotes. Preserves IOI qualifiers (NATURAL / SUPER_NATURAL / UNWOUND / IN_TOUCH_WITH / DELTA_HEDGED / PORTFOLIO_TRADE). Permission-scoped distribution respecting per-network client-segment restrictions.
+- [[arch-rfq]] — **RFQ as first-class architectural component** spanning FX / FI / muni / govt / TBA / OTC derivatives / equity blocks and **equity ETF**. Canonical model with state machine (Requested → Active → Elected → Executed) handling last-look fades. Per-asset-class variants documented including ETF RFQ NAV-based pricing and AP-workflow specifics. Integrates with IOI provenance and SOR strategy dispatch.
+
+## Bulk I/O
+
+- [[arch-bulk-io]] — **first-class Excel / CSV import-export engine.** Versioned schemas per data domain (orders, fills, allocations, reference data, compliance lists). Format support (XLSX / XLSM / CSV / TSV / Parquet). Type coercion for the messy reality of spreadsheets. Per-row validation + compliance. Idempotent re-import. Multiple inbound sources (UI / FTP / SFTP / S3 / API). Replay-deterministic.
+
 ## Connectivity & Ops
 
 - [[arch-venue-connectivity]] — outbound venue adapters (FIX / binary / REST)
