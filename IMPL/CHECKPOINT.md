@@ -22,11 +22,14 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 Drafted by openRouter (paid `minimax/minimax-m3`) and Google Gemini free tier while
 Claude tokens are out. Claude to review and merge when budget resets.
 
-| Branch | Task | Commit | Status | Notes |
+| Branch | Task | Commit(s) | Status | Notes |
 |---|---|---|---|---|
 | `wip/0.9-changelog` | 0.9 | `f90a549` | ready | cliff.toml + scripts/release/gen-changelog.sh |
+| `wip/4.5-equity-instrument` | 4.5 | `5752d7c` | ready | EquityInstrument SBE template (template_id=0x2001); xmllint-clean. Caveat: namespace prefix style is mixed. |
+| `wip/4.6-bond-instrument` | 4.6 | `4159279` | ready | BondInstrument SBE template (template_id=0x2002); xmllint-clean. Initial openRouter draft had 3 issues (sparse InstrumentCore, wrong xmlns URI, duplicate day-count enum value 11) — all fixed in this commit. |
+| `wip/4.22-calendars` | 4.22 | `56052aa`, `2322aad` | ready | 298 holiday entries across USD/EUR/GBP/JPY/HKD/SGD (2025-2028) + Gemini code review of bootstrap 0.1-0.8. 4 documented limitations (SGD is country-level only, etc.). |
 | `wip/4.23-day-counts` | 4.23 | `ec73df9` | ready | 13 ISDA 2006 conventions in schemas/reference-data/day-counts.yaml |
-| `wip/4.24-mic-codes` | 4.24 | `569cc47` + `ed13df4` | ready | 72 MICs + 25 brokers; 3 LEI flags (BNP NULL, ML INACTIVE, DBAB name mismatch) |
+| `wip/4.24-mic-codes` | 4.24 | `569cc47`, `ed13df4` | ready | 72 MICs + 25 brokers; 3 LEI flags (BNP NULL, ML INACTIVE, DBAB name mismatch) — all LEIs re-verified against GLEIF |
 | `wip/6.1-reject-codes` | 6.1 | `ee3ec32` | ready | 47 reject codes across 10 categories in schemas/reject-codes/catalog.yaml |
 
 ## Session log
