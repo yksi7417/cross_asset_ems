@@ -13,21 +13,21 @@ All workflows grouped under the FX taxonomy headings. Cross-asset where applicab
 - [[regulatory-base|Regulatory (Cross-Asset Base)]]
 
 ## Staging
-- [[staging-via-ticket|Staging via Ticket]]
-- [[staging-via-excel|Staging via Excel (Drag/Drop, Copy-Paste, FTP)]]
+- [[staging-via-ticket|Staging via Ticket]] **(draft)**
+- [[staging-via-excel|Staging via Excel (Drag/Drop, Copy-Paste, FTP)]] **(draft)**
 - [[staging-via-fix|Staging via FIX — Nuances]] **(draft)**
-- [[amend-order|Amend an Order]]
-- [[expiry-type|Expiry Type]]
-- [[notes-and-custom-notes|Notes & Custom Notes]]
-- [[allocation-prime-broker|Allocation → Prime Broker, Templates, Internal Accts]]
-- [[spot-limit-price|Spot Limit Price]]
-- [[effective-date|Effective Date]]
-- [[pre-authorized-cptys|Pre-Authorized Counterparties]]
-- [[broker-codes|Broker Codes]]
+- [[amend-order|Amend an Order]] **(draft)**
+- [[expiry-type|Expiry Type]] **(draft)**
+- [[notes-and-custom-notes|Notes & Custom Notes]] **(draft)**
+- [[allocation-prime-broker|Allocation → Prime Broker, Templates, Internal Accts]] **(draft)**
+- [[spot-limit-price|Spot Limit Price]] **(draft)**
+- [[effective-date|Effective Date]] **(draft)**
+- [[pre-authorized-cptys|Pre-Authorized Counterparties]] **(draft)**
+- [[broker-codes|Broker Codes]] **(draft)**
 - [[netting-auto-via-excel|Netting — Auto via Excel / 35=E (58=Netted) / Limits]] **(draft)**
-- [[batchname-column|BatchName Column (vs. Grouping)]]
-- [[what-are-swaps|What are Swaps?]]
-- [[bulk-order-update-route|Bulk Order Update / Route]]
+- [[batchname-column|BatchName Column (vs. Grouping)]] **(draft)**
+- [[what-are-swaps|What are Swaps?]] **(draft)**
+- [[bulk-order-update-route|Bulk Order Update / Route]] **(draft)**
 
 ## Pre Trade
 - [[two-step-approval|2-Step Approval (+ Amend / FXPV Solicited)]] **(draft)**
