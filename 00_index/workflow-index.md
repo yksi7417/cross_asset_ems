@@ -2,6 +2,8 @@
 
 All workflows grouped under the FX taxonomy headings. Cross-asset where applicable.
 
+> Notes marked **(draft)** have been expanded with full architecture mappings; others remain stubs awaiting expansion. See [[architecture-index]] for the system spine each workflow links back to.
+
 ## Common
 - [[entry-point-bas|Entry Point (BAS)]]
 - [[actions-framework|Actions Framework]]
@@ -13,7 +15,7 @@ All workflows grouped under the FX taxonomy headings. Cross-asset where applicab
 ## Staging
 - [[staging-via-ticket|Staging via Ticket]]
 - [[staging-via-excel|Staging via Excel (Drag/Drop, Copy-Paste, FTP)]]
-- [[staging-via-fix|Staging via FIX — Nuances]]
+- [[staging-via-fix|Staging via FIX — Nuances]] **(draft)**
 - [[amend-order|Amend an Order]]
 - [[expiry-type|Expiry Type]]
 - [[notes-and-custom-notes|Notes & Custom Notes]]
@@ -22,13 +24,13 @@ All workflows grouped under the FX taxonomy headings. Cross-asset where applicab
 - [[effective-date|Effective Date]]
 - [[pre-authorized-cptys|Pre-Authorized Counterparties]]
 - [[broker-codes|Broker Codes]]
-- [[netting-auto-via-excel|Netting — Auto via Excel / 35=E (58=Netted) / Limits]]
+- [[netting-auto-via-excel|Netting — Auto via Excel / 35=E (58=Netted) / Limits]] **(draft)**
 - [[batchname-column|BatchName Column (vs. Grouping)]]
 - [[what-are-swaps|What are Swaps?]]
 - [[bulk-order-update-route|Bulk Order Update / Route]]
 
 ## Pre Trade
-- [[two-step-approval|2-Step Approval (+ Amend / FXPV Solicited)]]
+- [[two-step-approval|2-Step Approval (+ Amend / FXPV Solicited)]] **(draft)**
 - [[netting-swap-net|Netting & Swap Net]]
 - [[batch-creation|Batch Creation]]
 - [[order-ownership|Order Ownership]]
@@ -36,11 +38,11 @@ All workflows grouped under the FX taxonomy headings. Cross-asset where applicab
 
 ## Routing
 - [[route-single|Route Single (All Venues)]]
-- [[route-to-algo|Route to Algo]]
+- [[route-to-algo|Route to Algo]] **(draft)**
 - [[route-to-cnf|Route to CNF (Confirmation)]]
 - [[route-to-local|Route to Local]]
 - [[route-to-resting|Route to Resting]]
-- [[route-to-rfq|Route to RFQ]]
+- [[route-to-rfq|Route to RFQ]] **(draft)**
 - [[multi-route-rfq|Multi-Route to RFQ (FXPF setting)]]
 - [[auto-route|Auto-Route to RFQ / FXOM / CNF]]
 - [[partial-routes|Partial Routes (Single & Netted)]]

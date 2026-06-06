@@ -6,6 +6,7 @@ Atomic-notes Obsidian vault covering execution workflows across every asset clas
 
 ## Reference
 - [[USAGE]] — how to use this vault (runbook)
+- [[architecture-index]] — system architecture (API, FIX bridge, SBE/Aeron, OMS layers, validator, perms)
 - [[asset-class-matrix]] — side-by-side comparison of all asset classes
 - [[workflow-index]] — every workflow grouped by category
 
@@ -51,3 +52,4 @@ Atomic-notes Obsidian vault covering execution workflows across every asset clas
 - Clearing & Settlement — see `50_clearing_settlement/`
 - Documentation — see `60_documentation/`
 - Concepts / Glossary — see `70_concepts/`
+- **System Architecture** — see `80_architecture/` and [[architecture-index]]

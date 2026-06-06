@@ -45,6 +45,7 @@ flatpak --user run md.obsidian.Obsidian &
 | `50_clearing_settlement/` | DTC, Fedwire, Euroclear, Clearstream, LCH, FICC clearing, triparty agents. | New clearer or settlement system. |
 | `60_documentation/` | ISDA, CSA, GMRA, DVP, SIFMA TBA, PSA, loan agreements. | New legal/documentation artefact relevant to trading. |
 | `70_concepts/` | Glossary atoms — RFQ, ALLQ, OTR vs OFR, TBA vs specified pool, CLOB vs RFQ. | A concept you keep wanting to link to from several other notes. |
+| `80_architecture/` | System architecture spine — API-first, FIX bridge, SBE/Aeron, OMS layers, validator, permissions, time/replay, venue connectivity. See [[architecture-index]]. | When you add or amend a cross-cutting system concept that workflows need to cite. |
 | `templates/` | Skeletons for every note type. | Don't put real notes here. |
 | `attachments/` | Diagrams, screenshots, PDFs. | Anything binary that a note references. |
 
@@ -60,6 +61,9 @@ Open [[HOME]] (Quick Switcher: <kbd>Ctrl+O</kbd> → `home`). It's the **Map of 
 
 ### The workflow index
 [[workflow-index]] groups every workflow under the FX taxonomy headings (Staging / Pre-Trade / Routing / Corporate Treasury / Others). Use this when you want to find "where's the note on partial routes?" rather than browsing the folder.
+
+### The architecture index
+[[architecture-index]] lists the system-level architecture notes. **Every expanded workflow links back here** — when reading a workflow, follow the architecture wikilinks to understand the surrounding mechanics (event sourcing, validator codes, FIX-API bridge rules, tag permissions, etc.).
 
 ### Navigation hotkeys
 
@@ -135,6 +139,17 @@ When you install Dataview later you can query e.g. "show me every `status: stub`
 | `stub` | Skeleton with TODOs | Body has real content (not TODOs) for at least 3 sections |
 | `draft` | Substantive content, not yet peer-reviewed | A second person has read it and you've addressed feedback |
 | `reviewed` | Trusted, current as of frontmatter date | Use this for canonical reference notes |
+
+### Expanded-workflow pattern
+
+When promoting a workflow stub to `draft`, include these sections beyond the template default:
+
+- **API mapping** — which `operation` and `items[]` shape this workflow uses, per [[arch-api-first]].
+- **Validator codes touched** — list `EMS-XXX-NNNN` codes the workflow can trigger (see [[arch-validator]]).
+- **Permissions** — which tags are evaluated under [[arch-tag-permissions]].
+- **Architecture links** — every "Related" section should wikilink at least 2–3 `arch-*` notes.
+
+The five workflows already at `draft` ([[staging-via-fix]], [[two-step-approval]], [[route-to-rfq]], [[route-to-algo]], [[netting-auto-via-excel]]) are reference examples for this pattern.
 
 ### Tag scheme (hierarchical)
 
