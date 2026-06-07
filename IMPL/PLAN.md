@@ -59,7 +59,7 @@ Wire protocol and clustering. ~1-2 weeks.
 
 The auditable spine. ~2 weeks.
 
-- [ ] **3.1** Event envelope SBE schema per [[arch-event-sourcing]] (claude) ← blocks: 2.1
+- [x] **3.1** Event envelope SBE schema per [[arch-event-sourcing]] (claude) ← blocks: 2.1 `(pending sha)`
 - [ ] **3.2** Event log writer (append-only, fsync discipline) (local) ← blocks: 3.1
 - [ ] **3.3** Stream-id partitioning (order.{id}, route.{id}, etc.) (claude) ← blocks: 3.1
 - [ ] **3.4** Projection framework (idempotent, rebuild-from-scratch) (claude) ← blocks: 3.1
