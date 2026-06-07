@@ -176,6 +176,7 @@ Then **Open folder as vault** → point at this repository root. See [`00_index/
 | `SDKMAN_CANDIDATES_API: unbound variable` | `bootstrap.sh` no longer uses SDKMAN. Pull the latest and re-run. |
 | OpenSearch refuses to start | `sudo sysctl -w vm.max_map_count=262144` — see OpenSearch section above. |
 | `address already in use: 9090` | Cockpit (Fedora) uses port 9090. The compose file remaps Prometheus to 9091. If you still see this, run `sudo systemctl stop cockpit.socket`. |
+| `permission denied` reading bind-mounted config files (otel-collector, prometheus) | SELinux blocks container access to host files without `container_file_t` label. All bind mounts in `compose.dev.yaml` use `:ro,z` — the `,z` tells Podman to relabel. Pull latest and recreate containers. |
 | `registry.fedoraproject.org: manifest unknown` | Podman prefixed unqualified image names. All images in `compose.dev.yaml` are now fully qualified with `docker.io/`. Pull latest. |
 | `podman-compose: unrecognized arguments: postgres` | `podman-compose` has limited Docker Compose v2 compatibility. `start-dev-stack.sh` uses portable TCP/HTTP health checks — no `docker compose ps` needed. |
 | Tailscale: can't reach services from other machines | `sudo firewall-cmd --zone=trusted --add-interface=tailscale0 --permanent && sudo firewall-cmd --reload` |
