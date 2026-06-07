@@ -159,6 +159,21 @@ Endpoints:
 # Open http://localhost:16686, look for service "ems-otel-toy"
 ```
 
+### Validate the whole dev stack (integration smoke test)
+
+```bash
+./scripts/dev/check-dev-stack.sh             # full: liveness + wiring + live trace
+./scripts/dev/check-dev-stack.sh --no-trace  # skip the Gradle trace emit
+```
+
+Confirms each service is actually serving (not just `Up`) and that the
+cross-service wiring works: a real `SELECT 1` on Postgres, OpenSearch cluster
+health, Prometheus → otel-collector scrape target UP, Grafana's Prometheus +
+Jaeger datasources provisioned, and a fresh trace flowing SDK → collector →
+Jaeger. Exit code = number of failed checks (0 = healthy), so it doubles as a
+CI/smoke gate. Endpoints are overridable via env (`PROM_URL`, `GRAFANA_URL`, …)
+if you remapped ports.
+
 ## Commit conventions
 
 Pre-commit + commit-msg hooks enforce:

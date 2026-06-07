@@ -54,6 +54,13 @@ python3 -m pytest tools/fsm-validator/test_lifecycle_chaining.py -v  # FSM tests
 
 Open http://localhost:16686 → service `ems-otel-toy` — expect a 3-span trace.
 
+Or validate the whole stack (liveness + wiring + live trace flow) in one shot:
+
+```bash
+./scripts/dev/check-dev-stack.sh            # 14 checks; exit 0 = all healthy
+./scripts/dev/check-dev-stack.sh --no-trace # skip the Gradle trace emit (faster)
+```
+
 ### Endpoints (once the stack is up)
 
 | Service | URL |
