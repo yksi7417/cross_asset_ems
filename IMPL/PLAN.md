@@ -31,10 +31,10 @@ Foundation for everything else. ~1-2 weeks of work.
 The core determinism guarantee. ~2-3 weeks.
 
 - [x] **1.1** FSM YAML schema (states, events, transitions, effects) (claude) `(39169f8)`
-- [ ] **1.2** Order FSM definition per [[arch-order-route-lifecycle]] (claude) ← blocks: 1.1
-- [ ] **1.3** Route FSM definition per [[arch-order-route-lifecycle]] (claude) ← blocks: 1.1
+- [~] **1.2** Order FSM definition per [[arch-order-route-lifecycle]] (claude) ← blocks: 1.1
+- [~] **1.3** Route FSM definition per [[arch-order-route-lifecycle]] (claude) ← blocks: 1.1
 - [ ] **1.4** Multi-leg / Package FSM per [[arch-multileg]] (claude) ← blocks: 1.1
-- [ ] **1.5** VenueSession FSM (use existing Gemma draft in fsm/) (claude) ← blocks: 1.1
+- [~] **1.5** VenueSession FSM (use existing Gemma draft in fsm/) (claude) ← blocks: 1.1
 - [ ] **1.6** SOR FSM (claude) ← blocks: 1.1
 - [ ] **1.7** Codegen pipeline YAML → Java/Rust state structs (claude) ← blocks: 1.1
 - [ ] **1.8** Unit test generator: YAML → ~5000 transition tests (local) ← blocks: 1.7
