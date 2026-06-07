@@ -70,7 +70,7 @@ Foundation for everything else. ~1-2 weeks of work.
 - [x] **0.4** GitHub Actions baseline (unit tests, lint, SBOM) (sonnet) ← blocks: 0.2 `(5283807)`
 - [x] **0.5** Docker Compose dev environment (sonnet) ← blocks: 0.2 `(c74f4c4)`
 - [x] **0.6** SBE codegen Gradle plugin wired up (sonnet) ← blocks: 0.2 `(ab1fd79)`
-- [ ] **0.7** Aeron Cluster + Archive toy ping/pong (sonnet) ← blocks: 0.6
+- [~] **0.7** Aeron Cluster + Archive toy ping/pong (sonnet) ← blocks: 0.6
 - [x] **0.8** OpenTelemetry SDK + collector + Jaeger toy trace (gemma) `(b86e7f8)`
 - [x] **0.9** Conventional commit + changelog automation (gemma) `(27ce39f)`
 - [ ] **0.10** Phase-0 smoke test job in CI (sonnet) ← blocks: 0.4, 0.7

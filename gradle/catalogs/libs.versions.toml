@@ -15,7 +15,7 @@ agrona             = "1.23.1"
 sbe-tool           = "1.34.1"
 
 # Cluster + Archive — see arch-resilience-24x7
-aeron-cluster      = "1.46.6"
+aeron-cluster      = "1.51.0"
 
 # Observability — see arch-observability
 opentelemetry      = "1.43.0"
