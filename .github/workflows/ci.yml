@@ -126,20 +126,8 @@ jobs:
           config: '.markdownlint.jsonc'
         continue-on-error: true   # warnings only for now
 
-  # ---- SBOM generation + dependency review ----------------------------------
-  sbom:
-    name: SBOM + dep review
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Generate SBOM (CycloneDX)
-        uses: anchore/sbom-action@v0
-        with:
-          format: cyclonedx-json
-          output-file: sbom-cyclonedx.json
-      - name: Dependency review
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high
+  # SBOM + dependency-review job dropped for now. dependency-review-action
+  # requires GitHub Advanced Security on private repos (free only on public),
+  # so it would fail the first PR. Re-add when GHAS is enabled or the repo is
+  # public; CycloneDX SBOM generation (anchore/sbom-action) can be restored
+  # independently as it works on private repos.
