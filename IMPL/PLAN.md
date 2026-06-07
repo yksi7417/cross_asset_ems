@@ -76,7 +76,7 @@ The "what" layer. ~3-4 weeks.
 - [ ] **4.2** License-metering and audit (claude) ← blocks: 4.1
 - [ ] **4.3** SBE template registry for Instrument templates (claude) ← blocks: 2.1, 4.1
 - [ ] **4.4** `InstrumentCore` SBE block per [[arch-security-master]] (claude) ← blocks: 4.3
-- [ ] **4.5** `EquityInstrument` template (local first draft, claude review)
+- [x] **4.5** `EquityInstrument` template (local first draft, claude review) `(5752d7c)`
 - [ ] **4.6** `BondInstrument` template (local first draft, claude review)
 - [ ] **4.7** `IrsInstrument` template (claude — composition complexity)
 - [ ] **4.8** `CdsInstrument` template (claude — reference entity)
