@@ -4,9 +4,6 @@
  */
 package io.crossasset.ems.observability;
 
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.common.AttributeKey;
-import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
@@ -32,27 +29,30 @@ import java.time.Duration;
  * child spans nested 1-deep, exercising the {@code @trace.parent_id} relationship that drives
  * {@code arch-observability}'s distributed-trace correlation.
  *
- * <p>This toy intentionally does not depend on Aeron, the FSM, or any EMS module — it verifies
- * only the OTel collector + Jaeger pipeline.
+ * <p>This toy intentionally does not depend on Aeron, the FSM, or any EMS module - it verifies
+ * only the OTel collector + Jaeger pipeline. SDK init is delegated to
+ * {@link EmsOpenTelemetry} so the toy exercises the production factory.
  */
 public final class OtelToyTrace {
 
     private static final String SERVICE_NAME = "ems-otel-toy";
-    private static final String OTLP_ENDPOINT_DEFAULT = "http://localhost:4317";
 
     private OtelToyTrace() {}
 
-    public static void main(final String[] args) throws InterruptedException {
-        final String endpoint =
-                System.getenv().getOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", OTLP_ENDPOINT_DEFAULT);
+    public static void main(final String[] args) {
+        final EmsOpenTelemetry otel =
+                EmsOpenTelemetry.builder(SERVICE_NAME)
+                        .serviceVersion("0.0.1-toy")
+                        .deploymentEnv("dev")
+                        .podName("dev-pod-default")
+                        .build();
 
-        final OpenTelemetry otel = init(endpoint);
         final Tracer tracer = otel.getTracer("io.crossasset.ems.observability");
 
         runWorkload(tracer);
 
-        // Allow BatchSpanProcessor to flush.
-        Thread.sleep(2_000);
+        // Force flush so the toy trace is exported even with a small workload.
+        otel.close();
         System.out.println("Toy trace emitted. Inspect at http://localhost:16686 (service=" + SERVICE_NAME + ").");
     }
 
@@ -105,11 +105,8 @@ public final class OtelToyTrace {
         final Span span =
                 tracer.spanBuilder("stage:" + name)
                         .setSpanKind(SpanKind.INTERNAL)
-                        .setAllAttributes(
-                                Attributes.builder()
-                                        .put("ems.stage", name)
-                                        .put("ems.simulated_latency_ms", 10L)
-                                        .build())
+                        .setAttribute("ems.stage", name)
+                        .setAttribute("ems.simulated_latency_ms", 10L)
                         .startSpan();
         final Scope spanScope = span.makeCurrent();
         try {

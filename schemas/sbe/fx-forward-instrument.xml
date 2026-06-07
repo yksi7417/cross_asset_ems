@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe" byteOrder="littleEndian" package="FxForwardInstrument" id="0x2041" version="0" semanticVersion="1.0">
+  <sbe:types>
+    <sbe:composite name="MessageHeader" description="Standard SBE message header">
+      <type name="blockLength" primitiveType="uint16" offset="0"/>
+      <type name="templateId"  primitiveType="uint16" offset="2"/>
+      <type name="schemaId"    primitiveType="uint16" offset="4"/>
+      <type name="version"     primitiveType="uint16" offset="6"/>
+    </sbe:composite>
+    <sbe:enum name="AssetClass" encodingType="uint8">
+      <validValue name="FX" description="Foreign exchange">10</validValue>
+    </sbe:enum>
+    <sbe:enum name="InstrumentType" encodingType="uint8">
+      <validValue name="FX_SPOT"    description="FX spot">1</validValue>
+      <validValue name="FX_FORWARD" description="FX outright forward">2</validValue>
+      <validValue name="FX_SWAP"    description="FX swap">3</validValue>
+      <validValue name="FX_NDF"     description="FX non-deliverable forward">4</validValue>
+    </sbe:enum>
+    <sbe:composite name="Currency" description="ISO 4217 currency identifier">
+      <type name="code" primitiveType="uint16" nullValue="65535" offset="0"/>
+    </sbe:composite>
+    <sbe:composite name="InstrumentCore" description="Fixed-offset core reference data block (315 bytes) carried at the start of every FxForwardInstrument message">
+      <type name="figi"                id="1"  primitiveType="char"  length="12"  offset="0"/>
+      <type name="internalIid"         id="2"  primitiveType="char"  length="20"  offset="12"/>
+      <type name="compositeFigi"       id="3"  presence="optional"   primitiveType="char"  length="12"  offset="32"/>
+      <type name="shareClassFigi"      id="4"  presence="optional"   primitiveType="char"  length="12"  offset="44"/>
+      <type name="assetClass"          id="5"  nullValue="255"       primitiveType="uint8"  offset="56"/>
+      <type name="instrumentType"      id="6"  nullValue="255"       primitiveType="uint8"  offset="57"/>
+      <type name="displayName"         id="7"                       primitiveType="char"  length="64"  offset="58"/>
+      <type name="legalName"           id="8"                       primitiveType="char"  length="128" offset="122"/>
+      <type name="issuerLei"           id="9"  presence="optional"   primitiveType="char"  length="20"  offset="250"/>
+      <type name="currency"            id="10" nullValue="65535"      primitiveType="uint16" offset="270"/>
+      <type name="countryOfIssue"      id="11"                       primitiveType="char"  length="2"   offset="272"/>
+      <type name="countryOfListing"    id="12" presence="optional"   primitiveType="char"  length="2"   offset="274"/>
+      <type name="fungibility"         id="13" nullValue="255"       primitiveType="uint8"  offset="276"/>
+      <type name="settlementConvention" id="14" nullValue="255"      primitiveType="uint8"  offset="277"/>
+      <type name="effectiveDate"       id="15"                       primitiveType="uint64" offset="278"/>
+      <type name="expiryDate"          id="16" presence="optional"   primitiveType="uint64" offset="286"/>
+      <type name="status"              id="17" nullValue="255"       primitiveType="uint8"  offset="294"/>
+      <type name="createdAt"           id="18"                       primitiveType="uint64" offset="295"/>
+      <type name="updatedAt"           id="19"                       primitiveType="uint64" offset="303"/>
+      <type name="version"             id="20"                       primitiveType="uint32" offset="311"/>
+    </sbe:composite>
+    <sbe:composite name="FxForwardAttributes" description="FX forward specific pricing, settlement, and deliverability attributes">
+      <type name="baseCurrency"          id="1"  primitiveType="uint16" offset="0"/>
+      <type name="quoteCurrency"         id="2"  primitiveType="uint16" offset="2"/>
+      <type name="valueDate"             id="3"  primitiveType="uint64" offset="8"/>
+      <type name="forwardPointsMantissa" id="4"  primitiveType="int64"  offset="16"/>
+      <type name="forwardPointsExponent" id="5"  primitiveType="int8"   offset="24"/>
+      <type name="isNonDeliverable"      id="6"  primitiveType="uint8"  offset="25"/>
+    </sbe:composite>
+  </sbe:types>
+  <sbe:message name="FxForwardInstrument" id="0x2041" description="FX forward instrument reference-data message">
+    <sbe:header>MessageHeader</sbe:header>
+    <field name="instrumentCore" id="1" type="InstrumentCore" offset="0"/>
+    <group name="fxForwardAttributes" id="2" type="FxForwardAttributes" blockLength="32" dimensionType="groupSizeEncoding"/>
+  </sbe:message>
+</sbe:messageSchema>

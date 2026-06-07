@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
+                   byteOrder="littleEndian"
+                   package="AbsInstrument"
+                   id="0x2012"
+                   version="0"
+                   semanticVersion="1.0">
+  <sbe:types>
+    <sbe:composite name="MessageHeader" description="Standard SBE message header">
+      <sbe:type name="blockLength" id="1" primitiveType="uint16" offset="0"/>
+      <sbe:type name="templateId"  id="2" primitiveType="uint16" offset="2"/>
+      <sbe:type name="schemaId"    id="3" primitiveType="uint16" offset="4"/>
+      <sbe:type name="version"     id="4" primitiveType="uint16" offset="6"/>
+    </sbe:composite>
+
+    <sbe:composite name="InstrumentCore" description="Fixed-offset core reference data block (315 bytes) carried at the start of every AbsInstrument message">
+      <sbe:type name="figi"                id="1"  primitiveType="char"   length="12"  offset="0"/>
+      <sbe:type name="internalIid"         id="2"  primitiveType="char"   length="20"  offset="12"/>
+      <sbe:type name="compositeFigi"       id="3"  presence="optional"   primitiveType="char"   length="12"  offset="32"/>
+      <sbe:type name="shareClassFigi"      id="4"  presence="optional"   primitiveType="char"   length="12"  offset="44"/>
+      <sbe:type name="assetClass"          id="5"  nullValue="255"       primitiveType="uint8"  offset="56"/>
+      <sbe:type name="instrumentType"      id="6"  nullValue="255"       primitiveType="uint8"  offset="57"/>
+      <sbe:type name="displayName"         id="7"                       primitiveType="char"   length="64"  offset="58"/>
+      <sbe:type name="legalName"           id="8"                       primitiveType="char"   length="128" offset="122"/>
+      <sbe:type name="issuerLei"           id="9"  presence="optional"   primitiveType="char"   length="20"  offset="250"/>
+      <sbe:type name="currency"            id="10" nullValue="65535"     primitiveType="uint16" offset="270"/>
+      <sbe:type name="countryOfIssue"      id="11"                      primitiveType="char"   length="2"   offset="272"/>
+      <sbe:type name="countryOfListing"    id="12" presence="optional"  primitiveType="char"   length="2"   offset="274"/>
+      <sbe:type name="fungibility"         id="13" nullValue="255"      primitiveType="uint8"  offset="276"/>
+      <sbe:type name="settlementConvention" id="14" nullValue="255"     primitiveType="uint8"  offset="277"/>
+      <sbe:type name="effectiveDate"       id="15"                      primitiveType="uint64" offset="278"/>
+      <sbe:type name="expiryDate"          id="16" presence="optional"  primitiveType="uint64" offset="286"/>
+      <sbe:type name="status"              id="17" nullValue="255"      primitiveType="uint8"  offset="294"/>
+      <sbe:type name="createdAt"           id="18"                      primitiveType="uint64" offset="295"/>
+      <sbe:type name="updatedAt"           id="19"                      primitiveType="uint64" offset="303"/>
+      <sbe:type name="version"             id="20"                      primitiveType="uint32" offset="311"/>
+    </sbe:composite>
+
+    <sbe:enum name="AssetClass" encodingType="uint8">
+      <sbe:validValue name="CreditCard">1</sbe:validValue>
+      <sbe:validValue name="Auto">2</sbe:validValue>
+      <sbe:validValue name="StudentLoan">3</sbe:validValue>
+      <sbe:validValue name="RMBS">4</sbe:validValue>
+      <sbe:validValue name="CMBS">5</sbe:validValue>
+      <sbe:validValue name="CLO">6</sbe:validValue>
+      <sbe:validValue name="Other">99</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="InstrumentType" encodingType="uint8">
+      <sbe:validValue name="Abs">1</sbe:validValue>
+      <sbe:validValue name="Mbs">2</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="Status" encodingType="uint8">
+      <sbe:validValue name="Active">0</sbe:validValue>
+      <sbe:validValue name="Inactive">1</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="Fungibility" encodingType="uint8">
+      <sbe:validValue name="Fungible">0</sbe:validValue>
+      <sbe:validValue name="NonFungible">1</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="SettlementConvention" encodingType="uint8">
+      <sbe:validValue name="TPlus1">1</sbe:validValue>
+      <sbe:validValue name="TPlus2">2</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="Seniority" encodingType="uint8">
+      <sbe:validValue name="Senior">1</sbe:validValue>
+      <sbe:validValue name="Mezz">2</sbe:validValue>
+      <sbe:validValue name="Sub">3</sbe:validValue>
+      <sbe:validValue name="Equity">4</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="CouponType" encodingType="uint8">
+      <sbe:validValue name="Fixed">1</sbe:validValue>
+      <sbe:validValue name="Float">2</sbe:validValue>
+      <sbe:validValue name="StepUp">3</sbe:validValue>
+      <sbe:validValue name="StepDown">4</sbe:validValue>
+      <sbe:validValue name="MortgageIO">5</sbe:validValue>
+    </sbe:enum>
+  </sbe:types>
+
+  <sbe:group name="AbsAttributes" id="100" blockLength="159" dimensionType="groupSizeEncoding">
+    <sbe:field name="dealId"             id="1"  type="char"     length="20" offset="0"/>
+    <sbe:field name="issuerLei"          id="2"  type="char"     length="20" offset="20"/>
+    <sbe:field name="trancheName"        id="3"  type="char"     length="64" offset="40"/>
+    <sbe:field name="seniority"          id="4"  type="Seniority"          offset="104"/>
+    <sbe:field name="couponRateMantissa" id="5"  type="int64"              offset="105"/>
+    <sbe:field name="couponRateExponent" id="6"  type="int8"               offset="113"/>
+    <sbe:field name="couponType"         id="7"  type="CouponType"         offset="114"/>
+    <sbe:field name="ratingSp"           id="8"  type="uint8"              offset="115"/>
+    <sbe:field name="ratingMoodys"       id="9"  type="uint8"              offset="116"/>
+    <sbe:field name="ratingFitch"        id="10" type="uint8"              offset="117"/>
+    <sbe:field name="originalFaceValue"  id="11" type="uint64"             offset="118"/>
+    <sbe:field name="currentFaceValue"   id="12" type="uint64"             offset="126"/>
+    <sbe:field name="wacBps"             id="13" type="uint32"             offset="134"/>
+    <sbe:field name="wamMonths"          id="14" type="uint16"             offset="138"/>
+    <sbe:field name="walaMonths"         id="15" type="uint16"             offset="140"/>
+    <sbe:field name="issueDate"          id="16" type="uint64"             offset="142"/>
+    <sbe:field name="maturityDate"       id="17" type="uint64"             offset="150"/>
+    <sbe:field name="assetClass"         id="18" type="AssetClass"         offset="158"/>
+  </sbe:group>
+
+  <sbe:message name="AbsInstrument" id="0x2012">
+    <sbe:header>MessageHeader</sbe:header>
+    <sbe:field name="instrumentCore" id="1" type="InstrumentCore" offset="0"/>
+    <sbe:group name="absAttributes" id="2" type="AbsAttributes" blockLength="159" dimensionType="groupSizeEncoding"/>
+  </sbe:message>
+</sbe:messageSchema>

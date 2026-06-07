@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
+    byteOrder="littleEndian"
+    package="FxNdfInstrument"
+    id="0x2043"
+    version="0"
+    semanticVersion="1.0">
+  <types>
+    <composite name="MessageHeader" description="Standard SBE message header">
+      <type name="blockLength" primitiveType="uint16" offset="0"/>
+      <type name="templateId" primitiveType="uint16" offset="2"/>
+      <type name="schemaId" primitiveType="uint16" offset="4"/>
+      <type name="version" primitiveType="uint16" offset="6"/>
+    </composite>
+
+    <enum name="AssetClass" encodingType="uint8">
+      <validValue name="FX" description="Foreign exchange">10</validValue>
+    </enum>
+
+    <enum name="InstrumentType" encodingType="uint8">
+      <validValue name="FX_SPOT" description="FX spot">1</validValue>
+      <validValue name="FX_FORWARD" description="FX outright forward">2</validValue>
+      <validValue name="FX_SWAP" description="FX swap">3</validValue>
+      <validValue name="FX_NDF" description="FX non-deliverable forward">4</validValue>
+    </enum>
+
+    <composite name="Currency" description="ISO 4217 currency code as uint16">
+      <type name="code" nullValue="65535" primitiveType="uint16" offset="0"/>
+    </composite>
+
+    <composite name="InstrumentCore" description="Fixed-offset core reference data block (315 bytes) carried at the start of every FxNdfInstrument message">
+      <type name="figi"                id="1"  primitiveType="char"  length="12"  offset="0"/>
+      <type name="internalIid"         id="2"  primitiveType="char"  length="20"  offset="12"/>
+      <type name="compositeFigi"       id="3"  presence="optional"   primitiveType="char"  length="12"  offset="32"/>
+      <type name="shareClassFigi"      id="4"  presence="optional"   primitiveType="char"  length="12"  offset="44"/>
+      <type name="assetClass"          id="5"  nullValue="255"       primitiveType="uint8"  offset="56"/>
+      <type name="instrumentType"      id="6"  nullValue="255"       primitiveType="uint8"  offset="57"/>
+      <type name="displayName"         id="7"                       primitiveType="char"  length="64"  offset="58"/>
+      <type name="legalName"           id="8"                       primitiveType="char"  length="128" offset="122"/>
+      <type name="issuerLei"           id="9"  presence="optional"   primitiveType="char"  length="20"  offset="250"/>
+      <type name="currency"            id="10" nullValue="65535"      primitiveType="uint16" offset="270"/>
+      <type name="countryOfIssue"      id="11"                       primitiveType="char"  length="2"   offset="272"/>
+      <type name="countryOfListing"    id="12" presence="optional"   primitiveType="char"  length="2"   offset="274"/>
+      <type name="fungibility"         id="13" nullValue="255"       primitiveType="uint8"  offset="276"/>
+      <type name="settlementConvention" id="14" nullValue="255"      primitiveType="uint8"  offset="277"/>
+      <type name="effectiveDate"       id="15"                       primitiveType="uint64" offset="278"/>
+      <type name="expiryDate"          id="16" presence="optional"   primitiveType="uint64" offset="286"/>
+      <type name="status"              id="17" nullValue="255"       primitiveType="uint8"  offset="294"/>
+      <type name="createdAt"           id="18"                       primitiveType="uint64" offset="295"/>
+      <type name="updatedAt"           id="19"                       primitiveType="uint64" offset="303"/>
+      <type name="version"             id="20"                       primitiveType="uint32" offset="311"/>
+    </composite>
+
+    <enum name="FixingSource" encodingType="uint8">
+      <validValue name="PBOC_MID" description="People's Bank of China central parity rate">1</validValue>
+      <validValue name="RBI" description="Reserve Bank of India reference rate">2</validValue>
+      <validValue name="EMTA_FIX" description="EMTA Indicative Survey Rate">3</validValue>
+      <validValue name="BFIX" description="Bloomberg BFIX fixing">4</validValue>
+      <validValue name="WM_REF" description="WM/Refinitiv fixing">5</validValue>
+      <validValue name="REUTERS" description="Reuters fixing">6</validValue>
+      <validValue name="OTHER" description="Other fixing source">99</validValue>
+    </enum>
+
+    <enum name="FixingOffsetCalendar" encodingType="uint8">
+      <validValue name="TARGET" description="TARGET2 settlement calendar">1</validValue>
+      <validValue name="G10" description="G10 currency business calendar">2</validValue>
+      <validValue name="EMTA" description="EMTA non-deliverable calendar">3</validValue>
+      <validValue name="NONE" description="No business day adjustment">4</validValue>
+    </enum>
+
+    <sbe:group name="FxNdfAttributes" id="2" description="FX non-deliverable forward specific attributes">
+      <field name="baseCurrency"        id="21" primitiveType="uint16" offset="0"/>
+      <field name="quoteCurrency"       id="22" primitiveType="uint16" offset="2"/>
+      <field name="fixingDate"          id="23" primitiveType="uint64" offset="8"/>
+      <field name="valueDate"           id="24" primitiveType="uint64" offset="16"/>
+      <field name="fixingSource"        id="25" primitiveType="uint8"  offset="24"/>
+      <field name="fixingOffsetDays"    id="26" primitiveType="uint8"  offset="25"/>
+      <field name="fixingOffsetCalendar" id="27" primitiveType="uint8" offset="26"/>
+      <field name="settlementCurrency"  id="28" primitiveType="uint16" offset="28"/>
+    </sbe:group>
+  </types>
+
+  <sbe:message name="FxNdfInstrument" id="0x2043" description="FX NDF (non-deliverable forward) instrument reference-data message">
+    <sbe:header>MessageHeader</sbe:header>
+    <field name="instrumentCore" id="1" type="InstrumentCore" offset="0"/>
+    <group name="fxNdfAttributes" id="2" type="FxNdfAttributes" blockLength="30" dimensionType="groupSizeEncoding"/>
+  </sbe:message>
+</sbe:messageSchema>

@@ -1,0 +1,113 @@
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
+                   package="NftInstrument"
+                   id="0x2081"
+                   version="0"
+                   semanticVersion="1.0"
+                   byteOrder="littleEndian">
+  <sbe:types>
+    <sbe:composite name="MessageHeader" description="Standard SBE message header (8 bytes)">
+      <sbe:type name="blockLength" id="1" primitiveType="uint16" offset="0"/>
+      <sbe:type name="templateId" id="2" primitiveType="uint16" offset="2"/>
+      <sbe:type name="schemaId" id="3" primitiveType="uint16" offset="4"/>
+      <sbe:type name="version" id="4" primitiveType="uint16" offset="6"/>
+    </sbe:composite>
+    <sbe:composite name="InstrumentCore" description="Fixed-offset core reference data block (315 bytes) carried at the start of every NftInstrument message">
+      <sbe:type name="figi"                id="1"  primitiveType="char"  length="12"  offset="0"/>
+      <sbe:type name="internalIid"         id="2"  primitiveType="char"  length="20"  offset="12"/>
+      <sbe:type name="compositeFigi"       id="3"  presence="optional"   primitiveType="char"  length="12"  offset="32"/>
+      <sbe:type name="shareClassFigi"      id="4"  presence="optional"   primitiveType="char"  length="12"  offset="44"/>
+      <sbe:type name="assetClass"          id="5"  nullValue="255"       primitiveType="uint8"  offset="56"/>
+      <sbe:type name="instrumentType"      id="6"  nullValue="255"       primitiveType="uint8"  offset="57"/>
+      <sbe:type name="displayName"         id="7"                       primitiveType="char"  length="64"  offset="58"/>
+      <sbe:type name="legalName"           id="8"                       primitiveType="char"  length="128" offset="122"/>
+      <sbe:type name="issuerLei"           id="9"  presence="optional"   primitiveType="char"  length="20"  offset="250"/>
+      <sbe:type name="currency"            id="10" nullValue="65535"      primitiveType="uint16" offset="270"/>
+      <sbe:type name="countryOfIssue"      id="11"                       primitiveType="char"  length="2"   offset="272"/>
+      <sbe:type name="countryOfListing"    id="12" presence="optional"   primitiveType="char"  length="2"   offset="274"/>
+      <sbe:type name="fungibility"         id="13" nullValue="255"       primitiveType="uint8"  offset="276"/>
+      <sbe:type name="settlementConvention" id="14" nullValue="255"      primitiveType="uint8"  offset="277"/>
+      <sbe:type name="effectiveDate"       id="15"                       primitiveType="uint64" offset="278"/>
+      <sbe:type name="expiryDate"          id="16" presence="optional"   primitiveType="uint64" offset="286"/>
+      <sbe:type name="status"              id="17" nullValue="255"       primitiveType="uint8"  offset="294"/>
+      <sbe:type name="createdAt"           id="18"                       primitiveType="uint64" offset="295"/>
+      <sbe:type name="updatedAt"           id="19"                       primitiveType="uint64" offset="303"/>
+      <sbe:type name="version"             id="20"                       primitiveType="uint32" offset="311"/>
+    </sbe:composite>
+    <sbe:enum name="AssetClass" encodingType="uint8" description="Top-level asset class taxonomy used by InstrumentCore.assetClass">
+      <sbe:validValue name="Equity">1</sbe:validValue>
+      <sbe:validValue name="FixedIncome">2</sbe:validValue>
+      <sbe:validValue name="Derivative">3</sbe:validValue>
+      <sbe:validValue name="FX">4</sbe:validValue>
+      <sbe:validValue name="Commodity">5</sbe:validValue>
+      <sbe:validValue name="Crypto">6</sbe:validValue>
+      <sbe:validValue name="NFT">7</sbe:validValue>
+      <sbe:validValue name="Fund">8</sbe:validValue>
+      <sbe:validValue name="Index">9</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="InstrumentType" encodingType="uint8" description="Sub-type within asset class used by InstrumentCore.instrumentType">
+      <sbe:validValue name="CommonStock">1</sbe:validValue>
+      <sbe:validValue name="Preferred">2</sbe:validValue>
+      <sbe:validValue name="Bond">3</sbe:validValue>
+      <sbe:validValue name="Option">4</sbe:validValue>
+      <sbe:validValue name="Future">5</sbe:validValue>
+      <sbe:validValue name="Swap">6</sbe:validValue>
+      <sbe:validValue name="Token">7</sbe:validValue>
+      <sbe:validValue name="Collectible">8</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="Status" encodingType="uint8" description="Instrument lifecycle status used by InstrumentCore.status">
+      <sbe:validValue name="Active">1</sbe:validValue>
+      <sbe:validValue name="Inactive">2</sbe:validValue>
+      <sbe:validValue name="Delisted">3</sbe:validValue>
+      <sbe:validValue name="Suspended">4</sbe:validValue>
+      <sbe:validValue name="Pending">5</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="Fungibility" encodingType="uint8" description="Fungibility classification used by InstrumentCore.fungibility">
+      <sbe:validValue name="Fungible">1</sbe:validValue>
+      <sbe:validValue name="NonFungible">2</sbe:validValue>
+      <sbe:validValue name="SemiFungible">3</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="SettlementConvention" encodingType="uint8" description="Settlement timing convention used by InstrumentCore.settlementConvention">
+      <sbe:validValue name="T0">1</sbe:validValue>
+      <sbe:validValue name="T1">2</sbe:validValue>
+      <sbe:validValue name="T2">3</sbe:validValue>
+      <sbe:validValue name="Instant">4</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="NftChain" encodingType="uint32" description="Blockchain network identifier for NFT origin chain">
+      <sbe:validValue name="Ethereum">1</sbe:validValue>
+      <sbe:validValue name="Solana">101</sbe:validValue>
+      <sbe:validValue name="Tezos">1001</sbe:validValue>
+      <sbe:validValue name="Flow">1234</sbe:validValue>
+      <sbe:validValue name="Polygon">137</sbe:validValue>
+      <sbe:validValue name="Base">8453</sbe:validValue>
+      <sbe:validValue name="Immutable">13371</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="TokenStandard" encodingType="uint8" description="NFT token standard">
+      <sbe:validValue name="ERC721">1</sbe:validValue>
+      <sbe:validValue name="ERC1155">2</sbe:validValue>
+      <sbe:validValue name="METAPLEX">3</sbe:validValue>
+      <sbe:validValue name="TEZOS_FA2">4</sbe:validValue>
+      <sbe:validValue name="FLOW_NFT">5</sbe:validValue>
+    </sbe:enum>
+  </sbe:types>
+  <sbe:group name="NftAttributes" description="NFT-specific attribute block (889 bytes) carried after the InstrumentCore composite">
+    <sbe:field name="chainId" id="1" type="NftChain" offset="0" description="Origin blockchain network (1=Ethereum, 137=Polygon, 101=Solana, 13371=Immutable, 1234=Flow, 1001=Tezos, 8453=Base)"/>
+    <sbe:field name="contractAddress" id="2" primitiveType="char" length="42" offset="4" characterEncoding="UTF-8" description="Smart contract address (42 chars incl. 0x)"/>
+    <sbe:field name="tokenStandard" id="3" type="TokenStandard" offset="46" description="NFT token standard (ERC721=1, ERC1155=2, METAPLEX=3, TEZOS_FA2=4, FLOW_NFT=5)"/>
+    <sbe:field name="tokenId" id="4" primitiveType="uint64" offset="47" description="Token ID; current schema uses uint64 with documented upgrade path to uint256"/>
+    <sbe:field name="collectionName" id="5" primitiveType="char" length="128" offset="55" characterEncoding="UTF-8" description="Collection or contract name"/>
+    <sbe:field name="creatorAddress" id="6" primitiveType="char" length="42" offset="183" characterEncoding="UTF-8" description="Creator/minter address (42 chars incl. 0x)"/>
+    <sbe:field name="ownerAddress" id="7" primitiveType="char" length="42" offset="225" presence="optional" characterEncoding="UTF-8" description="Current owner address (42 chars incl. 0x, optional)"/>
+    <sbe:field name="royaltyBps" id="8" primitiveType="uint16" offset="267" nullValue="65535" description="Royalty in basis points (e.g. 500 = 5.00%)"/>
+    <sbe:field name="royaltyRecipient" id="9" primitiveType="char" length="42" offset="269" presence="optional" characterEncoding="UTF-8" description="Royalty recipient address (42 chars incl. 0x, optional)"/>
+    <sbe:field name="mediaUri" id="10" primitiveType="char" length="256" offset="311" presence="optional" characterEncoding="UTF-8" description="Primary media URI (ipfs://, https://, ar://, etc., optional)"/>
+    <sbe:field name="mediaMimeType" id="11" primitiveType="char" length="64" offset="567" presence="optional" characterEncoding="UTF-8" description="IANA MIME type of media (image/png, video/mp4, model/gltf-binary, optional)"/>
+    <sbe:field name="schemaMetadataUri" id="12" primitiveType="char" length="256" offset="631" presence="optional" characterEncoding="UTF-8" description="Schema or off-chain metadata URI (optional)"/>
+    <sbe:field name="isSoulbound" id="13" primitiveType="uint8" offset="887" nullValue="255" description="1 if soulbound (non-transferable by design), 0 otherwise"/>
+    <sbe:field name="transferable" id="14" primitiveType="uint8" offset="888" nullValue="255" description="1 if transferable, 0 if locked (overrides isSoulbound when 0)"/>
+  </sbe:group>
+  <sbe:message name="NftInstrument" id="0x2081" description="Non-fungible token instrument definition message">
+    <sbe:header>MessageHeader</sbe:header>
+    <sbe:field name="instrumentCore" id="1" type="InstrumentCore" offset="0"/>
+    <sbe:group name="nftAttributes" id="2" type="NftAttributes" blockLength="889"/>
+  </sbe:message>
+</sbe:messageSchema>

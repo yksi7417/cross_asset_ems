@@ -1,0 +1,111 @@
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe" package="CryptoFungibleInstrument" id="0x2080" version="0" semanticVersion="1.0" byteOrder="littleEndian">
+  <types>
+    <composite name="InstrumentCore" description="Fixed-offset core reference data block (315 bytes) carried at the start of every CryptoFungibleInstrument message">
+      <type name="figi"                id="1"  primitiveType="char"  length="12"  offset="0"/>
+      <type name="internalIid"         id="2"  primitiveType="char"  length="20"  offset="12"/>
+      <type name="compositeFigi"       id="3"  presence="optional"   primitiveType="char"  length="12"  offset="32"/>
+      <type name="shareClassFigi"      id="4"  presence="optional"   primitiveType="char"  length="12"  offset="44"/>
+      <type name="assetClass"          id="5"  nullValue="255"       primitiveType="uint8"  offset="56"/>
+      <type name="instrumentType"      id="6"  nullValue="255"       primitiveType="uint8"  offset="57"/>
+      <type name="displayName"         id="7"                       primitiveType="char"  length="64"  offset="58"/>
+      <type name="legalName"           id="8"                       primitiveType="char"  length="128" offset="122"/>
+      <type name="issuerLei"           id="9"  presence="optional"   primitiveType="char"  length="20"  offset="250"/>
+      <type name="currency"            id="10" nullValue="65535"      primitiveType="uint16" offset="270"/>
+      <type name="countryOfIssue"      id="11"                       primitiveType="char"  length="2"   offset="272"/>
+      <type name="countryOfListing"    id="12" presence="optional"   primitiveType="char"  length="2"   offset="274"/>
+      <type name="fungibility"         id="13" nullValue="255"       primitiveType="uint8"  offset="276"/>
+      <type name="settlementConvention" id="14" nullValue="255"      primitiveType="uint8"  offset="277"/>
+      <type name="effectiveDate"       id="15"                       primitiveType="uint64" offset="278"/>
+      <type name="expiryDate"          id="16" presence="optional"   primitiveType="uint64" offset="286"/>
+      <type name="status"              id="17" nullValue="255"       primitiveType="uint8"  offset="294"/>
+      <type name="createdAt"           id="18"                       primitiveType="uint64" offset="295"/>
+      <type name="updatedAt"           id="19"                       primitiveType="uint64" offset="303"/>
+      <type name="version"             id="20"                       primitiveType="uint32" offset="311"/>
+    </composite>
+    <composite name="MessageHeader" description="Standard SBE message header">
+      <type name="blockLength" id="1" primitiveType="uint16" offset="0"/>
+      <type name="templateId"  id="2" primitiveType="uint16" offset="2"/>
+      <type name="schemaId"    id="3" primitiveType="uint16" offset="4"/>
+      <type name="version"     id="4" primitiveType="uint16" offset="6"/>
+    </composite>
+    <enum name="AssetClass" encodingType="uint8">
+      <validValue name="EQUITIES">1</validValue>
+      <validValue name="FIXED_INCOME">2</validValue>
+      <validValue name="DERIVATIVES">3</validValue>
+      <validValue name="CRYPTO">4</validValue>
+      <validValue name="FX">5</validValue>
+      <validValue name="COMMODITIES">6</validValue>
+    </enum>
+    <enum name="InstrumentType" encodingType="uint8">
+      <validValue name="COMMON_STOCK">1</validValue>
+      <validValue name="PREFERRED_STOCK">2</validValue>
+      <validValue name="BOND">3</validValue>
+      <validValue name="OPTION">4</validValue>
+      <validValue name="FUTURE">5</validValue>
+      <validValue name="CRYPTOCURRENCY">10</validValue>
+      <validValue name="TOKEN">11</validValue>
+      <validValue name="STABLECOIN">12</validValue>
+    </enum>
+    <enum name="Fungibility" encodingType="uint8">
+      <validValue name="FUNGIBLE">1</validValue>
+      <validValue name="NON_FUNGIBLE">2</validValue>
+      <validValue name="SEMI_FUNGIBLE">3</validValue>
+    </enum>
+    <enum name="SettlementConvention" encodingType="uint8">
+      <validValue name="DVP">1</validValue>
+      <validValue name="FOP">2</validValue>
+      <validValue name="ONCHAIN">10</validValue>
+      <validValue name="OFFCHAIN">11</validValue>
+    </enum>
+    <enum name="Status" encodingType="uint8">
+      <validValue name="ACTIVE">1</validValue>
+      <validValue name="INACTIVE">2</validValue>
+      <validValue name="SUSPENDED">3</validValue>
+      <validValue name="DELISTED">4</validValue>
+      <validValue name="PENDING">5</validValue>
+    </enum>
+    <enum name="TokenStandard" encodingType="uint8">
+      <validValue name="ERC20">1</validValue>
+      <validValue name="ERC777">2</validValue>
+      <validValue name="ERC1404">3</validValue>
+      <validValue name="BEP20">4</validValue>
+      <validValue name="SPL">5</validValue>
+      <validValue name="NATIVE">10</validValue>
+      <validValue name="BITCOIN_UTXO">20</validValue>
+    </enum>
+    <enum name="PegMechanism" encodingType="uint8">
+      <validValue name="FIAT_BACKED">1</validValue>
+      <validValue name="CRYPTO_COLLATERALIZED">2</validValue>
+      <validValue name="ALGO_STABLE">3</validValue>
+      <validValue name="NONE">4</validValue>
+    </enum>
+    <enum name="RegulatoryFramework" encodingType="uint8">
+      <validValue name="MiCA">1</validValue>
+      <validValue name="SEC">2</validValue>
+      <validValue name="CFTC">3</validValue>
+      <validValue name="FCA">4</validValue>
+      <validValue name="MAS">5</validValue>
+      <validValue name="NONE">99</validValue>
+    </enum>
+  </types>
+  <group name="CryptoFungibleAttributes" id="1" description="Asset-class specific attributes for fungible crypto instruments">
+    <field name="chainId" id="1" type="uint32" offset="0"/>
+    <field name="tokenAddress" id="2" type="char" length="42" offset="4"/>
+    <field name="tokenStandard" id="3" type="TokenStandard" offset="46"/>
+    <field name="decimals" id="4" type="uint8" offset="47"/>
+    <field name="totalSupply" id="5" type="uint64" offset="48"/>
+    <field name="isStablecoin" id="6" type="uint8" offset="56"/>
+    <field name="pegCurrency" id="7" type="uint16" offset="57"/>
+    <field name="pegMechanism" id="8" type="PegMechanism" offset="59"/>
+    <field name="isWrapped" id="9" type="uint8" offset="60"/>
+    <field name="underlyingToken" id="10" type="char" length="42" offset="61" presence="optional"/>
+    <field name="custodyProvider" id="11" type="char" length="64" offset="103" presence="optional"/>
+    <field name="regulatoryFramework" id="12" type="RegulatoryFramework" offset="167"/>
+    <field name="transferable" id="13" type="uint8" offset="168"/>
+  </group>
+  <sbe:message name="CryptoFungibleInstrument" id="0x2080">
+    <sbe:header>MessageHeader</sbe:header>
+    <field name="instrumentCore" id="1" type="InstrumentCore" offset="0"/>
+    <group name="cryptoFungibleAttributes" id="2" type="CryptoFungibleAttributes" blockLength="169"/>
+  </sbe:message>
+</sbe:messageSchema>

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2017/sbe"
+                   package="io.crossasset.ems.schemas.instrument"
+                   id="0x22"
+                   version="1"
+                   semanticVersion="1.0.0"
+                   description="CdsInstrument SBE template per arch-security-master.md"
+                   byteOrder="littleEndian">
+
+    <!--
+      template_id = 0x2051 (Phase 4 CDS template)
+      Per arch-security-master.md: index CDS (CDX, iTraxx) is fungible
+      per series + vintage; single-name CDS is fungible per (reference
+      entity, restructuring clause, term). The reference_entity_lei
+      and reference_obligation_figi are composition-by-ID — never
+      embedded — per the security-master rule.
+    -->
+
+    <types>
+        <composite name="messageHeader">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="templateId" primitiveType="uint16"/>
+            <type name="schemaId"   primitiveType="uint16"/>
+            <type name="version"    primitiveType="uint16"/>
+        </composite>
+
+        <composite name="instrumentCore">
+            <type name="figi"               primitiveType="char" length="12"/>
+            <type name="internalIid"        primitiveType="char" length="20"/>
+            <type name="compositeFigi"      primitiveType="char" length="12"/>
+            <type name="shareClassFigi"     primitiveType="char" length="12"/>
+            <type name="assetClass"         primitiveType="uint8"/>
+            <type name="instrumentType"     primitiveType="uint16"/>
+            <type name="displayName"        primitiveType="char" length="64"/>
+            <type name="legalName"          primitiveType="char" length="128"/>
+            <type name="issuerLei"          primitiveType="char" length="20"/>
+            <type name="currency"           primitiveType="uint16"/>
+            <type name="countryOfIssue"     primitiveType="char" length="3"/>
+            <type name="countryOfListing"   primitiveType="char" length="3"/>
+            <type name="fungibility"        primitiveType="uint8"/>
+            <type name="settlementConv"     primitiveType="uint8"/>
+            <type name="tickSizeRegimeRef"  primitiveType="uint16"/>
+            <type name="lifecycleStatus"    primitiveType="uint8"/>
+            <type name="effectiveFrom"      primitiveType="int64"/>
+            <type name="effectiveTo"        primitiveType="int64"/>
+            <type name="versionSeq"         primitiveType="uint32"/>
+            <type name="supersededBy"       primitiveType="char" length="12"/>
+        </composite>
+
+        <enum name="CdsKind" encodingType="uint8">
+            <validValue name="SINGLE_NAME">0</validValue>
+            <validValue name="INDEX">1</validValue>
+            <validValue name="INDEX_TRANCHE">2</validValue>
+            <validValue name="BASKET">3</validValue>
+        </enum>
+
+        <!-- 2014 ISDA Credit Derivatives Definitions restructuring clauses -->
+        <enum name="RestructuringClause" encodingType="uint8">
+            <validValue name="NO_RESTRUCTURING">0</validValue>
+            <validValue name="MOD_R">1</validValue>
+            <validValue name="MOD_MOD_R">2</validValue>
+            <validValue name="FULL_R">3</validValue>
+        </enum>
+
+        <enum name="SeniorityTier" encodingType="uint8">
+            <validValue name="SENIOR_UNSECURED">0</validValue>
+            <validValue name="SUBORDINATED">1</validValue>
+            <validValue name="SENIOR_SECURED">2</validValue>
+            <validValue name="JUNIOR_SUBORDINATED">3</validValue>
+        </enum>
+    </types>
+
+    <!-- CdsInstrument: template_id 0x2051 -->
+    <sbe:message name="CdsInstrument" id="0x2051"
+                 description="Single-name or index credit default swap. Reference entity, reference obligation, and index series referenced by ID per arch-security-master.">
+        <field name="core"                  id="1"  type="instrumentCore"/>
+
+        <field name="cdsKind"               id="2"  type="CdsKind"/>
+
+        <!-- Single-name fields (zero for index trades) -->
+        <field name="referenceEntityLei"    id="3"  type="char" length="20"
+               description="LEI of the reference entity; zero-filled for index CDS."/>
+        <field name="referenceObligationFigi" id="4" type="char" length="12"
+               description="FIGI of the reference obligation; zero-filled if not specified."/>
+
+        <!-- Index fields (zero for single-name) -->
+        <field name="indexSeriesRef"        id="5"  type="uint32"
+               description="Ref id into IndexSeries table (CDX IG Series 41, iTraxx Main S40, etc.); 0 for single-name."/>
+        <field name="indexVintage"          id="6"  type="uint16"
+               description="Vintage / series number; 0 for single-name."/>
+        <field name="indexFactor"           id="7"  type="uint32"
+               description="Current outstanding factor scaled by 1_000_000 (1.0 = 1_000_000); accounts for credit-event-driven write-downs."/>
+
+        <!-- Common terms -->
+        <field name="termMonths"            id="8"  type="uint16"
+               description="Tenor in months from effectiveDate to terminationDate (60, 84, 120 typical)."/>
+        <field name="couponBps"             id="9"  type="uint32"
+               description="Coupon in basis points (100 = standard CDX IG; 500 = standard CDX HY)."/>
+        <field name="recoveryRateBps"       id="10" type="uint32"
+               description="Assumed recovery rate in basis points (4000 = 40% standard for senior unsecured)."/>
+
+        <field name="restructuringClause"   id="11" type="RestructuringClause"/>
+        <field name="seniorityTier"         id="12" type="SeniorityTier"/>
+
+        <field name="effectiveDate"         id="13" type="int64"/>
+        <field name="terminationDate"       id="14" type="int64"/>
+
+        <field name="isCleared"             id="15" type="uint8"
+               description="0 = bilateral; 1 = CCP-cleared (ICE Clear Credit, LCH CDSClear)."/>
+        <field name="ccpRef"                id="16" type="uint16"/>
+
+        <field name="isMat"                 id="17" type="uint8"
+               description="0 = bespoke / off-SEF; 1 = CFTC MAT (typical for CDX IG/HY, iTraxx Main/Crossover)."/>
+    </sbe:message>
+</sbe:messageSchema>
