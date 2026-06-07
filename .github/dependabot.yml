@@ -8,6 +8,12 @@ updates:
       day: monday
     open-pull-requests-limit: 5
     labels: [dependencies, java]
+    ignore:
+      # Gradle 9.x is a breaking major version: Spotless 6.x is incompatible
+      # and the build-logic Kotlin DSL convention plugins need auditing.
+      # Upgrade intentionally when ready — do not auto-merge.
+      - dependency-name: "gradle"
+        update-types: ["version-update:semver-major"]
 
   # Note: no dependabot entry for C++/CMake — no package registry to track.
   # C++ third-party deps (Google Benchmark, GoogleTest) are pinned via
