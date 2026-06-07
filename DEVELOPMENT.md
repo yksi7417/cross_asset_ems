@@ -147,7 +147,7 @@ docker compose -f infra/docker-compose/compose.dev.yaml logs -f opensearch
 Endpoints:
 - Postgres: `postgres://ems:ems_dev@localhost:5432/ems`
 - OpenSearch API: `http://localhost:9200` · Dashboards: `http://localhost:5601`
-- Prometheus: `http://localhost:9090`
+- Prometheus: `http://localhost:9091`
 - Grafana: `http://localhost:3000` (anonymous Admin)
 - Jaeger UI: `http://localhost:16686`
 - OTel: gRPC `localhost:4317` · HTTP `http://localhost:4318`

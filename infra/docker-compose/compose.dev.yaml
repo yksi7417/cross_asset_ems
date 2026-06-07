@@ -70,7 +70,7 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.retention.time=7d
-    ports: ["9090:9090"]
+    ports: ["9091:9090"]   # 9090 conflicts with Cockpit on Fedora/RHEL
     volumes:
       - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
