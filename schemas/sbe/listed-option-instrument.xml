@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2017/sbe"
+                   package="io.crossasset.ems.schemas.instrument"
+                   id="0x24"
+                   version="1"
+                   semanticVersion="1.0.0"
+                   description="ListedOptionInstrument SBE template per arch-security-master.md"
+                   byteOrder="littleEndian">
+
+    <!--
+      template_id = 0x2030 (Phase 4 listed option)
+      Per arch-security-master.md worked example: listed options are
+      fungible per (underlying_figi, strike, expiry, exercise_style).
+      Composition via underlying_figi — never embedded.
+
+      Rewritten with canonical 20-field InstrumentCore. Supersedes
+      wip/4.11-listed-instruments which had a 22-field/328-byte core
+      drift.
+    -->
+
+    <types>
+        <composite name="messageHeader">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="templateId" primitiveType="uint16"/>
+            <type name="schemaId"   primitiveType="uint16"/>
+            <type name="version"    primitiveType="uint16"/>
+        </composite>
+
+        <composite name="instrumentCore">
+            <type name="figi"               primitiveType="char" length="12"/>
+            <type name="internalIid"        primitiveType="char" length="20"/>
+            <type name="compositeFigi"      primitiveType="char" length="12"/>
+            <type name="shareClassFigi"     primitiveType="char" length="12"/>
+            <type name="assetClass"         primitiveType="uint8"/>
+            <type name="instrumentType"     primitiveType="uint16"/>
+            <type name="displayName"        primitiveType="char" length="64"/>
+            <type name="legalName"          primitiveType="char" length="128"/>
+            <type name="issuerLei"          primitiveType="char" length="20"/>
+            <type name="currency"           primitiveType="uint16"/>
+            <type name="countryOfIssue"     primitiveType="char" length="3"/>
+            <type name="countryOfListing"   primitiveType="char" length="3"/>
+            <type name="fungibility"        primitiveType="uint8"/>
+            <type name="settlementConv"     primitiveType="uint8"/>
+            <type name="tickSizeRegimeRef"  primitiveType="uint16"/>
+            <type name="lifecycleStatus"    primitiveType="uint8"/>
+            <type name="effectiveFrom"      primitiveType="int64"/>
+            <type name="effectiveTo"        primitiveType="int64"/>
+            <type name="versionSeq"         primitiveType="uint32"/>
+            <type name="supersededBy"       primitiveType="char" length="12"/>
+        </composite>
+
+        <enum name="OptionRight" encodingType="uint8">
+            <validValue name="CALL">0</validValue>
+            <validValue name="PUT">1</validValue>
+        </enum>
+
+        <enum name="ExerciseStyle" encodingType="uint8">
+            <validValue name="EUROPEAN">0</validValue>
+            <validValue name="AMERICAN">1</validValue>
+            <validValue name="BERMUDAN">2</validValue>
+        </enum>
+
+        <enum name="SettlementStyle" encodingType="uint8">
+            <validValue name="PHYSICAL">0</validValue>
+            <validValue name="CASH">1</validValue>
+            <validValue name="AUTO_EXERCISE">2</validValue>
+        </enum>
+    </types>
+
+    <!-- ListedOptionInstrument: template_id 0x2030 -->
+    <sbe:message name="ListedOptionInstrument" id="0x2030"
+                 description="Exchange-listed equity / index / FX / commodity option.">
+        <field name="core"                  id="1"  type="instrumentCore"/>
+
+        <field name="underlyingFigi"        id="2"  type="char" length="12"
+               description="FIGI of the underlying (composition by ID per arch-security-master)."/>
+        <field name="strikePrice"           id="3"  type="int64"
+               description="Strike scaled by 1e6 (200.00 = 200_000_000)."/>
+        <field name="expiryDate"            id="4"  type="int64"
+               description="Expiry date (epoch days)."/>
+        <field name="optionRight"           id="5"  type="OptionRight"/>
+        <field name="exerciseStyle"         id="6"  type="ExerciseStyle"/>
+        <field name="contractMultiplier"    id="7"  type="uint32"
+               description="Shares per contract (100 for US equity options; 50 for SPX mini)."/>
+        <field name="settlementStyle"       id="8"  type="SettlementStyle"/>
+        <field name="lastTradingDate"       id="9"  type="int64"
+               description="Last trading date (epoch days); may differ from expiryDate."/>
+    </sbe:message>
+</sbe:messageSchema>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2017/sbe"
+                   package="io.crossasset.ems.schemas.instrument"
+                   id="0x25"
+                   version="1"
+                   semanticVersion="1.0.0"
+                   description="ListedFutureInstrument SBE template per arch-security-master.md"
+                   byteOrder="littleEndian">
+
+    <!--
+      template_id = 0x2031 (Phase 4 listed future)
+      Per arch-security-master.md: listed futures are fully fungible
+      per contract (commodity + delivery month + exchange spec). The
+      contractMonth + multiplier discriminate the lot economics; the
+      exchange + clearingHouse are referenced by ID.
+
+      Rewritten with canonical 20-field InstrumentCore.
+    -->
+
+    <types>
+        <composite name="messageHeader">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="templateId" primitiveType="uint16"/>
+            <type name="schemaId"   primitiveType="uint16"/>
+            <type name="version"    primitiveType="uint16"/>
+        </composite>
+
+        <composite name="instrumentCore">
+            <type name="figi"               primitiveType="char" length="12"/>
+            <type name="internalIid"        primitiveType="char" length="20"/>
+            <type name="compositeFigi"      primitiveType="char" length="12"/>
+            <type name="shareClassFigi"     primitiveType="char" length="12"/>
+            <type name="assetClass"         primitiveType="uint8"/>
+            <type name="instrumentType"     primitiveType="uint16"/>
+            <type name="displayName"        primitiveType="char" length="64"/>
+            <type name="legalName"          primitiveType="char" length="128"/>
+            <type name="issuerLei"          primitiveType="char" length="20"/>
+            <type name="currency"           primitiveType="uint16"/>
+            <type name="countryOfIssue"     primitiveType="char" length="3"/>
+            <type name="countryOfListing"   primitiveType="char" length="3"/>
+            <type name="fungibility"        primitiveType="uint8"/>
+            <type name="settlementConv"     primitiveType="uint8"/>
+            <type name="tickSizeRegimeRef"  primitiveType="uint16"/>
+            <type name="lifecycleStatus"    primitiveType="uint8"/>
+            <type name="effectiveFrom"      primitiveType="int64"/>
+            <type name="effectiveTo"        primitiveType="int64"/>
+            <type name="versionSeq"         primitiveType="uint32"/>
+            <type name="supersededBy"       primitiveType="char" length="12"/>
+        </composite>
+
+        <enum name="DeliveryMethod" encodingType="uint8">
+            <validValue name="PHYSICAL">0</validValue>
+            <validValue name="CASH">1</validValue>
+            <validValue name="EFP">2</validValue>
+            <validValue name="EFR">3</validValue>
+            <validValue name="BLOCK">4</validValue>
+        </enum>
+    </types>
+
+    <!-- ListedFutureInstrument: template_id 0x2031 -->
+    <sbe:message name="ListedFutureInstrument" id="0x2031"
+                 description="Exchange-listed future contract (index, rate, FX, commodity).">
+        <field name="core"                  id="1"  type="instrumentCore"/>
+
+        <field name="underlyingFigi"        id="2"  type="char" length="12"
+               description="FIGI of the underlying (composition by ID); zero for cash-settled indices defined inline by the contract spec."/>
+        <field name="contractMonth"         id="3"  type="uint32"
+               description="Year + month packed as YYYYMM (202612 = December 2026)."/>
+        <field name="contractMultiplier"    id="4"  type="uint64"
+               description="Notional per contract scaled by 1e2 (CME ES = 50_USD per index point -> 50_00; CL = 1000 barrels)."/>
+        <field name="minTickValue"          id="5"  type="uint64"
+               description="Minimum tick size in price units (scaled by 1e8)."/>
+        <field name="firstNoticeDate"       id="6"  type="int64"
+               description="First notice date (epoch days); 0 for cash-settled."/>
+        <field name="lastTradingDate"       id="7"  type="int64"
+               description="Last trading date (epoch days)."/>
+        <field name="deliveryDate"          id="8"  type="int64"
+               description="Delivery / final settlement date (epoch days)."/>
+        <field name="deliveryMethod"        id="9"  type="DeliveryMethod"/>
+        <field name="ccpRef"                id="10" type="uint16"
+               description="Ref id into CCP table (CME Clearing, ICE Clear US, etc.)."/>
+    </sbe:message>
+</sbe:messageSchema>
