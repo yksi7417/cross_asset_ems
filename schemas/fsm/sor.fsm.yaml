@@ -1,0 +1,487 @@
+# sor.fsm.yaml
+#
+# Smart Order Router (SOR) lifecycle FSM per arch-smart-order-router.md.
+#
+# SOR routes use the same Route FSM (arch-order-route-lifecycle). This file
+# is a complete, validatable FSM definition that extends the Route FSM with a
+# small SOR-specific event vocabulary. The Route FSM states and cascade
+# semantics are preserved verbatim; two SOR events are added:
+#
+#   SorStrategyDecided — the SOR strategy engine has selected a plan and
+#       triggered child dispatch. Self-loop on SENT: parent stays SENT until
+#       its first child route acknowledges (which cascades RouteAcknowledged
+#       back to this FSM via emit_event from the child's RouteFsm).
+#
+#   SorPlanAdjusted — reactive replan triggered by on_child_event(). Self-loop
+#       on WORKING: the strategy may dispatch new children or cancel existing
+#       ones; parent state does not change.
+#
+# Compliance audit events (SorStrategySelected, SorWheelSelectionLogged,
+# SorChildDispatched, SorPlanAdjusted) are recorded via publish_event_log
+# rather than as FSM events — they are emitted outbound but do not trigger
+# transitions, so they do not belong in events[].
+#
+# pre_cancel_status guard pattern: copied from route.fsm.yaml verbatim —
+# SOR parent routes follow the same cancel/restore logic.
+#
+# Conforms to schemas/fsm/fsm.schema.yaml (validated by tools/fsm-validator/).
+
+name: SorFsm
+version: 1
+kind: sor
+description: >
+  Smart Order Router parent route lifecycle: identical to RouteFsm plus
+  SorStrategyDecided (initial child dispatch) and SorPlanAdjusted (reactive
+  replan). The parent route composes N child routes; cancel / replace cascade
+  to children automatically. See arch-smart-order-router.
+
+context_schema:
+  route_id:
+    type: uuid
+    description: Immutable parent SOR route identifier.
+  order_id:
+    type: uuid
+    description: Parent order ID.
+  cl_ord_id:
+    type: string
+    description: "FIX tag 11 — current ClOrdID sent to the SOR virtual venue."
+  orig_cl_ord_id:
+    type: string
+    nullable: true
+    description: "FIX tag 41 — prior ClOrdID on replace/cancel requests."
+  venue_mic:
+    type: string
+    description: SOR virtual venue identifier (e.g. SOR_EQ_US).
+  instrument_id:
+    type: figi
+    description: FIGI of the instrument being routed.
+  side:
+    type: u8
+    description: "FIX tag 54."
+  route_qty:
+    type: u64
+    description: Quantity routed to this SOR parent.
+  price:
+    type: i64
+    nullable: true
+    description: Limit price in fixed-point (null for market routes).
+  cum_qty:
+    type: u64
+    description: Cumulative filled quantity aggregated from child routes.
+  leaves_qty:
+    type: u64
+    description: Remaining open quantity on this parent route.
+  trace_id:
+    type: u64
+    description: Identity-chaining trace ID.
+  initial_order_id:
+    type: uuid
+    description: Order ID that originated this chain.
+  pre_cancel_status:
+    type: string
+    nullable: true
+    # Saved on entry to PENDING_CANCEL_AT_VENUE so cancel-reject can restore
+    # prior SOR parent state — same pattern as route.fsm.yaml.
+    description: Route status before entering PENDING_CANCEL_AT_VENUE.
+  sor_strategy_id:
+    type: string
+    description: Registered strategy ID used for this route (algo wheel, slicer, etc.).
+
+states:
+  - name: PENDING
+    initial: true
+    description: SOR parent route created; outbound 35=D being assembled. Not yet sent.
+  - name: SENT
+    description: 35=D dispatched to SOR adapter; awaiting strategy selection and child dispatch.
+  - name: PENDING_NEW_AT_VENUE
+    fix_ord_status: "A"
+    fix_exec_type: "A"
+    description: First child route returned Pending New; parent echoes before confirming Working.
+  - name: WORKING
+    fix_ord_status: "0"
+    fix_exec_type: "0"
+    description: At least one child route is working; parent aggregate is active.
+  - name: PENDING_REPLACE_AT_VENUE
+    fix_ord_status: "E"
+    fix_exec_type: "E"
+    description: Replace cascaded to all child routes; awaiting child replace confirmations.
+  - name: PENDING_CANCEL_AT_VENUE
+    fix_ord_status: "6"
+    fix_exec_type: "6"
+    description: Cancel cascaded to all child routes; awaiting child cancel confirmations.
+  - name: PARTIALLY_FILLED
+    fix_ord_status: "1"
+    fix_exec_type: "F"
+    description: Child fills received; parent aggregate partially filled.
+  - name: FILLED
+    terminal: true
+    fix_ord_status: "2"
+    fix_exec_type: "F"
+    description: All child routes filled; parent route fully filled.
+  - name: CANCELED
+    terminal: true
+    fix_ord_status: "4"
+    fix_exec_type: "4"
+    description: All child routes canceled; parent route canceled.
+  - name: REJECTED
+    terminal: true
+    fix_ord_status: "8"
+    fix_exec_type: "8"
+    description: SOR strategy or venue rejected the route.
+  - name: EXPIRED
+    terminal: true
+    fix_ord_status: "C"
+    fix_exec_type: "C"
+    description: TIF reached; child routes expired.
+  - name: SUPERSEDED
+    terminal: true
+    description: >
+      Prior SOR parent route closed due to cancel-and-resubmit on a venue that
+      does not support in-place replace.
+  - name: ANOMALY
+    terminal: true
+    description: >
+      State inconsistency between EMS and SOR child routes requiring ops triage.
+
+events:
+  # --- SOR-specific events ---
+  - name: SorStrategyDecided
+    description: >
+      SOR strategy engine selected a plan (wheel bucket, slicer schedule, etc.)
+      and is dispatching child routes. Self-loop on SENT; parent stays SENT
+      until first child acknowledges. Compliance payload: strategy_id, bucket,
+      alternatives, seed, wheel_def_hash — logged via SorStrategySelected.
+  - name: SorPlanAdjusted
+    description: >
+      Reactive replan triggered by on_child_event(). Strategy adjusted the
+      cascade plan mid-flight (e.g. cancelled a stale child, added a new
+      slice). Self-loop on WORKING.
+
+  # --- Route FSM events (preserved verbatim from route.fsm.yaml) ---
+  - name: RouteSent
+    description: EMS outbound 35=D dispatched to SOR virtual venue adapter.
+
+  - name: RoutePendingNewAtVenue
+    description: First child returned ExecType=A; parent echoes Pending New.
+  - name: RouteAcknowledged
+    description: First child confirmed working; parent SOR route is now WORKING.
+  - name: RouteRejected
+    fix_msg_type: "8"
+    description: Strategy selection or first child submission rejected.
+
+  - name: RouteReplaceRequested
+    fix_msg_type: "G"
+    description: EMS dispatched 35=G; cascades to all active child routes.
+    payload_schema:
+      new_cl_ord_id: { type: string }
+      new_route_qty: { type: u64 }
+      new_price: { type: i64, nullable: true }
+  - name: RouteReplacePendingAtVenue
+    description: Child routes acknowledged replace with ExecType=E.
+  - name: RouteReplaced
+    description: All child routes confirmed replace.
+    payload_schema:
+      new_cl_ord_id: { type: string }
+  - name: RouteReplaceRejected
+    fix_msg_type: "9"
+    description: Child route replace rejected; parent returns to WORKING.
+    payload_schema:
+      cxl_rej_reason: { type: u8 }
+
+  - name: RouteCancelRequested
+    fix_msg_type: "F"
+    description: EMS dispatched 35=F; cascades to all active child routes.
+  - name: RouteCanceled
+    description: All child routes confirmed canceled.
+  - name: RouteCancelRejected
+    fix_msg_type: "9"
+    description: Child route cancel rejected; parent returns to prior state.
+    payload_schema:
+      cxl_rej_reason: { type: u8 }
+
+  - name: RoutePartiallyFilled
+    description: Child route partial fill aggregated into parent.
+    payload_schema:
+      last_qty: { type: u64 }
+      last_px: { type: i64 }
+      exec_id: { type: string }
+  - name: RouteFilled
+    description: All child routes filled; parent route is fully filled.
+    payload_schema:
+      last_qty: { type: u64 }
+      last_px: { type: i64 }
+      exec_id: { type: string }
+
+  - name: RouteExpired
+    description: Child routes expired at TIF boundary.
+
+  - name: RouteSuperseded
+    description: Prior SOR parent closed due to cancel-and-resubmit supersession.
+  - name: RouteAnomaly
+    description: State inconsistency detected; ops triage required.
+
+transitions:
+  # ── Dispatch ──────────────────────────────────────────────────────────────
+  - from: PENDING
+    event: RouteSent
+    to: SENT
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorRouteSent" }
+
+  # ── SOR strategy selection and child dispatch (self-loop on SENT) ─────────
+  # Parent stays SENT until first child route acks back via RouteAcknowledged.
+  - from: SENT
+    event: SorStrategyDecided
+    to: SENT
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorStrategySelected", strategy_id: "{{ context.sor_strategy_id }}" }
+      - kind: publish_event_log
+        args: { event: "SorWheelSelectionLogged" }
+      - kind: notify
+        args: { signal: "dispatch_sor_children", route_id: "{{ context.route_id }}" }
+
+  # ── Venue acknowledgment ─────────────────────────────────────────────────
+  - from: SENT
+    event: RoutePendingNewAtVenue
+    to: PENDING_NEW_AT_VENUE
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorRoutePendingNewAtVenue" }
+
+  - from: PENDING_NEW_AT_VENUE
+    event: RouteAcknowledged
+    to: WORKING
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorRouteWorking" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "ValidationPassed" }
+
+  - from: SENT
+    event: RouteAcknowledged
+    to: WORKING
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorRouteWorking" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "ValidationPassed" }
+
+  - from: SENT
+    event: RouteRejected
+    to: REJECTED
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorRouteRejected" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "ValidationFailed" }
+
+  # ── Reactive replan (self-loop on WORKING) ────────────────────────────────
+  - from: WORKING
+    event: SorPlanAdjusted
+    to: WORKING
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorPlanAdjusted" }
+      - kind: notify
+        args: { signal: "dispatch_sor_children", route_id: "{{ context.route_id }}" }
+
+  # ── Replace path ──────────────────────────────────────────────────────────
+  - from: WORKING
+    event: RouteReplaceRequested
+    to: PENDING_REPLACE_AT_VENUE
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorReplaceRequested" }
+
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RouteReplacePendingAtVenue
+    to: PENDING_REPLACE_AT_VENUE
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorReplacePendingAtVenue" }
+
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RouteReplaced
+    to: WORKING
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorRouteReplaced" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "ReplaceAccepted" }
+
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RouteReplaceRejected
+    to: WORKING
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorReplaceRejected" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "ReplaceRejected" }
+
+  # ── Cancel path ───────────────────────────────────────────────────────────
+  - from: WORKING
+    event: RouteCancelRequested
+    to: PENDING_CANCEL_AT_VENUE
+    effects:
+      - kind: update_context
+        args: { pre_cancel_status: "0" }
+      - kind: publish_event_log
+        args: { event: "SorCancelRequested" }
+
+  - from: PARTIALLY_FILLED
+    event: RouteCancelRequested
+    to: PENDING_CANCEL_AT_VENUE
+    effects:
+      - kind: update_context
+        args: { pre_cancel_status: "1" }
+      - kind: publish_event_log
+        args: { event: "SorCancelRequested" }
+
+  - from: PENDING_CANCEL_AT_VENUE
+    event: RouteCanceled
+    to: CANCELED
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorRouteCanceled" }
+
+  # Cancel rejected — return to WORKING
+  - from: PENDING_CANCEL_AT_VENUE
+    event: RouteCancelRejected
+    to: WORKING
+    guard: "context.pre_cancel_status == '0'"
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorCancelRejected" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "CancelRejected" }
+
+  # Cancel rejected — return to PARTIALLY_FILLED
+  - from: PENDING_CANCEL_AT_VENUE
+    event: RouteCancelRejected
+    to: PARTIALLY_FILLED
+    guard: "context.pre_cancel_status == '1'"
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorCancelRejected" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "CancelRejected" }
+
+  # ── Fill path ─────────────────────────────────────────────────────────────
+  - from: WORKING
+    event: RoutePartiallyFilled
+    to: PARTIALLY_FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "context.leaves_qty - payload.last_qty" }
+      - kind: publish_event_log
+        args: { event: "SorRoutePartiallyFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "PartialFill" }
+
+  - from: PARTIALLY_FILLED
+    event: RoutePartiallyFilled
+    to: PARTIALLY_FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "context.leaves_qty - payload.last_qty" }
+      - kind: publish_event_log
+        args: { event: "SorRoutePartiallyFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "PartialFill" }
+
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RoutePartiallyFilled
+    to: PARTIALLY_FILLED
+    description: Child fill against prior params while replace in-flight.
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "context.leaves_qty - payload.last_qty" }
+      - kind: publish_event_log
+        args: { event: "SorRoutePartiallyFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "PartialFill" }
+
+  - from: WORKING
+    event: RouteFilled
+    to: FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "0" }
+      - kind: publish_event_log
+        args: { event: "SorRouteFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "FullFill" }
+
+  - from: PARTIALLY_FILLED
+    event: RouteFilled
+    to: FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "0" }
+      - kind: publish_event_log
+        args: { event: "SorRouteFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "FullFill" }
+
+  # ── Expiry ────────────────────────────────────────────────────────────────
+  - from: WORKING
+    event: RouteExpired
+    to: EXPIRED
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorRouteExpired" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "OrderExpired" }
+
+  - from: PARTIALLY_FILLED
+    event: RouteExpired
+    to: EXPIRED
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorRouteExpired" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "OrderExpired" }
+
+  # ── Supersession / anomaly ────────────────────────────────────────────────
+  - from: WORKING
+    event: RouteSuperseded
+    to: SUPERSEDED
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorRouteSuperseded" }
+
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RouteSuperseded
+    to: SUPERSEDED
+    effects:
+      - kind: publish_event_log
+        args: { event: "SorRouteSuperseded" }
+
+  - from: WORKING
+    event: RouteAnomaly
+    to: ANOMALY
+    effects:
+      - kind: notify
+        args: { channel: "ops-alerts", message: "SOR route anomaly — manual triage required" }
+      - kind: publish_event_log
+        args: { event: "SorRouteAnomaly" }
+
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RouteAnomaly
+    to: ANOMALY
+    effects:
+      - kind: notify
+        args: { channel: "ops-alerts", message: "SOR route anomaly in PENDING_REPLACE — manual triage required" }
+      - kind: publish_event_log
+        args: { event: "SorRouteAnomaly" }
+
+  - from: PENDING_CANCEL_AT_VENUE
+    event: RouteAnomaly
+    to: ANOMALY
+    effects:
+      - kind: notify
+        args: { channel: "ops-alerts", message: "SOR route anomaly in PENDING_CANCEL — manual triage required" }
+      - kind: publish_event_log
+        args: { event: "SorRouteAnomaly" }
