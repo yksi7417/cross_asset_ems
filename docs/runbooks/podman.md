@@ -48,27 +48,48 @@ SELinux enforces that container processes may only read files labelled
 (`user_home_t`). The container process is denied regardless of Unix
 permissions.
 
-**Fix — `:z` on every bind mount**
+**Fix — `security_opt: label:disable` per service**
 
-Append `,z` to the volume option. Podman runs `chcon -t container_file_t`
-on the host path before mounting:
+The standard workaround is to disable SELinux label enforcement per service.
+This is safe for a local dev stack where you own and trust the bind-mounted files:
 
 ```yaml
-# Before (breaks on Fedora SELinux)
-- ../otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
-
-# After
-- ../otel-collector/config.yaml:/etc/otelcol/config.yaml:ro,z
+services:
+  otel-collector:
+    security_opt: [label:disable]   # SELinux: allow bind-mount reads on Fedora/Podman
+    volumes:
+      - ../otel-collector/config.yaml:/etc/otelcol/config.yaml:ro,z
 ```
 
-Already applied to all bind mounts in `infra/docker-compose/compose.dev.yaml`.
+Already applied to `postgres`, `prometheus`, `grafana`, and `otel-collector`
+in `infra/docker-compose/compose.dev.yaml`. Docker ignores `label:disable` on
+non-SELinux systems, so this is safe to leave in for cross-platform use.
 
-**`:z` vs `:Z`**
+**Why `:z` alone is not enough with `podman-compose`**
+
+The `:z` volume option tells Podman to run `chcon -t container_file_t` on the
+host path at mount time. However, some versions of `podman-compose` silently
+drop compound volume options (e.g., `:ro,z`), so the relabeling never happens.
+`security_opt: label:disable` bypasses this at the container level and works
+regardless of the `podman-compose` version.
+
+**`:z` vs `:Z` (for reference)**
 
 | Option | Meaning | Use when |
 |---|---|---|
 | `:z` | Shared label — multiple containers can read | Config files shared across containers |
 | `:Z` | Private label — only this container can read | Secrets or exclusive data dirs |
+
+**Permanent per-directory relabeling (alternative, requires root)**
+
+```bash
+sudo dnf install -y policycoreutils-python-utils   # provides semanage
+sudo semanage fcontext -a -t container_file_t "$(pwd)/infra(/.*)?"
+sudo restorecon -Rv infra/
+```
+
+This adds a permanent SELinux policy rule so `restorecon` and `git checkout`
+preserve the `container_file_t` label automatically.
 
 **Verify SELinux is enforcing** (explains why this only affects Fedora/RHEL):
 
