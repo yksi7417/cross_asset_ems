@@ -27,6 +27,7 @@ JAEGER_URL="${JAEGER_URL:-http://localhost:16686}"
 OTEL_HEALTH_URL="${OTEL_HEALTH_URL:-http://localhost:13133}"
 OTEL_GRPC_HOST="${OTEL_GRPC_HOST:-localhost}"
 OTEL_GRPC_PORT="${OTEL_GRPC_PORT:-4317}"
+LOGS_INDEX="${LOGS_INDEX:-ems-logs}"
 
 RUN_TRACE=1
 [ "${1:-}" = "--no-trace" ] && RUN_TRACE=0
@@ -123,14 +124,23 @@ else
 fi
 
 # ── 3. end-to-end trace flow ─────────────────────────────────────────────────
+# Helper: OpenSearch doc count for an index (0 if the index doesn't exist yet)
+os_doc_count() {
+    local n
+    n=$(curl -fsS --max-time 5 "$OPENSEARCH_URL/$1/_count" 2>/dev/null \
+        | grep -o '"count":[0-9]*' | head -1 | grep -o '[0-9]*')
+    echo "${n:-0}"
+}
+
 if [ "$RUN_TRACE" -eq 1 ]; then
-    section "End-to-end trace flow (SDK → collector → Jaeger)"
+    section "End-to-end telemetry flow (SDK → collector → Jaeger + OpenSearch)"
 
     traces_before=$(curl -fsS --max-time 5 \
         "$JAEGER_URL/api/traces?service=ems-otel-toy&limit=100&lookback=1h" 2>/dev/null \
         | grep -o '"traceID"' | wc -l)
+    logs_before=$(os_doc_count "$LOGS_INDEX")
 
-    echo "  emitting toy trace via ./scripts/dev/run-otel-toy.sh ..."
+    echo "  emitting toy telemetry via ./scripts/dev/run-otel-toy.sh ..."
     if ./scripts/dev/run-otel-toy.sh > /tmp/check-dev-stack-toy.log 2>&1; then
         if grep -q "SEVERE\|Failed to export" /tmp/check-dev-stack-toy.log; then
             fail "Toy ran but logged a span-export error (see /tmp/check-dev-stack-toy.log)"
@@ -165,6 +175,21 @@ if [ "$RUN_TRACE" -eq 1 ]; then
         pass "Trace contains expected root span 'ems-toy-root'"
     else
         fail "Trace missing expected 'ems-toy-root' span"
+    fi
+
+    # Logs path: the same toy run emits log records → collector → OpenSearch.
+    logs_found=0
+    for _ in $(seq 1 15); do
+        sleep 2
+        logs_after=$(os_doc_count "$LOGS_INDEX")
+        if [ "$logs_after" -gt "$logs_before" ]; then
+            logs_found=1; break
+        fi
+    done
+    if [ "$logs_found" -eq 1 ]; then
+        pass "New log records landed in OpenSearch '${LOGS_INDEX}' (${logs_before} → ${logs_after})"
+    else
+        fail "No new logs in OpenSearch '${LOGS_INDEX}' within 30s (collector → OpenSearch broken?)"
     fi
     rm -f /tmp/check-dev-stack-toy.log
 else

@@ -169,10 +169,11 @@ Endpoints:
 Confirms each service is actually serving (not just `Up`) and that the
 cross-service wiring works: a real `SELECT 1` on Postgres, OpenSearch cluster
 health, Prometheus → otel-collector scrape target UP, Grafana's Prometheus +
-Jaeger datasources provisioned, and a fresh trace flowing SDK → collector →
-Jaeger. Exit code = number of failed checks (0 = healthy), so it doubles as a
-CI/smoke gate. Endpoints are overridable via env (`PROM_URL`, `GRAFANA_URL`, …)
-if you remapped ports.
+Jaeger datasources provisioned, a fresh trace flowing SDK → collector → Jaeger,
+and fresh log records flowing SDK → collector → OpenSearch (`ems-logs` index).
+Exit code = number of failed checks (0 = healthy), so it doubles as a CI/smoke
+gate. Endpoints are overridable via env (`PROM_URL`, `GRAFANA_URL`, …) if you
+remapped ports.
 
 ## Commit conventions
 

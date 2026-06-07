@@ -38,9 +38,11 @@ done
 ./gradlew --no-daemon :ems-observability:run
 
 echo
-echo "Open http://localhost:16686 and look for service ems-otel-toy."
-echo "You should see a trace tree:"
+echo "Traces — http://localhost:16686, service ems-otel-toy:"
 echo "  ems-toy-root"
 echo "    ├── stage:validate"
 echo "    ├── stage:route"
 echo "    └── stage:ack"
+echo
+echo "Logs — http://localhost:5601 (OpenSearch Dashboards), index pattern ems-logs*"
+echo "  or: curl -s http://localhost:9200/ems-logs/_search?size=5 | python3 -m json.tool"
