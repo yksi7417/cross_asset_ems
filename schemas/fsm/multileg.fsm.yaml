@@ -1,0 +1,323 @@
+# multileg.fsm.yaml
+#
+# Multi-leg / Package order lifecycle FSM per arch-multileg.md.
+# Models the *parent* aggregate state; each leg runs its own Route FSM.
+# Execution modes ALL_OR_NONE, LEGS_INDEPENDENT, and SEQUENCED drive branch
+# semantics through guards on the execution_mode context field.
+#
+# Guard notation mirrors order/route FSMs — string expressions evaluated by
+# the FSM runtime. The runtime enforces mutual exclusion between guarded
+# transitions on the same (from, event) pair.
+#
+# Cascade from leg fills/rejects arrives via emit_event from RouteFsm.
+# When a leg fails in ALL_OR_NONE mode, this FSM emits RouteCancelRequested
+# back to cancel all remaining legs (cascade cancel).
+#
+# State spelling: CANCELED (not CANCELLED) — matches order.fsm.yaml and
+# route.fsm.yaml for cross-FSM consistency.
+#
+# Conforms to schemas/fsm/fsm.schema.yaml (validated by tools/fsm-validator/).
+
+name: MultiLegFsm
+version: 1
+kind: multileg
+description: >
+  Multi-leg / Package order lifecycle: STAGED → READY → LEGS_WORKING →
+  FILLED | PARTIALLY_FILLED | CANCELED | REJECTED. Parent state derived from
+  conjunction of leg outcomes under execution_mode. See arch-multileg.
+
+context_schema:
+  order_id:
+    type: uuid
+    description: Immutable parent order identifier.
+  multileg_kind:
+    type: string
+    description: Package kind — SWAP | SPREAD | ROLL | DELTA_HEDGE | PT | CUSTOM.
+  execution_mode:
+    type: string
+    description: Execution semantics — ALL_OR_NONE | LEGS_INDEPENDENT | SEQUENCED.
+  total_legs:
+    type: u32
+    description: Total number of legs in the package; set at staging time (immutable).
+  legs_filled:
+    type: u32
+    description: Count of legs that have reached FILLED state.
+  legs_rejected:
+    type: u32
+    description: Count of legs that have reached REJECTED state.
+  legs_canceled:
+    type: u32
+    description: Count of legs that have reached CANCELED state.
+  package_id:
+    type: string
+    nullable: true
+    description: Venue-side package identifier (required on some ALL_OR_NONE venues; see arch-multileg).
+
+states:
+  - name: STAGED
+    initial: true
+    description: Package received and staged; legs defined, awaiting validation.
+  - name: READY
+    description: All legs validated; package ready for routing.
+  - name: LEGS_WORKING
+    description: One or more legs are being routed or awaiting fills.
+  - name: FILLED
+    terminal: true
+    fix_ord_status: "2"
+    fix_exec_type: "F"
+    description: All legs fully filled.
+  - name: PARTIALLY_FILLED
+    terminal: true
+    fix_ord_status: "1"
+    fix_exec_type: "F"
+    description: >
+      Some legs filled; package complete under LEGS_INDEPENDENT semantics where
+      the failed or canceled leg does not void the filled legs.
+  - name: CANCELED
+    terminal: true
+    fix_ord_status: "4"
+    fix_exec_type: "4"
+    description: Package or all remaining legs canceled.
+  - name: REJECTED
+    terminal: true
+    fix_ord_status: "8"
+    fix_exec_type: "8"
+    description: >
+      Package rejected — validator failure, venue rejection, or leg failure under
+      ALL_OR_NONE / SEQUENCED mode (any failure voids the package).
+
+events:
+  # --- Validation ---
+  - name: LegsValidated
+    description: All legs pass the EMS validator; package promoted to READY.
+  - name: LegsValidationFailed
+    fix_msg_type: "j"
+    description: One or more legs fail validation (EMS-ORD-4001 / EMS-ORD-4002 / EMS-ORD-4003).
+
+  # --- Routing start ---
+  - name: FirstLegDispatched
+    description: First leg has been sent to routing; execution is now in progress.
+
+  # --- Leg outcome events (arrive via emit_event from each leg's RouteFsm) ---
+  - name: LegFilled
+    description: One leg has been fully filled by its venue.
+    payload_schema:
+      leg_id: { type: uuid }
+      last_qty: { type: u64 }
+      last_px: { type: i64 }
+  - name: LegPartiallyFilled
+    description: One leg received a partial fill; parent aggregate remains LEGS_WORKING.
+    payload_schema:
+      leg_id: { type: uuid }
+      last_qty: { type: u64 }
+      last_px: { type: i64 }
+  - name: LegRejected
+    description: One leg was rejected by its venue.
+    payload_schema:
+      leg_id: { type: uuid }
+  - name: LegCanceled
+    description: One leg was confirmed canceled by its venue.
+    payload_schema:
+      leg_id: { type: uuid }
+
+  # --- Package-level cancel ---
+  - name: CancelRequested
+    fix_msg_type: "F"
+    description: Operator or automation requested cancellation of the package.
+
+transitions:
+  # ── Validation ────────────────────────────────────────────────────────────
+  - from: STAGED
+    event: LegsValidated
+    to: READY
+    effects:
+      - kind: publish_event_log
+        args: { event: "MultiLegValidated" }
+
+  - from: STAGED
+    event: LegsValidationFailed
+    to: REJECTED
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "j" }
+      - kind: publish_event_log
+        args: { event: "MultiLegRejected" }
+
+  # ── Routing start ─────────────────────────────────────────────────────────
+  - from: READY
+    event: FirstLegDispatched
+    to: LEGS_WORKING
+    effects:
+      - kind: publish_event_log
+        args: { event: "MultiLegExecutionStarted" }
+
+  - from: READY
+    event: CancelRequested
+    to: CANCELED
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "4", ord_status: "4" }
+      - kind: publish_event_log
+        args: { event: "MultiLegCanceled" }
+
+  # ── LEGS_WORKING — partial fill (self-loop, all modes) ────────────────────
+  - from: LEGS_WORKING
+    event: LegPartiallyFilled
+    to: LEGS_WORKING
+    effects:
+      - kind: publish_event_log
+        args: { event: "LegPartiallyFilled" }
+
+  # ── LEGS_WORKING — LegFilled ───────────────────────────────────────────────
+  # Happy path: last leg fills, no prior failures → FILLED (any mode)
+  - from: LEGS_WORKING
+    event: LegFilled
+    to: FILLED
+    guard: "context.legs_filled + 1 == context.total_legs AND context.legs_rejected == 0 AND context.legs_canceled == 0"
+    effects:
+      - kind: update_context
+        args: { legs_filled: "context.legs_filled + 1" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "2" }
+      - kind: publish_event_log
+        args: { event: "MultiLegFilled" }
+
+  # Last leg fills, LEGS_INDEPENDENT mode — some prior rejects/cancels → PARTIALLY_FILLED
+  - from: LEGS_WORKING
+    event: LegFilled
+    to: PARTIALLY_FILLED
+    guard: "context.execution_mode == 'LEGS_INDEPENDENT' AND context.legs_filled + 1 + context.legs_rejected + context.legs_canceled == context.total_legs AND (context.legs_rejected > 0 OR context.legs_canceled > 0)"
+    effects:
+      - kind: update_context
+        args: { legs_filled: "context.legs_filled + 1" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "1" }
+      - kind: publish_event_log
+        args: { event: "MultiLegPartiallyFilled" }
+
+  # Not all legs done → stay LEGS_WORKING
+  - from: LEGS_WORKING
+    event: LegFilled
+    to: LEGS_WORKING
+    guard: "context.legs_filled + 1 + context.legs_rejected + context.legs_canceled < context.total_legs"
+    effects:
+      - kind: update_context
+        args: { legs_filled: "context.legs_filled + 1" }
+      - kind: publish_event_log
+        args: { event: "LegFilled" }
+
+  # ── LEGS_WORKING — LegRejected ────────────────────────────────────────────
+  # ALL_OR_NONE: any leg rejection voids the package; cascade cancel remaining legs
+  - from: LEGS_WORKING
+    event: LegRejected
+    to: REJECTED
+    guard: "context.execution_mode == 'ALL_OR_NONE'"
+    effects:
+      - kind: update_context
+        args: { legs_rejected: "context.legs_rejected + 1" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "8", ord_status: "8" }
+      - kind: publish_event_log
+        args: { event: "MultiLegRejected" }
+      - kind: emit_event
+        args: { target_fsm: "RouteFsm", event: "RouteCancelRequested" }
+
+  # SEQUENCED: leg N rejection halts; no further legs dispatched
+  - from: LEGS_WORKING
+    event: LegRejected
+    to: REJECTED
+    guard: "context.execution_mode == 'SEQUENCED'"
+    effects:
+      - kind: update_context
+        args: { legs_rejected: "context.legs_rejected + 1" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "8", ord_status: "8" }
+      - kind: publish_event_log
+        args: { event: "MultiLegRejected" }
+
+  # LEGS_INDEPENDENT: last event, some legs filled → PARTIALLY_FILLED
+  - from: LEGS_WORKING
+    event: LegRejected
+    to: PARTIALLY_FILLED
+    guard: "context.execution_mode == 'LEGS_INDEPENDENT' AND context.legs_filled > 0 AND context.legs_filled + context.legs_rejected + 1 + context.legs_canceled == context.total_legs"
+    effects:
+      - kind: update_context
+        args: { legs_rejected: "context.legs_rejected + 1" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "1" }
+      - kind: publish_event_log
+        args: { event: "MultiLegPartiallyFilled" }
+
+  # LEGS_INDEPENDENT: last event, no legs filled → CANCELED (all failed/canceled)
+  - from: LEGS_WORKING
+    event: LegRejected
+    to: CANCELED
+    guard: "context.execution_mode == 'LEGS_INDEPENDENT' AND context.legs_filled == 0 AND context.legs_rejected + 1 + context.legs_canceled == context.total_legs"
+    effects:
+      - kind: update_context
+        args: { legs_rejected: "context.legs_rejected + 1" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "4", ord_status: "4" }
+      - kind: publish_event_log
+        args: { event: "MultiLegCanceled" }
+
+  # LEGS_INDEPENDENT: still have active legs → stay LEGS_WORKING, continue
+  - from: LEGS_WORKING
+    event: LegRejected
+    to: LEGS_WORKING
+    guard: "context.execution_mode == 'LEGS_INDEPENDENT' AND context.legs_filled + context.legs_rejected + 1 + context.legs_canceled < context.total_legs"
+    effects:
+      - kind: update_context
+        args: { legs_rejected: "context.legs_rejected + 1" }
+      - kind: publish_event_log
+        args: { event: "LegRejected" }
+
+  # ── LEGS_WORKING — LegCanceled ────────────────────────────────────────────
+  # Last event, some legs filled → PARTIALLY_FILLED (all modes)
+  - from: LEGS_WORKING
+    event: LegCanceled
+    to: PARTIALLY_FILLED
+    guard: "context.legs_filled > 0 AND context.legs_filled + context.legs_rejected + context.legs_canceled + 1 == context.total_legs"
+    effects:
+      - kind: update_context
+        args: { legs_canceled: "context.legs_canceled + 1" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "1" }
+      - kind: publish_event_log
+        args: { event: "MultiLegPartiallyFilled" }
+
+  # Last event, no legs filled → CANCELED
+  - from: LEGS_WORKING
+    event: LegCanceled
+    to: CANCELED
+    guard: "context.legs_filled == 0 AND context.legs_rejected + context.legs_canceled + 1 == context.total_legs"
+    effects:
+      - kind: update_context
+        args: { legs_canceled: "context.legs_canceled + 1" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "4", ord_status: "4" }
+      - kind: publish_event_log
+        args: { event: "MultiLegCanceled" }
+
+  # Still have active legs → stay LEGS_WORKING
+  - from: LEGS_WORKING
+    event: LegCanceled
+    to: LEGS_WORKING
+    guard: "context.legs_filled + context.legs_rejected + context.legs_canceled + 1 < context.total_legs"
+    effects:
+      - kind: update_context
+        args: { legs_canceled: "context.legs_canceled + 1" }
+      - kind: publish_event_log
+        args: { event: "LegCanceled" }
+
+  # ── Package-level cancel ──────────────────────────────────────────────────
+  - from: LEGS_WORKING
+    event: CancelRequested
+    to: CANCELED
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "4", ord_status: "4" }
+      - kind: publish_event_log
+        args: { event: "MultiLegCanceled" }
+      - kind: emit_event
+        args: { target_fsm: "RouteFsm", event: "RouteCancelRequested" }
