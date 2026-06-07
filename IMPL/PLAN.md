@@ -29,10 +29,24 @@ starting point for the cheaper tiers, **not** merge-ready.
 
 | Branch | Tasks | Contents | Carry-forward |
 |---|---|---|---|
-| `wip/6.4-validation-rules` | 6.4 | 185 per-asset validation rules, 8 files | `(gemma)` extend → `(sonnet)` review |
-| `wip/6.5-validator-golden` | 6.5 | 47 golden fixtures, 10 categories | `(gemma)` finish |
-| `wip/11.2-11.10-fix-adapters` | 11.2–11.10 | 9 venue FIX adapters + base class (boilerplate) | `(gemma)` boilerplate → `(sonnet)` nuances |
-| `wip/13.2-13.4-observability` | 13.2–13.4 | ELK/OpenSearch, Prometheus, Grafana | `(gemma)`; 13.4 dashboard *design* → `(sonnet)` |
+| `wip/6.4-validation-rules` | 6.4 | 185 per-asset validation rules, 8 files | `(sonnet)` reject-code reconciliation needed (see note below) |
+| `wip/6.5-validator-golden` | 6.5 | 47 golden fixtures (wrong category/code scheme) | `(sonnet)` regen against actual catalog (see note below) |
+| ~~`wip/11.2-11.10-fix-adapters`~~ | 11.2–11.10 | **ABANDONED** — all 10 files were empty (1 newline each). Reset to `[ ]`. | Fresh `(gemma)` boilerplate → `(sonnet)` review |
+| ~~`wip/13.2-13.4-observability`~~  | 13.2–13.4 | **EXTRACTED** `6c9601c` — 13.2/13.3 done; 13.4 scaffolded (dashboards at 9/9/6 panels, targets 24/12/12) | 13.4 needs `(sonnet)` panel-count follow-up |
+
+**6.4 reconciliation note:** rules use sequential `EMS-ORD-1001/1002/1003…` codes,
+but those map to *different* concepts in `schemas/reject-codes/catalog.yaml` (e.g.
+ORD-1001 = "Required field missing", not "ticker format invalid"). The rules also
+cover concepts (field format, checksum, business-rule violations) that have no
+catalog entry yet. A `(sonnet)` pass must decide: extend the catalog with new codes,
+or remap rules to the closest existing code. Do not mark 6.4 `[x]` with the current codes.
+
+**6.5 reconciliation note:** fixtures use a 10-category scheme (`SESS`, `IDENT`,
+`PERM`, `REF`, `VAL`, `ROUT`, `CONF`, `AUTH`, `MKT`, `INFRA`) with sequential
+0001-indexed codes, but the catalog has 7 categories (`SES`, `REF`, `PRM`, `ORD`,
+`RTE`, `AUT`, `CFG`) with non-sequential codes. The fixture category names, code
+strings, and numbering scheme are all misaligned. Regenerate from the actual catalog
+entries rather than trying to patch-fix the existing files.
 
 **Before continuing any branch:** rebase onto current `main` or cherry-pick the
 useful commits onto a fresh branch — they diverged early and will conflict. Then
@@ -208,15 +222,15 @@ Block-with-override + position-aware. ~3-4 weeks.
 Outbound to the market. ~4-6 weeks.
 
 - [ ] **11.1** Venue adapter framework per [[arch-venue-connectivity]] (sonnet)
-- [~] **11.2** [[marketaxess]] FIX adapter (gemma for boilerplate, sonnet for nuances)
-- [~] **11.3** [[tradeweb]] FIX adapter (gemma for boilerplate, sonnet)
-- [~] **11.4** [[brokertec]] FIX adapter (gemma for boilerplate, sonnet)
-- [~] **11.5** [[ebs]] FIX adapter (gemma for boilerplate, sonnet)
-- [~] **11.6** [[refinitiv-fxall]] FIX adapter (gemma for boilerplate, sonnet)
-- [~] **11.7** [[bloomberg-emsx]] FIX adapter (gemma for boilerplate, sonnet)
-- [~] **11.8** [[bloomberg-sef]] FIX adapter (gemma for boilerplate, sonnet)
-- [~] **11.9** [[bloomberg-bridge]] FIX adapter (gemma for boilerplate, sonnet)
-- [~] **11.10** [[nyse]] / [[nasdaq]] / [[cboe-bzx]] FIX/Pillar/OUCH adapters (gemma for boilerplate, sonnet)
+- [ ] **11.2** [[marketaxess]] FIX adapter (gemma for boilerplate, sonnet for nuances)
+- [ ] **11.3** [[tradeweb]] FIX adapter (gemma for boilerplate, sonnet)
+- [ ] **11.4** [[brokertec]] FIX adapter (gemma for boilerplate, sonnet)
+- [ ] **11.5** [[ebs]] FIX adapter (gemma for boilerplate, sonnet)
+- [ ] **11.6** [[refinitiv-fxall]] FIX adapter (gemma for boilerplate, sonnet)
+- [ ] **11.7** [[bloomberg-emsx]] FIX adapter (gemma for boilerplate, sonnet)
+- [ ] **11.8** [[bloomberg-sef]] FIX adapter (gemma for boilerplate, sonnet)
+- [ ] **11.9** [[bloomberg-bridge]] FIX adapter (gemma for boilerplate, sonnet)
+- [ ] **11.10** [[nyse]] / [[nasdaq]] / [[cboe-bzx]] FIX/Pillar/OUCH adapters (gemma for boilerplate, sonnet)
 - [ ] **11.11** Smart Order Router per [[arch-smart-order-router]] (sonnet)
 - [ ] **11.12** Algo wheel selection strategies (sonnet) ← blocks: 11.11
 - [ ] **11.13** RFQ orchestration per [[arch-rfq]] (sonnet) ← blocks: 11.1
@@ -243,9 +257,9 @@ STP and reporting. ~3-4 weeks.
 Three pillars. ~1-2 weeks.
 
 - [x] **13.1** OTel SDK + collector configuration (gemma) `(9661ba3)`
-- [~] **13.2** ELK / OpenSearch ingest pipeline (gemma)
-- [~] **13.3** Prometheus exporters per service (gemma)
-- [~] **13.4** Grafana dashboards: golden signals + per-asset latency (gemma for templates, sonnet for design)
+- [x] **13.2** ELK / OpenSearch ingest pipeline (gemma) `(6c9601c)`
+- [x] **13.3** Prometheus exporters per service (gemma) `(6c9601c)`
+- [~] **13.4** Grafana dashboards: golden signals + per-asset latency (gemma for templates, sonnet for design) — scaffold at 9/9/6 panels; targets 24/12/12; needs sonnet follow-up pass
 - [ ] **13.5** Distributed-trace verification: end-to-end trace from FIX in → venue out (sonnet)
 - [ ] **13.6** Sampling strategy (1-5% routine, 100% errors) (sonnet)
 
