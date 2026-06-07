@@ -15,7 +15,7 @@ services:
 
   # ---- Postgres — projection store + reference data --------------------------
   postgres:
-    image: postgres:17-alpine
+    image: docker.io/library/postgres:17-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ems
@@ -33,7 +33,7 @@ services:
 
   # ---- OpenSearch — logs + post-trade audit queries --------------------------
   opensearch:
-    image: opensearchproject/opensearch:2.18.0
+    image: docker.io/opensearchproject/opensearch:2.18.0
     restart: unless-stopped
     environment:
       - discovery.type=single-node
@@ -54,7 +54,7 @@ services:
       retries: 10
 
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.18.0
+    image: docker.io/opensearchproject/opensearch-dashboards:2.18.0
     restart: unless-stopped
     environment:
       - OPENSEARCH_HOSTS=["http://opensearch:9200"]
@@ -65,7 +65,7 @@ services:
 
   # ---- Prometheus + Grafana --------------------------------------------------
   prometheus:
-    image: prom/prometheus:v3.0.0
+    image: docker.io/prom/prometheus:v3.0.0
     restart: unless-stopped
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -76,7 +76,7 @@ services:
       - prometheus-data:/prometheus
 
   grafana:
-    image: grafana/grafana:11.3.1
+    image: docker.io/grafana/grafana:11.3.1
     restart: unless-stopped
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
@@ -91,7 +91,7 @@ services:
 
   # ---- Tracing: OTel collector + Jaeger -------------------------------------
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.115.1
+    image: docker.io/otel/opentelemetry-collector-contrib:0.115.1
     restart: unless-stopped
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes:
@@ -105,7 +105,7 @@ services:
       opensearch:   { condition: service_healthy }
 
   jaeger:
-    image: jaegertracing/jaeger:2.0.0
+    image: docker.io/jaegertracing/jaeger:2.0.0
     restart: unless-stopped
     environment:
       - COLLECTOR_OTLP_ENABLED=true
