@@ -112,7 +112,7 @@ Trust boundary. ~1-2 weeks.
 
 Hard-reject path. ~1-2 weeks.
 
-- [ ] **6.1** Reject code catalog (`EMS-<CAT>-<NNNN>`) per [[arch-validator]] (local)
+- [x] **6.1** Reject code catalog (`EMS-<CAT>-<NNNN>`) per [[arch-validator]] (local) `(pending sha)`
 - [ ] **6.2** Layered evaluation pipeline (session → identity → ref → perm → ...) (claude)
 - [ ] **6.3** Permission denial messages with admin-hint pointers (claude) ← blocks: 6.1, 5.3
 - [ ] **6.4** Per-asset-class validation rules (local first drafts, claude review)
