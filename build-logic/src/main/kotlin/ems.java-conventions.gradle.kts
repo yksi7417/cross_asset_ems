@@ -56,6 +56,7 @@ dependencies {
     "implementation"(versionCatalog.findLibrary("slf4j-api").get())
     "testImplementation"(versionCatalog.findBundle("test-common").get())
     "testRuntimeOnly"(versionCatalog.findLibrary("logback-classic").get())
+    "testRuntimeOnly"(versionCatalog.findLibrary("junit-platform-launcher").get())
 }
 
 spotless {
