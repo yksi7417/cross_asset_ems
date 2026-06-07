@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 6.1 — Reject code catalog with canonical prefixes
-- **Last commit (main):** `feat(6.1): reject code catalog with canonical prefixes`
-- **Last commit sha (main):** `eaa7c8f`
-- **Tasks merged/marked this session:** 4.23, 4.24, 4.22, 4.5, 4.6, 4.9, 4.13, 4.15, 4.16, 14.3, 14.4, 14.8, 14.9, 13.1, 0.9 (rewrite), 6.1 (rewrite) — 16 task marks across 11 commits
+- **Last completed task:** 1.5 — VenueSession FSM (conform Gemma draft to schema)
+- **Last commit (main):** `task(1.5): annotate sha e903037`
+- **Last commit sha (main):** `a72c1ef`
+- **Tasks merged/marked this session:** 1.2 (Order FSM + validator), 1.3 (Route FSM), 1.5 (VenueSession FSM) — 3 substantive commits + 3 annotation commits
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-06
-- **Next task for Claude (when budget resets):** **0.7** — Aeron Cluster + Archive toy ping/pong (claude, substantial). After 0.7, attempt 1.1 (FSM YAML schema — kicks off Phase 1) then 2.1 (SBE base envelope).
-- **Total progress:** **23 of 150 tasks [x]** (15.3%). Phases with at least one [x]: 0, 4, 6, 13, 14. Phases entirely unstarted: 1, 2, 3, 5, 7, 8, 9, 10, 11, 12.
+- **Next task for Claude (when budget resets):** **1.4** (Multi-leg FSM, blocks: 1.1 ✓) OR **1.6** (SOR FSM, blocks: 1.1 ✓) OR **0.7** (Aeron ping/pong, heavy infra). Recommended: 1.4 → 1.6 to complete the Phase 1 FSM spine before tackling Aeron infra.
+- **Total progress:** **26 of 150 tasks [x]** (17.3%). Phases with at least one [x]: 0, 1 (partial: 1.1/1.2/1.3/1.5), 2, 3, 4, 6, 13, 14.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4/6.5 (depend on 6.1 prefix migration just landed), 13.2-13.4 (dashboard/port issues), 11.2-11.10 (need careful FIX review).
 
 ## WIP branches awaiting Claude review-and-merge
@@ -51,6 +51,7 @@ The loop appends a one-line entry per session.
 | 2026-06-06 | 2026-06-06 | session-already-past-pacing-threshold (prior work) | 1 (`0e2fe6a`) | 0.1 | next = 0.2 |
 | 2026-06-06 | 2026-06-06 | user out of Claude tokens; delegate to local Gemma / Gemini per DELEGATION.md | 11 (0.2-0.8 impl + docs refresh + checkpoint) | 0.2, 0.3, 0.4, 0.5, 0.6, 0.8 + README/DEVELOPMENT/KNOWLEDGE_BASE refresh | next = 0.7 (claude) OR local-tier tasks (0.9, 4.22-4.24, 6.1, instrument drafts) |
 | 2026-06-06 | 2026-06-06 | 3-commit pacing trigger (loop wrap-up) | 4 substantive (4.23 feat + annotate, 4.24 cherry-pick + mark) | 4.23, 4.24 merged from wip/ branches | next = 4.5/4.6/4.9/4.13-15-16/4.22 reviews, then 0.7 (claude) |
+| 2026-06-06 | 2026-06-06 | 3-commit pacing trigger (loop wrap-up) | 6 (3 feat + 3 task-annotate for 1.2/1.3/1.5) | 1.2, 1.3, 1.5 | next = 1.4 (MultiLeg FSM) or 1.6 (SOR FSM) |
 
 ## Phase progress
 
