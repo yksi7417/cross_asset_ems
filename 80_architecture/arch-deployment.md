@@ -26,7 +26,7 @@ All four environments run the **identical container images** produced by CI. The
 
 Every component ships as an **OCI container image** built via deterministic, reproducible builds:
 
-- One base image per language runtime (JDK / Rust / Go / Python / Node) — tagged with sha256 digest.
+- One base image per language runtime (JDK / C++ / Go / Python / Node) — tagged with sha256 digest.
 - Per-component image layers cached in a registry (ECR or equivalent).
 - Image tags follow `{component}:{semver}-{git-sha}` for traceability.
 - Image signing (cosign / Notary) — only signed images are admitted to UAT and PROD.

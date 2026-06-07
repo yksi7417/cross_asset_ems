@@ -112,7 +112,7 @@ Useful hotkeys:
 
 ## How the design ties into the code
 
-Every architecture note has a one-to-one or one-to-few mapping to a Java module / Rust crate. See [`DEVELOPMENT.md`](DEVELOPMENT.md#where-each-part-of-the-design-lives-in-code) for the full table.
+Every architecture note has a one-to-one or one-to-few mapping to a Java module / C++ module. See [`DEVELOPMENT.md`](DEVELOPMENT.md#where-each-part-of-the-design-lives-in-code) for the full table.
 
 For any task in [`IMPL/PLAN.md`](IMPL/PLAN.md), the task description usually wikilinks the architecture note it implements — that note is the design spec the task delivers against.
 

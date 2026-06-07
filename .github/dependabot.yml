@@ -9,14 +9,9 @@ updates:
     open-pull-requests-limit: 5
     labels: [dependencies, java]
 
-  # Rust / Cargo
-  - package-ecosystem: cargo
-    directory: "/"
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    labels: [dependencies, rust]
+  # Note: no dependabot entry for C++/CMake — no package registry to track.
+  # C++ third-party deps (Google Benchmark, GoogleTest) are pinned via
+  # CMake FetchContent or a vcpkg manifest when they land (task 1.7+).
 
   # GitHub Actions versions
   - package-ecosystem: github-actions

@@ -3,7 +3,7 @@
 A green-field, **cross-asset Execution Management System** built from the ground up. Two parallel artefacts live in this repository:
 
 - A **design knowledge base** — an Obsidian vault documenting the system's architecture, workflows, venues, regulatory regimes, clearing systems, and industry terminology across every asset class an institutional EMS must support.
-- A **working codebase** — Java + Rust modules, SBE schemas, FSM definitions, and infrastructure-as-code that implement the design.
+- A **working codebase** — Java + C++ modules, SBE schemas, FSM definitions, and infrastructure-as-code that implement the design.
 
 Both are first-class. The design vault stays the source of truth for **what** the system is; the code is the source of truth for **how** it runs. They cross-reference each other heavily.
 
@@ -48,7 +48,7 @@ The full architecture lives in [`80_architecture/`](80_architecture/) — naviga
 │   └── CHECKPOINT.md          State cursor (current task / phase progress)
 │
 ├── java/                      Java multi-module Gradle build (15 modules)
-├── rust/                      Rust Cargo workspace (15 crates, 1:1 with Java)
+├── cpp/                       C++ CMake workspace (15 modules, 1:1 with Java)
 ├── schemas/                   SBE XML, FSM YAML, FIX dicts, ref-data, reject codes
 ├── infra/                     Docker Compose, K8s, Terraform, Grafana, OTel
 ├── docs/                      ADRs, runbooks, onboarding — see DEVELOPMENT.md
@@ -58,7 +58,7 @@ The full architecture lives in [`80_architecture/`](80_architecture/) — naviga
 └── templates/                 Skeletons for new vault notes
 ```
 
-The design vault is published-ready (Quartz / MkDocs work without restructure). The code follows standard Gradle + Cargo layouts; both are unified by the `schemas/` source-of-truth contract.
+The design vault is published-ready (Quartz / MkDocs work without restructure). The code follows standard Gradle (Java) + CMake (C++) layouts; both are unified by the `schemas/` source-of-truth contract.
 
 ## Get started in 5 minutes
 
@@ -109,7 +109,7 @@ Concretely:
 |---|---|
 | Design vault | ✅ comprehensive — 80+ architecture notes, 50+ glossary entries, asset/venue/regulatory catalogs complete |
 | Implementation plan | ✅ 14 phases, ~150 tasks, delegation tiers, loop protocol |
-| Monorepo + Gradle/Cargo wiring | ✅ 15 Java modules + 15 Rust crates, dependency layering enforced |
+| Monorepo + Gradle/CMake wiring | ✅ 15 Java modules + 15 C++ modules, dependency layering enforced |
 | CI / Docker Compose / OTel toy | ✅ green path verified |
 | Pre-commit + commit-msg hooks | ✅ enforce Conventional Commits + secret-pattern guard |
 | FSM, transport, OMS, validator, ... | 🚧 not yet built (phases 1-7) |

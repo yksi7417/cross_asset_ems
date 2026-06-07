@@ -362,12 +362,12 @@ From `route.fsm.yaml`, the build pipeline produces:
 
 | Artifact | Used by |
 |---|---|
-| `route_fsm.rs` / `RouteFsm.java` / etc. | The transition function in every consuming language. |
+| `route_fsm.hpp` / `RouteFsm.java` / etc. | The transition function in every consuming language. |
 | `route_events.sbe.xml` | SBE schemas for the events; codegen → typed encoders/decoders. See [[arch-sbe-aeron-transport]]. |
 | `route_fsm.mermaid` | A diagram embedded in [[arch-router-layer]] and [[arch-order-route-lifecycle]]. |
 | `route_fsm.dot` | Graphviz for tooling. |
-| `route_fsm_tests.rs` | Golden transition tests (every transition + every reject path). |
-| `route_fsm_invariants.rs` | Property tests (reachability, terminal-state correctness, FIX `OrdStatus`/`ExecType` consistency). |
+| `route_fsm_tests.cpp` | Golden transition tests (every transition + every reject path). |
+| `route_fsm_invariants.cpp` | Property tests (reachability, terminal-state correctness, FIX `OrdStatus`/`ExecType` consistency). |
 | `route_fix_mapping.md` | Human-readable mapping table for [[arch-fix-api-bridge]]. |
 
 One source of truth → one set of guarantees.
@@ -852,7 +852,7 @@ These are the choices to lock in before implementation:
 1. **Definition language.** YAML proposed; alternatives include TOML, Protobuf-with-options, or a custom DSL. Recommend YAML for human readability and tool ecosystem.
 2. **Guard expression language.** Tiny boolean expression language (suggested) vs. embedded scripting. Recommend tiny custom — easier to verify, easier to codegen across languages.
 3. **Snapshot strategy.** Every-N-events vs. time-bucketed vs. lazy (only on slow projections). Recommend every-1000-events + lazy on demand.
-4. **Cross-language codegen target.** Rust + Java + Python at minimum; possibly Go, TypeScript for tooling.
+4. **Cross-language codegen target.** C++ + Java + Python at minimum; possibly Go, TypeScript for tooling.
 5. **Where the FSM registry lives.** Same repo as code (mono-repo style) vs. separate "schemas" repo with versioned releases. Recommend same repo.
 6. **Distributed-runtime coordination.** Single-writer-per-partition is clear; the partitioning scheme (consistent hashing? leader election?) needs choosing. Recommend consistent hashing with Aeron-clustered raft for partition leadership.
 

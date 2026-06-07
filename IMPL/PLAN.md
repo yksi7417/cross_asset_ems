@@ -15,8 +15,8 @@ The loop protocol is in [[LOOP]]. Notifications in [[HERMES]]. Current cursor in
 
 Foundation for everything else. ~1-2 weeks of work.
 
-- [x] **0.1** Monorepo layout (java/, rust/, schemas/, infra/, docs/) (local) ← blocks: none `(0e2fe6a)`
-- [x] **0.2** Multi-module Gradle/Cargo workspace (local) ← blocks: 0.1 `(96ca57c)`
+- [x] **0.1** Monorepo layout (java/, cpp/, schemas/, infra/, docs/) (local) ← blocks: none `(0e2fe6a)`
+- [x] **0.2** Multi-module Gradle/CMake workspace (local) ← blocks: 0.1 `(96ca57c)`
 - [x] **0.3** Git hooks (pre-commit lint, conventional commits) (local) `(e6b411b)`
 - [x] **0.4** GitHub Actions baseline (unit tests, lint, SBOM) (claude) ← blocks: 0.2 `(5283807)`
 - [x] **0.5** Docker Compose dev environment (claude) ← blocks: 0.2 `(c74f4c4)`
@@ -36,7 +36,7 @@ The core determinism guarantee. ~2-3 weeks.
 - [x] **1.4** Multi-leg / Package FSM per [[arch-multileg]] (claude) ← blocks: 1.1 `(4708714)`
 - [x] **1.5** VenueSession FSM (use existing Gemma draft in fsm/) (claude) ← blocks: 1.1 `(e903037)`
 - [x] **1.6** SOR FSM (claude) ← blocks: 1.1 `(0917b01)`
-- [ ] **1.7** Codegen pipeline YAML → Java/Rust state structs (claude) ← blocks: 1.1
+- [ ] **1.7** Codegen pipeline YAML → Java/C++ state structs (claude) ← blocks: 1.1
 - [ ] **1.8** Unit test generator: YAML → ~5000 transition tests (local) ← blocks: 1.7
 - [x] **1.9** Lifecycle chaining (Order cancel cascades to Route) tests (claude) ← blocks: 1.2, 1.3 `(b6cd1e4)`
 - [ ] **1.10** Pending Replace / Pending Cancel edge cases per [[arch-fix-appendix-d]] (claude) ← blocks: 1.9

@@ -168,7 +168,7 @@ Audit-index logs are immutable post-index. Other indices may be replayed/rebuilt
 
 ### SDKs per component
 
-Every component links the OpenTelemetry SDK appropriate for its language (Java / Rust / Go / Python / Node). Spans are created via the standard API; the SDK ships them async to the OTel Collector.
+Every component links the OpenTelemetry SDK appropriate for its language (Java / C++ / Go / Python / Node). Spans are created via the standard API; the SDK ships them async to the OTel Collector.
 
 ### Collector pipeline
 

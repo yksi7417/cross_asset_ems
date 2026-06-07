@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [java-kotlin]   # add 'rust' when CodeQL Rust support GA
+        language: [java-kotlin]   # add 'c-cpp' once cpp/ modules have real source (task 1.7+)
     steps:
       - uses: actions/checkout@v4
 

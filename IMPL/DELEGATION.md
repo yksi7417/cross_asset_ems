@@ -54,7 +54,7 @@ Or invoke via the [`local-llm` skill](~/.claude/skills/local-llm/SKILL.md).
 - Multi-file research questions ("show me how all the FIX adapters handle reject codes").
 - Drafting documentation for completed code.
 - Exploring trade-offs between approaches (pick algo for X).
-- Cross-language porting (Java → Rust for hot-path components).
+- Cross-language porting (Java → C++ for hot-path components).
 
 **Don't use for:**
 - Anything that mutates the repo without Claude's review.

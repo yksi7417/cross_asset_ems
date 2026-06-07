@@ -13,7 +13,7 @@ The methodology backbone for building the EMS: **Domain-Driven Design** gives th
 
 Trading domain knowledge is dense and inconsistent across the industry — every desk uses slightly different terminology for the same concept (CXL vs Cancel vs Pull; ClOrdID vs Order Ref vs Client Order Number). Without a deliberate ubiquitous language, code talks past traders. Without TDD, edge cases — exactly the ones [[arch-fix-appendix-d|Appendix D]] documents — go uncovered until production at 03:00 on a Sunday.
 
-Combining them yields a property that's rare in trading systems: **the tests are readable to a trading desk** without translation. A new trader looking at the integration tests for "spot-first sequenced FX swap with partial spot fill" reads it as a trading scenario, not Java/Rust syntax. And every test was written before the production code, so coverage of the documented FIX state machines, FSM transitions, race conditions, and cascading-cancel paths is by construction.
+Combining them yields a property that's rare in trading systems: **the tests are readable to a trading desk** without translation. A new trader looking at the integration tests for "spot-first sequenced FX swap with partial spot fill" reads it as a trading scenario, not Java/C++ syntax. And every test was written before the production code, so coverage of the documented FIX state machines, FSM transitions, race conditions, and cascading-cancel paths is by construction.
 
 ## DDD — ubiquitous language
 
@@ -36,7 +36,7 @@ The vocabulary is **the shared single-source-of-truth dictionary** drawn from th
 
 Every name on this list appears identically in:
 - The SBE schema field name (`initial_order_id`).
-- The Java / Rust / Go / Python codegen output (no language-idiomatic rename to `firstOrderId`).
+- The Java / C++ / Go / Python codegen output (no language-idiomatic rename to `firstOrderId`).
 - The integration test scenario titles ("an OrderReplaceRequested under PartiallyFilled with new qty above CumQty transitions to PendingReplaceAtVenue").
 - The log line JSON field name (`"initial_order_id"`).
 - The trader-facing reject text ("ChainID `chn-5a4f...` exceeded the desk's daily order count limit").
@@ -253,7 +253,7 @@ For integration tests, test data uses **named fixtures** (`an_order_in_partially
 - **Different names for the same concept across layers.** `firstOrderId` in code, `initial_order_id` in SBE, `chain_id` in logs, `ClOrdLinkID` in FIX — even if mappings exist, the cognitive load destroys the ubiquitous-language property.
 - **"We'll write tests after."** They never get written, and edge cases get discovered in production. The FSM-driven generation makes test-first cheap.
 - **Mocking by stubbing internal classes.** SBE + Aeron is the contract; mocking inside that is fragile and breaks under refactor. Mock at the schema boundary.
-- **Tests written in Java/Rust-flavored language**, not domain language. `whenOrderReceivedThenStateBecomesNew()` reads like Java; `An OrderAccepted event places the order in New state` reads like trading.
+- **Tests written in Java/C++-flavored language**, not domain language. `whenOrderReceivedThenStateBecomesNew()` reads like Java; `An OrderAccepted event places the order in New state` reads like trading.
 - **Bounded contexts blurred.** Risk's `Limit` and Order's `Limit` are different; if the same Java class represents both, debugging becomes a maze.
 
 ## See also

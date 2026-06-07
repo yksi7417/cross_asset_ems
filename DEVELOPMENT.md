@@ -8,7 +8,8 @@ Build, test, deploy. The companion to the design knowledge base — read [`READM
 |---|---|---|
 | **Java** | Temurin 21 LTS | Primary language; matches `gradle.properties` `emsJavaVersion` |
 | **Gradle** | 8.10 | Build (wrapper not committed; run `gradle wrapper --gradle-version=8.10` once) |
-| **Rust** | stable (≥1.83) | Hot-path crates; matches `Cargo.toml` `rust-version` |
+| **CMake** | 3.25+ | C++ build system for hot-path modules |
+| **GCC** | 14+ (or Clang 17+) | C++20 compiler for C++ modules |
 | **Docker** | 24+ with Compose v2 | Dev infrastructure stack |
 | **git** | 2.30+ | Hooks use `git diff --check` features |
 | `shellcheck` | latest | Hook lint (optional, falls back) |
@@ -63,10 +64,10 @@ java/                  15 Gradle modules, layered per architecture spine
   ems-bench            JMH performance benchmarks (run on demand)
   ems-it               Cross-module integration tests
 
-rust/                  15 Cargo crates, 1:1 with the Java modules
+cpp/                   15 CMake modules, 1:1 with the Java modules
 
 schemas/               Single source of truth for cross-component contracts
-  sbe/                 SBE XML schemas → codegen Java + Rust
+  sbe/                 SBE XML schemas → codegen Java + C++
   fsm/                 FSM YAML definitions per arch-fix-fsm-design
   fix-dictionaries/    FIX 4.2/4.4/5.0 dictionaries (QuickFIX format)
   reference-data/      Day counts, currency codes, MIC codes, tick sizes
@@ -110,12 +111,12 @@ tests/
 ./gradlew :ems-bench:jmh                  # benchmarks (on demand)
 ./gradlew spotlessApply                   # auto-format Java
 
-# Rust
-cargo build --workspace
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
-cargo fmt --all
-cargo bench --workspace -p ems-bench       # criterion benchmarks
+# C++
+cmake -S cpp -B build/cpp -G Ninja -DCMAKE_CXX_STANDARD=20
+cmake --build build/cpp
+ctest --test-dir build/cpp --output-on-failure
+# benchmarks (once ems-bench populates):
+# cmake --build build/cpp --target ems-bench && build/cpp/ems-bench/ems_bench
 ```
 
 ### Code generation
@@ -196,10 +197,10 @@ After writing:
 
 GitHub Actions workflows under `.github/workflows/`:
 
-- **`ci.yml`** — Java build + tests (Gradle), Rust build + tests (Cargo), schema lint (yamllint + xmllint), shell + markdown lint, SBOM via CycloneDX, dependency review (PR only).
-- **`codeql.yml`** — security-and-quality query suite for Java/Kotlin (Mondays + every push/PR). Rust deferred until CodeQL Rust support is GA.
+- **`ci.yml`** — Java build + tests (Gradle), C++ build + tests (CMake/ctest), schema lint (yamllint + xmllint), shell + markdown lint, SBOM via CycloneDX, dependency review (PR only).
+- **`codeql.yml`** — security-and-quality query suite for Java/Kotlin (Mondays + every push/PR). `c-cpp` language added once `cpp/` modules have real source (task 1.7+).
 
-`dependabot.yml` opens weekly Monday bumps for Gradle, Cargo, and GitHub Actions versions.
+`dependabot.yml` opens weekly Monday bumps for Gradle and GitHub Actions. No CMake/C++ entry — C++ deps are managed via CMake FetchContent, not a versioned registry.
 
 ## Coding rules
 
@@ -211,11 +212,12 @@ GitHub Actions workflows under `.github/workflows/`:
 - All cross-component boundaries use SBE-encoded messages.
 - Spotless w/ google-java-format runs in CI; auto-format with `./gradlew spotlessApply`.
 
-### Rust
-- Stable, edition 2021, rust-version ≥1.83.
-- `cargo clippy -- -D warnings` and `cargo fmt --check` are CI gates.
-- `#![deny(unsafe_op_in_unsafe_fn)]` and `#![warn(clippy::pedantic)]` at every crate root.
-- No `unwrap()` in production code outside `main()`. `unsafe` requires per-occurrence documentation.
+### C++
+- C++20, CMake 3.25+, GCC 14+ or Clang 17+.
+- `-Wall -Wextra -Wpedantic -Werror` are CI gates once source lands.
+- `#pragma once` at every header. No raw `new`/`delete` — use RAII and standard containers.
+- No exceptions or dynamic allocation on the hot path (FSM dispatch, tick processing).
+- All cross-component boundaries use SBE-encoded messages via `ems-transport`.
 
 ### Tests
 - Tier-1: every module has unit tests (`src/test/java`, `tests/`).
@@ -225,7 +227,7 @@ GitHub Actions workflows under `.github/workflows/`:
 
 ## Where each part of the design lives in code
 
-| Architecture note | Java module | Rust crate |
+| Architecture note | Java module | C++ module |
 |---|---|---|
 | `arch-api-first`, `arch-fix-api-bridge`, `arch-bulk-io` | `ems-fix-bridge` | `ems-fix-bridge` |
 | `arch-sbe-aeron-transport`, `arch-sequence-recovery`, `arch-resilience-24x7` | `ems-transport` | `ems-transport` |

@@ -32,7 +32,7 @@ snakeyaml          = "2.3"
 # Code generation
 javapoet           = "1.13.0"
 
-# Aeron-cluster Cargo / Rust counterparts pinned in rust/Cargo.toml workspace.toml
+# C++ counterpart deps (Google Benchmark, GoogleTest) are managed via CMake FetchContent in cpp/.
 
 [libraries]
 junit-jupiter      = { module = "org.junit.jupiter:junit-jupiter",         version.ref = "junit" }
