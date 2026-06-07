@@ -225,8 +225,8 @@ Resilience + tooling. ~2-3 weeks.
 - [ ] **14.5** Blue/green switchover protocol per [[arch-deployment]] (claude)
 - [ ] **14.6** Cluster-of-clusters active lease (claude) ← blocks: 14.5
 - [ ] **14.7** Fence-token venue credential rotation (claude) ← blocks: 14.5
-- [ ] **14.8** Weekly leader-kill drill scripted (local)
-- [ ] **14.9** Monthly cold-start drill scripted (local)
+- [x] **14.8** Weekly leader-kill drill scripted (local) `(91ccfd7)`
+- [x] **14.9** Monthly cold-start drill scripted (local) `(91ccfd7)`
 - [ ] **14.10** Quarterly cross-region failover drill scripted (claude)
 
 ## Done criteria for v0 (MVP)
