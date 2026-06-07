@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2017/sbe"
+                   package="io.crossasset.ems.schemas.instrument"
+                   id="0x23"
+                   version="1"
+                   semanticVersion="1.0.0"
+                   description="FxOptionInstrument SBE template per arch-security-master.md"
+                   byteOrder="littleEndian">
+
+    <!--
+      template_id = 0x2044 (Phase 4 FX option template)
+      Per arch-security-master.md fungibility table: vanilla FX options
+      are fungible per (pair, strike, expiry, exercise style); exotics
+      (barriers, digitals, TARNs, lookbacks) are non-fungible. The
+      ExerciseStyle + BarrierType discriminators dispatch to the right
+      valuation path in arch-pricing-service.
+    -->
+
+    <types>
+        <composite name="messageHeader">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="templateId" primitiveType="uint16"/>
+            <type name="schemaId"   primitiveType="uint16"/>
+            <type name="version"    primitiveType="uint16"/>
+        </composite>
+
+        <composite name="instrumentCore">
+            <type name="figi"               primitiveType="char" length="12"/>
+            <type name="internalIid"        primitiveType="char" length="20"/>
+            <type name="compositeFigi"      primitiveType="char" length="12"/>
+            <type name="shareClassFigi"     primitiveType="char" length="12"/>
+            <type name="assetClass"         primitiveType="uint8"/>
+            <type name="instrumentType"     primitiveType="uint16"/>
+            <type name="displayName"        primitiveType="char" length="64"/>
+            <type name="legalName"          primitiveType="char" length="128"/>
+            <type name="issuerLei"          primitiveType="char" length="20"/>
+            <type name="currency"           primitiveType="uint16"/>
+            <type name="countryOfIssue"     primitiveType="char" length="3"/>
+            <type name="countryOfListing"   primitiveType="char" length="3"/>
+            <type name="fungibility"        primitiveType="uint8"/>
+            <type name="settlementConv"     primitiveType="uint8"/>
+            <type name="tickSizeRegimeRef"  primitiveType="uint16"/>
+            <type name="lifecycleStatus"    primitiveType="uint8"/>
+            <type name="effectiveFrom"      primitiveType="int64"/>
+            <type name="effectiveTo"        primitiveType="int64"/>
+            <type name="versionSeq"         primitiveType="uint32"/>
+            <type name="supersededBy"       primitiveType="char" length="12"/>
+        </composite>
+
+        <enum name="OptionRight" encodingType="uint8">
+            <validValue name="CALL">0</validValue>
+            <validValue name="PUT">1</validValue>
+            <validValue name="STRADDLE">2</validValue>
+            <validValue name="STRANGLE">3</validValue>
+            <validValue name="RISK_REVERSAL">4</validValue>
+            <validValue name="BUTTERFLY">5</validValue>
+        </enum>
+
+        <enum name="ExerciseStyle" encodingType="uint8">
+            <validValue name="EUROPEAN">0</validValue>
+            <validValue name="AMERICAN">1</validValue>
+            <validValue name="BERMUDAN">2</validValue>
+            <validValue name="ASIAN">3</validValue>
+        </enum>
+
+        <enum name="OptionSettlement" encodingType="uint8">
+            <validValue name="PHYSICAL">0</validValue>
+            <validValue name="CASH">1</validValue>
+            <validValue name="NDF_CASH">2</validValue>
+        </enum>
+
+        <enum name="BarrierType" encodingType="uint8">
+            <validValue name="NONE">0</validValue>
+            <validValue name="KNOCK_OUT_UP">1</validValue>
+            <validValue name="KNOCK_OUT_DOWN">2</validValue>
+            <validValue name="KNOCK_IN_UP">3</validValue>
+            <validValue name="KNOCK_IN_DOWN">4</validValue>
+            <validValue name="DOUBLE_KNOCK_OUT">5</validValue>
+            <validValue name="DOUBLE_KNOCK_IN">6</validValue>
+            <validValue name="TARN">7</validValue>
+            <validValue name="DIGITAL">8</validValue>
+            <validValue name="ONE_TOUCH">9</validValue>
+            <validValue name="NO_TOUCH">10</validValue>
+        </enum>
+    </types>
+
+    <!-- FxOptionInstrument: template_id 0x2044 -->
+    <sbe:message name="FxOptionInstrument" id="0x2044"
+                 description="FX option (vanilla and exotic) with disjoint barrier-related fields per BarrierType discriminator.">
+        <field name="core"              id="1"  type="instrumentCore"/>
+
+        <field name="baseCurrency"      id="2"  type="uint16"
+               description="Base currency of the underlying pair (ISO 4217 numeric)."/>
+        <field name="quoteCurrency"     id="3"  type="uint16"
+               description="Quote currency of the underlying pair (typically USD for major options)."/>
+
+        <field name="optionRight"       id="4"  type="OptionRight"/>
+        <field name="exerciseStyle"     id="5"  type="ExerciseStyle"/>
+        <field name="settlement"        id="6"  type="OptionSettlement"
+               description="PHYSICAL for deliverable pairs; CASH for cash-settled; NDF_CASH for non-deliverable underlyings."/>
+
+        <field name="strike"            id="7"  type="int64"
+               description="Strike rate scaled by 1e10 (e.g. EUR/USD 1.0850 -> 10_850_000_000)."/>
+        <field name="notional"          id="8"  type="int64"
+               description="Option notional in base currency units (scaled by 1e2 for cents)."/>
+
+        <field name="tradeDate"         id="9"  type="int64"/>
+        <field name="expiryDate"        id="10" type="int64"
+               description="Expiry date (epoch days). For Bermudan options this is the final exercise date; intermediate dates referenced separately."/>
+        <field name="valueDate"         id="11" type="int64"
+               description="Spot value date corresponding to the expiry (typically T+2 from expiry)."/>
+
+        <!-- Barrier discriminator -->
+        <field name="barrierType"       id="12" type="BarrierType"/>
+
+        <!-- Barrier fields (zero for vanilla) -->
+        <field name="barrierLevelLower" id="13" type="int64"
+               description="Lower barrier level (scaled 1e10); 0 if not applicable per BarrierType."/>
+        <field name="barrierLevelUpper" id="14" type="int64"
+               description="Upper barrier level (scaled 1e10); 0 if not applicable per BarrierType."/>
+        <field name="rebateAmount"      id="15" type="int64"
+               description="Rebate paid on barrier event (scaled 1e2); 0 if not applicable."/>
+
+        <!-- TARN-specific (zero for non-TARN) -->
+        <field name="tarnTarget"        id="16" type="int64"
+               description="TARN cumulative profit target (scaled 1e2); 0 if not TARN."/>
+        <field name="tarnAccrualCount"  id="17" type="uint16"
+               description="Number of TARN accrual periods; 0 if not TARN."/>
+
+        <!-- Composition by ID -->
+        <field name="volSurfaceRef"     id="18" type="uint32"
+               description="Ref id into VolSurface table (arch-pricing-service); 0 if to be resolved at trade time."/>
+    </sbe:message>
+</sbe:messageSchema>

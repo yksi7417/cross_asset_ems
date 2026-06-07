@@ -1,0 +1,105 @@
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe" package="CommodityPhysicalInstrument" id="0x2071" version="0" semanticVersion="1.0" byteOrder="littleEndian">
+  <sbe:types>
+    <sbe:composite name="MessageHeader" description="Standard SBE message header (8 bytes)">
+      <sbe:type name="blockLength" id="1" primitiveType="uint16" offset="0"/>
+      <sbe:type name="templateId" id="2" primitiveType="uint16" offset="2"/>
+      <sbe:type name="schemaId" id="3" primitiveType="uint16" offset="4"/>
+      <sbe:type name="version" id="4" primitiveType="uint16" offset="6"/>
+    </sbe:composite>
+    <sbe:composite name="InstrumentCore" description="Fixed-offset core reference data block (315 bytes) carried at the start of every CommodityPhysicalInstrument message">
+      <sbe:type name="figi" id="1" primitiveType="char" length="12" offset="0"/>
+      <sbe:type name="internalIid" id="2" primitiveType="char" length="20" offset="12"/>
+      <sbe:type name="compositeFigi" id="3" presence="optional" primitiveType="char" length="12" offset="32"/>
+      <sbe:type name="shareClassFigi" id="4" presence="optional" primitiveType="char" length="12" offset="44"/>
+      <sbe:type name="assetClass" id="5" nullValue="255" primitiveType="uint8" offset="56"/>
+      <sbe:type name="instrumentType" id="6" nullValue="255" primitiveType="uint8" offset="57"/>
+      <sbe:type name="displayName" id="7" primitiveType="char" length="64" offset="58"/>
+      <sbe:type name="legalName" id="8" primitiveType="char" length="128" offset="122"/>
+      <sbe:type name="issuerLei" id="9" presence="optional" primitiveType="char" length="20" offset="250"/>
+      <sbe:type name="currency" id="10" nullValue="65535" primitiveType="uint16" offset="270"/>
+      <sbe:type name="countryOfIssue" id="11" primitiveType="char" length="2" offset="272"/>
+      <sbe:type name="countryOfListing" id="12" presence="optional" primitiveType="char" length="2" offset="274"/>
+      <sbe:type name="fungibility" id="13" nullValue="255" primitiveType="uint8" offset="276"/>
+      <sbe:type name="settlementConvention" id="14" nullValue="255" primitiveType="uint8" offset="277"/>
+      <sbe:type name="effectiveDate" id="15" primitiveType="uint64" offset="278"/>
+      <sbe:type name="expiryDate" id="16" presence="optional" primitiveType="uint64" offset="286"/>
+      <sbe:type name="status" id="17" nullValue="255" primitiveType="uint8" offset="294"/>
+      <sbe:type name="createdAt" id="18" primitiveType="uint64" offset="295"/>
+      <sbe:type name="updatedAt" id="19" primitiveType="uint64" offset="303"/>
+      <sbe:type name="version" id="20" primitiveType="uint32" offset="311"/>
+    </sbe:composite>
+    <sbe:enum name="AssetClass" encodingType="uint8">
+      <sbe:validValue name="COMMODITY">1</sbe:validValue>
+      <sbe:validValue name="EQUITY">2</sbe:validValue>
+      <sbe:validValue name="FIXED_INCOME">3</sbe:validValue>
+      <sbe:validValue name="DERIVATIVE">4</sbe:validValue>
+      <sbe:validValue name="FX">5</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="InstrumentType" encodingType="uint8">
+      <sbe:validValue name="PHYSICAL">1</sbe:validValue>
+      <sbe:validValue name="FINANCIAL">2</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="Fungibility" encodingType="uint8">
+      <sbe:validValue name="FUNGIBLE">1</sbe:validValue>
+      <sbe:validValue name="NON_FUNGIBLE">2</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="SettlementConvention" encodingType="uint8">
+      <sbe:validValue name="PHYSICAL">1</sbe:validValue>
+      <sbe:validValue name="CASH">2</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="Status" encodingType="uint8">
+      <sbe:validValue name="ACTIVE">1</sbe:validValue>
+      <sbe:validValue name="INACTIVE">2</sbe:validValue>
+      <sbe:validValue name="PENDING">3</sbe:validValue>
+      <sbe:validValue name="SUSPENDED">4</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="CommodityCode" encodingType="uint8">
+      <sbe:validValue name="WTI">1</sbe:validValue>
+      <sbe:validValue name="BRENT">2</sbe:validValue>
+      <sbe:validValue name="NAT_GAS">3</sbe:validValue>
+      <sbe:validValue name="GOLD">4</sbe:validValue>
+      <sbe:validValue name="SILVER">5</sbe:validValue>
+      <sbe:validValue name="COPPER">6</sbe:validValue>
+      <sbe:validValue name="WHEAT">7</sbe:validValue>
+      <sbe:validValue name="CORN">8</sbe:validValue>
+      <sbe:validValue name="SOYBEAN">9</sbe:validValue>
+      <sbe:validValue name="COFFEE">10</sbe:validValue>
+      <sbe:validValue name="SUGAR">11</sbe:validValue>
+      <sbe:validValue name="COCOA">12</sbe:validValue>
+      <sbe:validValue name="COTTON">13</sbe:validValue>
+      <sbe:validValue name="NONE">99</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="UnitOfMeasure" encodingType="uint8">
+      <sbe:validValue name="BBL">1</sbe:validValue>
+      <sbe:validValue name="MT">2</sbe:validValue>
+      <sbe:validValue name="OZ">3</sbe:validValue>
+      <sbe:validValue name="BU">4</sbe:validValue>
+      <sbe:validValue name="GAL">5</sbe:validValue>
+      <sbe:validValue name="MWH">6</sbe:validValue>
+    </sbe:enum>
+    <sbe:enum name="DeliveryMethod" encodingType="uint8">
+      <sbe:validValue name="FOB">1</sbe:validValue>
+      <sbe:validValue name="CIF">2</sbe:validValue>
+      <sbe:validValue name="IN_STORE">3</sbe:validValue>
+      <sbe:validValue name="PIPE">4</sbe:validValue>
+      <sbe:validValue name="WAREHOUSE">5</sbe:validValue>
+    </sbe:enum>
+  </sbe:types>
+  <sbe:group name="CommodityPhysicalAttributes" id="1">
+    <sbe:field name="commodityCode" id="1" primitiveType="uint8" offset="0"/>
+    <sbe:field name="grade" id="2" primitiveType="char" length="32" offset="1"/>
+    <sbe:field name="unitOfMeasure" id="3" primitiveType="uint8" offset="33"/>
+    <sbe:field name="contractSizeMantissa" id="4" primitiveType="int64" offset="34"/>
+    <sbe:field name="contractSizeExponent" id="5" primitiveType="int8" offset="42"/>
+    <sbe:field name="deliveryLocation" id="6" primitiveType="char" length="64" offset="43"/>
+    <sbe:field name="deliveryMethod" id="7" primitiveType="uint8" offset="107"/>
+    <sbe:field name="currency" id="8" primitiveType="uint16" offset="108"/>
+    <sbe:field name="inspectionRequired" id="9" primitiveType="uint8" offset="110"/>
+    <sbe:field name="isInsured" id="10" primitiveType="uint8" offset="111"/>
+  </sbe:group>
+  <sbe:message name="CommodityPhysicalInstrument" id="0x2071">
+    <sbe:header>MessageHeader</sbe:header>
+    <sbe:field name="instrumentCore" id="1" type="InstrumentCore" offset="0"/>
+    <sbe:group name="commodityPhysicalAttributes" id="2" type="CommodityPhysicalAttributes" blockLength="112" dimensionType="groupSizeEncoding"/>
+  </sbe:message>
+</sbe:messageSchema>

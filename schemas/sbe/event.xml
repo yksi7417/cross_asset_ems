@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2017/sbe"
+                   package="io.crossasset.ems.schemas.event"
+                   id="0x02"
+                   version="1"
+                   semanticVersion="1.0.0"
+                   description="Event envelope per arch-event-sourcing.md — the append-only audit spine."
+                   byteOrder="littleEndian">
+
+    <!--
+      Per arch-event-sourcing.md, all system state is derived from an
+      append-only sequence of events. This schema defines the Event
+      envelope that wraps every entry in the log.
+
+      The envelope is independent of (but layered on top of) the
+      Aeron-transport envelope defined in envelope.xml. While
+      MessageHeader+SessionHeader is the wire envelope for in-flight
+      messages, this Event envelope is the durable log entry format —
+      written by component projections to the Aeron Archive and read
+      back by replay (arch-time-replay-server) and projections
+      (arch-projection-engine).
+
+      Per arch-event-sourcing.md "Event envelope" section, fields are:
+        event_id          UUID
+        global_seq        uint64
+        stream_id         string
+        stream_seq        uint64
+        template_id       uint16   (which SBE template encodes the payload)
+        payload           bytes    (SBE-encoded)
+        occurred_at       timestamp (wall or simulated)
+        recorded_at       timestamp
+        caused_by         UUID?    (upstream event id)
+        source            FIX|API|AUTO|REPLAY|CLUSTER
+        actor             identity
+        trace_id          char[16]
+        parent_span_id    char[8]
+        initial_order_id  UUID?
+        initial_route_id  UUID?
+
+      Plus a config-supersession discriminator for ConfigChanged events
+      per arch-configuration-service.md.
+
+      Total fixed-block size: ~256 bytes before payload + variable
+      stream_id.
+    -->
+
+    <types>
+
+        <composite name="messageHeader">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="templateId"  primitiveType="uint16"/>
+            <type name="schemaId"    primitiveType="uint16"/>
+            <type name="version"     primitiveType="uint16"/>
+        </composite>
+
+        <!--
+          EventSource — origin of the event, matches sessionHeader.source
+          but tracked per-event for replay re-derivation.
+        -->
+        <enum name="EventSource" encodingType="uint8">
+            <validValue name="UNKNOWN">0</validValue>
+            <validValue name="FIX">1</validValue>
+            <validValue name="API">2</validValue>
+            <validValue name="AUTOMATION">3</validValue>
+            <validValue name="REPLAY">4</validValue>
+            <validValue name="CLUSTER">5</validValue>
+        </enum>
+
+        <!--
+          StreamKind — the kind of stream this event belongs to.
+          Matches the partitioning table in arch-event-sourcing#Streams.
+          Embedded in the Event so consumers can route without parsing
+          stream_id.
+        -->
+        <enum name="StreamKind" encodingType="uint8">
+            <validValue name="UNKNOWN">0</validValue>
+            <validValue name="ORDER">1</validValue>
+            <validValue name="ROUTE">2</validValue>
+            <validValue name="SESSION">3</validValue>
+            <validValue name="RULE">4</validValue>
+            <validValue name="QUOTE">5</validValue>
+            <validValue name="ADMIN">6</validValue>
+            <validValue name="POSITION">7</validValue>
+            <validValue name="ALLOCATION">8</validValue>
+            <validValue name="EXEC">9</validValue>
+            <validValue name="CONFIG">10</validValue>
+            <validValue name="CORP_ACTION">11</validValue>
+            <validValue name="SECURITY_MASTER">12</validValue>
+        </enum>
+
+        <!--
+          ActorKind — categorizes the actor identity. The full actor
+          identity is carried in the firmId/deskId/userId triple plus
+          serviceId for system-internal actors.
+        -->
+        <enum name="ActorKind" encodingType="uint8">
+            <validValue name="UNKNOWN">0</validValue>
+            <validValue name="HUMAN">1</validValue>
+            <validValue name="API_CLIENT">2</validValue>
+            <validValue name="AUTOMATION_RULE">3</validValue>
+            <validValue name="SYSTEM_SERVICE">4</validValue>
+            <validValue name="REPLAY">5</validValue>
+        </enum>
+    </types>
+
+    <!--
+      Event — template_id 0x0200 — the universal log entry.
+
+      The payload is opaque to the envelope. The (payloadTemplateId,
+      payloadSchemaId, payloadVersion) tuple identifies how to decode
+      the trailing bytes. This is the same SBE pattern used in
+      messageHeader, but carried inside Event so each log entry is
+      self-describing.
+
+      Variable-length stream_id and payload follow the fixed block.
+    -->
+    <sbe:message name="Event" id="0x0200"
+                 description="Universal event envelope per arch-event-sourcing.md.">
+
+        <!-- Identity (16 + 16 + 16 = 48 bytes) -->
+        <field name="eventId"           id="1"  type="uuid"/>
+        <field name="causedBy"          id="2"  type="uuid"
+               description="Upstream event_id; zero for root events."/>
+        <field name="globalSeq"         id="3"  type="uint64"
+               description="Append order, log-wide. Monotonic across all streams."/>
+
+        <!-- Stream partitioning (1 + 8 = 9 bytes) -->
+        <field name="streamKind"        id="4"  type="StreamKind"/>
+        <field name="streamSeq"         id="5"  type="uint64"
+               description="Monotonic within stream_id; gaps indicate corruption."/>
+
+        <!-- Payload identification (6 bytes) -->
+        <field name="payloadTemplateId" id="6"  type="uint16"
+               description="SBE template id of the payload (see Instrument 0x2xxx, Order/Route FSM events, etc.)."/>
+        <field name="payloadSchemaId"   id="7"  type="uint16"
+               description="Owning schema id of the payload."/>
+        <field name="payloadVersion"    id="8"  type="uint16"
+               description="Schema version of the payload."/>
+
+        <!-- Time (8 + 8 = 16 bytes) -->
+        <field name="occurredAt"        id="9"  type="uint64"
+               description="Wall-or-simulated time the event occurred (µs since epoch). Clock-injected per arch-time-replay-server."/>
+        <field name="recordedAt"        id="10" type="uint64"
+               description="Wall time the event store persisted it (µs since epoch)."/>
+
+        <!-- Source (1 byte) -->
+        <field name="source"            id="11" type="EventSource"/>
+
+        <!-- Actor identity (1 + 16 + 16 + 16 + 16 = 65 bytes) -->
+        <field name="actorKind"         id="12" type="ActorKind"/>
+        <field name="firmId"            id="13" type="uuid"
+               description="Per arch-firm-desk-user; zero for system actors."/>
+        <field name="deskId"            id="14" type="uuid"
+               description="Per arch-firm-desk-user; zero for firm-level / system actors."/>
+        <field name="userId"            id="15" type="uuid"
+               description="Per arch-firm-desk-user; zero for service actors."/>
+        <field name="serviceId"         id="16" type="uuid"
+               description="Service-internal actor (e.g. config-service, automation-engine); zero for human/client actors."/>
+
+        <!-- W3C trace context (16 + 8 + 1 = 25 bytes) -->
+        <field name="traceId"           id="17" type="traceIdBlock"/>
+        <field name="parentSpanId"      id="18" type="parentSpanIdBlock"/>
+        <field name="traceFlags"        id="19" type="uint8"/>
+
+        <!-- Identity chaining (16 + 16 = 32 bytes) -->
+        <field name="initialOrderId"    id="20" type="uuid"
+               description="UUID of the original order; write-once, propagated through cancel/replace and fills. Zero if not order-related."/>
+        <field name="initialRouteId"    id="21" type="uuid"
+               description="UUID of the original route; write-once. Zero if not route-related."/>
+
+        <!--
+          stream_id and payload follow as variable-length data segments
+          (SBE varData).
+        -->
+        <data name="streamId"           id="22" type="varStringEncoding"
+              description="Partition key (order_id, route_id, session_id, etc.). UTF-8, max 64 bytes."/>
+        <data name="payload"            id="23" type="varDataEncoding"
+              description="SBE-encoded payload per (payloadTemplateId, payloadSchemaId, payloadVersion)."/>
+    </sbe:message>
+
+    <!--
+      Auxiliary SBE encodings declared inline for self-containment.
+      uuid is the standard 16-byte UUID per RFC 4122.
+    -->
+    <types>
+        <composite name="uuid">
+            <type name="data" primitiveType="uint8" length="16"/>
+        </composite>
+
+        <composite name="traceIdBlock">
+            <type name="data" primitiveType="uint8" length="16"/>
+        </composite>
+
+        <composite name="parentSpanIdBlock">
+            <type name="data" primitiveType="uint8" length="8"/>
+        </composite>
+
+        <composite name="varStringEncoding">
+            <type name="length"  primitiveType="uint16"/>
+            <type name="varData" primitiveType="uint8" length="0" characterEncoding="UTF-8"/>
+        </composite>
+
+        <composite name="varDataEncoding">
+            <type name="length"  primitiveType="uint32"/>
+            <type name="varData" primitiveType="uint8" length="0"/>
+        </composite>
+    </types>
+
+</sbe:messageSchema>

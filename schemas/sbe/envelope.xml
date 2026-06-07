@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2017/sbe"
+                   package="io.crossasset.ems.schemas.envelope"
+                   id="0x01"
+                   version="1"
+                   semanticVersion="1.0.0"
+                   description="SBE base envelope — MessageHeader + SessionHeader. Per arch-sbe-aeron-transport.md."
+                   byteOrder="littleEndian">
+
+    <!--
+      Per arch-sbe-aeron-transport.md, every SBE message on every Aeron
+      channel begins with a fixed-layout MessageHeader (8 bytes) followed
+      by a fixed-layout SessionHeader (~73 bytes). This file defines both.
+
+      The MessageHeader is the standard SBE 1.0 layout. The SessionHeader
+      is EMS-specific and carries the cross-cutting concerns that every
+      downstream component depends on:
+
+        - session_id / seq_num / send_time   (sequence recovery)
+        - source enum                        (FIX | API | AUTOMATION | REPLAY | CLUSTER)
+        - W3C trace context                  (trace_id, parent_span_id, trace_flags)
+        - identity chain                     (initial_order_id, initial_route_id)
+
+      The total ~73-byte overhead per message is the audit, replay,
+      correlation, and identity-chaining cost — accepted for the value.
+      See arch-observability.md and arch-identity-chaining.md.
+
+      Total envelope = MessageHeader (8) + SessionHeader (73) = 81 bytes
+      before any payload. Payloads (Instrument templates, FSM events,
+      audit events) follow as additional fixed-layout blocks.
+    -->
+
+    <types>
+
+        <!-- ===== SBE 1.0 standard MessageHeader =================== -->
+        <composite name="messageHeader" description="Standard SBE 1.0 message header. Maps to FIX MsgType via templateId.">
+            <type name="blockLength" primitiveType="uint16"
+                  description="Length of the fixed-length root block following the header."/>
+            <type name="templateId"  primitiveType="uint16"
+                  description="Template id. See per-asset Instrument schemas (0x2001..0x2090) + envelope/event schemas."/>
+            <type name="schemaId"    primitiveType="uint16"
+                  description="Owning schema id. envelope=0x01, event=0x02, instrument=0x2x, etc."/>
+            <type name="version"     primitiveType="uint16"
+                  description="Schema version. Old readers skip unknown sinceVersion fields."/>
+        </composite>
+
+        <!-- ===== SessionHeader (EMS-specific) ===================== -->
+
+        <!--
+          Source — classifies origin so downstream components can apply the
+          right rules (e.g. arch-fix-api-bridge mixed-client logic). MUST
+          be set at message creation; replay re-stamps via REPLAY.
+        -->
+        <enum name="MessageSource" encodingType="uint8">
+            <validValue name="UNKNOWN">0</validValue>
+            <validValue name="FIX">1</validValue>
+            <validValue name="API">2</validValue>
+            <validValue name="AUTOMATION">3</validValue>
+            <validValue name="REPLAY">4</validValue>
+            <validValue name="CLUSTER">5</validValue>
+        </enum>
+
+        <!--
+          TraceFlags — W3C trace context sampled bit (LSB) + EMS audit
+          flag (bit 1 = always-trace for compliance-sensitive flows).
+        -->
+        <type name="TraceFlags" primitiveType="uint8"
+              description="Bit 0: W3C sampled; bit 1: audit-mandatory (compliance flow); bits 2-7: reserved."/>
+
+        <composite name="sessionHeader"
+                   description="EMS cross-cutting envelope: sequence + source + W3C trace + identity chain. ~73 bytes.">
+            <!-- Sequence recovery (24 bytes) -->
+            <type name="sessionId"      primitiveType="uint64"
+                  description="Edge-assigned session id (one per logon). See arch-sequence-recovery."/>
+            <type name="seqNum"         primitiveType="uint64"
+                  description="Monotonic within sessionId; gap detection by validator."/>
+            <type name="sendTime"       primitiveType="uint64"
+                  description="Wall-or-simulated send timestamp (microseconds since epoch). Clock-injected per arch-time-replay-server — never System.now()."/>
+
+            <!-- Source (1 byte) -->
+            <type name="source"         primitiveType="uint8"
+                  description="MessageSource enum cast to uint8."/>
+
+            <!-- W3C trace context (25 bytes) -->
+            <type name="traceId"        primitiveType="uint8" length="16"
+                  description="W3C trace_id (16 bytes). See arch-observability."/>
+            <type name="parentSpanId"   primitiveType="uint8" length="8"
+                  description="W3C parent_span_id (8 bytes)."/>
+            <type name="traceFlags"     primitiveType="uint8"
+                  description="TraceFlags."/>
+
+            <!-- Identity chaining (32 bytes) -->
+            <type name="initialOrderId" primitiveType="uint8" length="16"
+                  description="UUID of the original order (write-once). Zero if not order-related. See arch-identity-chaining."/>
+            <type name="initialRouteId" primitiveType="uint8" length="16"
+                  description="UUID of the original route (write-once). Zero if not route-related."/>
+        </composite>
+    </types>
+
+    <!--
+      The envelope schema does not define application messages — those
+      live in event.xml (arch-event-sourcing) and instrument.xml + the
+      per-asset Instrument templates. Consumers of those schemas import
+      this envelope composite by reference.
+
+      Codegen produces:
+        - Java: io.crossasset.ems.schemas.envelope.MessageHeader,
+                                                    .SessionHeader (composite encoders/decoders)
+        - Rust: ems_core::envelope::{MessageHeader, SessionHeader}
+
+      The first byte of every Aeron message body is messageHeader.blockLength.
+    -->
+</sbe:messageSchema>

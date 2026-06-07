@@ -1,0 +1,131 @@
+day_count_conventions:
+- code: ACT/360
+  name: Actual/360
+  fpml_id: 1
+  fixml_name: ACT_360
+  description: Actual number of calendar days between dates divided by 360.
+  year_fraction_formula: (d2 - d1) / 360
+  use_cases: [rates, money_market, fx]
+  isda_2006_definition: Section 4.16(e)
+  stub_handling: not applicable; simple day count
+  terminal_date_adjustment: none
+- code: ACT/365.FIXED
+  name: Actual/365 (Fixed)
+  fpml_id: 2
+  fixml_name: ACT_365_FIXED
+  description: Actual calendar days between dates divided by 365 (denominator fixed regardless of leap years).
+  year_fraction_formula: (d2 - d1) / 365
+  use_cases: [rates, money_market, fx]
+  isda_2006_definition: Section 4.16(g)
+  stub_handling: not applicable; simple day count
+  terminal_date_adjustment: none
+- code: ACT/365.ACTUAL
+  name: Actual/365 (Actual)
+  fpml_id: 3
+  fixml_name: ACT_365_ACTUAL
+  description: Actual calendar days between dates divided by the actual number of days in the year (365 or 366).
+  year_fraction_formula: (d2 - d1) / ActualDaysInYear
+  use_cases: [money_market, rates]
+  isda_2006_definition: Section 4.16(i)
+  stub_handling: not applicable; simple day count
+  terminal_date_adjustment: none
+- code: ACT/ACT.ISDA
+  name: Actual/Actual (ISDA)
+  fpml_id: 10
+  fixml_name: ACT_ACT_ISDA
+  description: Actual days split by year; leap-year portion divided by 366 and non-leap portion by 365.
+  year_fraction_formula: (DaysInLeapYear/366 + DaysInNonLeapYear/365) summed across years spanned
+  use_cases: [rates, credit]
+  isda_2006_definition: Section 4.16(b)
+  stub_handling: split at year boundary, no stub convention; stubs inherit the underlying actual days
+  terminal_date_adjustment: none
+- code: ACT/ACT.ICMA
+  name: Actual/Actual (ICMA)
+  fpml_id: 11
+  fixml_name: ACT_ACT_ICMA
+  description: For periodic coupons, actual days in period divided by actual days in coupon period times frequency per year.
+  year_fraction_formula: (ActualDaysInPeriod / ActualDaysInCouponPeriod) * (1 / Frequency)
+  use_cases: [rates, credit]
+  isda_2006_definition: Section 4.16(c)
+  stub_handling: stub period accrued fraction computed as actual days in stub divided by actual days in (deemed) full coupon period
+  terminal_date_adjustment: none
+- code: ACT/ACT.ISMA
+  name: Actual/Actual (ISMA)
+  fpml_id: 11
+  fixml_name: ACT_ACT_ISMA
+  description: Synonym for ACT/ACT.ICMA, ISMA pre-2006 terminology.
+  year_fraction_formula: (ActualDaysInPeriod / ActualDaysInCouponPeriod) * (1 / Frequency)
+  use_cases: [rates, credit]
+  isda_2006_definition: Section 4.16(c)
+  stub_handling: same as ACT/ACT.ICMA
+  terminal_date_adjustment: none
+- code: ACT/ACT.AFB
+  name: Actual/Actual (AFB)
+  fpml_id: 12
+  fixml_name: ACT_ACT_AFB
+  description: French Banking Association method; leap day (29-Feb) is removed so 365-day year is implied.
+  year_fraction_formula: (d2 - d1 - leapDaysBetween) / 365
+  use_cases: [rates, credit, fx]
+  isda_2006_definition: Section 4.16(d)
+  stub_handling: not applicable; simple day count
+  terminal_date_adjustment: none
+- code: 30/360
+  name: 30/360 (Bond Basis / US)
+  fpml_id: 5
+  fixml_name: THIRTY_360
+  description: Each month treated as 30 days, year as 360; bond-basis US convention with end-of-month rules.
+  year_fraction_formula: (360*(Y2-Y1) + 30*(M2-M1) + (D2-D1)) / 360, with D1/D2 adjusted for 31st and Feb end-of-month
+  use_cases: [rates, credit, equity]
+  isda_2006_definition: Section 4.16(f)
+  stub_handling: stub handled by same 30/360 D1/D2 adjustment rules
+  terminal_date_adjustment: none
+- code: 30/360.BOND
+  name: 30/360 (Bond Basis)
+  fpml_id: 6
+  fixml_name: THIRTY_360_BOND
+  description: 30/360 Bond Basis variant as per ISDA 2006 Section 4.16(f) Bond Basis sub-rule.
+  year_fraction_formula: (360*(Y2-Y1) + 30*(M2-M1) + (D2-D1)) / 360, with US bond-basis EOM rules
+  use_cases: [rates, credit, equity]
+  isda_2006_definition: Section 4.16(f)
+  stub_handling: stub handled by 30/360 bond-basis rules
+  terminal_date_adjustment: none
+- code: 30E/360.ISDA
+  name: 30E/360 (ISDA)
+  fpml_id: 7
+  fixml_name: THIRTY_E_360_ISDA
+  description: European 30/360; if D1 or D2 is 31, treat as 30; if D1 is last day of Feb, treat as 30.
+  year_fraction_formula: (360*(Y2-Y1) + 30*(M2-M1) + (D2-D1)) / 360, with D1/D2 capped at 30 and Feb-end adjusted
+  use_cases: [rates, credit]
+  isda_2006_definition: Section 4.16(h)
+  stub_handling: stub handled by 30E/360 day-cap rules
+  terminal_date_adjustment: none
+- code: 30E/360.EUROBOND
+  name: 30E/360 (Eurobond)
+  fpml_id: 8
+  fixml_name: THIRTY_E_EUROBOND
+  description: Eurobond variant; both D1 and D2 last-day-of-Feb treated as 30.
+  year_fraction_formula: (360*(Y2-Y1) + 30*(M2-M1) + (D2-D1)) / 360, with D1 and D2 last-Feb treated as 30
+  use_cases: [rates, credit]
+  isda_2006_definition: Section 4.16(j)
+  stub_handling: stub handled by 30E/360 Eurobond day-cap rules
+  terminal_date_adjustment: none
+- code: 30E/360.ISMA
+  name: 30E/360 (ISMA)
+  fpml_id: 9
+  fixml_name: THIRTY_E_360_ISMA
+  description: ISMA variant of 30E/360; D1 and D2 capped at 30 with Feb end adjusted per ISMA rule.
+  year_fraction_formula: (360*(Y2-Y1) + 30*(M2-M1) + (D2-D1)) / 360, with ISMA-specific D1/D2 adjustments
+  use_cases: [rates, credit]
+  isda_2006_definition: Section 4.16(h) variant
+  stub_handling: stub handled by 30E/360 ISMA day-cap rules
+  terminal_date_adjustment: none
+- code: 30/360.ISDA
+  name: 30/360 (ISDA)
+  fpml_id: null
+  fixml_name: THIRTY_360_ISDA
+  description: ISDA variant of 30/360 with EOM and 31-day adjustment rules.
+  year_fraction_formula: (360*(Y2-Y1) + 30*(M2-M1) + (D2-D1)) / 360, with ISDA D1/D2 adjustments
+  use_cases: [rates, credit]
+  isda_2006_definition: Section 4.16(f) variant
+  stub_handling: stub handled by 30/360 ISDA rules
+  terminal_date_adjustment: none

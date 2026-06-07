@@ -23,14 +23,14 @@ Foundation for everything else. ~1-2 weeks of work.
 - [x] **0.6** SBE codegen Gradle plugin wired up (claude) ← blocks: 0.2 `(ab1fd79)`
 - [ ] **0.7** Aeron Cluster + Archive toy ping/pong (claude) ← blocks: 0.6
 - [x] **0.8** OpenTelemetry SDK + collector + Jaeger toy trace (local) `(b86e7f8)`
-- [ ] **0.9** Conventional commit + changelog automation (local)
+- [x] **0.9** Conventional commit + changelog automation (local) `(27ce39f)`
 - [ ] **0.10** Phase-0 smoke test job in CI (claude) ← blocks: 0.4, 0.7
 
 ## Phase 1 — Shared FIX-Compliant FSM
 
 The core determinism guarantee. ~2-3 weeks.
 
-- [ ] **1.1** FSM YAML schema (states, events, transitions, effects) (claude)
+- [x] **1.1** FSM YAML schema (states, events, transitions, effects) (claude) `(39169f8)`
 - [ ] **1.2** Order FSM definition per [[arch-order-route-lifecycle]] (claude) ← blocks: 1.1
 - [ ] **1.3** Route FSM definition per [[arch-order-route-lifecycle]] (claude) ← blocks: 1.1
 - [ ] **1.4** Multi-leg / Package FSM per [[arch-multileg]] (claude) ← blocks: 1.1
@@ -47,8 +47,8 @@ The core determinism guarantee. ~2-3 weeks.
 
 Wire protocol and clustering. ~1-2 weeks.
 
-- [ ] **2.1** SBE base envelope schema (`MessageHeader`, `SessionHeader`) (claude)
-- [ ] **2.2** SessionHeader extended with `trace_id`, `parent_span_id`, `initial_order_id`, `initial_route_id` per [[arch-sbe-aeron-transport]] (claude) ← blocks: 2.1
+- [x] **2.1** SBE base envelope schema (`MessageHeader`, `SessionHeader`) (claude) `(1802a07)`
+- [x] **2.2** SessionHeader extended with `trace_id`, `parent_span_id`, `initial_order_id`, `initial_route_id` per [[arch-sbe-aeron-transport]] (claude) ← blocks: 2.1 `(937904f)`
 - [ ] **2.3** Aeron channel layout doc and code (claude) ← blocks: 2.1
 - [ ] **2.4** Sequence recovery service skeleton (claude) ← blocks: 2.2
 - [ ] **2.5** Aeron Cluster (Raft) 3-node bootstrap (claude) ← blocks: 0.7
@@ -59,7 +59,7 @@ Wire protocol and clustering. ~1-2 weeks.
 
 The auditable spine. ~2 weeks.
 
-- [ ] **3.1** Event envelope SBE schema per [[arch-event-sourcing]] (claude) ← blocks: 2.1
+- [x] **3.1** Event envelope SBE schema per [[arch-event-sourcing]] (claude) ← blocks: 2.1 `(eca3725)`
 - [ ] **3.2** Event log writer (append-only, fsync discipline) (local) ← blocks: 3.1
 - [ ] **3.3** Stream-id partitioning (order.{id}, route.{id}, etc.) (claude) ← blocks: 3.1
 - [ ] **3.4** Projection framework (idempotent, rebuild-from-scratch) (claude) ← blocks: 3.1
@@ -76,26 +76,26 @@ The "what" layer. ~3-4 weeks.
 - [ ] **4.2** License-metering and audit (claude) ← blocks: 4.1
 - [ ] **4.3** SBE template registry for Instrument templates (claude) ← blocks: 2.1, 4.1
 - [ ] **4.4** `InstrumentCore` SBE block per [[arch-security-master]] (claude) ← blocks: 4.3
-- [ ] **4.5** `EquityInstrument` template (local first draft, claude review)
-- [ ] **4.6** `BondInstrument` template (local first draft, claude review)
-- [ ] **4.7** `IrsInstrument` template (claude — composition complexity)
-- [ ] **4.8** `CdsInstrument` template (claude — reference entity)
-- [ ] **4.9** `FxSpotInstrument` / `FxForwardInstrument` / `FxSwapInstrument` / `FxNdfInstrument` (local drafts, claude review)
-- [ ] **4.10** `FxOptionInstrument` template (claude — exotic discriminator)
-- [ ] **4.11** `ListedOptionInstrument` / `ListedFutureInstrument` (local drafts, claude review)
+- [x] **4.5** `EquityInstrument` template (local first draft, claude review) `(5752d7c)`
+- [x] **4.6** `BondInstrument` template (local first draft, claude review) `(f58abcd)`
+- [x] **4.7** `IrsInstrument` template (claude — composition complexity) `(72cda34)`
+- [x] **4.8** `CdsInstrument` template (claude — reference entity) `(4b8d756)`
+- [x] **4.9** `FxSpotInstrument` / `FxForwardInstrument` / `FxSwapInstrument` / `FxNdfInstrument` (local drafts, claude review) `(1c8d297)`
+- [x] **4.10** `FxOptionInstrument` template (claude — exotic discriminator) `(cfc4f05)`
+- [x] **4.11** `ListedOptionInstrument` / `ListedFutureInstrument` (local drafts, claude review) `(7bf9ad5)`
 - [ ] **4.12** `TbaMbsInstrument` / `SpecifiedPoolInstrument` (claude — fungibility handling)
-- [ ] **4.13** `AbsInstrument` / `ConvertibleBondInstrument` / `LoanInstrument` (local drafts, claude review)
+- [x] **4.13** `AbsInstrument` / `ConvertibleBondInstrument` / `LoanInstrument` (local drafts, claude review) `(49ceffd)`
 - [ ] **4.14** `StructuredProductInstrument` (claude — flexibility for bespoke)
-- [ ] **4.15** `CommodityFutureInstrument` / `CommodityPhysicalInstrument` (local drafts, claude review)
-- [ ] **4.16** `CryptoFungibleInstrument` / `NftInstrument` (local drafts, claude review)
+- [x] **4.15** `CommodityFutureInstrument` / `CommodityPhysicalInstrument` (local drafts, claude review) `(49ceffd)`
+- [x] **4.16** `CryptoFungibleInstrument` / `NftInstrument` (local drafts, claude review) `(49ceffd)`
 - [ ] **4.17** `EventContractInstrument` template (prediction markets) (claude)
 - [ ] **4.18** Package entity + Leg group schema (claude) ← blocks: 4.4
 - [ ] **4.19** Security master CRUD + supersession events per [[arch-security-master]] (claude) ← blocks: 4.4, 3.1
 - [ ] **4.20** Corporate actions → supersession integration per [[arch-corporate-actions]] (claude) ← blocks: 4.19
 - [ ] **4.21** Reference data service (calendars, day counts, tick sizes) per [[arch-reference-data-service]] (claude)
-- [ ] **4.22** Holiday calendars per currency (local — data ingest)
-- [ ] **4.23** Day count conventions table (local)
-- [ ] **4.24** Counterparty / broker code / venue MIC tables (local)
+- [x] **4.22** Holiday calendars per currency (local — data ingest) `(d8eaf57)`
+- [x] **4.23** Day count conventions table (local) `(1f67b28)`
+- [x] **4.24** Counterparty / broker code / venue MIC tables (local) `(f3bfa4e)`
 - [ ] **4.25** Internal-allocated identifier namespace for OTC (claude) ← blocks: 4.19
 
 ## Phase 5 — Identity & Permissions (AAA)
@@ -112,7 +112,7 @@ Trust boundary. ~1-2 weeks.
 
 Hard-reject path. ~1-2 weeks.
 
-- [ ] **6.1** Reject code catalog (`EMS-<CAT>-<NNNN>`) per [[arch-validator]] (local)
+- [x] **6.1** Reject code catalog (`EMS-<CAT>-<NNNN>`) per [[arch-validator]] (local) `(eaa7c8f)`
 - [ ] **6.2** Layered evaluation pipeline (session → identity → ref → perm → ...) (claude)
 - [ ] **6.3** Permission denial messages with admin-hint pointers (claude) ← blocks: 6.1, 5.3
 - [ ] **6.4** Per-asset-class validation rules (local first drafts, claude review)
@@ -207,7 +207,7 @@ STP and reporting. ~3-4 weeks.
 
 Three pillars. ~1-2 weeks.
 
-- [ ] **13.1** OTel SDK + collector configuration (local)
+- [x] **13.1** OTel SDK + collector configuration (local) `(9661ba3)`
 - [ ] **13.2** ELK / OpenSearch ingest pipeline (local)
 - [ ] **13.3** Prometheus exporters per service (local)
 - [ ] **13.4** Grafana dashboards: golden signals + per-asset latency (local for templates, claude for design)
@@ -220,13 +220,13 @@ Resilience + tooling. ~2-3 weeks.
 
 - [ ] **14.1** JMX introspection per [[arch-jmx-introspection]] (claude)
 - [ ] **14.2** Privileged event injection (security-gated) (claude) ← blocks: 14.1
-- [ ] **14.3** Time/Replay server UI (local for scaffold, claude for design)
-- [ ] **14.4** Configuration service UI (local for scaffold)
+- [x] **14.3** Time/Replay server UI (local for scaffold, claude for design) `(6b3e666)`
+- [x] **14.4** Configuration service UI (local for scaffold) `(6b3e666)`
 - [ ] **14.5** Blue/green switchover protocol per [[arch-deployment]] (claude)
 - [ ] **14.6** Cluster-of-clusters active lease (claude) ← blocks: 14.5
 - [ ] **14.7** Fence-token venue credential rotation (claude) ← blocks: 14.5
-- [ ] **14.8** Weekly leader-kill drill scripted (local)
-- [ ] **14.9** Monthly cold-start drill scripted (local)
+- [x] **14.8** Weekly leader-kill drill scripted (local) `(91ccfd7)`
+- [x] **14.9** Monthly cold-start drill scripted (local) `(91ccfd7)`
 - [ ] **14.10** Quarterly cross-region failover drill scripted (claude)
 
 ## Done criteria for v0 (MVP)
