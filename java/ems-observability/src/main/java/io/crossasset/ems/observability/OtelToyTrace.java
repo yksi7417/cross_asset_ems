@@ -4,20 +4,10 @@
  */
 package io.crossasset.ems.observability;
 
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.common.AttributeKey;
-import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
-import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
-import io.opentelemetry.sdk.resources.Resource;
-import io.opentelemetry.sdk.trace.SdkTracerProvider;
-import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
-import io.opentelemetry.semconv.ResourceAttributes;
-import java.time.Duration;
 
 /**
  * Toy trace producer for verifying the OTel collector + Jaeger pipeline.
@@ -33,56 +23,31 @@ import java.time.Duration;
  * child spans nested 1-deep, exercising the {@code @trace.parent_id} relationship that drives
  * {@code arch-observability}'s distributed-trace correlation.
  *
- * <p>This toy intentionally does not depend on Aeron, the FSM, or any EMS module — it verifies
- * only the OTel collector + Jaeger pipeline.
+ * <p>This toy intentionally does not depend on Aeron, the FSM, or any EMS module - it verifies
+ * only the OTel collector + Jaeger pipeline. SDK init is delegated to
+ * {@link EmsOpenTelemetry} so the toy exercises the production factory.
  */
 public final class OtelToyTrace {
 
     private static final String SERVICE_NAME = "ems-otel-toy";
-    private static final String OTLP_ENDPOINT_DEFAULT = "http://localhost:4317";
 
     private OtelToyTrace() {}
 
-    public static void main(final String[] args) throws InterruptedException {
-        final String endpoint =
-                System.getenv().getOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", OTLP_ENDPOINT_DEFAULT);
+    public static void main(final String[] args) {
+        final EmsOpenTelemetry otel =
+                EmsOpenTelemetry.builder(SERVICE_NAME)
+                        .serviceVersion("0.0.1-toy")
+                        .deploymentEnv("dev")
+                        .podName("dev-pod-default")
+                        .build();
 
-        final OpenTelemetry otel = init(endpoint);
         final Tracer tracer = otel.getTracer("io.crossasset.ems.observability");
 
         runWorkload(tracer);
 
-        // Allow BatchSpanProcessor to flush.
-        Thread.sleep(2_000);
+        // Force flush so the toy trace is exported even with a small workload.
+        otel.close();
         System.out.println("Toy trace emitted. Inspect at http://localhost:16686 (service=" + SERVICE_NAME + ").");
-    }
-
-    private static OpenTelemetry init(final String otlpEndpoint) {
-        final Resource resource =
-                Resource.getDefault().toBuilder()
-                        .put(ResourceAttributes.SERVICE_NAME, SERVICE_NAME)
-                        .put(ResourceAttributes.SERVICE_VERSION, "0.0.1-toy")
-                        .put(ResourceAttributes.DEPLOYMENT_ENVIRONMENT, "dev")
-                        .put(AttributeKey.stringKey("ems.pod"), "dev-pod-default")
-                        .build();
-
-        final SdkTracerProvider tracerProvider =
-                SdkTracerProvider.builder()
-                        .addSpanProcessor(
-                                BatchSpanProcessor.builder(
-                                                OtlpGrpcSpanExporter.builder()
-                                                        .setEndpoint(otlpEndpoint)
-                                                        .setTimeout(Duration.ofSeconds(5))
-                                                        .build())
-                                        .setScheduleDelay(Duration.ofMillis(500))
-                                        .build())
-                        .setResource(resource)
-                        .build();
-
-        final OpenTelemetrySdk sdk = OpenTelemetrySdk.builder().setTracerProvider(tracerProvider).build();
-
-        Runtime.getRuntime().addShutdownHook(new Thread(tracerProvider::close));
-        return sdk;
     }
 
     private static void runWorkload(final Tracer tracer) {
@@ -104,11 +69,8 @@ public final class OtelToyTrace {
         final Span span =
                 tracer.spanBuilder("stage:" + name)
                         .setSpanKind(SpanKind.INTERNAL)
-                        .setAllAttributes(
-                                Attributes.builder()
-                                        .put("ems.stage", name)
-                                        .put("ems.simulated_latency_ms", 10L)
-                                        .build())
+                        .setAttribute("ems.stage", name)
+                        .setAttribute("ems.simulated_latency_ms", 10L)
                         .startSpan();
         try (Scope ignored = span.makeCurrent()) {
             try {

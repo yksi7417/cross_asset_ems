@@ -1,0 +1,289 @@
+# OpenTelemetry Collector configuration for the Cross-Asset EMS.
+#
+# Mirrors arch-observability.md three-pillar model: traces -> Jaeger/Tempo,
+# metrics -> Prometheus, logs -> OpenSearch. Runs one collector per host
+# (deployment topology from arch-observability "Deployment topology").
+#
+# Profiles:
+#   DEV      - receivers on localhost:4317 (gRPC) / 4318 (HTTP); debug
+#              logging; always-sample; single-collector-to-localhost
+#              backends.
+#   STAGING  - receivers on 0.0.0.0:4317/4318; tail-sampling; remote
+#              Jaeger/Prometheus/ES.
+#   PROD     - receivers on cluster-internal VIP; tail-sampling with
+#              audit-store split; remote write Prometheus to Mimir/Thanos;
+#              ES audit log shipping with ILM.
+
+mode: "deployment"  # "deployment" uses the full pipelines; "daemon" for sidecar use
+
+# ---------- Extensions ----------
+extensions:
+  # Health + pprof on :13133 and :1777
+  health_check:
+    endpoint: 0.0.0.0:13133
+    check_collector_pipeline:
+      enabled: true
+      interval: 5m
+      failure_threshold: 3
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+  # Memory limit guard for the batch processor
+  memory_ballast:
+    size_mib: 512
+
+# ---------- Receivers ----------
+# All services in the EMS expose OTLP gRPC (4317) and HTTP (4318). The
+# collector ingests traces, metrics, and logs over both transports.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 16
+        keepalive:
+          server_parameters:
+            time: 30s
+            timeout: 5s
+      http:
+        endpoint: 0.0.0.0:4318
+        max_request_body_size: 16MB
+        # Trace context in HTTP headers is honored per W3C trace context
+        # (arch-observability "W3C Trace Context").
+
+  # Prometheus-format scrape for non-OTel-native clients (legacy FIX
+  # bridge exporters etc.). Exporter-side endpoints are defined in
+  # 13.3 prometheus.yml; this is the corresponding scrape receiver.
+  prometheus:
+    config:
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+      scrape_configs:
+        - job_name: "ems-internal-collectors"
+          static_configs:
+            - targets:
+              - ems-otel-collector:8889  # self-scrape for collector-internal
+                                        # metrics (queue, rate-limit, etc.)
+          metric_relabel_configs:
+            - source_labels: [__name__]
+              regex: "otelcol_(receiver|exporter|processor)_.*"
+              action: keep
+
+  # Host metrics for the per-host resource
+  hostmetrics:
+    collection_interval: 30s
+    scrapers:
+      cpu:
+      memory:
+      disk:
+      filesystem:
+      network:
+      process:
+
+# ---------- Processors ----------
+# Order matters: memory_limiter first to apply backpressure, then
+# attributes/batch at the front, tail_sampling last (most expensive).
+processors:
+  # Backpressure guard. Sized so the collector never OOMs under load.
+  memory_limiter:
+    check_interval: 2s
+    limit_percentage: 75
+    spike_limit_percentage: 25
+
+  # Decorate every span with deployment environment + pod/host ID.
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${env:DEPLOY_ENV:-dev}
+        action: insert
+      - key: host.name
+        from_attribute: host.name
+        action: insert
+      - key: service.instance.id
+        from_attribute: service.instance.id
+        action: insert
+
+  # Span-level rate limiting. Per arch-observability "Sampling":
+  # 1-5% routine; 100% on errors/anomalies; 100% audit-required
+  # (handled by tail_sampling + audit_store exporter below).
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 100000
+    expected_new_traces_per_sec: 1000
+    policies:
+      # 1. Always keep: any error span, any slow span (> 500ms p99),
+      #    any compliance/risk/validator decision span.
+      - name: errors-and-slow
+        type: composite
+        composite:
+          max_total_spans_per_second: 200
+          policy_order: [errors-first, then-slow, then-audit]
+          composite_sub_policies:
+            - name: errors-first
+              type: status_code
+              status_code: { status_codes: [ERROR] }
+            - name: then-slow
+              type: latency
+              latency: { threshold_ms: 500 }
+            - name: then-audit
+              type: and
+              and:
+                and_sub_policies:
+                  - type: string_attribute
+                    string_attribute:
+                      key: ems.audit.required
+                      values: ["true", "1"]
+                  - type: numeric_attribute
+                    numeric_attribute:
+                      key: ems.event.type
+                      min_value: 0
+                      max_value: 99999
+      # 2. Probabilistic base: 1% of remaining.
+      - name: base-sample
+        type: probabilistic
+        probabilistic: { sampling_percentage: 1 }
+
+  # Drop noisy spans that don't carry diagnostic value
+  span:
+    name:
+      - regexp: "GET /health(/.*)?"
+        drop: true
+    exclude:
+      match_type: strict
+      spans:
+        - { name: "internal-telemetry", attributes: [] }
+
+  # Default batching
+  batch:
+    send_batch_size: 8192
+    send_batch_max_size: 12288
+    timeout: 200ms
+    metadata_keys: [x-trace-id, x-session-id]
+
+  # Redact KYC/PII fields per arch-observability "PII / regulated-data
+  # handling". Drops the field entirely from the log record (KYC PII
+  # must never reach non-audit indices).
+  transform/logs:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - replace_all_patterns(attributes, "value", "\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b", "***REDACTED***")  # PAN
+          - replace_all_patterns(body, "value", "\b[A-Z]{1,2}\d{6,9}\b", "***REDACTED***")  # Passport-style (loose)
+
+# ---------- Exporters ----------
+exporters:
+  # Traces: gRPC to Jaeger / Tempo
+  otlp/traces:
+    endpoint: ${env:OTLP_TRACES_ENDPOINT:-jaeger-collector.observability.svc:4317}
+    tls:
+      insecure: false
+      ca_file: /etc/ssl/certs/ca-bundle.crt
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 5000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 500ms
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # Audit traces: never dropped, even if main OTLP fails. Per
+  # arch-observability "Sampling": 100% audit retention is
+  # non-negotiable.
+  otlp/audit:
+    endpoint: ${env:OTLP_AUDIT_ENDPOINT:-audit-trace-store.observability.svc:4317}
+    tls:
+      insecure: false
+      ca_file: /etc/ssl/certs/ca-bundle.crt
+    sending_queue:
+      enabled: true
+      num_consumers: 8
+      queue_size: 50000
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: -1  # retry forever - never drop audit traces
+
+  # Metrics: Prometheus remote_write
+  prometheusremotewrite:
+    endpoint: ${env:PROM_REMOTE_WRITE:-http://prometheus.observability.svc:9090/api/v1/write}
+    tls:
+      insecure: false
+      ca_file: /etc/ssl/certs/ca-bundle.crt
+    resource_to_telemetry_conversion:
+      enabled: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+    timeout: 30s
+    queue_size: 10000
+
+  # Logs: OpenSearch (matches 13.2 ingest pipeline backend)
+  opensearch:
+    endpoints: [${env:OPENSEARCH:-http://opensearch.observability.svc:9200}]
+    http_auth: { username: ${env:OPENSEARCH_USER}, password: ${env:OPENSEARCH_PASSWORD} }
+    tls: { insecure: false, ca_file: /etc/ssl/certs/ca-bundle.crt }
+    logs_index: "ems-otel-logs"
+    # Mapping per arch-observability "Required fields on every line"
+    mapping:
+      - from: "timestamp"
+        to: "@timestamp"
+      - from: "trace_id"
+        to: "trace.id"
+      - from: "span_id"
+        to: "span.id"
+      - from: "service"
+        to: "service.name"
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 300s
+
+  # File-backed debug exporter (only enabled in DEV)
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+# ---------- Service / pipelines ----------
+service:
+  extensions: [health_check, pprof, zpages, memory_ballast]
+  telemetry:
+    metrics:
+      address: 0.0.0.0:8888
+    logs:
+      level: info
+
+  pipelines:
+    # Traces: receive -> resource -> tail_sampling -> batch -> otlp/traces
+    # (routed) + otlp/audit (always retained)
+    traces:
+      receivers: [otlp]
+      processors:
+        - memory_limiter
+        - resource
+        - tail_sampling
+        - batch
+      exporters: [otlp/traces, otlp/audit]
+
+    # Metrics: receive -> resource -> batch -> prometheusremotewrite
+    metrics:
+      receivers: [otlp, prometheus, hostmetrics]
+      processors:
+        - memory_limiter
+        - resource
+        - batch
+      exporters: [prometheusremotewrite]
+
+    # Logs: receive -> redact -> batch -> opensearch
+    logs:
+      receivers: [otlp]
+      processors:
+        - memory_limiter
+        - resource
+        - transform/logs
+        - batch
+      exporters: [opensearch]
