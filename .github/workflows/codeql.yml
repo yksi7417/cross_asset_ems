@@ -1,12 +1,20 @@
 name: CodeQL
 
+# PARKED — manual-trigger only.
+# CodeQL compiles and analyzes fine, but uploading results to GitHub code
+# scanning requires GitHub Advanced Security, which is a paid feature on
+# PRIVATE repos (free only on public repos). Without it, the analyze step
+# fails at upload ("Code scanning is not enabled for this repository").
+#
+# To re-enable automatic scanning, do ONE of:
+#   - make the repo public, or
+#   - enable GitHub Advanced Security (Settings → Code security), then
+#   - restore the push/pull_request/schedule triggers below:
+#       push:        { branches: [main] }
+#       pull_request:{ branches: [main] }
+#       schedule:    [ { cron: '0 6 * * 1' } ]   # Mondays 06:00 UTC
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  schedule:
-    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch:
 
 permissions:
   actions: read

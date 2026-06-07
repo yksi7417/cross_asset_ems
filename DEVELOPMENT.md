@@ -255,7 +255,7 @@ CI is split for fast inner-loop feedback without losing the pre-merge quality ba
 | Trigger | What runs | Purpose |
 |---|---|---|
 | **Push to a feature branch** | Java compile + unit tests, C++ compile + ctest | **Fast lane** — rapid feedback while iterating |
-| **Pull request → `main`** | the above **+** Spotless, shell/markdown lint, schema lint, SBOM + dependency review, CodeQL | **Full gate** — must pass before merge |
+| **Pull request → `main`** | the above **+** Spotless, shell/markdown lint, schema lint, SBOM + dependency review | **Full gate** — must pass before merge |
 | **Push to `main`** | full gate | post-merge safety net |
 
 The fast lane is a strict subset of the full gate, so nothing skips the pre-merge
@@ -276,14 +276,13 @@ rapid pushes don't queue.
 **Enforcing the gate (one-time, GitHub UI):** Settings → Branches → add a
 protection rule for `main` → *Require status checks to pass before merging*, and
 select the full-gate checks (`Java build + unit tests`, `C++ build + unit tests`,
-`Spotless`/`Schema lint`/`Lint (shell, markdown)`, `SBOM + dep review`, and
-`Analyze (java-kotlin)` from CodeQL). Without this, the full gate runs but doesn't
-*block* a merge.
+`Schema lint`, `Lint (shell, markdown)`, `SBOM + dep review`). Without this, the
+full gate runs but doesn't *block* a merge.
 
 Workflows under `.github/workflows/`:
 
 - **`ci.yml`** — Java build + tests (Gradle), C++ build + tests (CMake/ctest), schema lint (yamllint + xmllint), shell + markdown lint, SBOM via CycloneDX, dependency review (PR only).
-- **`codeql.yml`** — security-and-quality query suite for Java/Kotlin (PR + push to `main` + Mondays; not on feature pushes). `c-cpp` language added once `cpp/` modules have real source (task 1.7+).
+- **`codeql.yml`** — security-and-quality query suite for Java/Kotlin. **Parked** (manual `workflow_dispatch` only): code-scanning upload needs GitHub Advanced Security, a paid feature on private repos. Re-enable by making the repo public or enabling GHAS, then restoring the triggers (see the comment at the top of the file). `c-cpp` added once `cpp/` modules have real source (task 1.7+).
 
 `dependabot.yml` opens weekly Monday bumps for Gradle and GitHub Actions. No CMake/C++ entry — C++ deps are managed via CMake FetchContent, not a versioned registry.
 
