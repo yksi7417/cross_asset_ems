@@ -1,0 +1,501 @@
+# order.fsm.yaml
+#
+# Order lifecycle FSM per arch-order-route-lifecycle.md.
+# FIX-aligned: state names reflect OrdStatus (39), event names reflect
+# ExecType (150) / MsgType (35) vocabulary so the FIX bridge has no
+# semantic translation work — only encoding.
+#
+# Conforms to schemas/fsm/fsm.schema.yaml (validated by tools/fsm-validator/).
+
+name: OrderFsm
+version: 1
+kind: order
+description: >
+  FIX-compliant order lifecycle: pending-new → working → filled/canceled/rejected.
+  Includes pending-replace / pending-cancel in-flight states, post-fill
+  trade-correct and trade-cancel paths. See arch-order-route-lifecycle.
+
+context_schema:
+  order_id:
+    type: uuid
+    description: Internal immutable order identifier.
+  cl_ord_id:
+    type: string
+    description: "FIX tag 11 — current ClOrdID presented to venues."
+  orig_cl_ord_id:
+    type: string
+    nullable: true
+    description: "FIX tag 41 — prior ClOrdID on replace/cancel requests."
+  instrument_id:
+    type: figi
+    description: FIGI of the instrument being traded.
+  side:
+    type: u8
+    description: "FIX tag 54: 1=Buy, 2=Sell, 5=SellShort, etc."
+  order_qty:
+    type: u64
+    description: Original order quantity (FIX tag 38).
+  price:
+    type: i64
+    nullable: true
+    description: Limit price in fixed-point (null for market orders).
+  cum_qty:
+    type: u64
+    description: Cumulative filled quantity.
+  leaves_qty:
+    type: u64
+    description: Remaining open quantity.
+  account:
+    type: string
+    description: "FIX tag 1 — trading account."
+  tif:
+    type: u8
+    description: "FIX tag 59 — time-in-force (0=Day, 1=GTC, 3=IOC, 4=FOK, ...)."
+  trace_id:
+    type: u64
+    description: Identity-chaining trace ID (arch-identity-chaining).
+  initial_order_id:
+    type: uuid
+    description: ID of the order that originated this chain (same as order_id for originals).
+  pre_cancel_status:
+    type: string
+    nullable: true
+    # Saved on entry to PENDING_CANCEL so cancel-reject can restore prior state.
+    # Diverges from the arch diagram (which only draws PendingCancel→New) in
+    # order to honor the arch *text*: "stays in its prior state". Guards below
+    # branch on this field.
+    description: OrdStatus value before entering PENDING_CANCEL.
+  pre_replace_status:
+    type: string
+    nullable: true
+    description: OrdStatus value before entering PENDING_REPLACE (same rationale as pre_cancel_status).
+
+states:
+  - name: PENDING_NEW
+    initial: true
+    fix_ord_status: "A"
+    fix_exec_type: "A"
+    description: Order received; validation in progress.
+  - name: NEW
+    fix_ord_status: "0"
+    fix_exec_type: "0"
+    description: Validation passed; order is open and working.
+  - name: PENDING_REPLACE
+    fix_ord_status: "E"
+    fix_exec_type: "E"
+    description: OrderCancelReplaceRequest (35=G) dispatched; awaiting venue response.
+  - name: REPLACED
+    fix_ord_status: "5"
+    fix_exec_type: "5"
+    description: Most-recent replace confirmed by venue. Order is still working.
+  - name: PENDING_CANCEL
+    fix_ord_status: "6"
+    fix_exec_type: "6"
+    description: OrderCancelRequest (35=F) dispatched; awaiting venue response.
+  - name: PARTIALLY_FILLED
+    fix_ord_status: "1"
+    fix_exec_type: "F"
+    description: One or more partial fills received; leaves_qty > 0.
+  - name: FILLED
+    fix_ord_status: "2"
+    fix_exec_type: "F"
+    description: Order fully filled (cum_qty == order_qty). Terminal for clean path; can still receive trade busts/corrections.
+  - name: CANCELED
+    terminal: true
+    fix_ord_status: "4"
+    fix_exec_type: "4"
+    description: Cancel confirmed by venue.
+  - name: REJECTED
+    terminal: true
+    fix_ord_status: "8"
+    fix_exec_type: "8"
+    description: Order rejected by validator or venue pre-fill.
+  - name: EXPIRED
+    terminal: true
+    fix_ord_status: "C"
+    fix_exec_type: "C"
+    description: TIF reached; order expired by venue.
+  - name: DONE_FOR_DAY
+    terminal: true
+    fix_ord_status: "3"
+    fix_exec_type: "3"
+    description: Day order done at day end.
+  - name: TRADE_CORRECTED
+    terminal: true
+    fix_exec_type: "G"
+    description: Post-fill price/qty correction applied (ExecType=G).
+  - name: TRADE_CANCELED
+    terminal: true
+    fix_exec_type: "H"
+    description: Post-fill bust — fill treated as never occurred (ExecType=H).
+
+events:
+  # --- New-order path ---
+  - name: ValidationPassed
+    description: Internal validator accepted the order; move to NEW.
+  - name: ValidationFailed
+    fix_msg_type: "j"
+    description: Internal validator rejected the order.
+
+  # --- Replace path ---
+  - name: ReplaceRequested
+    fix_msg_type: "G"
+    description: OrderCancelReplaceRequest received from client.
+    payload_schema:
+      new_cl_ord_id: { type: string }
+      new_order_qty: { type: u64 }
+      new_price: { type: i64, nullable: true }
+  - name: ReplaceAccepted
+    description: Venue confirmed replace (35=8 ExecType=5).
+    payload_schema:
+      new_cl_ord_id: { type: string }
+  - name: ReplaceRejected
+    fix_msg_type: "9"
+    description: Venue rejected replace via 35=9 OrderCancelReject; order stays in prior state.
+    payload_schema:
+      cxl_rej_reason: { type: u8 }
+
+  # --- Cancel path ---
+  - name: CancelRequested
+    fix_msg_type: "F"
+    description: OrderCancelRequest received from client or automation.
+  - name: CancelAccepted
+    description: Venue confirmed cancel (35=8 ExecType=4).
+  - name: CancelRejected
+    fix_msg_type: "9"
+    description: Venue rejected cancel via 35=9; order stays in prior state.
+    payload_schema:
+      cxl_rej_reason: { type: u8 }
+
+  # --- Fill path ---
+  - name: PartialFill
+    description: Partial execution report from venue (OrdStatus=1, ExecType=F).
+    payload_schema:
+      last_qty: { type: u64 }
+      last_px: { type: i64 }
+      exec_id: { type: string }
+  - name: FullFill
+    description: Final fill — order fully executed (OrdStatus=2, ExecType=F).
+    payload_schema:
+      last_qty: { type: u64 }
+      last_px: { type: i64 }
+      exec_id: { type: string }
+
+  # --- Post-fill corrections ---
+  - name: TradeCorrect
+    description: Post-fill price/qty correction received (ExecType=G).
+    payload_schema:
+      corrected_qty: { type: u64 }
+      corrected_px: { type: i64 }
+      exec_id: { type: string }
+  - name: TradeCancelBust
+    description: Post-fill bust received (ExecType=H); fill treated as never occurred.
+    payload_schema:
+      busted_exec_id: { type: string }
+
+  # --- Other terminal paths ---
+  - name: OrderExpired
+    description: Venue expired the order at TIF boundary (ExecType=C).
+  - name: DoneForDay
+    description: Day order closed at end of day (ExecType=3).
+
+transitions:
+  # ── New-order path ────────────────────────────────────────────────────────
+  - from: PENDING_NEW
+    event: ValidationPassed
+    to: NEW
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "0", ord_status: "0" }
+      - kind: publish_event_log
+        args: { event: "OrderAccepted" }
+
+  - from: PENDING_NEW
+    event: ValidationFailed
+    to: REJECTED
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "j" }
+      - kind: publish_event_log
+        args: { event: "OrderRejected" }
+
+  # ── Replace path (from NEW) ───────────────────────────────────────────────
+  - from: NEW
+    event: ReplaceRequested
+    to: PENDING_REPLACE
+    effects:
+      - kind: update_context
+        args: { pre_replace_status: "0" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "E", ord_status: "E" }
+      - kind: publish_event_log
+        args: { event: "OrderReplaceRequested" }
+
+  # Replace while already REPLACED (another 35=G)
+  - from: REPLACED
+    event: ReplaceRequested
+    to: PENDING_REPLACE
+    effects:
+      - kind: update_context
+        args: { pre_replace_status: "5" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "E", ord_status: "E" }
+      - kind: publish_event_log
+        args: { event: "OrderReplaceRequested" }
+
+  # Replace accepted
+  - from: PENDING_REPLACE
+    event: ReplaceAccepted
+    to: REPLACED
+    effects:
+      - kind: update_context
+        args: { pre_replace_status: null }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "5", ord_status: "0" }
+      - kind: publish_event_log
+        args: { event: "OrderReplaced" }
+
+  # Replace rejected — return to NEW
+  - from: PENDING_REPLACE
+    event: ReplaceRejected
+    to: NEW
+    guard: "context.pre_replace_status == '0'"
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "9" }
+      - kind: publish_event_log
+        args: { event: "OrderReplaceRejected" }
+
+  # Replace rejected — return to REPLACED
+  - from: PENDING_REPLACE
+    event: ReplaceRejected
+    to: REPLACED
+    guard: "context.pre_replace_status == '5'"
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "9" }
+      - kind: publish_event_log
+        args: { event: "OrderReplaceRejected" }
+
+  # ── Cancel path ───────────────────────────────────────────────────────────
+  - from: NEW
+    event: CancelRequested
+    to: PENDING_CANCEL
+    effects:
+      - kind: update_context
+        args: { pre_cancel_status: "0" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "6", ord_status: "6" }
+      - kind: publish_event_log
+        args: { event: "OrderCancelRequested" }
+
+  - from: REPLACED
+    event: CancelRequested
+    to: PENDING_CANCEL
+    effects:
+      - kind: update_context
+        args: { pre_cancel_status: "5" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "6", ord_status: "6" }
+      - kind: publish_event_log
+        args: { event: "OrderCancelRequested" }
+
+  - from: PARTIALLY_FILLED
+    event: CancelRequested
+    to: PENDING_CANCEL
+    effects:
+      - kind: update_context
+        args: { pre_cancel_status: "1" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "6", ord_status: "6" }
+      - kind: publish_event_log
+        args: { event: "OrderCancelRequested" }
+
+  - from: PENDING_CANCEL
+    event: CancelAccepted
+    to: CANCELED
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "4", ord_status: "4" }
+      - kind: publish_event_log
+        args: { event: "OrderCanceled" }
+      - kind: emit_event
+        args: { target_fsm: "RouteFsm", event: "RouteCancelRequested" }
+
+  # Cancel rejected — return to NEW
+  - from: PENDING_CANCEL
+    event: CancelRejected
+    to: NEW
+    guard: "context.pre_cancel_status == '0'"
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "9" }
+      - kind: publish_event_log
+        args: { event: "OrderCancelRejected" }
+
+  # Cancel rejected — return to REPLACED
+  - from: PENDING_CANCEL
+    event: CancelRejected
+    to: REPLACED
+    guard: "context.pre_cancel_status == '5'"
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "9" }
+      - kind: publish_event_log
+        args: { event: "OrderCancelRejected" }
+
+  # Cancel rejected — return to PARTIALLY_FILLED
+  - from: PENDING_CANCEL
+    event: CancelRejected
+    to: PARTIALLY_FILLED
+    guard: "context.pre_cancel_status == '1'"
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "9" }
+      - kind: publish_event_log
+        args: { event: "OrderCancelRejected" }
+
+  # ── Fill path ─────────────────────────────────────────────────────────────
+  - from: NEW
+    event: PartialFill
+    to: PARTIALLY_FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "context.leaves_qty - payload.last_qty" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "1" }
+      - kind: publish_event_log
+        args: { event: "OrderPartiallyFilled" }
+
+  - from: REPLACED
+    event: PartialFill
+    to: PARTIALLY_FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "context.leaves_qty - payload.last_qty" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "1" }
+      - kind: publish_event_log
+        args: { event: "OrderPartiallyFilled" }
+
+  # Fill while replace is pending (FIX: fills apply at prior params)
+  - from: PENDING_REPLACE
+    event: PartialFill
+    to: PARTIALLY_FILLED
+    description: Fill against prior params while replace is in-flight; stays in PARTIALLY_FILLED not PENDING_REPLACE per FIX semantics.
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "context.leaves_qty - payload.last_qty" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "1" }
+      - kind: publish_event_log
+        args: { event: "OrderPartiallyFilled" }
+
+  - from: PARTIALLY_FILLED
+    event: PartialFill
+    to: PARTIALLY_FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "context.leaves_qty - payload.last_qty" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "1" }
+      - kind: publish_event_log
+        args: { event: "OrderPartiallyFilled" }
+
+  - from: NEW
+    event: FullFill
+    to: FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "0" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "2" }
+      - kind: publish_event_log
+        args: { event: "OrderFilled" }
+
+  - from: REPLACED
+    event: FullFill
+    to: FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "0" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "2" }
+      - kind: publish_event_log
+        args: { event: "OrderFilled" }
+
+  - from: PARTIALLY_FILLED
+    event: FullFill
+    to: FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "0" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "2" }
+      - kind: publish_event_log
+        args: { event: "OrderFilled" }
+
+  # ── Post-fill corrections ─────────────────────────────────────────────────
+  - from: FILLED
+    event: TradeCorrect
+    to: TRADE_CORRECTED
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "G" }
+      - kind: publish_event_log
+        args: { event: "TradeCorrected" }
+
+  - from: FILLED
+    event: TradeCancelBust
+    to: TRADE_CANCELED
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "H" }
+      - kind: publish_event_log
+        args: { event: "TradeCanceled" }
+
+  # ── Other terminal paths ──────────────────────────────────────────────────
+  - from: NEW
+    event: OrderExpired
+    to: EXPIRED
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "C", ord_status: "C" }
+      - kind: publish_event_log
+        args: { event: "OrderExpired" }
+
+  - from: REPLACED
+    event: OrderExpired
+    to: EXPIRED
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "C", ord_status: "C" }
+      - kind: publish_event_log
+        args: { event: "OrderExpired" }
+
+  - from: PARTIALLY_FILLED
+    event: OrderExpired
+    to: EXPIRED
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "C", ord_status: "C" }
+      - kind: publish_event_log
+        args: { event: "OrderExpired" }
+
+  - from: NEW
+    event: DoneForDay
+    to: DONE_FOR_DAY
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "3", ord_status: "3" }
+      - kind: publish_event_log
+        args: { event: "OrderDoneForDay" }
+
+  - from: PARTIALLY_FILLED
+    event: DoneForDay
+    to: DONE_FOR_DAY
+    effects:
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "3", ord_status: "3" }
+      - kind: publish_event_log
+        args: { event: "OrderDoneForDay" }
