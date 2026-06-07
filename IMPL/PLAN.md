@@ -38,7 +38,7 @@ The core determinism guarantee. ~2-3 weeks.
 - [x] **1.6** SOR FSM (claude) ← blocks: 1.1 `(0917b01)`
 - [ ] **1.7** Codegen pipeline YAML → Java/Rust state structs (claude) ← blocks: 1.1
 - [ ] **1.8** Unit test generator: YAML → ~5000 transition tests (local) ← blocks: 1.7
-- [ ] **1.9** Lifecycle chaining (Order cancel cascades to Route) tests (claude) ← blocks: 1.2, 1.3
+- [x] **1.9** Lifecycle chaining (Order cancel cascades to Route) tests (claude) ← blocks: 1.2, 1.3 `(b6cd1e4)`
 - [ ] **1.10** Pending Replace / Pending Cancel edge cases per [[arch-fix-appendix-d]] (claude) ← blocks: 1.9
 - [ ] **1.11** Replay determinism test harness (single FSM, replay log slice) (claude) ← blocks: 1.7
 - [ ] **1.12** Identity chaining stamping into FSM events per [[arch-identity-chaining]] (claude) ← blocks: 1.7
