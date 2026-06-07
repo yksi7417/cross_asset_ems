@@ -78,7 +78,7 @@ The "what" layer. ~3-4 weeks.
 - [ ] **4.4** `InstrumentCore` SBE block per [[arch-security-master]] (claude) ← blocks: 4.3
 - [x] **4.5** `EquityInstrument` template (local first draft, claude review) `(5752d7c)`
 - [x] **4.6** `BondInstrument` template (local first draft, claude review) `(f58abcd)`
-- [ ] **4.7** `IrsInstrument` template (claude — composition complexity)
+- [x] **4.7** `IrsInstrument` template (claude — composition complexity) `(pending sha)`
 - [ ] **4.8** `CdsInstrument` template (claude — reference entity)
 - [x] **4.9** `FxSpotInstrument` / `FxForwardInstrument` / `FxSwapInstrument` / `FxNdfInstrument` (local drafts, claude review) `(1c8d297)`
 - [ ] **4.10** `FxOptionInstrument` template (claude — exotic discriminator)

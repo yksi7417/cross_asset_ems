@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2017/sbe"
+                   package="io.crossasset.ems.schemas.instrument"
+                   id="0x21"
+                   version="1"
+                   semanticVersion="1.0.0"
+                   description="IrsInstrument SBE template per arch-security-master.md"
+                   byteOrder="littleEndian">
+
+    <!--
+      template_id = 0x2050 (Phase 4 IRS template)
+      Per arch-security-master.md: cleared MAT vanilla IRS is fungible
+      post-CCP novation; bespoke OTC IRS is non-fungible. The
+      `is_cleared` and `is_mat` core flags drive specialised dispatch
+      (e.g. SDR submission profile, FCM clearing routing, RFQ-to-3
+      enforcement).
+    -->
+
+    <types>
+        <!-- Common envelope (mirrors EquityInstrument / BondInstrument) -->
+        <composite name="messageHeader">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="templateId" primitiveType="uint16"/>
+            <type name="schemaId"   primitiveType="uint16"/>
+            <type name="version"    primitiveType="uint16"/>
+        </composite>
+
+        <!-- InstrumentCore (20 fields, 315 bytes — canonical) -->
+        <composite name="instrumentCore">
+            <type name="figi"               primitiveType="char" length="12"/>
+            <type name="internalIid"        primitiveType="char" length="20"/>
+            <type name="compositeFigi"      primitiveType="char" length="12"/>
+            <type name="shareClassFigi"     primitiveType="char" length="12"/>
+            <type name="assetClass"         primitiveType="uint8"/>
+            <type name="instrumentType"     primitiveType="uint16"/>
+            <type name="displayName"        primitiveType="char" length="64"/>
+            <type name="legalName"          primitiveType="char" length="128"/>
+            <type name="issuerLei"          primitiveType="char" length="20"/>
+            <type name="currency"           primitiveType="uint16"/>
+            <type name="countryOfIssue"     primitiveType="char" length="3"/>
+            <type name="countryOfListing"   primitiveType="char" length="3"/>
+            <type name="fungibility"        primitiveType="uint8"/>
+            <type name="settlementConv"     primitiveType="uint8"/>
+            <type name="tickSizeRegimeRef"  primitiveType="uint16"/>
+            <type name="lifecycleStatus"    primitiveType="uint8"/>
+            <type name="effectiveFrom"      primitiveType="int64"/>
+            <type name="effectiveTo"        primitiveType="int64"/>
+            <type name="versionSeq"         primitiveType="uint32"/>
+            <type name="supersededBy"       primitiveType="char" length="12"/>
+        </composite>
+
+        <!-- IRS-specific enums -->
+        <enum name="RollConvention" encodingType="uint8">
+            <validValue name="FOLLOWING">0</validValue>
+            <validValue name="MOD_FOLLOWING">1</validValue>
+            <validValue name="PRECEDING">2</validValue>
+            <validValue name="MOD_PRECEDING">3</validValue>
+            <validValue name="NEAREST">4</validValue>
+        </enum>
+
+        <enum name="DateRollConvention" encodingType="uint8">
+            <validValue name="NONE">0</validValue>
+            <validValue name="EOM">1</validValue>
+            <validValue name="IMM">2</validValue>
+            <validValue name="FRN">3</validValue>
+        </enum>
+    </types>
+
+    <!-- IrsInstrument: template_id 0x2050 -->
+    <sbe:message name="IrsInstrument" id="0x2050"
+                 description="Cleared / bespoke interest rate swap. Composition by ID: legs and rate index referenced from arch-reference-data-service.">
+        <field name="core"              id="1"  type="instrumentCore"/>
+
+        <field name="tradeCurrency"     id="2"  type="uint16"
+               description="Currency of the trade economics; same as notionalCurrency unless cross-currency."/>
+        <field name="notionalCurrency"  id="3"  type="uint16"
+               description="Notional-denominated currency; differs from tradeCurrency for XCCY swaps."/>
+
+        <field name="effectiveDate"     id="4"  type="int64"
+               description="Trade effective date (epoch days). First fixed-leg accrual starts here."/>
+        <field name="terminationDate"   id="5"  type="int64"
+               description="Trade termination date (epoch days). Last cash flow."/>
+
+        <field name="fixedLegRef"       id="6"  type="uint32"
+               description="Ref id into LegDefinition table: fixed leg (rate, pay freq, day count)."/>
+        <field name="floatLegRef"       id="7"  type="uint32"
+               description="Ref id into LegDefinition table: float leg (rate index, spread, pay freq, day count, reset rule)."/>
+
+        <field name="businessDayConv"   id="8"  type="RollConvention"/>
+        <field name="dateRollConvention" id="9" type="DateRollConvention"/>
+
+        <field name="isCleared"         id="10" type="uint8"
+               description="0 = bilateral; 1 = CCP-cleared (LCH SwapClear, CME, etc.)."/>
+        <field name="ccpRef"            id="11" type="uint16"
+               description="Ref id into CCP table; 0 if isCleared=0."/>
+
+        <field name="isMat"             id="12" type="uint8"
+               description="0 = bespoke / off-SEF; 1 = Made-Available-to-Trade (CFTC MAT)."/>
+    </sbe:message>
+</sbe:messageSchema>
