@@ -37,11 +37,16 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         if: matrix.language == 'java-kotlin'
+        with:
+          gradle-version: '8.10'   # puts `gradle` on PATH to regenerate the wrapper
 
       - name: Build for CodeQL
         if: matrix.language == 'java-kotlin'
+        # CodeQL traces this compile to build its analysis database. The
+        # gradle-wrapper.jar is gitignored (absent in CI), so guard on the JAR
+        # and regenerate it before invoking ./gradlew.
         run: |
-          test -f gradlew || gradle wrapper --gradle-version=8.10
+          test -f gradle/wrapper/gradle-wrapper.jar || gradle wrapper --gradle-version=8.10
           chmod +x gradlew || true
           ./gradlew --no-daemon assemble -x test
 
