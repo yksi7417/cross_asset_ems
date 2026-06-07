@@ -88,6 +88,9 @@ services:
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      # OpenSearch datasource is not bundled in Grafana OSS; install at startup
+      # (needs network egress on first run; cached in grafana-data afterwards).
+      - GF_INSTALL_PLUGINS=grafana-opensearch-datasource
     ports: ["3000:3000"]
     volumes:
       - ../grafana/provisioning:/etc/grafana/provisioning:ro,z

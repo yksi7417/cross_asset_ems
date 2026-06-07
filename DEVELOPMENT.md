@@ -175,6 +175,38 @@ Exit code = number of failed checks (0 = healthy), so it doubles as a CI/smoke
 gate. Endpoints are overridable via env (`PROM_URL`, `GRAFANA_URL`, …) if you
 remapped ports.
 
+### Grafana dashboards
+
+Dashboards are **provisioned from files** — Grafana loads every JSON under
+`infra/grafana/dashboards/` into the **EMS** folder on startup (and reloads
+every 30s). The first one is **OTel Pipeline Overview**
+(http://localhost:3000/d/ems-otel-overview): the toy app counter, per-signal
+received-vs-exported throughput, collector health, and a live OpenSearch logs
+panel.
+
+Datasources are provisioned from `infra/grafana/provisioning/datasources/` with
+**stable uids** (`prometheus`, `opensearch`) so dashboard JSON can reference
+them deterministically. The OpenSearch datasource needs the
+`grafana-opensearch-datasource` plugin, installed at container startup via
+`GF_INSTALL_PLUGINS` (Grafana OSS doesn't bundle it) and uses
+`timeField: observedTimestamp` — **not** `@timestamp`, which the collector
+leaves unset (epoch 0) unless a log carries an explicit record timestamp.
+
+**Editing a provisioned dashboard.** Because the dashboard is file-backed,
+changes you make in the Grafana UI are **not persisted** — they vanish on the
+next provider reload. The workflow is:
+
+1. Edit the panels in the Grafana UI as normal.
+2. Dashboard settings (gear) → **JSON Model**, or **Share → Export → Save to file**.
+3. Copy that JSON over `infra/grafana/dashboards/<name>.json` (keep the `uid`
+   and `title`; drop any numeric `id`).
+4. Commit the file. The next reload (≤30s) serves your changes to everyone.
+
+To add a **new** dashboard, drop another `*.json` in the same directory — no
+provider config change needed. Reference datasources by uid
+(`{"type":"prometheus","uid":"prometheus"}`) so the panels resolve on a fresh
+Grafana volume.
+
 ## Commit conventions
 
 Pre-commit + commit-msg hooks enforce:

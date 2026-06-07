@@ -157,6 +157,34 @@
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "max(otelcol_process_memory_rss)", "legendFormat": "rss" }
       ]
+    },
+    {
+      "type": "row",
+      "title": "Logs (OpenSearch · ems-logs)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "collapsed": false
+    },
+    {
+      "type": "logs",
+      "title": "Recent log records",
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 23 },
+      "options": {
+        "showTime": true, "showLabels": false, "showCommonLabels": false,
+        "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true,
+        "dedupStrategy": "none", "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-opensearch-datasource", "uid": "opensearch" },
+          "query": "",
+          "metrics": [ { "id": "1", "type": "logs" } ],
+          "bucketAggs": [],
+          "timeField": "observedTimestamp",
+          "format": "logs"
+        }
+      ]
     }
   ]
 }

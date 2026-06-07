@@ -17,12 +17,17 @@ datasources:
 
   - name: OpenSearch
     type: grafana-opensearch-datasource
+    uid: opensearch          # stable uid so provisioned dashboards can reference it
     access: proxy
     url: http://opensearch:9200
     jsonData:
-      database: 'ems-logs-*'
+      # Index is 'ems-logs' (no date suffix); 'ems-logs*' also matches future
+      # date-rolled indices. timeField must be observedTimestamp — @timestamp is
+      # left unset (epoch 0) by the collector unless the log carries an explicit
+      # record timestamp, so using it would hide every log outside a 1970 window.
+      database: 'ems-logs*'
       flavor: opensearch
-      timeField: '@timestamp'
+      timeField: 'observedTimestamp'
       pplEnabled: true
       version: '2.18.0'
     editable: true
