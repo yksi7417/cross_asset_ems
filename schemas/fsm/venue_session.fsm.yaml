@@ -1,0 +1,341 @@
+# venue_session.fsm.yaml
+#
+# VenueSession lifecycle FSM.
+# Session-layer machine, distinct from order/route FSMs — no OrdStatus mapping.
+# Derived from the Gemma-4-31B draft in fsm/venue_session.fsm.yaml and refined
+# to conform to schemas/fsm/fsm.schema.yaml:
+#   - states renamed to SCREAMING_SNAKE_CASE
+#   - events renamed to PascalCase
+#   - context types corrected to schema enum (u64, u32, bool, string)
+#   - effects rewritten as {kind, args} objects using the schema effect enum;
+#     socket/TCP ops folded into notify (signalling the session layer),
+#     timer ops mapped to schedule_timer / cancel_timer
+#
+# Conforms to schemas/fsm/fsm.schema.yaml (validated by tools/fsm-validator/).
+
+name: VenueSessionFsm
+version: 1
+kind: venue_session
+description: >
+  FIX session lifecycle: DISCONNECTED → connecting → logon → ACTIVE →
+  heartbeat supervision → gap/resend → graceful logout. Models TestRequest
+  sub-state for heartbeat-missed detection before declaring disconnect, and
+  ResendRequest exchange for sequence-gap recovery. See arch-venue-connectivity.
+
+context_schema:
+  session_id:
+    type: string
+    description: Unique FIX session identifier (SenderCompID:TargetCompID:qualifier).
+  next_expected_seq_in:
+    type: u64
+    description: Next inbound MsgSeqNum expected from the venue (FIX tag 7).
+  next_send_seq_out:
+    type: u64
+    description: Next outbound MsgSeqNum to send (FIX tag 34).
+  heartbeat_interval_secs:
+    type: u32
+    description: HeartBtInt agreed at logon (FIX tag 108), in seconds.
+  test_request_outstanding:
+    type: bool
+    description: True when a 35=1 TestRequest has been sent and response not yet received.
+  resend_window_low:
+    type: u64
+    description: Lowest MsgSeqNum in the outstanding resend window (0 when no resend in progress).
+  resend_window_high:
+    type: u64
+    description: Highest MsgSeqNum in the outstanding resend window (0 when no resend in progress).
+  venue_mic:
+    type: string
+    description: ISO 10383 MIC of the venue this session connects to.
+
+states:
+  - name: DISCONNECTED
+    initial: true
+    description: No live TCP connection; session ready to reconnect on request.
+  - name: CONNECTING
+    description: TCP connection attempt in progress; awaiting connect or failure.
+  - name: LOGON_SENT
+    description: TCP established; outbound 35=A Logon sent; awaiting venue response.
+  - name: ACTIVE
+    description: Session established; exchanging heartbeats and application messages.
+  - name: TEST_REQUEST_SENT
+    description: Heartbeat overdue; 35=1 TestRequest sent; awaiting any inbound message.
+  - name: RESEND_IN_PROGRESS
+    description: Gap detected; outbound 35=2 ResendRequest sent; awaiting gap fill.
+  - name: SEQUENCE_RESETTING
+    description: Inbound 35=4 SequenceReset being processed (GapFill or Reset mode).
+  - name: LOGOUT_IN_PROGRESS
+    description: Graceful logout (35=5) initiated; awaiting venue 35=5 echo.
+
+events:
+  # --- Connection ---
+  - name: ConnectRequested
+    description: Operator or reconnect-scheduler requests a new connection attempt.
+  - name: TcpConnected
+    description: TCP handshake completed successfully.
+  - name: TcpFailed
+    description: TCP connection attempt failed or timed out.
+
+  # --- Logon ---
+  - name: LogonAcknowledged
+    fix_msg_type: "A"
+    description: Venue responded with 35=A Logon; session is now active.
+  - name: LogonRejected
+    description: Venue responded with 35=5 Logout or 35=3 Reject during logon.
+
+  # --- Heartbeat supervision ---
+  - name: HeartbeatReceived
+    fix_msg_type: "0"
+    description: Inbound 35=0 Heartbeat or any application message — resets timer.
+  - name: HeartbeatOverdue
+    description: Heartbeat timer expired without receiving any inbound message.
+  - name: TestRequestResponse
+    description: Any inbound message received after sending a 35=1 TestRequest.
+  - name: TestRequestTimeout
+    description: No response to 35=1 TestRequest within 2× HeartBtInt; session stale.
+
+  # --- Gap detection and resend ---
+  - name: GapDetected
+    description: Inbound sequence gap detected; EMS must send 35=2 ResendRequest.
+  - name: ResendComplete
+    description: All requested messages received (or gap-filled via 35=4 GapFill=Y).
+  - name: InboundResendRequest
+    fix_msg_type: "2"
+    description: Venue sent 35=2 ResendRequest; EMS must replay the requested range.
+  - name: SequenceResetReceived
+    fix_msg_type: "4"
+    description: Venue sent 35=4 SequenceReset (NewSeqNo in GapFill or Reset mode).
+
+  # --- Logout ---
+  - name: LogoutRequested
+    description: Operator or session manager initiated graceful logout.
+  - name: LogoutReceived
+    fix_msg_type: "5"
+    description: Venue sent 35=5 Logout; EMS must echo back and then disconnect.
+  - name: LogoutEchoed
+    description: EMS echoed the venue-initiated 35=5; session can now close.
+
+  # --- Disconnect ---
+  - name: UnexpectedDisconnect
+    description: TCP connection dropped unexpectedly from any live state.
+
+transitions:
+  # ── Connect path ──────────────────────────────────────────────────────────
+  - from: DISCONNECTED
+    event: ConnectRequested
+    to: CONNECTING
+    effects:
+      - kind: notify
+        args: { signal: "initiate_tcp", session_id: "{{ context.session_id }}" }
+
+  - from: CONNECTING
+    event: TcpConnected
+    to: LOGON_SENT
+    effects:
+      - kind: notify
+        args: { signal: "send_logon", session_id: "{{ context.session_id }}" }
+      - kind: schedule_timer
+        args: { name: "logon_timer", duration_secs: 30 }
+
+  - from: CONNECTING
+    event: TcpFailed
+    to: DISCONNECTED
+    effects:
+      - kind: publish_event_log
+        args: { event: "TcpConnectionFailed" }
+      - kind: schedule_timer
+        args: { name: "reconnect_backoff", duration_secs: 5 }
+
+  # ── Logon path ────────────────────────────────────────────────────────────
+  - from: LOGON_SENT
+    event: LogonAcknowledged
+    to: ACTIVE
+    effects:
+      - kind: cancel_timer
+        args: { name: "logon_timer" }
+      - kind: schedule_timer
+        args: { name: "heartbeat_rx_timer", duration_secs: "{{ context.heartbeat_interval_secs }}" }
+      - kind: publish_event_log
+        args: { event: "SessionActive" }
+
+  - from: LOGON_SENT
+    event: LogonRejected
+    to: DISCONNECTED
+    effects:
+      - kind: cancel_timer
+        args: { name: "logon_timer" }
+      - kind: notify
+        args: { signal: "close_socket", session_id: "{{ context.session_id }}" }
+      - kind: publish_event_log
+        args: { event: "LogonRejected" }
+
+  # ── Heartbeat supervision ─────────────────────────────────────────────────
+  - from: ACTIVE
+    event: HeartbeatReceived
+    to: ACTIVE
+    effects:
+      - kind: cancel_timer
+        args: { name: "heartbeat_rx_timer" }
+      - kind: schedule_timer
+        args: { name: "heartbeat_rx_timer", duration_secs: "{{ context.heartbeat_interval_secs }}" }
+
+  - from: ACTIVE
+    event: HeartbeatOverdue
+    to: TEST_REQUEST_SENT
+    effects:
+      - kind: notify
+        args: { signal: "send_test_request", session_id: "{{ context.session_id }}" }
+      - kind: update_context
+        args: { test_request_outstanding: true }
+      - kind: schedule_timer
+        args: { name: "test_request_timer", duration_secs: "{{ context.heartbeat_interval_secs }}" }
+
+  - from: TEST_REQUEST_SENT
+    event: TestRequestResponse
+    to: ACTIVE
+    effects:
+      - kind: cancel_timer
+        args: { name: "test_request_timer" }
+      - kind: update_context
+        args: { test_request_outstanding: false }
+      - kind: schedule_timer
+        args: { name: "heartbeat_rx_timer", duration_secs: "{{ context.heartbeat_interval_secs }}" }
+
+  - from: TEST_REQUEST_SENT
+    event: TestRequestTimeout
+    to: DISCONNECTED
+    effects:
+      - kind: notify
+        args: { signal: "close_socket", session_id: "{{ context.session_id }}" }
+      - kind: publish_event_log
+        args: { event: "SessionStale" }
+
+  # ── Gap detection / resend ────────────────────────────────────────────────
+  - from: ACTIVE
+    event: GapDetected
+    to: RESEND_IN_PROGRESS
+    effects:
+      - kind: notify
+        args: { signal: "send_resend_request", session_id: "{{ context.session_id }}" }
+      - kind: publish_event_log
+        args: { event: "GapDetected" }
+
+  - from: RESEND_IN_PROGRESS
+    event: ResendComplete
+    to: ACTIVE
+    effects:
+      - kind: update_context
+        args: { resend_window_low: 0, resend_window_high: 0 }
+      - kind: publish_event_log
+        args: { event: "ResendComplete" }
+
+  # Inbound resend request from venue (venue needs us to replay messages)
+  - from: ACTIVE
+    event: InboundResendRequest
+    to: ACTIVE
+    effects:
+      - kind: notify
+        args: { signal: "send_resend_messages", session_id: "{{ context.session_id }}" }
+
+  # ── Sequence reset (35=4) ─────────────────────────────────────────────────
+  - from: ACTIVE
+    event: SequenceResetReceived
+    to: SEQUENCE_RESETTING
+    effects:
+      - kind: publish_event_log
+        args: { event: "SequenceResetReceived" }
+
+  - from: RESEND_IN_PROGRESS
+    event: SequenceResetReceived
+    to: SEQUENCE_RESETTING
+    effects:
+      - kind: publish_event_log
+        args: { event: "SequenceResetReceived" }
+
+  # SequenceReset processing completes (treated same as ResendComplete for state purposes)
+  - from: SEQUENCE_RESETTING
+    event: ResendComplete
+    to: ACTIVE
+    effects:
+      - kind: update_context
+        args: { resend_window_low: 0, resend_window_high: 0 }
+      - kind: publish_event_log
+        args: { event: "SequenceResetApplied" }
+
+  # ── Logout path ───────────────────────────────────────────────────────────
+  - from: ACTIVE
+    event: LogoutRequested
+    to: LOGOUT_IN_PROGRESS
+    effects:
+      - kind: notify
+        args: { signal: "send_logout", session_id: "{{ context.session_id }}" }
+      - kind: schedule_timer
+        args: { name: "logout_timer", duration_secs: 10 }
+      - kind: publish_event_log
+        args: { event: "LogoutInitiated" }
+
+  # Venue-initiated logout: echo back then wait for connection close
+  - from: ACTIVE
+    event: LogoutReceived
+    to: LOGOUT_IN_PROGRESS
+    effects:
+      - kind: notify
+        args: { signal: "send_logout", session_id: "{{ context.session_id }}" }
+      - kind: schedule_timer
+        args: { name: "logout_timer", duration_secs: 5 }
+      - kind: publish_event_log
+        args: { event: "LogoutEchoSent" }
+
+  - from: LOGOUT_IN_PROGRESS
+    event: LogoutEchoed
+    to: DISCONNECTED
+    effects:
+      - kind: cancel_timer
+        args: { name: "logout_timer" }
+      - kind: notify
+        args: { signal: "close_socket", session_id: "{{ context.session_id }}" }
+      - kind: publish_event_log
+        args: { event: "SessionClosed" }
+
+  # ── Unexpected disconnect from any live state ─────────────────────────────
+  - from: LOGON_SENT
+    event: UnexpectedDisconnect
+    to: DISCONNECTED
+    effects:
+      - kind: publish_event_log
+        args: { event: "UnexpectedDisconnect" }
+
+  - from: ACTIVE
+    event: UnexpectedDisconnect
+    to: DISCONNECTED
+    effects:
+      - kind: publish_event_log
+        args: { event: "UnexpectedDisconnect" }
+
+  - from: TEST_REQUEST_SENT
+    event: UnexpectedDisconnect
+    to: DISCONNECTED
+    effects:
+      - kind: publish_event_log
+        args: { event: "UnexpectedDisconnect" }
+
+  - from: RESEND_IN_PROGRESS
+    event: UnexpectedDisconnect
+    to: DISCONNECTED
+    effects:
+      - kind: publish_event_log
+        args: { event: "UnexpectedDisconnect" }
+
+  - from: SEQUENCE_RESETTING
+    event: UnexpectedDisconnect
+    to: DISCONNECTED
+    effects:
+      - kind: publish_event_log
+        args: { event: "UnexpectedDisconnect" }
+
+  - from: LOGOUT_IN_PROGRESS
+    event: UnexpectedDisconnect
+    to: DISCONNECTED
+    effects:
+      - kind: publish_event_log
+        args: { event: "UnexpectedDisconnect" }
