@@ -67,8 +67,8 @@ Everything you need to build, test, and run the dev stack locally.
 | Tool | Min version | Why | Install hint |
 |---|---|---|---|
 | **Docker** | 24+ with Compose v2 | Dev infrastructure stack (Postgres, OpenSearch, Prometheus, Grafana, Jaeger, OTel) | [docs.docker.com/engine/install](https://docs.docker.com/engine/install/) — use the Compose plugin, **not** the legacy `docker-compose` v1 standalone |
-| **Java** (Temurin) | 21 LTS | Java build; matches `gradle.properties` `emsJavaVersion` | `sdk install java 21-tem` via [SDKMAN](https://sdkman.io/) — or `apt install temurin-21-jdk` / `brew install --cask temurin@21` |
-| **Gradle** | 8.10 | Java build wrapper generation (one-time) | `sdk install gradle 8.10` — only needed once to materialise `gradlew` |
+| **Java** (Temurin) | 21 LTS | Java build; matches `gradle.properties` `emsJavaVersion` | handled by `scripts/dev/bootstrap.sh` — or manually: `sdk install java 21.0.7-tem` via [SDKMAN](https://sdkman.io/) |
+| **Gradle** | 8.10 | Java build wrapper generation (one-time) | handled by `scripts/dev/bootstrap.sh` — or manually: `sdk install gradle 8.10` |
 | **CMake** | 3.25+ | C++ build | `apt install cmake` / `brew install cmake` |
 | **GCC** | 14+ (or Clang 17+) | C++20 compiler | `apt install g++-14` / `brew install llvm` |
 | **Python** | 3.10+ | FSM validator + lifecycle chaining tests | Usually pre-installed; `python3 --version` to check |
@@ -109,18 +109,20 @@ Then **Open folder as vault** → point at this repository. The [vault runbook](
 Run these once after cloning:
 
 ```bash
-# 1. Wire up git hooks (Conventional Commits + secret guard)
-./scripts/dev/install-hooks.sh
+# 1. Bootstrap Java 21 + Gradle 8.10 and generate the Gradle wrapper
+#    (installs SDKMAN if absent, then Java 21 Temurin + Gradle 8.10)
+./scripts/dev/bootstrap.sh
 
-# 2. Materialise the Gradle wrapper (requires gradle 8.10 in PATH)
-gradle wrapper --gradle-version=8.10
-chmod +x gradlew
+# 2. Wire up git hooks (Conventional Commits + secret guard)
+./scripts/dev/install-hooks.sh
 
 # 3. Pre-fetch Docker images so the first stack start is instant
 docker compose -f infra/docker-compose/compose.dev.yaml pull
 ```
 
-Step 3 pulls ~2 GB on first run; after that `docker compose up` starts in seconds from the local image cache.
+Step 1 downloads ~130 MB (Gradle) + ~200 MB (JDK) on first run; subsequent runs skip anything already installed. Step 3 pulls ~2 GB of container images; after that `docker compose up` starts in seconds from local cache.
+
+> **Note on Java version:** the project requires Java 21. If you have a newer JVM (Java 22+) as your system default the bootstrap will install Java 21 via SDKMAN and use it automatically. Use `sdk default java 21.0.7-tem` to make it the permanent default. The `gradle-wrapper.jar` is generated locally by the bootstrap script and is intentionally not committed to the repository.
 
 ### Spin up the dev stack
 
