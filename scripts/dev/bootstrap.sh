@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bootstrap local development: install Java 21 + generate the Gradle wrapper.
+# Bootstrap local development: install Java 21.
 #
 # Run once after cloning. Safe to re-run — all steps are idempotent.
 #
@@ -11,16 +11,13 @@
 # Usage:
 #   ./scripts/dev/bootstrap.sh
 #
-# After this script succeeds, use ./gradlew for all Java builds.
-# gradle-wrapper.jar is generated here and intentionally not committed.
+# The Gradle wrapper (gradlew + gradle-wrapper.jar) is committed to the repo,
+# so ./gradlew works immediately after clone — this script only ensures a
+# compatible JDK is present.
 
 set -eo pipefail
 
-GRADLE_VERSION="21.0.7"    # unused directly, kept for docs; wrapper targets 8.10
 REQUIRED_JAVA_MAJOR="21"
-GRADLE_WRAPPER_VERSION="8.10"
-GRADLE_DIST_URL="https://services.gradle.org/distributions/gradle-${GRADLE_WRAPPER_VERSION}-bin.zip"
-GRADLE_LOCAL_DIR="${HOME}/.local/share/gradle/${GRADLE_WRAPPER_VERSION}"
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -44,10 +41,11 @@ java_major() {
 if command -v java &>/dev/null && [ "$(java_major)" -eq "$REQUIRED_JAVA_MAJOR" ]; then
     echo "==> Java ${REQUIRED_JAVA_MAJOR} already active ($(java -version 2>&1 | head -1))"
 
-# Check SDKMAN candidates (may be installed but not on PATH in this shell)
-elif [ -x "${HOME}/.sdkman/candidates/java/${REQUIRED_JAVA_MAJOR}."*"/bin/java" ] 2>/dev/null \
-  || ls "${HOME}/.sdkman/candidates/java/" 2>/dev/null | grep -q "^${REQUIRED_JAVA_MAJOR}\."; then
-    SDKMAN_JAVA=$(ls -d "${HOME}/.sdkman/candidates/java/${REQUIRED_JAVA_MAJOR}."* 2>/dev/null | head -1)
+# Check SDKMAN candidates (may be installed but not on PATH in this shell).
+# Use a glob expansion into an array — `[ -x <glob> ]` does not work.
+elif SDKMAN_JAVA=$(compgen -G "${HOME}/.sdkman/candidates/java/${REQUIRED_JAVA_MAJOR}.*/bin/java" 2>/dev/null | head -1) \
+     && [ -n "$SDKMAN_JAVA" ]; then
+    SDKMAN_JAVA="${SDKMAN_JAVA%/bin/java}"
     echo "==> Found SDKMAN Java at ${SDKMAN_JAVA}"
     export JAVA_HOME="${SDKMAN_JAVA}"
     export PATH="${JAVA_HOME}/bin:${PATH}"
@@ -91,36 +89,12 @@ java -version
 [ "$(java_major)" -eq "$REQUIRED_JAVA_MAJOR" ] \
     || die "Expected Java ${REQUIRED_JAVA_MAJOR} but got $(java_major). Set JAVA_HOME and retry."
 
-# ── 2. Gradle (download-only, used once to generate the wrapper) ─────────────
+# ── 2. Verify the committed Gradle wrapper runs ──────────────────────────────
 #
-# We download Gradle to a local cache dir instead of relying on a version
-# manager. The downloaded copy is only needed to run `gradle wrapper` once;
-# after that ./gradlew (the generated wrapper) handles everything.
+# gradlew + gradle/wrapper/gradle-wrapper.jar are committed, so this just
+# confirms the toolchain is wired up (and warms the wrapper distribution cache).
 
-if [ -x "${GRADLE_LOCAL_DIR}/bin/gradle" ]; then
-    echo "==> Gradle ${GRADLE_WRAPPER_VERSION} already cached at ${GRADLE_LOCAL_DIR}"
-else
-    echo "==> Downloading Gradle ${GRADLE_WRAPPER_VERSION}..."
-    TMP_ZIP="$(mktemp /tmp/gradle-XXXXXX.zip)"
-    curl -fsSL "$GRADLE_DIST_URL" -o "$TMP_ZIP"
-    mkdir -p "${HOME}/.local/share/gradle"
-    unzip -q "$TMP_ZIP" -d "${HOME}/.local/share/gradle/"
-    # Rename versioned dir to a predictable path
-    mv "${HOME}/.local/share/gradle/gradle-${GRADLE_WRAPPER_VERSION}" "$GRADLE_LOCAL_DIR" 2>/dev/null || true
-    rm -f "$TMP_ZIP"
-    echo "==> Cached to ${GRADLE_LOCAL_DIR}"
-fi
-
-GRADLE_BIN="${GRADLE_LOCAL_DIR}/bin/gradle"
-"$GRADLE_BIN" --version | head -3
-
-# ── 3. Generate Gradle wrapper ───────────────────────────────────────────────
-
-echo "==> Generating Gradle wrapper..."
-"$GRADLE_BIN" wrapper --gradle-version="$GRADLE_WRAPPER_VERSION"
-chmod +x gradlew
-
-echo "==> Verifying wrapper..."
+echo "==> Verifying Gradle wrapper..."
 ./gradlew --version | head -3
 
 echo

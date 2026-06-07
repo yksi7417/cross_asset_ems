@@ -10,7 +10,7 @@ Full setup instructions for all platforms. For the fast path on Fedora/Podman, s
 |---|---|---|---|
 | **Docker** or **Podman** | Docker 24+ / Podman 4.4+ | Dev infrastructure stack | See platform sections below |
 | **Java** (OpenJDK / Temurin) | 21 LTS | Primary language; matches `gradle.properties` | Handled by `bootstrap.sh` |
-| **Gradle** | 8.10 | Build wrapper generation (one-time) | Handled by `bootstrap.sh` — downloads directly |
+| **Gradle** | 8.10 | Java build | Wrapper committed — `./gradlew` works on clone |
 | **CMake** | 3.25+ | C++ build | `dnf install cmake` / `apt install cmake` / `brew install cmake` |
 | **GCC** | 14+ (or Clang 17+) | C++20 compiler | `dnf install gcc-c++` / `apt install g++-14` |
 | **Python** | 3.10+ | FSM validator + lifecycle chaining tests | Usually pre-installed |
@@ -116,7 +116,7 @@ After installing prerequisites:
 git clone git@github.com:yksi7417/cross_asset_ems.git
 cd cross_asset_ems
 
-# Bootstrap Java 21 + Gradle 8.10 and generate the Gradle wrapper
+# Bootstrap Java 21 (the Gradle wrapper is already committed)
 ./scripts/dev/bootstrap.sh
 
 # Wire up git hooks (Conventional Commits + secret guard)
@@ -126,7 +126,7 @@ cd cross_asset_ems
 docker compose -f infra/docker-compose/compose.dev.yaml pull
 ```
 
-`bootstrap.sh` detects your distro and installs Java 21 via `dnf`/`apt`/`brew`. The `gradle-wrapper.jar` is generated locally and is not committed to the repository.
+`bootstrap.sh` detects your distro and installs Java 21 via `dnf`/`apt`/`brew`. The Gradle wrapper (`gradlew` + `gradle/wrapper/gradle-wrapper.jar`) is committed, so `./gradlew` works immediately after clone — no wrapper generation needed.
 
 ---
 
@@ -175,7 +175,7 @@ Then **Open folder as vault** → point at this repository root. See [`00_index/
 
 | Problem | Fix |
 |---|---|
-| `gradlew: command not found` or `Unable to access jarfile gradle-wrapper.jar` | Run `./scripts/dev/bootstrap.sh` — it generates the wrapper. The JAR is not committed. |
+| `Unable to access jarfile gradle-wrapper.jar` | The committed wrapper jar is missing from your tree. Restore with `git checkout -- gradle/wrapper/gradle-wrapper.jar`. |
 | `java.lang.IllegalArgumentException: 25.0.1` during Gradle build | You have Java 25 active. Run `bootstrap.sh`; it installs and activates Java 21 for the session. |
 | `SDKMAN_CANDIDATES_API: unbound variable` | `bootstrap.sh` no longer uses SDKMAN. Pull the latest and re-run. |
 | OpenSearch refuses to start | `sudo sysctl -w vm.max_map_count=262144` — see OpenSearch section above. |

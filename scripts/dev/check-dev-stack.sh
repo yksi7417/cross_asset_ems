@@ -14,7 +14,7 @@
 
 set -uo pipefail   # NOT -e: we want to run every check and tally failures
 
-cd "$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)" || exit 1
 
 COMPOSE_FILE=infra/docker-compose/compose.dev.yaml
 
@@ -47,8 +47,7 @@ section() { printf "\n${B}%s${N}\n" "$1"; }
 http_check() {
     local url=$1 pat=$2 desc=$3 tries=${4:-1} body
     for ((i=1; i<=tries; i++)); do
-        body=$(curl -fsS --max-time 5 "$url" 2>/dev/null)
-        if [ $? -eq 0 ]; then
+        if body=$(curl -fsS --max-time 5 "$url" 2>/dev/null); then
             if [ -z "$pat" ] || printf '%s' "$body" | grep -q "$pat"; then
                 pass "$desc"
                 return 0
@@ -211,7 +210,7 @@ if [ "$RUN_TRACE" -eq 1 ]; then
     rm -f /tmp/check-dev-stack-toy.log
 else
     section "End-to-end trace flow"
-    printf "  ${Y}–${N} skipped (--no-trace)\n"
+    printf "  %s–%s skipped (--no-trace)\n" "$Y" "$N"
 fi
 
 # ── summary ──────────────────────────────────────────────────────────────────

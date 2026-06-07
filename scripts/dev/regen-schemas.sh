@@ -10,7 +10,8 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 if [ ! -x ./gradlew ]; then
-    echo "gradlew not found. Run: gradle wrapper --gradle-version=8.10"
+    echo "gradlew not found or not executable. Restore it with:"
+    echo "  git checkout -- gradlew gradle/wrapper/gradle-wrapper.jar && chmod +x gradlew"
     exit 1
 fi
 

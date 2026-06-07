@@ -23,7 +23,7 @@ sudo dnf install cmake ninja-build gcc-c++
 ```bash
 git clone git@github.com:yksi7417/cross_asset_ems.git
 cd cross_asset_ems
-./scripts/dev/bootstrap.sh       # installs Java 21 + generates Gradle wrapper
+./scripts/dev/bootstrap.sh       # installs Java 21 (Gradle wrapper is committed)
 ./scripts/dev/install-hooks.sh   # Conventional Commits + secret guard
 ```
 
