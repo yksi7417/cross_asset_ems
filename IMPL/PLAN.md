@@ -79,7 +79,7 @@ The "what" layer. ~3-4 weeks.
 - [x] **4.5** `EquityInstrument` template (local first draft, claude review) `(5752d7c)`
 - [x] **4.6** `BondInstrument` template (local first draft, claude review) `(f58abcd)`
 - [x] **4.7** `IrsInstrument` template (claude — composition complexity) `(72cda34)`
-- [x] **4.8** `CdsInstrument` template (claude — reference entity) `(pending sha)`
+- [x] **4.8** `CdsInstrument` template (claude — reference entity) `(4b8d756)`
 - [x] **4.9** `FxSpotInstrument` / `FxForwardInstrument` / `FxSwapInstrument` / `FxNdfInstrument` (local drafts, claude review) `(1c8d297)`
 - [ ] **4.10** `FxOptionInstrument` template (claude — exotic discriminator)
 - [ ] **4.11** `ListedOptionInstrument` / `ListedFutureInstrument` (local drafts, claude review)
