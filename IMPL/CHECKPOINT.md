@@ -8,14 +8,14 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 0.8 — OpenTelemetry SDK + Jaeger toy trace
-- **Last commit (main):** `feat(0.8): OTel toy trace + ems-observability application config`
-- **Last commit sha (main):** `b86e7f8`
+- **Last completed task:** 4.24 — Counterparty / broker code / venue MIC tables (cherry-picked from wip/4.24-mic-codes, both commits)
+- **Last commit (main):** `task(4.24): merge MIC + broker code tables (cherry-picked + LEI fix)`
+- **Last commit sha (main):** `0001738`
+- **Completed this session:** 4.23 (`1f67b28`), 4.24 (`f3bfa4e` + `0001738`)
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-06
-- **Next task for Claude (when budget resets):** 0.7 — Aeron Cluster + Archive toy ping/pong (claude)
-- **Next tasks for local-tier delegation (parallel subagents via openRouter paid + Google Gemini free):** 4.22 holiday calendars, then SBE template drafts (4.5/4.6/4.9/4.11/4.13/4.15/4.16). Code review of bootstrap 0.1–0.8 via Gemini.
+- **Next task for Claude (when budget resets):** 0.7 — Aeron Cluster + Archive toy ping/pong (claude). Then continue review-and-merge of remaining clean wip branches: 4.5, 4.6, 4.9, 4.13-4.15-4.16-sbe-batch, 4.22. Hold on wip branches with caveats: 0.9 (cliff.toml syntax wrong), 6.1 (reject prefixes don't match arch-validator), 4.11 (InstrumentCore byte mismatch), 6.4 (fabricated codes pending 6.1 rework), 13.2-13.4 (dashboard/port issues), 11.2-11.10 (need careful FIX review).
 
 ## WIP branches awaiting Claude review-and-merge
 
@@ -31,8 +31,8 @@ Claude tokens are out. Claude to review and merge when budget resets.
 | `wip/4.11-listed-instruments` | 4.11 | (2 commits) | ready | 2 Listed templates (0x2030, 0x2031). Caveat: InstrumentCore is 22 fields/328 bytes (non-canonical); needs sync to 20/315 |
 | `wip/4.13-4.15-4.16-sbe-batch` | 4.13, 4.15, 4.16 | (7 commits) | ready | 7 SBE templates: ABS, ConvertibleBond, Loan, CommodityFuture, CommodityPhysical, CryptoFungible, NFT. All use canonical 20/315 InstrumentCore. |
 | `wip/4.22-calendars` | 4.22 | `56052aa`, `2322aad` | ready | 298 holiday entries + Gemini code review of bootstrap 0.1-0.8 |
-| `wip/4.23-day-counts` | 4.23 | `ec73df9` | ready | 13 ISDA 2006 conventions |
-| `wip/4.24-mic-codes` | 4.24 | `569cc47`, `ed13df4` | ready | 72 MICs + 25 brokers with GLEIF-verified LEIs (3 flags) |
+| `wip/4.23-day-counts` | 4.23 | `ec73df9` | **merged** `1f67b28` | merged with isin_id→fpml_id fixup |
+| `wip/4.24-mic-codes` | 4.24 | `569cc47`, `ed13df4` | **merged** `0001738` | 72 MICs + 25 brokers; follow-up: XCHI/MEMX naming nit |
 | `wip/6.1-reject-codes` | 6.1 | `ee3ec32` | ready | 47 reject codes across 10 categories |
 | `wip/6.4-validation-rules` | 6.4 | (1 commit) | ready | 185 per-asset validation rules across 8 YAML files; 155 distinct reject codes (some fabricated pending 6.1 main-merge) |
 | `wip/6.5-validator-golden` | 6.5 | (1 commit) | ready | 47 JSON test fixtures across 10 categories (one file per category) |
@@ -48,6 +48,7 @@ The loop appends a one-line entry per session.
 |---|---|---|---|---|---|
 | 2026-06-06 | 2026-06-06 | session-already-past-pacing-threshold (prior work) | 1 (`0e2fe6a`) | 0.1 | next = 0.2 |
 | 2026-06-06 | 2026-06-06 | user out of Claude tokens; delegate to local Gemma / Gemini per DELEGATION.md | 11 (0.2-0.8 impl + docs refresh + checkpoint) | 0.2, 0.3, 0.4, 0.5, 0.6, 0.8 + README/DEVELOPMENT/KNOWLEDGE_BASE refresh | next = 0.7 (claude) OR local-tier tasks (0.9, 4.22-4.24, 6.1, instrument drafts) |
+| 2026-06-06 | 2026-06-06 | 3-commit pacing trigger (loop wrap-up) | 4 substantive (4.23 feat + annotate, 4.24 cherry-pick + mark) | 4.23, 4.24 merged from wip/ branches | next = 4.5/4.6/4.9/4.13-15-16/4.22 reviews, then 0.7 (claude) |
 
 ## Phase progress
 
