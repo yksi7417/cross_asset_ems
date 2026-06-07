@@ -25,7 +25,7 @@ val sbeCodegenClasspath: Configuration by configurations.creating {
 
 dependencies {
     sbeCodegenClasspath(
-        extensions.getByType<VersionCatalogsExtension>()
+        project.extensions.getByType<VersionCatalogsExtension>()
             .named("libs").findLibrary("sbe-tool").get()
     )
 }

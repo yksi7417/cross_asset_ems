@@ -4,10 +4,18 @@
  */
 package io.crossasset.ems.observability;
 
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
+import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.resources.Resource;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
+import java.time.Duration;
 
 /**
  * Toy trace producer for verifying the OTel collector + Jaeger pipeline.
@@ -50,17 +58,47 @@ public final class OtelToyTrace {
         System.out.println("Toy trace emitted. Inspect at http://localhost:16686 (service=" + SERVICE_NAME + ").");
     }
 
+    private static OpenTelemetry init(final String otlpEndpoint) {
+        final Resource resource =
+                Resource.getDefault().toBuilder()
+                        .put(AttributeKey.stringKey("service.name"), SERVICE_NAME)
+                        .put(AttributeKey.stringKey("service.version"), "0.0.1-toy")
+                        .put(AttributeKey.stringKey("deployment.environment"), "dev")
+                        .put(AttributeKey.stringKey("ems.pod"), "dev-pod-default")
+                        .build();
+
+        final SdkTracerProvider tracerProvider =
+                SdkTracerProvider.builder()
+                        .addSpanProcessor(
+                                BatchSpanProcessor.builder(
+                                                OtlpGrpcSpanExporter.builder()
+                                                        .setEndpoint(otlpEndpoint)
+                                                        .setTimeout(Duration.ofSeconds(5))
+                                                        .build())
+                                        .setScheduleDelay(Duration.ofMillis(500))
+                                        .build())
+                        .setResource(resource)
+                        .build();
+
+        final OpenTelemetrySdk sdk = OpenTelemetrySdk.builder().setTracerProvider(tracerProvider).build();
+
+        Runtime.getRuntime().addShutdownHook(new Thread(tracerProvider::close));
+        return sdk;
+    }
+
     private static void runWorkload(final Tracer tracer) {
         final Span root =
                 tracer.spanBuilder("ems-toy-root")
                         .setSpanKind(SpanKind.SERVER)
                         .setAttribute("ems.workload", "toy")
                         .startSpan();
-        try (Scope ignored = root.makeCurrent()) {
+        final Scope scope = root.makeCurrent();
+        try {
             stage("validate", tracer);
             stage("route", tracer);
             stage("ack", tracer);
         } finally {
+            scope.close();
             root.end();
         }
     }
@@ -72,7 +110,8 @@ public final class OtelToyTrace {
                         .setAttribute("ems.stage", name)
                         .setAttribute("ems.simulated_latency_ms", 10L)
                         .startSpan();
-        try (Scope ignored = span.makeCurrent()) {
+        final Scope scope = span.makeCurrent();
+        try {
             try {
                 Thread.sleep(10);
             } catch (InterruptedException e) {
@@ -80,6 +119,7 @@ public final class OtelToyTrace {
                 span.recordException(e);
             }
         } finally {
+            scope.close();
             span.end();
         }
     }

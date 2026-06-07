@@ -3,7 +3,7 @@
 # Add new entries here, then reference as `libs.xxx` in module build.gradle.kts.
 
 [versions]
-junit              = "5.11.3"
+junit              = "6.1.0"
 assertj            = "3.26.3"
 mockito            = "5.14.2"
 slf4j              = "2.0.16"

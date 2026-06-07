@@ -51,7 +51,7 @@ tasks.withType<Test>().configureEach {
 
 dependencies {
     val versionCatalog =
-        extensions.getByType<VersionCatalogsExtension>().named("libs")
+        project.extensions.getByType<VersionCatalogsExtension>().named("libs")
 
     "implementation"(versionCatalog.findLibrary("slf4j-api").get())
     "testImplementation"(versionCatalog.findBundle("test-common").get())
