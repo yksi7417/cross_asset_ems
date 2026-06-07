@@ -2,6 +2,8 @@
 #
 # Bring up the local dev infrastructure stack.
 # Idempotent. Verifies each service comes healthy.
+#
+# Works with Docker Compose v2 and podman-compose.
 
 set -euo pipefail
 
@@ -19,24 +21,43 @@ fi
 
 echo
 echo "Waiting for services to become healthy..."
-for svc in postgres opensearch; do
-    echo -n "  $svc: "
+
+wait_tcp() {
+    local name=$1 host=$2 port=$3
+    echo -n "  $name: "
     for _ in $(seq 1 30); do
-        if docker compose -f "$COMPOSE_FILE" ps "$svc" --format json \
-            | grep -q '"Health":"healthy"'; then
+        if bash -c "exec 3<>/dev/tcp/${host}/${port}" 2>/dev/null; then
+            exec 3>&-
             echo "ready"
-            break
+            return 0
         fi
         sleep 2
     done
-done
+    echo "timeout — check logs: docker compose -f $COMPOSE_FILE logs $name"
+}
+
+wait_http() {
+    local name=$1 url=$2
+    echo -n "  $name: "
+    for _ in $(seq 1 30); do
+        if curl -fs "$url" > /dev/null 2>&1; then
+            echo "ready"
+            return 0
+        fi
+        sleep 2
+    done
+    echo "timeout — check logs: docker compose -f $COMPOSE_FILE logs $name"
+}
+
+wait_tcp   postgres   localhost 5432
+wait_http  opensearch http://localhost:9200/_cluster/health
 
 echo
 echo "Endpoints:"
 echo "  Postgres        postgres://ems:ems_dev@localhost:5432/ems"
 echo "  OpenSearch      http://localhost:9200"
 echo "  Dashboards      http://localhost:5601"
-echo "  Prometheus      http://localhost:9090"
+echo "  Prometheus      http://localhost:9091"
 echo "  Grafana         http://localhost:3000  (anonymous, Admin role)"
 echo "  Jaeger UI       http://localhost:16686"
 echo "  OTel gRPC       localhost:4317"
