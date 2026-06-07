@@ -41,7 +41,9 @@ jobs:
       - name: Build for CodeQL
         if: matrix.language == 'java-kotlin'
         run: |
-          test -f gradlew || gradle wrapper --gradle-version=8.10
+          if [ ! -f gradlew ] || [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            gradle wrapper --gradle-version=8.10
+          fi
           chmod +x gradlew || true
           ./gradlew --no-daemon assemble -x test
 
