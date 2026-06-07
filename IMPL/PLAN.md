@@ -94,7 +94,7 @@ The "what" layer. ~3-4 weeks.
 - [ ] **4.20** Corporate actions → supersession integration per [[arch-corporate-actions]] (claude) ← blocks: 4.19
 - [ ] **4.21** Reference data service (calendars, day counts, tick sizes) per [[arch-reference-data-service]] (claude)
 - [ ] **4.22** Holiday calendars per currency (local — data ingest)
-- [ ] **4.23** Day count conventions table (local)
+- [x] **4.23** Day count conventions table (local) `(pending sha)`
 - [ ] **4.24** Counterparty / broker code / venue MIC tables (local)
 - [ ] **4.25** Internal-allocated identifier namespace for OTC (claude) ← blocks: 4.19
 
