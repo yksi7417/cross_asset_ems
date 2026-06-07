@@ -48,7 +48,7 @@ The core determinism guarantee. ~2-3 weeks.
 Wire protocol and clustering. ~1-2 weeks.
 
 - [x] **2.1** SBE base envelope schema (`MessageHeader`, `SessionHeader`) (claude) `(1802a07)`
-- [x] **2.2** SessionHeader extended with `trace_id`, `parent_span_id`, `initial_order_id`, `initial_route_id` per [[arch-sbe-aeron-transport]] (claude) ← blocks: 2.1 `(pending sha)`
+- [x] **2.2** SessionHeader extended with `trace_id`, `parent_span_id`, `initial_order_id`, `initial_route_id` per [[arch-sbe-aeron-transport]] (claude) ← blocks: 2.1 `(937904f)`
 - [ ] **2.3** Aeron channel layout doc and code (claude) ← blocks: 2.1
 - [ ] **2.4** Sequence recovery service skeleton (claude) ← blocks: 2.2
 - [ ] **2.5** Aeron Cluster (Raft) 3-node bootstrap (claude) ← blocks: 0.7
