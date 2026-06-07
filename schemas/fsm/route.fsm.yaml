@@ -1,0 +1,446 @@
+# route.fsm.yaml
+#
+# Route lifecycle FSM per arch-order-route-lifecycle.md.
+# A route is the EMS's outbound projection of an order to a single venue.
+# It carries its own ClOrdID chain and tracks the venue's view directly.
+# State names mirror the Order FSM vocabulary but are per-route.
+#
+# Conforms to schemas/fsm/fsm.schema.yaml (validated by tools/fsm-validator/).
+
+name: RouteFsm
+version: 1
+kind: route
+description: >
+  FIX-aligned route lifecycle: from EMS outbound dispatch (PENDING) through
+  venue working/filled/canceled states. Models cancel/replace in-flight paths,
+  RouteSuperseded for venues that require cancel-and-resubmit, and RouteAnomaly
+  for ops-triage state inconsistencies. See arch-order-route-lifecycle.
+
+context_schema:
+  route_id:
+    type: uuid
+    description: Internal immutable route identifier.
+  order_id:
+    type: uuid
+    description: Parent order ID.
+  cl_ord_id:
+    type: string
+    description: "FIX tag 11 — current ClOrdID sent to venue."
+  orig_cl_ord_id:
+    type: string
+    nullable: true
+    description: "FIX tag 41 — prior ClOrdID on replace/cancel requests."
+  venue_mic:
+    type: string
+    description: ISO 10383 MIC of target venue.
+  instrument_id:
+    type: figi
+    description: FIGI of the instrument being routed.
+  side:
+    type: u8
+    description: "FIX tag 54."
+  route_qty:
+    type: u64
+    description: Quantity routed to this venue.
+  price:
+    type: i64
+    nullable: true
+    description: Limit price in fixed-point (null for market routes).
+  cum_qty:
+    type: u64
+    description: Cumulative filled quantity on this route.
+  leaves_qty:
+    type: u64
+    description: Remaining open quantity on this route.
+  trace_id:
+    type: u64
+    description: Identity-chaining trace ID.
+  initial_order_id:
+    type: uuid
+    description: Order ID that originated this chain.
+  pre_cancel_status:
+    type: string
+    nullable: true
+    # Saved on entry to PENDING_CANCEL_AT_VENUE so cancel-reject can restore
+    # prior route state. Route can enter cancel-pending from WORKING or
+    # PARTIALLY_FILLED, so two guards below branch on this field.
+    description: Route status before entering PENDING_CANCEL_AT_VENUE.
+
+states:
+  - name: PENDING
+    initial: true
+    description: Route created; outbound 35=D being assembled. Not yet sent.
+  - name: SENT
+    description: 35=D dispatched to venue adapter; awaiting venue acknowledgment.
+  - name: PENDING_NEW_AT_VENUE
+    fix_ord_status: "A"
+    fix_exec_type: "A"
+    description: Venue acknowledged with Pending New (ExecType=A) before confirming New.
+  - name: WORKING
+    fix_ord_status: "0"
+    fix_exec_type: "0"
+    description: Venue confirmed route as working (ExecType=0, OrdStatus=0).
+  - name: PENDING_REPLACE_AT_VENUE
+    fix_ord_status: "E"
+    fix_exec_type: "E"
+    description: 35=G dispatched to venue; awaiting venue replace confirmation.
+  - name: PENDING_CANCEL_AT_VENUE
+    fix_ord_status: "6"
+    fix_exec_type: "6"
+    description: 35=F dispatched to venue; awaiting cancel confirmation.
+  - name: PARTIALLY_FILLED
+    fix_ord_status: "1"
+    fix_exec_type: "F"
+    description: One or more partial fills received; leaves_qty > 0.
+  - name: FILLED
+    terminal: true
+    fix_ord_status: "2"
+    fix_exec_type: "F"
+    description: Route fully filled.
+  - name: CANCELED
+    terminal: true
+    fix_ord_status: "4"
+    fix_exec_type: "4"
+    description: Venue confirmed cancel.
+  - name: REJECTED
+    terminal: true
+    fix_ord_status: "8"
+    fix_exec_type: "8"
+    description: Venue rejected the route on submission.
+  - name: EXPIRED
+    terminal: true
+    fix_ord_status: "C"
+    fix_exec_type: "C"
+    description: TIF reached; venue expired the route.
+  - name: SUPERSEDED
+    terminal: true
+    description: >
+      Prior route closed because the venue does not support in-place replace;
+      a new route was issued (RouteSuperseded event). Common in FX/OTC adapters.
+  - name: ANOMALY
+    terminal: true
+    description: >
+      State inconsistency detected between EMS and venue requiring ops triage
+      (RouteAnomaly event). Human intervention required before continuation.
+
+events:
+  # --- Dispatch ---
+  - name: RouteSent
+    description: EMS outbound 35=D dispatched to venue adapter.
+
+  # --- Venue acknowledgment ---
+  - name: RoutePendingNewAtVenue
+    description: Venue sent 35=8 ExecType=A (Pending New) before confirming New.
+  - name: RouteAcknowledged
+    description: Venue confirmed route as working (35=8 ExecType=0 OrdStatus=0).
+  - name: RouteRejected
+    fix_msg_type: "8"
+    description: Venue rejected route on submission (35=8 ExecType=8).
+
+  # --- Replace path ---
+  - name: RouteReplaceRequested
+    fix_msg_type: "G"
+    description: EMS dispatched 35=G to venue for this route.
+    payload_schema:
+      new_cl_ord_id: { type: string }
+      new_route_qty: { type: u64 }
+      new_price: { type: i64, nullable: true }
+  - name: RouteReplacePendingAtVenue
+    description: Venue acknowledged replace with ExecType=E.
+  - name: RouteReplaced
+    description: Venue confirmed replace (35=8 ExecType=5).
+    payload_schema:
+      new_cl_ord_id: { type: string }
+  - name: RouteReplaceRejected
+    fix_msg_type: "9"
+    description: Venue rejected replace via 35=9; route returns to prior working state.
+    payload_schema:
+      cxl_rej_reason: { type: u8 }
+
+  # --- Cancel path ---
+  - name: RouteCancelRequested
+    fix_msg_type: "F"
+    description: EMS dispatched 35=F to venue for this route.
+  - name: RouteCanceled
+    description: Venue confirmed cancel (35=8 ExecType=4).
+  - name: RouteCancelRejected
+    fix_msg_type: "9"
+    description: Venue rejected cancel via 35=9; route returns to prior state.
+    payload_schema:
+      cxl_rej_reason: { type: u8 }
+
+  # --- Fill path ---
+  - name: RoutePartiallyFilled
+    description: Partial fill from venue (35=8 ExecType=F OrdStatus=1).
+    payload_schema:
+      last_qty: { type: u64 }
+      last_px: { type: i64 }
+      exec_id: { type: string }
+  - name: RouteFilled
+    description: Final fill from venue (35=8 ExecType=F OrdStatus=2).
+    payload_schema:
+      last_qty: { type: u64 }
+      last_px: { type: i64 }
+      exec_id: { type: string }
+
+  # --- Expiry ---
+  - name: RouteExpired
+    description: Venue expired the route at TIF boundary (35=8 ExecType=C).
+
+  # --- Anomalies / supersession ---
+  - name: RouteSuperseded
+    description: >
+      Venue does not support in-place replace; prior route closed and new route
+      issued. Emitted by the venue adapter after cancel+resubmit completes.
+  - name: RouteAnomaly
+    description: >
+      EMS-side state inconsistency detected (e.g. venue reports unknown ClOrdID,
+      or state cannot be reconciled with internal records). Requires ops triage.
+
+transitions:
+  # ── Dispatch ─────────────────────────────────────────────────────────────
+  - from: PENDING
+    event: RouteSent
+    to: SENT
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteSent" }
+
+  # ── Venue acknowledgment ─────────────────────────────────────────────────
+  - from: SENT
+    event: RoutePendingNewAtVenue
+    to: PENDING_NEW_AT_VENUE
+    effects:
+      - kind: publish_event_log
+        args: { event: "RoutePendingNewAtVenue" }
+
+  - from: PENDING_NEW_AT_VENUE
+    event: RouteAcknowledged
+    to: WORKING
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteWorking" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "ValidationPassed" }
+
+  # Direct confirm (no intermediate PendingNew)
+  - from: SENT
+    event: RouteAcknowledged
+    to: WORKING
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteWorking" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "ValidationPassed" }
+
+  - from: SENT
+    event: RouteRejected
+    to: REJECTED
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteRejected" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "ValidationFailed" }
+
+  # ── Replace path ─────────────────────────────────────────────────────────
+  - from: WORKING
+    event: RouteReplaceRequested
+    to: PENDING_REPLACE_AT_VENUE
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteReplaceRequested" }
+
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RouteReplacePendingAtVenue
+    to: PENDING_REPLACE_AT_VENUE
+    description: Venue echoes ExecType=E back; stay pending.
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteReplacePendingAtVenue" }
+
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RouteReplaced
+    to: WORKING
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteReplaced" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "ReplaceAccepted" }
+
+  # Replace rejected — route returns to WORKING
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RouteReplaceRejected
+    to: WORKING
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteReplaceRejected" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "ReplaceRejected" }
+
+  # ── Cancel path ───────────────────────────────────────────────────────────
+  - from: WORKING
+    event: RouteCancelRequested
+    to: PENDING_CANCEL_AT_VENUE
+    effects:
+      - kind: update_context
+        args: { pre_cancel_status: "0" }
+      - kind: publish_event_log
+        args: { event: "RouteCancelRequested" }
+
+  - from: PARTIALLY_FILLED
+    event: RouteCancelRequested
+    to: PENDING_CANCEL_AT_VENUE
+    effects:
+      - kind: update_context
+        args: { pre_cancel_status: "1" }
+      - kind: publish_event_log
+        args: { event: "RouteCancelRequested" }
+
+  - from: PENDING_CANCEL_AT_VENUE
+    event: RouteCanceled
+    to: CANCELED
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteCanceled" }
+
+  # Cancel rejected — return to WORKING
+  - from: PENDING_CANCEL_AT_VENUE
+    event: RouteCancelRejected
+    to: WORKING
+    guard: "context.pre_cancel_status == '0'"
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteCancelRejected" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "CancelRejected" }
+
+  # Cancel rejected — return to PARTIALLY_FILLED
+  - from: PENDING_CANCEL_AT_VENUE
+    event: RouteCancelRejected
+    to: PARTIALLY_FILLED
+    guard: "context.pre_cancel_status == '1'"
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteCancelRejected" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "CancelRejected" }
+
+  # ── Fill path ─────────────────────────────────────────────────────────────
+  - from: WORKING
+    event: RoutePartiallyFilled
+    to: PARTIALLY_FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "context.leaves_qty - payload.last_qty" }
+      - kind: publish_event_log
+        args: { event: "RoutePartiallyFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "PartialFill" }
+
+  - from: PARTIALLY_FILLED
+    event: RoutePartiallyFilled
+    to: PARTIALLY_FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "context.leaves_qty - payload.last_qty" }
+      - kind: publish_event_log
+        args: { event: "RoutePartiallyFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "PartialFill" }
+
+  # Fill while replace is pending (fills at prior params)
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RoutePartiallyFilled
+    to: PARTIALLY_FILLED
+    description: Fill against prior params while replace in-flight; replace still pending resolution.
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "context.leaves_qty - payload.last_qty" }
+      - kind: publish_event_log
+        args: { event: "RoutePartiallyFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "PartialFill" }
+
+  - from: WORKING
+    event: RouteFilled
+    to: FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "0" }
+      - kind: publish_event_log
+        args: { event: "RouteFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "FullFill" }
+
+  - from: PARTIALLY_FILLED
+    event: RouteFilled
+    to: FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "0" }
+      - kind: publish_event_log
+        args: { event: "RouteFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "FullFill" }
+
+  # ── Expiry ────────────────────────────────────────────────────────────────
+  - from: WORKING
+    event: RouteExpired
+    to: EXPIRED
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteExpired" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "OrderExpired" }
+
+  - from: PARTIALLY_FILLED
+    event: RouteExpired
+    to: EXPIRED
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteExpired" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "OrderExpired" }
+
+  # ── Supersession / anomaly ────────────────────────────────────────────────
+  - from: WORKING
+    event: RouteSuperseded
+    to: SUPERSEDED
+    description: Venue adapter issued cancel+resubmit; this route is superseded.
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteSuperseded" }
+
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RouteSuperseded
+    to: SUPERSEDED
+    effects:
+      - kind: publish_event_log
+        args: { event: "RouteSuperseded" }
+
+  - from: WORKING
+    event: RouteAnomaly
+    to: ANOMALY
+    effects:
+      - kind: notify
+        args: { channel: "ops-alerts", message: "Route anomaly detected — manual triage required" }
+      - kind: publish_event_log
+        args: { event: "RouteAnomaly" }
+
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RouteAnomaly
+    to: ANOMALY
+    effects:
+      - kind: notify
+        args: { channel: "ops-alerts", message: "Route anomaly in PENDING_REPLACE — manual triage required" }
+      - kind: publish_event_log
+        args: { event: "RouteAnomaly" }
+
+  - from: PENDING_CANCEL_AT_VENUE
+    event: RouteAnomaly
+    to: ANOMALY
+    effects:
+      - kind: notify
+        args: { channel: "ops-alerts", message: "Route anomaly in PENDING_CANCEL — manual triage required" }
+      - kind: publish_event_log
+        args: { event: "RouteAnomaly" }
