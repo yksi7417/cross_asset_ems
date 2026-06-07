@@ -49,8 +49,9 @@ wait_http() {
     echo "timeout — check logs: docker compose -f $COMPOSE_FILE logs $name"
 }
 
-wait_tcp   postgres   localhost 5432
-wait_http  opensearch http://localhost:9200/_cluster/health
+wait_tcp   postgres       localhost 5432
+wait_http  opensearch     http://localhost:9200/_cluster/health
+wait_http  otel-collector http://localhost:8888/metrics
 
 echo
 echo "Endpoints:"
