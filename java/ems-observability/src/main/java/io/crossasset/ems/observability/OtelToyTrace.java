@@ -4,6 +4,8 @@
  */
 package io.crossasset.ems.observability;
 
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
@@ -61,7 +63,7 @@ public final class OtelToyTrace {
                 Resource.getDefault().toBuilder()
                         .put(AttributeKey.stringKey("service.name"), SERVICE_NAME)
                         .put(AttributeKey.stringKey("service.version"), "0.0.1-toy")
-                        .put(AttributeKey.stringKey("deployment.environment.name"), "dev")
+                        .put(AttributeKey.stringKey("deployment.environment"), "dev")
                         .put(AttributeKey.stringKey("ems.pod"), "dev-pod-default")
                         .build();
 

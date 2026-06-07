@@ -15,6 +15,7 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
+    defaultLibrariesExtensionName = "projectLibs"
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()

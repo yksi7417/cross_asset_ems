@@ -9,5 +9,5 @@ repositories {
 
 dependencies {
     implementation(libs.javapoet)
-    implementation("com.diffplug.spotless:spotless-plugin-gradle:6.25.0")
+    implementation("com.diffplug.spotless:com.diffplug.spotless.gradle.plugin:6.25.0")
 }
