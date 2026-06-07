@@ -121,8 +121,13 @@ services:
   jaeger:
     image: docker.io/jaegertracing/jaeger:2.0.0
     restart: unless-stopped
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
+    # Jaeger v2.0.0's embedded config binds the OTLP receiver to localhost,
+    # which is unreachable from the otel-collector container. Rebind to
+    # 0.0.0.0 so collector → jaeger:4317 connects. (--set overrides the
+    # embedded default config; verified with `jaeger validate`.)
+    command:
+      - --set=receivers.otlp.protocols.grpc.endpoint=0.0.0.0:4317
+      - --set=receivers.otlp.protocols.http.endpoint=0.0.0.0:4318
     ports:
       - "16686:16686"   # UI
       - "4319:4317"     # OTLP gRPC (offset so OTel collector keeps 4317)

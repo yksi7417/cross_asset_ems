@@ -55,7 +55,11 @@ exporters:
     verbosity: basic
 
 extensions:
-  health_check: {}
+  # Bind to 0.0.0.0 so the published port is reachable from the host
+  # (the v0.115 default is localhost:13133, unreachable through the
+  # port-forward). Used by scripts/dev/start-dev-stack.sh readiness probe.
+  health_check:
+    endpoint: 0.0.0.0:13133
   zpages:
     endpoint: 0.0.0.0:55679
 
