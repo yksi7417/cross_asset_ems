@@ -8,14 +8,16 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 4.24 — Counterparty / broker code / venue MIC tables (cherry-picked from wip/4.24-mic-codes, both commits)
-- **Last commit (main):** `task(4.24): merge MIC + broker code tables (cherry-picked + LEI fix)`
-- **Last commit sha (main):** `0001738`
-- **Completed this session:** 4.23 (`1f67b28`), 4.24 (`f3bfa4e` + `0001738`)
+- **Last completed task:** 6.1 — Reject code catalog with canonical prefixes
+- **Last commit (main):** `feat(6.1): reject code catalog with canonical prefixes`
+- **Last commit sha (main):** `eaa7c8f`
+- **Tasks merged/marked this session:** 4.23, 4.24, 4.22, 4.5, 4.6, 4.9, 4.13, 4.15, 4.16, 14.3, 14.4, 14.8, 14.9, 13.1, 0.9 (rewrite), 6.1 (rewrite) — 16 task marks across 11 commits
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-06
-- **Next task for Claude (when budget resets):** 0.7 — Aeron Cluster + Archive toy ping/pong (claude). Then continue review-and-merge of remaining clean wip branches: 4.5, 4.6, 4.9, 4.13-4.15-4.16-sbe-batch, 4.22. Hold on wip branches with caveats: 0.9 (cliff.toml syntax wrong), 6.1 (reject prefixes don't match arch-validator), 4.11 (InstrumentCore byte mismatch), 6.4 (fabricated codes pending 6.1 rework), 13.2-13.4 (dashboard/port issues), 11.2-11.10 (need careful FIX review).
+- **Next task for Claude (when budget resets):** **0.7** — Aeron Cluster + Archive toy ping/pong (claude, substantial). After 0.7, attempt 1.1 (FSM YAML schema — kicks off Phase 1) then 2.1 (SBE base envelope).
+- **Total progress:** **23 of 150 tasks [x]** (15.3%). Phases with at least one [x]: 0, 4, 6, 13, 14. Phases entirely unstarted: 1, 2, 3, 5, 7, 8, 9, 10, 11, 12.
+- **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4/6.5 (depend on 6.1 prefix migration just landed), 13.2-13.4 (dashboard/port issues), 11.2-11.10 (need careful FIX review).
 
 ## WIP branches awaiting Claude review-and-merge
 
