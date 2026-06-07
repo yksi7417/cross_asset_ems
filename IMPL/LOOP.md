@@ -2,14 +2,16 @@
 
 How [[PLAN]] gets consumed task-by-task until the whole thing is done. Designed to be **resumable** (every session picks up where the last left off) and **token-paced** (graceful wrap-up before exhaustion, no half-applied commits).
 
-> **Model routing:** work is now driven through **OpenCode** with one model per provider (Gemma 4 31B · Google = `(gemma)`; MiniMax 2.7/3 · OpenCode Zen = `(minimax)`; Sonnet 4.6 · GitHub Copilot = `(sonnet)`; Opus = `(opus)`). The Hermes Discord notifications referenced below are **optional/legacy** — keep them if useful, otherwise skip those steps.
+> **Model routing:** work is driven through **OpenCode** with one model pinned per provider:
+> `(gemma)` = Gemma 4 31B · Google | `(minimax)` = MiniMax 2.7/3 · OpenCode Zen | `(sonnet)` = Sonnet 4.6 · GitHub Copilot | `(opus)` = Opus 4.x · GitHub Copilot (crown jewels only).
+> Switch models with OpenCode's model picker (`/models`) or `opencode run -m <provider>/<model>`.
 
 ## The /goal text
 
 Paste this into `/goal` exactly. The Stop hook will block exit until the loop's wrap-up conditions trigger.
 
 ```
-Read IMPL/PLAN.md. Find the next unchecked [ ] task whose ← blocks: prerequisites are all [x] complete (skip [~] tasks — they are in-progress in another session or locked). Apply IMPL/DELEGATION.md to select the tier. Implement, write tests, run tests, commit with conventional-commit message, mark [x] (sha1234) in PLAN.md, advance IMPL/CHECKPOINT.md. If a phase boundary completes (last task in a phase goes [x]), invoke Hermes notification per IMPL/HERMES.md. Continue to the next task. Stop conditions: (1) you have committed 3 or more substantive commits this session OR (2) the conversation has exceeded ~100 messages OR (3) /cost shows context above 80% — when any triggers, gracefully wrap up the current task (commit any partial work to a feature branch, mark task [~] not [x]), post the Hermes "session-ending" notification with the cursor, and stop. Do not push to main on a partial task. Do not start a new task with <20% expected token budget remaining.
+Read IMPL/PLAN.md. Find the next unchecked [ ] task whose ← blocks: prerequisites are all [x] complete (skip [~] tasks — they are in-progress in another session or locked). Apply IMPL/DELEGATION.md to select the tier and switch the OpenCode model to the matching provider. Implement, write tests, run tests, commit with conventional-commit message, mark [x] (sha1234) in PLAN.md, advance IMPL/CHECKPOINT.md. If a phase boundary completes (last task in a phase goes [x]), invoke Hermes notification per IMPL/HERMES.md. Continue to the next task. Stop conditions: (1) you have committed 3 or more substantive commits this session OR (2) the conversation has exceeded ~100 messages OR (3) /cost shows context above 80% — when any triggers, gracefully wrap up the current task (commit any partial work to a feature branch, mark task [~] not [x]), post the Hermes "session-ending" notification with the cursor, and stop. Do not push to main on a partial task. Do not start a new task with <20% expected token budget remaining.
 ```
 
 That's the literal goal. It references the other files; they're the spec.
@@ -30,12 +32,13 @@ The agent runs this loop per session:
 
 ### 3. Choose tier
 - Look at the tag (`(gemma)`, `(gemma first draft, sonnet review)`, `(minimax)`, `(sonnet)`, `(opus)`) per [[DELEGATION]].
-- Switch the OpenCode model to that tier's provider if not already on it.
+- Switch the OpenCode model to that tier's provider (Google → Gemma, OpenCode Zen → MiniMax, GitHub Copilot → Sonnet or Opus).
+- For `(gemma)` tasks: draft in OpenCode with Gemma, run tests, escalate to Sonnet only on failure.
 
 ### 4. Execute
 - Implement against the architecture notes referenced in the task description.
 - Write tests in the same commit.
-- Run tests locally — if green, proceed; if red, debug or escalate.
+- Run tests locally — if green, proceed; if red, debug or escalate per [[DELEGATION]] escalation rules.
 
 ### 5. Commit + mark done
 - Conventional commit: `<type>(<phase>.<task>): <what>` (e.g. `feat(1.1): FSM YAML schema with effects`).
@@ -56,7 +59,7 @@ The agent runs this loop per session:
   - Context window > 80%.
 - Soft wrap-up triggers:
   - Last commit took >30 turns to land.
-  - The next task in PLAN is tagged `(claude)` and looks large (3+ acceptance criteria).
+  - The next task in PLAN is tagged `(opus)` and looks large (3+ acceptance criteria).
 - On any trigger, jump to step 8.
 
 ### 8. Wrap up
