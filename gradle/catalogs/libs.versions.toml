@@ -10,7 +10,7 @@ slf4j              = "2.0.16"
 logback            = "1.5.12"
 
 # Transport — see arch-sbe-aeron-transport
-aeron              = "1.46.6"
+aeron              = "1.51.0"
 agrona             = "1.23.1"
 sbe-tool           = "1.34.1"
 

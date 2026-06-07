@@ -92,13 +92,13 @@ public final class OtelToyTrace {
                         .setSpanKind(SpanKind.SERVER)
                         .setAttribute("ems.workload", "toy")
                         .startSpan();
-        final Scope scope = root.makeCurrent();
+        final Scope rootScope = root.makeCurrent();
         try {
             stage("validate", tracer);
             stage("route", tracer);
             stage("ack", tracer);
         } finally {
-            scope.close();
+            rootScope.close();
             root.end();
         }
     }
@@ -110,7 +110,7 @@ public final class OtelToyTrace {
                         .setAttribute("ems.stage", name)
                         .setAttribute("ems.simulated_latency_ms", 10L)
                         .startSpan();
-        final Scope scope = span.makeCurrent();
+        final Scope spanScope = span.makeCurrent();
         try {
             try {
                 Thread.sleep(10);
@@ -119,7 +119,7 @@ public final class OtelToyTrace {
                 span.recordException(e);
             }
         } finally {
-            scope.close();
+            spanScope.close();
             span.end();
         }
     }
