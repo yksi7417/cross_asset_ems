@@ -40,7 +40,8 @@ exporters:
     tls: { insecure: true }
 
   opensearch/logs:
-    endpoint: "http://opensearch:9200"
+    http:
+      endpoint: "http://opensearch:9200"
     logs_index: "ems-logs"
 
   # Prometheus pulls from us via the collector's prometheus endpoint
