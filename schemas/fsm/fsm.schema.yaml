@@ -1,0 +1,187 @@
+# FSM YAML schema — meta-definition for all FSMs in schemas/fsm/.
+#
+# Per 80_architecture/arch-fix-fsm-design.md, the FSM is the central
+# load-bearing component of the system. This schema constrains the shape
+# of every concrete FSM definition (Order, Route, MultiLeg, VenueSession,
+# SOR) so codegen + replay determinism are mechanical.
+#
+# Conforming files validate against this with: tools/fsm-validator/.
+#
+# JSON Schema draft 2020-12 in YAML form.
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://crossasset-ems.io/schemas/fsm/fsm.schema.yaml"
+title: "Finite State Machine Definition"
+type: object
+required: [name, version, kind, context_schema, states, events, transitions]
+additionalProperties: false
+
+properties:
+
+  name:
+    type: string
+    pattern: "^[A-Z][a-zA-Z0-9]+$"
+    description: "PascalCase FSM name (e.g. OrderFsm, RouteFsm, MultiLegFsm)."
+
+  version:
+    type: integer
+    minimum: 1
+    description: "Schema version bumped on any state/transition change. Replay logs reference this."
+
+  kind:
+    type: string
+    enum: [order, route, multileg, venue_session, sor]
+    description: "Which architectural FSM this defines. Drives codegen output module."
+
+  description:
+    type: string
+    description: "One-line summary linking to the relevant arch-* note."
+
+  context_schema:
+    type: object
+    description: "Typed fields the FSM carries with each instance. Drives the generated Context struct."
+    additionalProperties:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [u8, u16, u32, u64, i8, i16, i32, i64, string, bool, timestamp, uuid, figi, lei, currency]
+        nullable:
+          type: boolean
+          default: false
+        description:
+          type: string
+
+  states:
+    type: array
+    minItems: 2
+    description: "All states. Must contain at least one initial state and at least one terminal state."
+    items:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          pattern: "^[A-Z_]+$"
+          description: "SCREAMING_SNAKE_CASE state name (PENDING_NEW, NEW, PARTIALLY_FILLED, ...)."
+        initial:
+          type: boolean
+          default: false
+          description: "Exactly one state per FSM should be initial=true."
+        terminal:
+          type: boolean
+          default: false
+          description: "Terminal states have no outgoing transitions."
+        fix_ord_status:
+          type: string
+          description: "FIX OrdStatus (39) character mapped to this state, e.g. '0' for NEW. See arch-order-route-lifecycle."
+        fix_exec_type:
+          type: string
+          description: "FIX ExecType (150) character commonly seen when entering this state."
+        description:
+          type: string
+
+  events:
+    type: array
+    minItems: 1
+    description: "Input events the FSM can receive."
+    items:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          pattern: "^[A-Z][a-zA-Z0-9]+$"
+          description: "PascalCase event name (NewOrder, ReplaceRequest, Fill, CancelReject, ...)."
+        payload_schema:
+          type: object
+          description: "Fields carried by this event; same shape as context_schema entries."
+          additionalProperties:
+            type: object
+            required: [type]
+            properties:
+              type:
+                type: string
+                enum: [u8, u16, u32, u64, i8, i16, i32, i64, string, bool, timestamp, uuid, figi, lei, currency]
+              nullable: { type: boolean, default: false }
+        fix_msg_type:
+          type: string
+          description: "FIX MsgType (35) character if this event originates from a FIX message."
+        description:
+          type: string
+
+  transitions:
+    type: array
+    minItems: 1
+    description: "State -> State edges. Each must reference a known event name."
+    items:
+      type: object
+      required: [from, event, to]
+      additionalProperties: false
+      properties:
+        from:
+          type: string
+          description: "Source state name."
+        event:
+          type: string
+          description: "Event triggering this transition."
+        to:
+          type: string
+          description: "Target state name."
+        guard:
+          type: string
+          description: "Optional boolean expression over context + payload (mini-DSL; tools/fsm-validator/ checks parseability)."
+        effects:
+          type: array
+          description: "Side effects emitted on transition. Pure (no IO); the runtime dispatches actual IO."
+          items:
+            type: object
+            required: [kind]
+            additionalProperties: false
+            properties:
+              kind:
+                type: string
+                enum:
+                  - emit_event             # downstream event onto another FSM (cascade)
+                  - publish_fix_message    # outbound FIX message synthesis
+                  - publish_event_log      # arch-event-sourcing audit entry
+                  - update_context         # mutate context fields atomically with transition
+                  - schedule_timer         # arch-time-replay-server timer
+                  - cancel_timer
+                  - notify                 # arch-notification-service
+                  - chain_identity_stamp   # arch-identity-chaining
+              args:
+                type: object
+                description: "Effect-specific arguments. Tera-templated against context + payload."
+                additionalProperties: true
+        description:
+          type: string
+
+# --- Examples + non-examples ---------------------------------------------
+#
+# A minimal conforming FSM (illustrative):
+#
+#   name: ToyFsm
+#   version: 1
+#   kind: order
+#   context_schema:
+#     order_id: { type: uuid }
+#   states:
+#     - { name: INIT,  initial: true }
+#     - { name: DONE,  terminal: true }
+#   events:
+#     - { name: Start }
+#   transitions:
+#     - { from: INIT, event: Start, to: DONE }
+#
+# The fsm-validator additionally enforces:
+#   - exactly one initial state
+#   - every transition references valid state + event names
+#   - every state is reachable from the initial state
+#   - every terminal state has no outgoing transitions
+#   - every event name in events[] is used by at least one transition
+#   - guards parse against the mini-DSL grammar
+#   - effects.args templates parse against context + payload + literals

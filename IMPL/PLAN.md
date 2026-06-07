@@ -30,7 +30,7 @@ Foundation for everything else. ~1-2 weeks of work.
 
 The core determinism guarantee. ~2-3 weeks.
 
-- [ ] **1.1** FSM YAML schema (states, events, transitions, effects) (claude)
+- [x] **1.1** FSM YAML schema (states, events, transitions, effects) (claude) `(pending sha)`
 - [ ] **1.2** Order FSM definition per [[arch-order-route-lifecycle]] (claude) ← blocks: 1.1
 - [ ] **1.3** Route FSM definition per [[arch-order-route-lifecycle]] (claude) ← blocks: 1.1
 - [ ] **1.4** Multi-leg / Package FSM per [[arch-multileg]] (claude) ← blocks: 1.1
