@@ -207,7 +207,7 @@ STP and reporting. ~3-4 weeks.
 
 Three pillars. ~1-2 weeks.
 
-- [ ] **13.1** OTel SDK + collector configuration (local)
+- [x] **13.1** OTel SDK + collector configuration (local) `(9661ba3)`
 - [ ] **13.2** ELK / OpenSearch ingest pipeline (local)
 - [ ] **13.3** Prometheus exporters per service (local)
 - [ ] **13.4** Grafana dashboards: golden signals + per-asset latency (local for templates, claude for design)
