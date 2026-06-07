@@ -244,6 +244,49 @@ comes from Podman's compose dispatch, not from `podman-docker`.
 
 ---
 
+## Validating the OTel collector config without a stack restart
+
+The OTel collector config schema changes between versions (keys get renamed,
+nested, or moved). A wrong key crash-loops the live container with a wall of
+identical errors. Instead of editing → `down` → `up` → read logs → repeat,
+validate the config in a throwaway container in ~2s:
+
+```bash
+./scripts/dev/validate-otel-config.sh                  # infra/otel-collector/config.yaml
+./scripts/dev/validate-otel-config.sh path/to/cfg.yaml # any config file
+```
+
+Exit 0 = valid; non-zero = invalid with the error printed. The script runs the
+collector's built-in `validate` subcommand:
+
+```bash
+docker run --rm --security-opt label=disable \
+  -v "$(pwd)/infra/otel-collector/config.yaml:/etc/otelcol/validate.yaml:ro" \
+  docker.io/otel/opentelemetry-collector-contrib:0.115.1 \
+  validate --config=/etc/otelcol/validate.yaml
+```
+
+Keep the image tag in the script in sync with the `otel-collector` service in
+`compose.dev.yaml` — schema validity is version-specific.
+
+**Worked example: the `opensearch/logs` endpoint key.** In 0.115.1 the
+OpenSearch exporter nests its HTTP client config under `http:`, so the endpoint
+is `http.endpoint`, not a root `endpoint` (and not the older `endpoints` array):
+
+```yaml
+# WRONG (older schema / guesses) — both crash-loop the collector
+opensearch/logs:
+  endpoints: ["http://opensearch:9200"]   # ❌
+opensearch/logs:
+  endpoint: "http://opensearch:9200"      # ❌
+
+# CORRECT for 0.115.1
+opensearch/logs:
+  http:
+    endpoint: "http://opensearch:9200"    # ✅
+  logs_index: "ems-logs"
+```
+
 ## Useful diagnostics
 
 ```bash
