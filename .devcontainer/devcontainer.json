@@ -1,0 +1,17 @@
+{
+  "name": "Cross-Asset EMS",
+  "image": "mcr.microsoft.com/devcontainers/java:21-noble",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "remoteUser": "vscode",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-gradle",
+        "ms-python.python",
+        "twxs.cmake",
+        "ms-vscode.cpptools"
+      ]
+    }
+  }
+}

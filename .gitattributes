@@ -1,0 +1,6 @@
+# Generated wrapper scripts — suppress whitespace checks (trailing spaces are
+# produced by Gradle and cannot be removed without breaking the file).
+gradlew.bat whitespace=-trailing-space,-space-before-tab
+
+# Windows batch files use CRLF
+*.bat text eol=crlf

@@ -66,14 +66,25 @@ Everything you need to build, test, and run the dev stack locally.
 
 | Tool | Min version | Why | Install hint |
 |---|---|---|---|
-| **Docker** | 24+ with Compose v2 | Dev infrastructure stack (Postgres, OpenSearch, Prometheus, Grafana, Jaeger, OTel) | [docs.docker.com/engine/install](https://docs.docker.com/engine/install/) — use the Compose plugin, **not** the legacy `docker-compose` v1 standalone |
-| **Java** (Temurin) | 21 LTS | Java build; matches `gradle.properties` `emsJavaVersion` | handled by `scripts/dev/bootstrap.sh` — or manually: `sdk install java 21.0.7-tem` via [SDKMAN](https://sdkman.io/) |
-| **Gradle** | 8.10 | Java build wrapper generation (one-time) | handled by `scripts/dev/bootstrap.sh` — or manually: `sdk install gradle 8.10` |
+| **Docker** (or **Podman**) | Docker 24+ with Compose v2 — or Podman 4.4+ | Dev infrastructure stack (Postgres, OpenSearch, Prometheus, Grafana, Jaeger, OTel) | Docker: [docs.docker.com/engine/install](https://docs.docker.com/engine/install/); **Fedora/RHEL**: `sudo dnf install podman podman-docker podman-compose` (see note below) |
+| **Java** (OpenJDK / Temurin) | 21 LTS | Java build; matches `gradle.properties` `emsJavaVersion` | handled by `scripts/dev/bootstrap.sh`; manually: Fedora: `sudo dnf install java-21-openjdk-devel`, Ubuntu: `sudo apt install openjdk-21-jdk`, macOS: `brew install --cask temurin@21` |
+| **Gradle** | 8.10 | Java build wrapper generation (one-time) | handled by `scripts/dev/bootstrap.sh` — downloads directly, no package manager needed |
 | **CMake** | 3.25+ | C++ build | `apt install cmake` / `brew install cmake` |
 | **GCC** | 14+ (or Clang 17+) | C++20 compiler | `apt install g++-14` / `brew install llvm` |
 | **Python** | 3.10+ | FSM validator + lifecycle chaining tests | Usually pre-installed; `python3 --version` to check |
 | **pytest + pyyaml + jsonschema** | latest | FSM test suite | `pip install pytest pyyaml jsonschema` |
 | **git** | 2.30+ | Hooks use `git diff --check` features | System package manager |
+
+**Fedora / RHEL — use Podman instead of Docker**
+
+Podman is the native container runtime on Fedora and RHEL. The `podman-docker` package installs a transparent `docker` shim so every `docker compose ...` command in this guide works unchanged:
+
+```bash
+sudo dnf install podman podman-docker podman-compose
+systemctl --user enable --now podman.socket   # Docker-socket compatibility shim
+```
+
+No Docker daemon, no root service. Podman runs rootless by default.
 
 **Linux-only: OpenSearch memory lock**
 
@@ -110,7 +121,7 @@ Run these once after cloning:
 
 ```bash
 # 1. Bootstrap Java 21 + Gradle 8.10 and generate the Gradle wrapper
-#    (installs SDKMAN if absent, then Java 21 Temurin + Gradle 8.10)
+#    Uses dnf/apt/brew to install Java 21 if not already active
 ./scripts/dev/bootstrap.sh
 
 # 2. Wire up git hooks (Conventional Commits + secret guard)
@@ -122,7 +133,28 @@ docker compose -f infra/docker-compose/compose.dev.yaml pull
 
 Step 1 downloads ~130 MB (Gradle) + ~200 MB (JDK) on first run; subsequent runs skip anything already installed. Step 3 pulls ~2 GB of container images; after that `docker compose up` starts in seconds from local cache.
 
-> **Note on Java version:** the project requires Java 21. If you have a newer JVM (Java 22+) as your system default the bootstrap will install Java 21 via SDKMAN and use it automatically. Use `sdk default java 21.0.7-tem` to make it the permanent default. The `gradle-wrapper.jar` is generated locally by the bootstrap script and is intentionally not committed to the repository.
+> **Note on Java version:** the project requires Java 21. If you have a newer JVM (Java 22+) as your system default, `bootstrap.sh` installs Java 21 via your distro's package manager (`dnf`/`apt`/`brew`) and uses it for that shell session. To make Java 21 the permanent system default on Fedora: `sudo alternatives --set java /usr/lib/jvm/java-21-openjdk/bin/java`. The `gradle-wrapper.jar` is generated locally by the bootstrap script and is intentionally not committed to the repository.
+
+### Alternative: skip native Java/Gradle with a dev container
+
+If you'd rather not install Java 21 or Gradle on your host machine, the project ships a **Dev Container** configuration (`.devcontainer/`) that bundles the full toolchain — Java 21, Gradle 8.10, CMake 3.25, GCC 14, and Python 3.10 — inside a single container image.
+
+**VS Code:** open the repo, then run **Dev Containers: Reopen in Container** from the Command Palette. VS Code builds the image, runs `post-create.sh` (installs CMake + GCC + Python deps + Gradle wrapper), and opens the workspace inside the container. The full `./gradlew` and `cmake` workflow runs inside; no Java or Gradle on the host needed.
+
+**CLI (`devcontainer` CLI):**
+```bash
+npm install -g @devcontainers/cli   # one-time
+devcontainer up --workspace-folder .
+devcontainer exec --workspace-folder . ./gradlew assemble
+```
+
+**Podman note:** VS Code Dev Containers works with Podman Desktop. With the CLI, point it at the Podman socket:
+```bash
+export DOCKER_HOST=unix://${XDG_RUNTIME_DIR}/podman/podman.sock
+devcontainer up --workspace-folder .
+```
+
+The dev **infrastructure stack** (Postgres, OpenSearch, etc.) still runs via Podman/Docker Compose on the **host** — start it with `./scripts/dev/start-dev-stack.sh` outside the container; the container connects to it over `localhost`.
 
 ### Spin up the dev stack
 
