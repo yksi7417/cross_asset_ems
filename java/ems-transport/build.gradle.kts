@@ -14,5 +14,4 @@ dependencies {
     api(libs.bundles.aeron)
     api(libs.aeron.cluster)
     api(libs.aeron.archive)
-    implementation(libs.sbe.tool)
 }

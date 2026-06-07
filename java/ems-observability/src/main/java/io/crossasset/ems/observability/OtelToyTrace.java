@@ -16,7 +16,6 @@ import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
-import io.opentelemetry.semconv.ResourceAttributes;
 import java.time.Duration;
 
 /**
@@ -60,9 +59,9 @@ public final class OtelToyTrace {
     private static OpenTelemetry init(final String otlpEndpoint) {
         final Resource resource =
                 Resource.getDefault().toBuilder()
-                        .put(ResourceAttributes.SERVICE_NAME, SERVICE_NAME)
-                        .put(ResourceAttributes.SERVICE_VERSION, "0.0.1-toy")
-                        .put(ResourceAttributes.DEPLOYMENT_ENVIRONMENT, "dev")
+                        .put(AttributeKey.stringKey("service.name"), SERVICE_NAME)
+                        .put(AttributeKey.stringKey("service.version"), "0.0.1-toy")
+                        .put(AttributeKey.stringKey("deployment.environment"), "dev")
                         .put(AttributeKey.stringKey("ems.pod"), "dev-pod-default")
                         .build();
 
@@ -91,11 +90,13 @@ public final class OtelToyTrace {
                         .setSpanKind(SpanKind.SERVER)
                         .setAttribute("ems.workload", "toy")
                         .startSpan();
-        try (Scope ignored = root.makeCurrent()) {
+        final Scope scope = root.makeCurrent();
+        try {
             stage("validate", tracer);
             stage("route", tracer);
             stage("ack", tracer);
         } finally {
+            scope.close();
             root.end();
         }
     }
@@ -110,7 +111,8 @@ public final class OtelToyTrace {
                                         .put("ems.simulated_latency_ms", 10L)
                                         .build())
                         .startSpan();
-        try (Scope ignored = span.makeCurrent()) {
+        final Scope scope = span.makeCurrent();
+        try {
             try {
                 Thread.sleep(10);
             } catch (InterruptedException e) {
@@ -118,6 +120,7 @@ public final class OtelToyTrace {
                 span.recordException(e);
             }
         } finally {
+            scope.close();
             span.end();
         }
     }
