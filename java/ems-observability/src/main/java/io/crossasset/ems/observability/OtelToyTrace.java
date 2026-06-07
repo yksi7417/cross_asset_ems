@@ -5,8 +5,11 @@
 package io.crossasset.ems.observability;
 
 import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.logs.Logger;
 import io.opentelemetry.api.logs.Severity;
+import io.opentelemetry.api.metrics.LongCounter;
+import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
@@ -22,7 +25,7 @@ import io.opentelemetry.context.Scope;
  * # or: ./scripts/dev/run-otel-toy.sh
  * }</pre>
  *
- * <p>Exercises two of the three telemetry signals through the collector:
+ * <p>Exercises all three telemetry signals through the collector:
  *
  * <ul>
  *   <li><b>Traces</b> → OTLP → collector → Jaeger. A root span {@code ems-toy-root} with three
@@ -33,11 +36,15 @@ import io.opentelemetry.context.Scope;
  *       active {@code trace_id}/{@code span_id} for trace-log correlation (see {@code
  *       arch-observability}). View in OpenSearch Dashboards (<a
  *       href="http://localhost:5601">localhost:5601</a>) via index pattern {@code ems-logs*}.
+ *   <li><b>Metrics</b> → OTLP → collector → Prometheus. A counter {@code ems.toy.stages.processed}
+ *       incremented once per stage, re-exported by the collector on :8889 and scraped by Prometheus
+ *       as {@code ems_toy_stages_processed_total}. Query at <a
+ *       href="http://localhost:9091">localhost:9091</a>.
  * </ul>
  *
  * <p>This toy intentionally does not depend on Aeron, the FSM, or any EMS module - it verifies only
- * the collector → Jaeger / OpenSearch wiring. SDK init is delegated to {@link EmsOpenTelemetry} so
- * the toy exercises the production factory.
+ * the collector → Jaeger / OpenSearch / Prometheus wiring. SDK init is delegated to {@link
+ * EmsOpenTelemetry} so the toy exercises the production factory.
  */
 public final class OtelToyTrace {
 
@@ -56,18 +63,27 @@ public final class OtelToyTrace {
 
     final Tracer tracer = otel.getTracer(SCOPE);
     final Logger logger = otel.getLogger(SCOPE);
+    final Meter meter = otel.getMeter(SCOPE);
+    final LongCounter stagesProcessed =
+        meter
+            .counterBuilder("ems.toy.stages.processed")
+            .setDescription("Toy stages processed by OtelToyTrace")
+            .setUnit("1")
+            .build();
 
-    runWorkload(tracer, logger);
+    runWorkload(tracer, logger, stagesProcessed);
 
-    // Force flush so the toy trace + logs are exported even with a small workload.
+    // Force flush so the toy trace + logs + metrics are exported even with a small workload.
     otel.close();
     System.out.println(
         "Toy telemetry emitted. Traces: http://localhost:16686 (service="
             + SERVICE_NAME
-            + "). Logs: http://localhost:5601 (index ems-logs).");
+            + "). Logs: http://localhost:5601 (index ems-logs)."
+            + " Metrics: http://localhost:9091 (ems_toy_stages_processed_total).");
   }
 
-  private static void runWorkload(final Tracer tracer, final Logger logger) {
+  private static void runWorkload(
+      final Tracer tracer, final Logger logger, final LongCounter stagesProcessed) {
     final Span root =
         tracer
             .spanBuilder("ems-toy-root")
@@ -76,9 +92,9 @@ public final class OtelToyTrace {
             .startSpan();
     final Scope rootScope = root.makeCurrent();
     try {
-      stage("validate", tracer, logger);
-      stage("route", tracer, logger);
-      stage("ack", tracer, logger);
+      stage("validate", tracer, logger, stagesProcessed);
+      stage("route", tracer, logger, stagesProcessed);
+      stage("ack", tracer, logger, stagesProcessed);
       emitLog(logger, Severity.INFO, "toy workload complete: 3 stages", "complete");
     } finally {
       rootScope.close();
@@ -86,7 +102,11 @@ public final class OtelToyTrace {
     }
   }
 
-  private static void stage(final String name, final Tracer tracer, final Logger logger) {
+  private static void stage(
+      final String name,
+      final Tracer tracer,
+      final Logger logger,
+      final LongCounter stagesProcessed) {
     final Span span =
         tracer
             .spanBuilder("stage:" + name)
@@ -99,6 +119,7 @@ public final class OtelToyTrace {
       // Emitted inside the span scope: the log record captures the current
       // trace context, so it correlates with this span in OpenSearch.
       emitLog(logger, Severity.INFO, "stage " + name + " processed (10ms)", name);
+      stagesProcessed.add(1, Attributes.of(AttributeKey.stringKey("ems.stage"), name));
       try {
         Thread.sleep(10);
       } catch (InterruptedException e) {

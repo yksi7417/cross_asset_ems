@@ -11,9 +11,16 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
+  # Collector's own internal telemetry (queue depths, accepted/refused spans…).
   - job_name: otel-collector
     static_configs:
       - targets: ['otel-collector:8888']
+
+  # Application metrics received via OTLP and re-exported by the collector's
+  # prometheus exporter. Distinct surface from :8888 (collector self-telemetry).
+  - job_name: otel-collector-app
+    static_configs:
+      - targets: ['otel-collector:8889']
 
   - job_name: ems-services
     # Service discovery for the EMS services will land alongside each

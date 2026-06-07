@@ -52,13 +52,20 @@ python3 -m pytest tools/fsm-validator/test_lifecycle_chaining.py -v  # FSM tests
 ./scripts/dev/run-otel-toy.sh                                         # end-to-end OTel trace
 ```
 
-Open http://localhost:16686 → service `ems-otel-toy` — expect a 3-span trace.
+`run-otel-toy.sh` emits all three OpenTelemetry signals through the collector.
+Each lands in a different backend:
 
-Or validate the whole stack (liveness + wiring + live trace flow) in one shot:
+| Signal | What the toy emits | Flows to | View it |
+|---|---|---|---|
+| **Traces** | `ems-toy-root` + 3 stage spans | collector → **Jaeger** | http://localhost:16686 → service `ems-otel-toy` |
+| **Logs** | 1 INFO record per stage (trace-correlated) | collector → **OpenSearch** | http://localhost:5601 → index pattern `ems-logs*` |
+| **Metrics** | counter `ems.toy.stages.processed` | collector → **Prometheus** → **Grafana** | http://localhost:9091 → query `ems_toy_stages_processed_total`; dashboards in Grafana http://localhost:3000 |
+
+Or validate the whole stack (liveness + wiring + all three signals) in one shot:
 
 ```bash
-./scripts/dev/check-dev-stack.sh            # 14 checks; exit 0 = all healthy
-./scripts/dev/check-dev-stack.sh --no-trace # skip the Gradle trace emit (faster)
+./scripts/dev/check-dev-stack.sh            # 16 checks; exit 0 = all healthy
+./scripts/dev/check-dev-stack.sh --no-trace # skip the Gradle telemetry emit (faster)
 ```
 
 ### Endpoints (once the stack is up)
@@ -85,7 +92,7 @@ Codebase is at task **0.8 of ~150** in the [implementation plan](IMPL/PLAN.md).
 | Design vault — 80+ architecture notes, asset/venue/regulatory catalogs | ✅ |
 | 14-phase implementation plan, ~150 tasks | ✅ |
 | Monorepo — 15 Java modules + 15 C++ modules, layering enforced | ✅ |
-| CI, Docker Compose dev stack, OTel toy pipeline | ✅ |
+| CI, Docker Compose dev stack, OTel pipeline (traces + logs + metrics verified) | ✅ |
 | FSM definitions + lifecycle chaining tests | ✅ |
 | Core services (FSM, transport, OMS, validator, venue connectivity …) | 🚧 phases 1–12 |
 

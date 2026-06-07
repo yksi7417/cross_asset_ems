@@ -191,6 +191,23 @@ if [ "$RUN_TRACE" -eq 1 ]; then
     else
         fail "No new logs in OpenSearch '${LOGS_INDEX}' within 30s (collector → OpenSearch broken?)"
     fi
+
+    # Metrics path: the counter is re-exported by the collector on :8889 and
+    # scraped by Prometheus. Scrape interval is 15s, so allow up to ~40s.
+    metric_found=0
+    for _ in $(seq 1 20); do
+        sleep 2
+        if curl -fsS --max-time 5 \
+                "$PROM_URL/api/v1/query?query=ems_toy_stages_processed_total" 2>/dev/null \
+                | grep -q '"result":\[{'; then
+            metric_found=1; break
+        fi
+    done
+    if [ "$metric_found" -eq 1 ]; then
+        pass "Metric ems_toy_stages_processed_total scraped by Prometheus"
+    else
+        fail "Metric not in Prometheus within 40s (collector :8889 → Prometheus scrape broken?)"
+    fi
     rm -f /tmp/check-dev-stack-toy.log
 else
     section "End-to-end trace flow"
