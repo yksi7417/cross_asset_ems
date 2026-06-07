@@ -93,7 +93,7 @@ The "what" layer. ~3-4 weeks.
 - [ ] **4.19** Security master CRUD + supersession events per [[arch-security-master]] (claude) ← blocks: 4.4, 3.1
 - [ ] **4.20** Corporate actions → supersession integration per [[arch-corporate-actions]] (claude) ← blocks: 4.19
 - [ ] **4.21** Reference data service (calendars, day counts, tick sizes) per [[arch-reference-data-service]] (claude)
-- [x] **4.22** Holiday calendars per currency (local — data ingest) `(pending sha)`
+- [x] **4.22** Holiday calendars per currency (local — data ingest) `(d8eaf57)`
 - [x] **4.23** Day count conventions table (local) `(1f67b28)`
 - [x] **4.24** Counterparty / broker code / venue MIC tables (local) `(f3bfa4e)`
 - [ ] **4.25** Internal-allocated identifier namespace for OTC (claude) ← blocks: 4.19
