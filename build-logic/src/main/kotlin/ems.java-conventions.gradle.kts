@@ -50,12 +50,12 @@ tasks.withType<Test>().configureEach {
 }
 
 dependencies {
-    val versionCatalog =
-        extensions.getByType<VersionCatalogsExtension>().named("libs")
-
-    "implementation"(versionCatalog.findLibrary("slf4j-api").get())
-    "testImplementation"(versionCatalog.findBundle("test-common").get())
-    "testRuntimeOnly"(versionCatalog.findLibrary("logback-classic").get())
+    implementation("org.slf4j:slf4j-api:2.0.16")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.3")
+    testImplementation("org.junit.jupiter:junit-jupiter-engine:5.11.3")
+    testImplementation("org.assertj:assertj-core:3.26.3")
+    testImplementation("org.mockito:mockito-core:5.14.2")
+    testRuntimeOnly("ch.qos.logback:logback-classic:1.5.12")
 }
 
 spotless {

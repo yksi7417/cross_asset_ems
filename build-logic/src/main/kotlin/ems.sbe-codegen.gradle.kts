@@ -24,10 +24,7 @@ val sbeCodegenClasspath: Configuration by configurations.creating {
 }
 
 dependencies {
-    sbeCodegenClasspath(
-        extensions.getByType<VersionCatalogsExtension>()
-            .named("libs").findLibrary("sbe-tool").get()
-    )
+    sbeCodegenClasspath("uk.co.real-logic:sbe-tool:1.34.1")
 }
 
 val sbeCodegen by tasks.registering(JavaExec::class) {
