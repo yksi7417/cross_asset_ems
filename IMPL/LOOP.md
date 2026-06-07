@@ -2,6 +2,8 @@
 
 How [[PLAN]] gets consumed task-by-task until the whole thing is done. Designed to be **resumable** (every session picks up where the last left off) and **token-paced** (graceful wrap-up before exhaustion, no half-applied commits).
 
+> **Model routing:** work is now driven through **OpenCode** with one model per provider (Gemma 4 31B · Google = `(gemma)`; MiniMax 2.7/3 · OpenCode Zen = `(minimax)`; Sonnet 4.6 · GitHub Copilot = `(sonnet)`; Opus = `(opus)`). The Hermes Discord notifications referenced below are **optional/legacy** — keep them if useful, otherwise skip those steps.
+
 ## The /goal text
 
 Paste this into `/goal` exactly. The Stop hook will block exit until the loop's wrap-up conditions trigger.
@@ -27,8 +29,8 @@ The agent runs this loop per session:
 - This prevents two parallel sessions from picking the same task.
 
 ### 3. Choose tier
-- Look at the tag (`(local)`, `(local first draft, claude review)`, `(gemini)`, `(claude)`) per [[DELEGATION]].
-- Set up the delegation if not Claude.
+- Look at the tag (`(gemma)`, `(gemma first draft, sonnet review)`, `(minimax)`, `(sonnet)`, `(opus)`) per [[DELEGATION]].
+- Switch the OpenCode model to that tier's provider if not already on it.
 
 ### 4. Execute
 - Implement against the architecture notes referenced in the task description.

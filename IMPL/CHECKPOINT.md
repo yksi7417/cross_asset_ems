@@ -15,7 +15,7 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-06
-- **Next task for Claude (when budget resets):** **1.7** (codegen pipeline YAML→Java/C++, blocks: 1.1 ✓) or **1.10** (Pending Replace / Pending Cancel edge cases, blocks: 1.9 ✓). Recommended: 1.7 to unlock 1.8 (unit test generator); ensure generated Java/C++ compiles before marking done.
+- **Next task — `(opus)` tier:** **1.7** (codegen pipeline YAML→Java/C++, blocks: 1.1 ✓) or **1.10** (Pending Replace / Pending Cancel edge cases, blocks: 1.9 ✓). Both are now `(opus)` crown-jewel tasks (foundational codegen / silent-race correctness). Recommended: 1.7 to unlock 1.8 (unit test generator); ensure generated Java/C++ compiles before marking done.
 - **Total progress:** **29 of 150 tasks [x]** (19.3%). Phases with at least one [x]: 0, 1 (partial: 1.1–1.6/1.9), 2, 3, 4, 6, 13, 14.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4/6.5 (depend on 6.1 prefix migration just landed), 13.2-13.4 (dashboard/port issues), 11.2-11.10 (need careful FIX review).
 

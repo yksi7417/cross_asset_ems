@@ -1,11 +1,22 @@
 # Delegation Rules
 
-Pick the cheapest tier that gets the work done. Cost goes up tier-by-tier; capability goes up too. Default to the cheapest tier that the task's tag in [[PLAN]] specifies, and escalate only on actual failure (test red, build red, integration fail).
+Pick the cheapest tier that gets the work done. Cost/capability go up tier-by-tier. Default to the tier the task's tag in [[PLAN]] specifies, and escalate only on actual failure (test red, build red, integration fail).
 
-## Tiers
+Work is now driven through **OpenCode**, with one model pinned per connected provider:
 
-### Tier 1 — Local Gemma 31B (`local`)
-**Endpoint:** `http://localhost:8080/v1/chat/completions` (llm-router → llama.cpp). Model id `local`. **Cost: free, runs on the box.** No tool access, 262K context, no networking from inside the model.
+| Tag | Tier | OpenCode provider | Model | Role |
+|---|---|---|---|---|
+| `(gemma)` | 1 — cheapest | **Google** | **Gemma 4 31B** | boilerplate, scaffolding, fixtures |
+| `(minimax)` | 2 — mid | **OpenCode Zen** | **MiniMax 2.7 / 3** | review, research, drafting, ports |
+| `(sonnet)` | 3 — strongest | **GitHub Copilot** | **Sonnet 4.6** | architecture, correctness, orchestration |
+
+> Switch models with OpenCode's model selector (the `/models` picker, or `opencode run -m <provider>/<model>`). The provider→model bindings above are configured once in your OpenCode auth/config; the tags below name the *tier*, not a hard-coded model — re-point a provider and the tiers still hold.
+
+---
+
+## Tier 1 — Gemma 4 31B · `(gemma)`
+
+**Provider:** Google (in OpenCode). Smallest/cheapest. Treat as a fast first-draft engine with limited reasoning depth.
 
 **Use for:**
 - Boilerplate code, scaffolding, templates.
@@ -17,59 +28,35 @@ Pick the cheapest tier that gets the work done. Cost goes up tier-by-tier; capab
 - Initial schema sketches for asset-class instrument templates.
 - Sample data / fixtures / mocks.
 - Simple regex or SQL generation.
-- Migrating data formats (CSV → SBE-bound struct).
+- Validator rule tables and golden-test fixtures.
+- Grafana dashboard JSON, OTel SDK boilerplate.
 
 **Don't use for:**
 - Multi-file architectural reasoning.
-- Anything requiring tool use (file I/O, grep, edit).
 - Complex debugging or root-cause analysis.
 - Security-sensitive code review.
 - FIX edge cases (Appendix D race conditions).
 - FSM design or state-machine correctness.
 
-**How to invoke** (one-shot prompt-to-text):
-```bash
-curl -s http://localhost:8080/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk-no-key-required" \
-  -d '{
-    "model": "local",
-    "messages": [
-      {"role": "system", "content": "<task-specific system prompt>"},
-      {"role": "user", "content": "<the actual task>"}
-    ],
-    "max_tokens": 4096,
-    "temperature": 0.2,
-    "stream": false
-  }' | jq -r .choices[0].message.content
-```
+## Tier 2 — MiniMax 2.7/3 · `(minimax)`
 
-Or invoke via the [`local-llm` skill](~/.claude/skills/local-llm/SKILL.md).
-
-### Tier 2 — Gemini via Hermes (`gemini`)
-**Route:** through Hermes Agent (`/home/yksi7417/.local/bin/hermes chat --provider google -z '<prompt>'`). **Cost: free quota** (rate-limited by Google's free tier). Larger context than Gemma; supports tool-use via Hermes' tool surface; can do multi-file research within a single invocation.
+**Provider:** OpenCode Zen. Strong mid model — larger context and better reasoning than Gemma; cheaper than Sonnet. Good at reviewing and researching across files.
 
 **Use for:**
 - Code review of a finished module (find bugs, suggest improvements).
-- Multi-file research questions ("show me how all the FIX adapters handle reject codes").
+- Multi-file research questions ("how do all the FIX adapters handle reject codes?").
 - Drafting documentation for completed code.
 - Exploring trade-offs between approaches (pick algo for X).
 - Cross-language porting (Java → C++ for hot-path components).
+- Second-opinion pass before a `(sonnet)` task, to cut Sonnet iterations.
 
 **Don't use for:**
-- Anything that mutates the repo without Claude's review.
-- Multi-step architectural decisions (you need Claude's full conversation context).
-- Time-sensitive iterations (free-quota rate limits make iteration slow).
+- Final sign-off on security or correctness-critical paths (escalate to Sonnet).
+- Multi-step architectural decisions that need the full design-vault context.
 
-**How to invoke** (research-style, no repo mutation):
-```bash
-hermes chat --provider google -z 'You are reviewing a Java module at /path. Read it and report: (a) any obvious bugs, (b) any FIX-protocol concerns, (c) one suggested improvement. Reply under 400 words.'
-```
+## Tier 3 — Sonnet 4.6 · `(sonnet)`
 
-Or use Hermes' streaming chat for longer interactions.
-
-### Tier 3 — Claude Code (`claude`)
-**Route:** the current Claude Code session. **Cost: highest per token.** Tool access, multi-file edits, full conversation context, the only tier that integrates with the architecture notes properly.
+**Provider:** GitHub Copilot. Strongest tier; highest cost. The only tier that should make architectural commitments or final correctness judgements.
 
 **Use for:**
 - Architecture and design tasks.
@@ -77,64 +64,54 @@ Or use Hermes' streaming chat for longer interactions.
 - FIX Appendix D race-condition handling.
 - Multi-file refactors.
 - Integration tests requiring orchestration.
-- Anything that needs to dispatch to other tiers and assemble results.
+- Reviewing / finishing weaker-model drafts (the local-first loop, below).
+- Anything that dispatches to other tiers and assembles results.
 
 **Don't use for:**
-- Tasks any cheaper tier can complete reliably.
+- Tasks a cheaper tier can complete reliably.
 
-## The Local-First Loop
+## The first-draft loop (cheap draft → Sonnet review)
 
-Per global CLAUDE.md, for non-trivial coding tasks, follow this loop:
+For non-trivial coding tasks:
 
-1. **Local draft.** Ask local Gemma to write the first version of the code (use Tier 1).
-2. **Local test.** Ask Gemma to write basic tests for its own draft.
-3. **Run tests.** Claude executes via Bash.
-4. **Claude review (only if needed).** If tests fail or logic is wrong, Claude fixes it. The draft + error output is the starting context.
+1. **Draft (Gemma or MiniMax).** Ask the cheapest adequate tier for a first version + basic tests.
+2. **Run tests** (yourself, in OpenCode / shell).
+3. **Sonnet review (only if needed).** If tests fail or logic is wrong, hand Sonnet the draft + error output. Sonnet is far better at *fixing and critiquing* than writing from scratch, so a concrete draft means fewer expensive iterations.
 
-Why: Claude is much better at **fixing and critiquing** than writing from scratch. A concrete draft from Gemma gives Claude a precise starting point, which results in fewer iterations.
-
-**Applied to PLAN tasks:** any task tagged `(local first draft, claude review)` follows this exact pattern.
+**Applied to PLAN tasks:** any task tagged `(gemma first draft, sonnet review)` (or similar) follows this pattern.
 
 ## Tier-selection cheatsheet by task type
 
 | Task | Tier |
 |---|---|
-| FSM YAML schema | claude |
-| Per-asset SBE template, common shape | local first, claude review |
-| Per-asset SBE template, gnarly (NDF fixing, TBA, IRS legs, CDS reference entity) | claude |
-| Reject code catalog | local |
-| Validator rule code | local first, claude review |
-| Validator golden test generation | local |
-| FIX adapter wire framing | local |
-| FIX adapter business-logic (cancel/replace, reject handling) | claude |
-| Architecture decisions | claude |
-| End-to-end integration tests | claude |
-| Boilerplate REST CRUD | local |
-| Excel/CSV parsers | local |
-| Calendars / day-count tables | local |
-| Code review of completed module | gemini |
-| Drafting docs from finished code | gemini |
-| Multi-file research questions | gemini |
-| Cross-language port | gemini |
-| Grafana dashboard JSON templates | local |
-| OTel SDK boilerplate | local |
-| Best-ex audit logic | claude |
-| Regulatory reporting submission profiles (per regulator) | claude (the rules are gnarly) |
+| FSM YAML schema | sonnet |
+| Per-asset SBE template, common shape | gemma draft, sonnet review |
+| Per-asset SBE template, gnarly (NDF fixing, TBA, IRS legs, CDS reference entity) | sonnet |
+| Reject code catalog | gemma |
+| Validator rule code | gemma draft, sonnet review |
+| Validator golden test generation | gemma |
+| FIX adapter wire framing | gemma |
+| FIX adapter business-logic (cancel/replace, reject handling) | sonnet |
+| Architecture decisions | sonnet |
+| End-to-end integration tests | sonnet |
+| Boilerplate REST CRUD | gemma |
+| Excel/CSV parsers | gemma |
+| Calendars / day-count tables | gemma |
+| Code review of completed module | minimax |
+| Drafting docs from finished code | minimax |
+| Multi-file research questions | minimax |
+| Cross-language port | minimax |
+| Grafana dashboard JSON templates | gemma |
+| OTel SDK boilerplate | gemma |
+| Best-ex audit logic | sonnet |
+| Regulatory reporting submission profiles (per regulator) | sonnet (the rules are gnarly) |
 
 ## Escalation rule
 
-If a task at tier N produces incorrect output that fails tests, **escalate to tier N+1 with the failed output as input**. Do not loop at the same tier — escalation is the loop.
-
-Example:
-1. Local Gemma drafts `marketaxess-fix-adapter.java`.
-2. Tests fail on cancel-replace handling.
-3. Escalate to Claude with the draft + test failure output.
-4. Claude fixes; tests pass; commit; mark done.
-
-If Claude fails on a task, escalate to Gemini via Hermes for a fresh perspective. If Gemini fails, mark the task `[~]` (blocked) and post a Hermes notification per [[HERMES]].
+If a task at tier N produces output that fails tests, **escalate to tier N+1 with the failed output as input** (Gemma → MiniMax → Sonnet). Don't loop at the same tier — escalation is the loop. If Sonnet fails, mark the task `[~]` (blocked) and note it in [[CHECKPOINT]].
 
 ## See also
 
 - [[PLAN]] (the task queue)
 - [[LOOP]] (how the /goal loop consumes this)
-- [[HERMES]] (notifications when a task escalates or stalls)
+- [[CHECKPOINT]] (current cursor + blocked tasks)
