@@ -51,7 +51,7 @@ wait_http() {
 
 wait_tcp   postgres       localhost 5432
 wait_http  opensearch     http://localhost:9200/_cluster/health
-wait_http  otel-collector http://localhost:8888/metrics
+wait_http  otel-collector http://localhost:13133/
 
 echo
 echo "Endpoints:"

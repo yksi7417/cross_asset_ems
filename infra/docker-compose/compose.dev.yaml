@@ -105,9 +105,15 @@ services:
     volumes:
       - ../otel-collector/config.yaml:/etc/otelcol/config.yaml:ro,z
     ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
-      - "8888:8888"   # collector self metrics
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+      - "8888:8888"    # collector self-metrics (Prometheus scrape)
+      - "13133:13133"  # health_check extension — used by start-dev-stack.sh
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:13133/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     depends_on:
       jaeger:       { condition: service_started }
       opensearch:   { condition: service_healthy }

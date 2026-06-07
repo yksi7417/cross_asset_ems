@@ -19,15 +19,15 @@ export OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localh
 # Wait for the OTel collector to be ready before emitting spans.
 # Without this the gRPC channel may not be established before otel.close() fires,
 # causing a noisy SEVERE log even though the trace was exported on an earlier attempt.
-echo -n "Waiting for OTel collector (http://localhost:8888/metrics)..."
+echo -n "Waiting for OTel collector (http://localhost:13133/)..."
 for i in $(seq 1 15); do
-    if curl -fs http://localhost:8888/metrics > /dev/null 2>&1; then
+    if curl -fs http://localhost:13133/ > /dev/null 2>&1; then
         echo " ready"
         break
     fi
     if [ "$i" -eq 15 ]; then
         echo
-        echo "ERROR: OTel collector did not become ready. Is the dev stack up?"
+        echo "ERROR: OTel collector did not become ready (http://localhost:13133/). Is the dev stack up?"
         echo "  Run: ./scripts/dev/start-dev-stack.sh"
         exit 1
     fi
