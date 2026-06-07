@@ -17,4 +17,8 @@ chmod +x .githooks/*
 
 echo "Hooks installed via core.hooksPath = .githooks"
 echo "Hooks active:"
-ls -1 .githooks/ | grep -v '\.sample$'
+for hook in .githooks/*; do
+    [ -f "$hook" ] || continue
+    case "$hook" in *.sample) continue ;; esac
+    echo "  ${hook#.githooks/}"
+done

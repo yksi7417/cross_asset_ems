@@ -13,6 +13,10 @@
 #     0  full success
 #     1  any failure
 
+# SC2153: ARCHIVE_POS/PG_COUNT/EVENT_ID/EVENT_HASH are real globals assigned
+# below (the pre-restart snapshot); shellcheck only sees the similar lowercase
+# locals and mis-flags them as possible misspellings.
+# shellcheck disable=SC2153
 set -euo pipefail
 
 # ============================================================================

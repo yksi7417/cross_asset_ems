@@ -80,6 +80,7 @@ hdr()  { log "${C_BOLD}${C_CYAN}== $* ==${C_RESET}"; }
 # ---- Helpers ----
 now_ms() { date +%s%3N; }
 
+# shellcheck disable=SC2120  # args are optional pass-through to `ps`
 compose_ps() {
   if [[ -f "$COMPOSE_FILE" ]]; then
     docker compose -f "$COMPOSE_FILE" ps "$@"
@@ -136,10 +137,12 @@ container_for_member() {
       '.[] | select((.memberId == $m) or (.id == $m)) | .containerId // empty' \
       <<<"$members" | head -n1
   else
-    python3 - "$member_id" <<'PY' <<<"$members"
-import json, sys
+    # members passed via env var: the heredoc already occupies stdin (the
+    # python source), so it can't also carry the JSON via a here-string.
+    MEMBERS="$members" python3 - "$member_id" <<'PY'
+import json, os, sys
 mid = int(sys.argv[1])
-for m in json.loads(sys.stdin.read()):
+for m in json.loads(os.environ['MEMBERS']):
     if m.get('memberId') == mid or m.get('id') == mid:
         print(m.get('containerId', '') or '')
         break
@@ -159,7 +162,6 @@ NEW_LEADER_TERM=""
 TIME_TO_ELECT_MS=0
 SMOKE_RESULT="not run"
 RECOVERY_STATUS="unknown"
-SCRIPT_FAILED=0
 SNAPSHOT_FILE=""
 EVENTS_BEFORE=""
 LOG_POS_BEFORE=""
@@ -191,13 +193,14 @@ EOF
 }
 
 # Always print a summary on exit, and exit non-zero if any step failed.
+# shellcheck disable=SC2317,SC2329  # invoked via the EXIT trap, not inline
 on_exit() {
   local code=$?
   if [[ $code -ne 0 && "$RECOVERY_STATUS" == "unknown" ]]; then
     RECOVERY_STATUS="failed: aborted before completion"
     print_summary
   fi
-  exit $code
+  exit "$code"
 }
 trap on_exit EXIT
 

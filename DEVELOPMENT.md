@@ -218,6 +218,12 @@ Pre-commit + commit-msg hooks enforce:
 
 Bypass with `git commit --no-verify` only after explicit review.
 
+A **pre-push** hook runs `shellcheck` on all shell scripts (the same check as
+CI's full-gate `Lint` job) so failures are caught locally before they reach CI.
+It uses `shellcheck` if on PATH, else a `podman`/`docker` shellcheck image, and
+skips with a warning if neither is available. Bypass once with
+`git push --no-verify`. Install all hooks with `./scripts/dev/install-hooks.sh`.
+
 ## Implementation plan + the /goal loop
 
 The implementation plan lives in `IMPL/`. Open `IMPL/PLAN.md` for the 14-phase, ~150-task queue.

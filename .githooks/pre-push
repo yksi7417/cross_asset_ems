@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#
+# pre-push hook — runs the shell linter locally so shellcheck failures are
+# caught here instead of first surfacing in CI's full gate.
+#
+# Mirrors the `shellcheck` step in .github/workflows/ci.yml. Kept fast: only
+# shell scripts, no Gradle/Spotless (those run in CI on PR).
+#
+# Install: `git config core.hooksPath .githooks`
+# (set up by ./scripts/dev/install-hooks.sh)
+# Bypass once with: git push --no-verify
+
+set -uo pipefail
+
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+mapfile -t SCRIPTS < <(find scripts .githooks -type f \( -name '*.sh' -o -name '*.bash' \) 2>/dev/null)
+[ "${#SCRIPTS[@]}" -eq 0 ] && exit 0
+
+run_shellcheck() {
+    if command -v shellcheck >/dev/null 2>&1; then
+        shellcheck "${SCRIPTS[@]}"
+    elif command -v podman >/dev/null 2>&1; then
+        podman run --rm --security-opt label=disable -v "$(pwd):/mnt:ro" -w /mnt \
+            docker.io/koalaman/shellcheck:stable "${SCRIPTS[@]}"
+    elif command -v docker >/dev/null 2>&1; then
+        docker run --rm -v "$(pwd):/mnt:ro" -w /mnt \
+            docker.io/koalaman/shellcheck:stable "${SCRIPTS[@]}"
+    else
+        echo "pre-push: shellcheck not found (install 'shellcheck' or have podman/docker)." >&2
+        echo "          Skipping shell lint — CI will still enforce it." >&2
+        return 0
+    fi
+}
+
+if ! run_shellcheck; then
+    echo >&2
+    echo "pre-push: shellcheck found issues (above). Fix them, or bypass with:" >&2
+    echo "          git push --no-verify" >&2
+    exit 1
+fi
+
+exit 0
