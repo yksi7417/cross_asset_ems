@@ -244,6 +244,58 @@ comes from Podman's compose dispatch, not from `podman-docker`.
 
 ---
 
+## Services that bind to `localhost` inside the container
+
+**Symptom**
+
+A container is `Up`, its port is published (`0.0.0.0:4317->4317`), yet another
+container — or a host-side probe — gets `connection refused`. Example from the
+collector trying to reach Jaeger:
+
+```
+grpc: addrConn.createTransport failed to connect to {Addr: "jaeger:4317"}.
+Err: ... dial tcp 10.89.0.5:4317: connect: connection refused
+```
+
+**Root cause**
+
+The service inside the container binds to `localhost` (127.0.0.1) rather than
+`0.0.0.0`. Podman's port-forward (`rootlessport`) delivers to the container's
+*external* interface (e.g. `10.89.0.5`), and cross-container traffic arrives the
+same way — neither reaches a process listening only on the container's loopback.
+Check the startup log for the bind address:
+
+```
+Starting GRPC server {"kind": "receiver", "name": "otlp", "endpoint": "localhost:4317"}
+                                                                       ^^^^^^^^^ the problem
+```
+
+Two services in this stack ship with `localhost` defaults and were rebound:
+
+| Service | Default bind | Fix |
+|---|---|---|
+| **Jaeger v2.0.0** OTLP receiver | `localhost:4317/4318` | `command:` with `--set=receivers.otlp.protocols.{grpc,http}.endpoint=0.0.0.0:...` |
+| **otel-collector** `health_check` (v0.115) | `localhost:13133` | `health_check: { endpoint: 0.0.0.0:13133 }` in collector config |
+
+**Jaeger v2 `--set` overrides.** Jaeger v2.0.0 has no config *file* — its default
+config is compiled into the binary. Rather than author a full replacement config,
+override individual properties with `--set` (a component already defined in the
+embedded config can be patched this way):
+
+```yaml
+jaeger:
+  command:
+    - --set=receivers.otlp.protocols.grpc.endpoint=0.0.0.0:4317
+    - --set=receivers.otlp.protocols.http.endpoint=0.0.0.0:4318
+```
+
+Inspect Jaeger's available subcommands and flags with:
+
+```bash
+podman run --rm --entrypoint /cmd/jaeger/jaeger-linux \
+  docker.io/jaegertracing/jaeger:2.0.0 help
+```
+
 ## Validating the OTel collector config without a stack restart
 
 The OTel collector config schema changes between versions (keys get renamed,
