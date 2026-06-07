@@ -59,7 +59,7 @@ Each lands in a different backend:
 |---|---|---|---|
 | **Traces** | `ems-toy-root` + 3 stage spans | collector → **Jaeger** | http://localhost:16686 → service `ems-otel-toy` |
 | **Logs** | 1 INFO record per stage (trace-correlated) | collector → **OpenSearch** | http://localhost:5601 → index pattern `ems-logs*` |
-| **Metrics** | counter `ems.toy.stages.processed` | collector → **Prometheus** → **Grafana** | http://localhost:9091 → query `ems_toy_stages_processed_total`; dashboards in Grafana http://localhost:3000 |
+| **Metrics** | counter `ems.toy.stages.processed` | collector → **Prometheus** → **Grafana** | http://localhost:9091 → query `ems_toy_stages_processed_total`; or the provisioned **OTel Pipeline Overview** dashboard at http://localhost:3000/d/ems-otel-overview |
 
 Or validate the whole stack (liveness + wiring + all three signals) in one shot:
 

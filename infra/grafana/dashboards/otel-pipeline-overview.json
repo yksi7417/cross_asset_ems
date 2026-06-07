@@ -1,0 +1,162 @@
+{
+  "uid": "ems-otel-overview",
+  "title": "OTel Pipeline Overview",
+  "tags": ["ems", "observability", "otel"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "editable": true,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Application (ems-otel-toy)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Toy stages processed (total)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null } ] } },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value", "graphMode": "area", "textMode": "auto", "justifyMode": "auto"
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(ems_toy_stages_processed_total)", "legendFormat": "total" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Toy stages processed — by stage (5m increase)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 16, "x": 8, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "unit": "short",
+          "custom": { "drawStyle": "bars", "fillOpacity": 40, "stacking": { "mode": "normal" } } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] },
+        "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (ems_stage) (increase(ems_toy_stages_processed_total[5m]))",
+          "legendFormat": "{{ems_stage}}" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Collector pipeline — received vs exported",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Spans / sec",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops",
+        "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(otelcol_receiver_accepted_spans[1m]))", "legendFormat": "received" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(otelcol_exporter_sent_spans[1m]))", "legendFormat": "exported" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Metric points / sec",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops",
+        "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(otelcol_receiver_accepted_metric_points[1m]))", "legendFormat": "received" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(otelcol_exporter_sent_metric_points[1m]))", "legendFormat": "exported" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Log records / sec",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops",
+        "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(otelcol_receiver_accepted_log_records[1m]))", "legendFormat": "received" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(otelcol_exporter_sent_log_records[1m]))", "legendFormat": "exported" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Collector health",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Export failures (total)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 16 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(otelcol_exporter_send_failed_spans) + sum(otelcol_exporter_send_failed_metric_points) + sum(otelcol_exporter_send_failed_log_records)",
+          "legendFormat": "failures" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Collector uptime",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "max(otelcol_process_uptime)", "legendFormat": "uptime" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Collector memory (RSS)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "max(otelcol_process_memory_rss)", "legendFormat": "rss" }
+      ]
+    }
+  ]
+}
