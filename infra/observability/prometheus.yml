@@ -1,0 +1,124 @@
+# Prometheus configuration for the cross-asset Execution Management System.
+# Five Spring Boot services expose Prometheus metrics at /actuator/prometheus.
+# Reference sample scrape outputs are stored under exporters/ for contract testing
+# and mock exporter replay. Adjust targets and external_labels per environment.
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: cross-asset-ems
+    environment: production
+    region: eu-west-1
+    replica: prometheus-01
+
+scrape_configs:
+  - job_name: ems-oms
+    metrics_path: /actuator/prometheus
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    sample_limit: 50000
+    static_configs:
+      - targets:
+          - ems-oms-01.internal:8080
+          - ems-oms-02.internal:8080
+        labels:
+          service: ems-oms
+          tier: order-management
+          criticality: tier-1
+          owner: ems-trading
+
+  - job_name: ems-pricing
+    metrics_path: /actuator/prometheus
+    scrape_interval: 5s
+    scrape_timeout: 3s
+    sample_limit: 80000
+    static_configs:
+      - targets:
+          - ems-pricing-01.internal:8080
+          - ems-pricing-02.internal:8080
+          - ems-pricing-03.internal:8080
+        labels:
+          service: ems-pricing
+          tier: pricing-engine
+          criticality: tier-1
+          owner: ems-quant
+
+  - job_name: ems-risk
+    metrics_path: /actuator/prometheus
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    sample_limit: 40000
+    static_configs:
+      - targets:
+          - ems-risk-01.internal:8080
+          - ems-risk-02.internal:8080
+        labels:
+          service: ems-risk
+          tier: risk-engine
+          criticality: tier-1
+          owner: ems-risk-mgmt
+
+  - job_name: ems-marketdata
+    metrics_path: /actuator/prometheus
+    scrape_interval: 5s
+    scrape_timeout: 3s
+    sample_limit: 200000
+    static_configs:
+      - targets:
+          - ems-marketdata-01.internal:8080
+          - ems-marketdata-02.internal:8080
+        labels:
+          service: ems-marketdata
+          tier: market-data
+          criticality: tier-1
+          owner: ems-data-platform
+
+  - job_name: ems-position
+    metrics_path: /actuator/prometheus
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    sample_limit: 30000
+    static_configs:
+      - targets:
+          - ems-position-01.internal:8080
+        labels:
+          service: ems-position
+          tier: position-management
+          criticality: tier-1
+          owner: ems-risk-mgmt
+
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090
+        labels:
+          service: prometheus-self
+
+rule_files:
+  - /etc/prometheus/rules/ems_oms.yml
+  - /etc/prometheus/rules/ems_pricing.yml
+  - /etc/prometheus/rules/ems_risk.yml
+  - /etc/prometheus/rules/ems_marketdata.yml
+  - /etc/prometheus/rules/ems_position.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager-01.internal:9093
+            - alertmanager-02.internal:9093
+
+remote_write:
+  - url: https://cortex-gateway.internal/api/v1/push
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'ems_.*'
+        action: keep
+    queue_config:
+      capacity: 10000
+      max_samples_per_send: 2000
+      batch_send_deadline: 5s
+      min_backoff: 1s
+      max_backoff: 30s

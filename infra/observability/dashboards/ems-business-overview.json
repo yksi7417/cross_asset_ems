@@ -1,0 +1,664 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Energy Management System (EMS) business overview: production, consumption, energy mix, carbon and cost KPIs across sites and regions.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": 3,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": ["ems"],
+      "targetBlank": false,
+      "title": "EMS Drilldowns",
+      "tooltip": "Related EMS dashboards",
+      "type": "dashboards",
+      "url": ""
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total Energy Production (last 1h)",
+      "description": "Aggregate energy produced across all selected sites in the last hour.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "orange", "value": 100},
+              {"color": "yellow", "value": 500},
+              {"color": "green", "value": 1000}
+            ]
+          },
+          "unit": "MWh",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(increase(ems_energy_production_mwh{site=~\"$site\",region=~\"$region\",source=~\"$energy_source\"}[1h]))",
+          "legendFormat": "Production",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total Consumption (last 1h)",
+      "description": "Aggregate energy consumed across all selected sites in the last hour.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 500},
+              {"color": "orange", "value": 1000},
+              {"color": "red", "value": 1500}
+            ]
+          },
+          "unit": "MWh",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(increase(ems_energy_consumption_mwh{site=~\"$site\",region=~\"$region\"}[1h]))",
+          "legendFormat": "Consumption",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Carbon Saved (last 24h)",
+      "description": "Avoided carbon emissions relative to a fossil-fuel baseline.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 10},
+              {"color": "green", "value": 50}
+            ]
+          },
+          "unit": "t",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(increase(ems_carbon_avoided_tons{site=~\"$site\",region=~\"$region\"}[24h]))",
+          "legendFormat": "CO2 avoided",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Cost Savings (last 24h)",
+      "description": "Realized cost savings relative to a baseline tariff.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 1000},
+              {"color": "green", "value": 5000}
+            ]
+          },
+          "unit": "currencyUSD",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(increase(ems_cost_savings_usd{site=~\"$site\",region=~\"$region\"}[24h]))",
+          "legendFormat": "Savings",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Grid Load vs Renewable Generation",
+      "description": "Total grid load compared to renewable generation over time.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "unit": "MW"
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Renewable"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Grid Load"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(ems_grid_load_mw{site=~\"$site\",region=~\"$region\"})",
+          "legendFormat": "Grid Load",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(ems_generation_mw{site=~\"$site\",region=~\"$region\",source=~\"solar|wind|hydro|geo|biomass\"})",
+          "legendFormat": "Renewable",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "piechart",
+      "title": "Current Energy Mix",
+      "description": "Latest share of total generation by energy source.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false}
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "solar"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "wind"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "hydro"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "light-blue"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "natural_gas"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "purple"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "coal"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "dark-gray"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "nuclear"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]
+          }
+        ]
+      },
+      "options": {
+        "displayLabels": ["name", "percent"],
+        "legend": {"displayMode": "list", "placement": "right", "showLegend": true, "values": ["value"]},
+        "pieType": "donut",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "tooltip": {"mode": "single", "sort": "none"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum by (source) (ems_generation_mw{site=~\"$site\",region=~\"$region\",source=~\"$energy_source\"})",
+          "legendFormat": "{{source}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Site Status",
+      "description": "Per-site energy, savings, and carbon summary in tabular form.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {
+            "align": "auto",
+            "cellOptions": {"type": "auto"},
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "green", "value": null}]
+          },
+          "unit": "MWh"
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byRegexp", "options": "/.*_mw|.*_load/"},
+            "properties": [
+              {"id": "unit", "value": "MW"},
+              {"id": "decimals", "value": 1}
+            ]
+          },
+          {
+            "matcher": {"id": "byRegexp", "options": "/.*_usd|.*_cost/"},
+            "properties": [
+              {"id": "unit", "value": "currencyUSD"},
+              {"id": "decimals", "value": 0}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "carbon_tons"},
+            "properties": [
+              {"id": "unit", "value": "t"},
+              {"id": "decimals", "value": 2}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "renewable_share"},
+            "properties": [
+              {"id": "unit", "value": "percentunit"},
+              {"id": "custom.cellOptions", "value": {"type": "gauge", "mode": "gradient"}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "status"},
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {"options": {"online": {"color": "green", "index": 0, "text": "Online"}}, "type": "value"},
+                  {"options": {"degraded": {"color": "yellow", "index": 1, "text": "Degraded"}}, "type": "value"},
+                  {"options": {"offline": {"color": "red", "index": 2, "text": "Offline"}}, "type": "value"}
+                ]
+              },
+              {"id": "custom.cellOptions", "value": {"type": "color-background"}}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {"countRows": false, "fields": "", "reducer": ["sum"], "show": false},
+        "showHeader": true,
+        "sortBy": [{"displayName": "production_mwh", "desc": true}]
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum by (site, region) (increase(ems_energy_production_mwh{site=~\"$site\",region=~\"$region\",source=~\"$energy_source\"}[1h]))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "production",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum by (site, region) (increase(ems_energy_consumption_mwh{site=~\"$site\",region=~\"$region\"}[1h]))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "consumption",
+          "refId": "B"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "avg by (site, region) (ems_grid_load_mw{site=~\"$site\",region=~\"$region\"})",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "load_mw",
+          "refId": "C"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum by (site, region) (increase(ems_cost_savings_usd{site=~\"$site\",region=~\"$region\"}[24h]))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "savings_usd",
+          "refId": "D"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum by (site, region) (increase(ems_carbon_avoided_tons{site=~\"$site\",region=~\"$region\"}[24h]))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "carbon_tons",
+          "refId": "E"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum by (site, region) (ems_generation_mw{site=~\"$site\",region=~\"$region\",source=~\"solar|wind|hydro|geo|biomass\"}) / clamp_min(sum by (site, region) (ems_generation_mw{site=~\"$site\",region=~\"$region\"}), 1)",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "renewable_share",
+          "refId": "F"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "min by (site, region) (ems_site_status{site=~\"$site\",region=~\"$region\"})",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "status",
+          "refId": "G"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Forecast vs Actual Production",
+      "description": "Predicted vs realized production across the selected window.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "unit": "MW"
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Forecast"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "light-blue"}},
+              {"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 10]}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Actual"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {"calcs": ["mean", "max", "sum"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(ems_generation_forecast_mw{site=~\"$site\",region=~\"$region\",source=~\"$energy_source\"})",
+          "legendFormat": "Forecast",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(ems_generation_mw{site=~\"$site\",region=~\"$region\",source=~\"$energy_source\"})",
+          "legendFormat": "Actual",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Carbon Emissions vs Avoided",
+      "description": "Realized emissions and avoided emissions trend.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "unit": "t"
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Emissions"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Avoided"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {"calcs": ["mean", "max", "sum"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(ems_carbon_emissions_tons{site=~\"$site\",region=~\"$region\"})",
+          "legendFormat": "Emissions",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(ems_carbon_avoided_tons{site=~\"$site\",region=~\"$region\"})",
+          "legendFormat": "Avoided",
+          "refId": "B"
+        }
+      ]
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": ["ems", "energy", "business", "kpi", "sustainability"],
+  "templating": {
+    "list": [
+      {
+        "current": {"selected": false, "text": "Prometheus", "value": "prometheus"},
+        "hide": 0,
+        "includeAll": false,
+        "label": "Data source",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]},
+        "datasource": {"type": "prometheus", "uid": "${datasource}"},
+        "definition": "label_values(ems_energy_production_mwh, site)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Site",
+        "multi": true,
+        "name": "site",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(ems_energy_production_mwh, site)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]},
+        "datasource": {"type": "prometheus", "uid": "${datasource}"},
+        "definition": "label_values(ems_energy_production_mwh, region)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Region",
+        "multi": true,
+        "name": "region",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(ems_energy_production_mwh, region)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]},
+        "datasource": {"type": "prometheus", "uid": "${datasource}"},
+        "definition": "label_values(ems_generation_mw, source)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Energy source",
+        "multi": true,
+        "name": "energy_source",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(ems_generation_mw, source)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {"selected": false, "text": "24h", "value": "24h"},
+        "hide": 0,
+        "includeAll": false,
+        "label": "KPI window",
+        "multi": false,
+        "name": "kpi_window",
+        "options": [
+          {"selected": false, "text": "1h", "value": "1h"},
+          {"selected": false, "text": "6h", "value": "6h"},
+          {"selected": true, "text": "24h", "value": "24h"},
+          {"selected": false, "text": "7d", "value": "7d"},
+          {"selected": false, "text": "30d", "value": "30d"}
+        ],
+        "query": "1h, 6h, 24h, 7d, 30d",
+        "queryValue": "",
+        "refresh": 0,
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {
+    "refresh_intervals": ["30s", "1m", "5m", "15m", "30m", "1h", "3h", "6h", "12h", "1d", "7d"]
+  },
+  "timezone": "browser",
+  "title": "EMS Business Overview",
+  "uid": "ems-business-overview",
+  "version": 1,
+  "weekStart": ""
+}

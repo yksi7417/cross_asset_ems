@@ -1,0 +1,258 @@
+filebeat.autodiscover:
+  enabled: true
+  provider:
+    type: docker
+    hints.enabled: false
+    templates:
+      - condition:
+          contains:
+            docker.container.image: "ems-"
+        config:
+          - type: container
+            paths:
+              - /var/lib/docker/containers/${data.docker.container.id}/*.log
+            stream: stdout
+            json.keys_under_root: true
+            json.add_error_key: true
+            json.overwrite_keys: true
+            json.expand_keys: true
+            json.message_key: message
+            fields:
+              ems.stack.component: "cross-asset-ems"
+              ems.stack.deployment: "docker-compose"
+            fields_under_root: false
+            exclude_lines: ['^DEBUG', '^I']
+            multiline.type: pattern
+            multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
+            multiline.negate: true
+            multiline.match: after
+            processors:
+              - add_docker_metadata:
+                  host: "unix:///var/run/docker.sock"
+                  match_fields: ["container.id", "container.image.name"]
+                  match_source: true
+              - rename:
+                  fields:
+                    - { from: "timestamp", to: "ems.timestamp" }
+                    - { from: "level", to: "ems.level" }
+                    - { from: "service", to: "ems.service" }
+                    - { from: "logger", to: "ems.logger" }
+                    - { from: "message", to: "ems.message" }
+                    - { from: "trace_id", to: "ems.trace_id" }
+                    - { from: "span_id", to: "ems.span_id" }
+                    - { from: "thread", to: "ems.thread" }
+                  ignore_missing: true
+                  fail_on_error: false
+              - copy_fields:
+                  fields:
+                    - { from: "ems.service", to: "service.name" }
+                  fail_on_error: false
+              - drop_fields:
+                  fields: ["host", "agent.ephemeral_id", "agent.id", "ecs.version", "input.type"]
+                  ignore_missing: true
+              - add_fields:
+                  target: "service"
+                  fields:
+                    environment: "production"
+                    framework: "cross-asset-ems"
+                  ignore_missing: true
+      - condition:
+          equals:
+            docker.container.labels.com_ems_component: "log-shipper"
+        config:
+          - type: container
+            paths:
+              - /var/lib/docker/containers/${data.docker.container.id}/*.log
+            stream: stdout
+            json.keys_under_root: true
+            json.add_error_key: true
+            close_timeout: 30s
+            prospector.scanner.fingerprint.enabled: true
+
+filebeat.inputs:
+  - type: log
+    enabled: false
+    paths:
+      - /var/log/ems/*.log
+    json.keys_under_root: true
+    json.add_error_key: true
+    json.expand_keys: true
+    fields:
+      ems.log.source: "file"
+      ems.stack.component: "cross-asset-ems"
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+  - add_kubernetes_metadata:
+      in_cluster: false
+      host: ${NODE_NAME}
+      matchers:
+        - logs_path:
+            logs_path: /var/log/containers/
+  - timestamp:
+      field: ems.timestamp
+      layouts:
+        - '2006-01-02T15:04:05.000Z0700'
+        - '2006-01-02T15:04:05.000Z'
+        - '2006-01-02T15:04:05Z'
+        - '2006-01-02 15:04:05.000'
+      test:
+        - '2024-05-21T12:34:56.789Z'
+      ignore_missing: true
+      ignore_failure: true
+  - drop_fields:
+      fields: ["agent.ephemeral_id", "agent.hostname", "agent.id", "agent.type", "agent.version", "ecs.version", "input.type"]
+      ignore_missing: true
+
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0640
+  interval: 24h
+logging.metrics.enabled: true
+
+setup.template.name: "ems-logs-template"
+setup.template.pattern: "ems-logs-*"
+setup.template.enabled: false
+setup.template.overwrite: false
+setup.ilm.enabled: false
+
+queue.spool:
+  file:
+    path: "/var/lib/filebeat/spool.dat"
+    size: 1Gi
+    page_size: 16Ki
+  write:
+    buffer_size: 1Mi
+    flush.timeout: 1s
+  read:
+    flush.timeout: 0s
+
+output.logstash:
+  hosts: ["logstash-1:5044", "logstash-2:5044", "logstash-3:5044"]
+  loadbalance: true
+  worker: 4
+  bulk_max_size: 4096
+  compression_level: 3
+  pipelining: 2
+  proxy_url: ""
+  proxy_use_local_resolver: false
+  ssl.enabled: true
+  ssl.verification_mode: full
+  ssl.certificate_authorities: ["/etc/filebeat/ca.crt"]
+  ssl.certificate: "/etc/filebeat/filebeat.crt"
+  ssl.key: "/etc/filebeat/filebeat.key"
+  ssl.key_passphrase: "${FILEBEAT_KEY_PASSPHRASE}"
+  ssl.renegotiation: "never"
+  ttl: 30s
+  timeout: 15s
+  max_retries: 5
+  backoff.init: 2s
+  backoff.max: 60s
+  backoff.factor: 2
+
+output.kafka:
+  enabled: false
+  hosts: ["kafka-1:9092", "kafka-2:9092", "kafka-3:9092"]
+  topic: "ems-logs"
+  partition.round_robin:
+    reachable_only: false
+  required_acks: -1
+  compression: snappy
+  max_message_bytes: 1000000
+
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: true
+  reload.period: 30s
+
+monitoring.enabled: true
+monitoring.cluster_uuid: "${MONITORING_CLUSTER_UUID}"
+monitoring.elasticsearch:
+  hosts: ["https://opensearch-monitor:9200"]
+  username: "${MONITORING_USER}"
+  password: "${MONITORING_PASSWORD}"
+  ssl.certificate_authorities: ["/etc/filebeat/ca.crt"]
+  metrics.period: 30s
+  metrics.enabled: true
+  state.period: 30s
+  state.enabled: true
+
+xpack.monitoring.enabled: false
+xpack.ilm.enabled: false
+
+seccomp:
+  default_action: allow
+  syscalls:
+    - action: allow
+      names:
+        - rlimit
+        - prlimit64
+        - capget
+        - capset
+        - chown
+        - chown32
+        - fchown
+        - fchown32
+        - fchownat
+        - getegid
+        - getegid32
+        - geteuid
+        - geteuid32
+        - getgid
+        - getgid32
+        - getgroups
+        - getgroups32
+        - getresgid
+        - getresgid32
+        - getresuid
+        - getresuid32
+        - getuid
+        - getuid32
+        - mlock
+        - mlock2
+        - mlockall
+        - mmap
+        - mmap2
+        - munlock
+        - munlockall
+        - prctl
+        - setgid
+        - setgid32
+        - setgroups
+        - setgroups32
+        - setregid
+        - setregid32
+        - setresgid
+        - setresgid32
+        - setresuid
+        - setresuid32
+        - setuid
+        - setuid32
+
+http.enabled: true
+http.host: unix
+http.port: 5066
+http.unix.socket: /var/run/filebeat/filebeat.sock
+http.unix.mode: "0640"
+
+path.home: /usr/share/filebeat
+path.config: /usr/share/filebeat/config
+path.data: /var/lib/filebeat
+path.logs: /var/log/filebeat
+path.socket: /var/run/filebeat
+
+fields:
+  ems.stack.name: "cross-asset-ems"
+  ems.stack.environment: "production"
+  ems.stack.tier: "core-trading"
+fields_under_root: false
+tags: ["ems", "cross-asset-ems", "production"]
+name: "${HOSTNAME}"
+environment: "production"

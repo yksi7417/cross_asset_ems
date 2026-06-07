@@ -1,0 +1,150 @@
+description: "EMS cross-asset log ingest pipeline - parses, normalizes and enriches JSON structured stdout logs"
+version: 1
+processors:
+  - json:
+      field: "message"
+      target: "ems"
+      add_to_root: true
+      overwrite_underlying_value: false
+  - rename:
+      field: "ems.timestamp"
+      target_field: "@timestamp"
+      ignore_missing: true
+  - date:
+      field: "@timestamp"
+      formats:
+        - "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"
+        - "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+        - "yyyy-MM-dd'T'HH:mm:ssXXX"
+        - "yyyy-MM-dd'T'HH:mm:ssZ"
+        - "yyyy-MM-dd HH:mm:ss.SSS"
+        - "yyyy-MM-dd HH:mm:ss"
+      ignore_failure: true
+  - date:
+      field: "ems.timestamp"
+      formats:
+        - "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"
+        - "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+        - "yyyy-MM-dd'T'HH:mm:ssXXX"
+        - "yyyy-MM-dd'T'HH:mm:ssZ"
+        - "yyyy-MM-dd HH:mm:ss.SSS"
+        - "yyyy-MM-dd HH:mm:ss"
+      target_field: "event.ingested"
+      ignore_failure: true
+  - rename:
+      field: "ems.level"
+      target_field: "log.level"
+      ignore_missing: true
+  - lowercase:
+      field: "log.level"
+      ignore_missing: true
+  - rename:
+      field: "ems.service"
+      target_field: "service.name"
+      ignore_missing: true
+  - lowercase:
+      field: "service.name"
+      ignore_missing: true
+  - rename:
+      field: "ems.logger"
+      target_field: "log.logger"
+      ignore_missing: true
+  - rename:
+      field: "ems.message"
+      target_field: "message"
+      ignore_missing: true
+  - rename:
+      field: "ems.trace_id"
+      target_field: "trace.id"
+      ignore_missing: true
+  - rename:
+      field: "ems.span_id"
+      target_field: "span.id"
+      ignore_missing: true
+  - rename:
+      field: "ems.parent_span_id"
+      target_field: "span.parent_id"
+      ignore_missing: true
+  - set:
+      field: "service.environment"
+      value: "production"
+      override: false
+  - set:
+      field: "service.framework"
+      value: "cross-asset-ems"
+      override: false
+  - set:
+      field: "host.os.family"
+      value: "linux"
+      override: false
+  - set:
+      field: "host.container.runtime"
+      value: "docker"
+      override: false
+  - set:
+      field: "data_stream.namespace"
+      value: "default"
+      override: false
+  - set:
+      field: "data_stream.dataset"
+      value: "ems.application"
+      override: false
+  - set:
+      field: "ecs.version"
+      value: "8.11.0"
+      override: false
+  - geoip:
+      field: "host.ip"
+      target_field: "host.geo"
+      ignore_missing: true
+      first_only: true
+  - user_agent:
+      field: "http.user_agent"
+      target_field: "user_agent"
+      ignore_missing: true
+  - allow:
+      field_names:
+        - "@timestamp"
+        - "event"
+        - "log"
+        - "message"
+        - "service"
+        - "host"
+        - "trace"
+        - "span"
+        - "user_agent"
+        - "data_stream"
+        - "ecs"
+        - "host.geo"
+        - "http"
+        - "ems"
+        - "process"
+        - "url"
+        - "input"
+  - date_index_name:
+      field: "@timestamp"
+      index_name_prefix: "ems-logs-"
+      date_rounds: "d"
+      ignore_failure: true
+  - fail:
+      if: "ctx.log?.level == 'error' && ctx.service?.name == 'ems-router'"
+      message: "ems-router emitted ERROR level log"
+      ignore_failure: true
+on_failure:
+  - set:
+      field: "error.message"
+      value: "{{ _ingest.on_failure_message }}"
+  - set:
+      field: "pipeline"
+      value: "ems-ingest-pipeline"
+  - set:
+      field: "host.os.family"
+      value: "linux"
+  - set:
+      field: "ecs.version"
+      value: "8.11.0"
+  - date_index_name:
+      field: "@timestamp"
+      index_name_prefix: "ems-logs-failed-"
+      date_rounds: "d"
+      ignore_failure: true

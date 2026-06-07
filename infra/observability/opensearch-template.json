@@ -1,0 +1,360 @@
+{
+  "index_patterns": ["ems-logs-*", "ems-alerts-*"],
+  "priority": 500,
+  "version": 1,
+  "_meta": {
+    "description": "Index template for cross-asset-ems (Execution Management System) structured stdout logs",
+    "managed_by": "ems-observability",
+    "schema_version": "1.0.0"
+  },
+  "template": {
+    "settings": {
+      "index.number_of_shards": 3,
+      "index.number_of_replicas": 2,
+      "index.refresh_interval": "5s",
+      "index.search.idle.after": "30s",
+      "index.codec": "best_compression",
+      "index.mapping.total_fields.limit": 5000,
+      "index.mapping.depth.limit": 40,
+      "index.mapping.nested_fields.limit": 50,
+      "index.mapping.nested_objects.limit": 10000,
+      "index.max_docvalue_fields_search": 200,
+      "index.max_script_fields": 32,
+      "index.translog.durability": "async",
+      "index.translog.sync_interval": "5s",
+      "index.store.type": "fs",
+      "index.queries.cache.enabled": true,
+      "index.request.cache.enable": true,
+      "index.lifecycle.name": "ems-logs-policy",
+      "index.lifecycle.rollover_alias": "ems-logs-write",
+      "index.routing.allocation.total_shards_per_node": 2
+    },
+    "mappings": {
+      "dynamic": "true",
+      "dynamic_templates": [
+        {
+          "strings_as_keyword": {
+            "match_mapping_type": "string",
+            "path_match": "labels.*",
+            "mapping": {
+              "type": "keyword",
+              "ignore_above": 1024,
+              "doc_values": true
+            }
+          }
+        },
+        {
+          "message_text": {
+            "match_mapping_type": "string",
+            "path_match": "message",
+            "mapping": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 32766
+                }
+              }
+            }
+          }
+        },
+        {
+          "extras_keyword": {
+            "match_mapping_type": "string",
+            "path_match": "ems.*",
+            "mapping": {
+              "type": "keyword",
+              "ignore_above": 2048
+            }
+          }
+        },
+        {
+          "numeric_double": {
+            "match_mapping_type": "double",
+            "mapping": { "type": "double", "doc_values": true }
+          }
+        },
+        {
+          "numeric_long": {
+            "match_mapping_type": "long",
+            "mapping": { "type": "long", "doc_values": true }
+          }
+        },
+        {
+          "boolean_default": {
+            "match_mapping_type": "boolean",
+            "mapping": { "type": "boolean" }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": {
+          "type": "date",
+          "format": "strict_date_optional_time||epoch_millis||yyyy-MM-dd'T'HH:mm:ss.SSSXXX||yyyy-MM-dd'T'HH:mm:ssXXX"
+        },
+        "event": {
+          "properties": {
+            "ingested": { "type": "date" },
+            "duration": { "type": "long" },
+            "kind": { "type": "keyword" },
+            "category": { "type": "keyword" },
+            "type": { "type": "keyword" },
+            "action": { "type": "keyword" },
+            "outcome": { "type": "keyword" },
+            "created": { "type": "date" },
+            "start": { "type": "date" },
+            "end": { "type": "date" },
+            "dataset": { "type": "keyword" },
+            "module": { "type": "keyword" }
+          }
+        },
+        "log": {
+          "properties": {
+            "level": { "type": "keyword", "ignore_above": 32 },
+            "logger": { "type": "keyword", "ignore_above": 256 },
+            "origin": {
+              "properties": {
+                "file": {
+                  "properties": {
+                    "name": { "type": "keyword" },
+                    "line": { "type": "integer" }
+                  }
+                },
+                "function": { "type": "keyword" }
+              }
+            },
+            "syslog": {
+              "properties": {
+                "facility": {
+                  "properties": { "name": { "type": "keyword" } }
+                },
+                "severity": {
+                  "properties": {
+                    "name": { "type": "keyword" },
+                    "code": { "type": "short" }
+                  }
+                },
+                "priority": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "message": {
+          "type": "text",
+          "fields": {
+            "keyword": { "type": "keyword", "ignore_above": 32766 }
+          }
+        },
+        "service": {
+          "properties": {
+            "name": {
+              "type": "keyword",
+              "ignore_above": 64,
+              "fields": { "text": { "type": "text" } }
+            },
+            "environment": { "type": "keyword", "ignore_above": 64 },
+            "framework": { "type": "keyword", "ignore_above": 128 },
+            "version": { "type": "keyword", "ignore_above": 64 },
+            "node": {
+              "properties": {
+                "name": { "type": "keyword" }
+              }
+            },
+            "state": { "type": "keyword" }
+          }
+        },
+        "host": {
+          "properties": {
+            "name": { "type": "keyword", "ignore_above": 256 },
+            "hostname": { "type": "keyword" },
+            "id": { "type": "keyword" },
+            "ip": { "type": "ip" },
+            "mac": { "type": "keyword" },
+            "type": { "type": "keyword" },
+            "os": {
+              "properties": {
+                "family": { "type": "keyword" },
+                "full": { "type": "keyword" },
+                "kernel": { "type": "keyword" },
+                "name": { "type": "keyword" },
+                "platform": { "type": "keyword" },
+                "version": { "type": "keyword" }
+              }
+            },
+            "container": {
+              "properties": {
+                "id": { "type": "keyword" },
+                "name": { "type": "keyword" },
+                "image": {
+                  "properties": {
+                    "name": { "type": "keyword" },
+                    "tag": { "type": "keyword" }
+                  }
+                },
+                "runtime": { "type": "keyword" }
+              }
+            },
+            "geo": {
+              "properties": {
+                "city_name": { "type": "keyword" },
+                "continent_code": { "type": "keyword" },
+                "country_iso_code": { "type": "keyword" },
+                "country_name": { "type": "keyword" },
+                "location": { "type": "geo_point" },
+                "region_iso_code": { "type": "keyword" },
+                "region_name": { "type": "keyword" }
+              }
+            },
+            "architecture": { "type": "keyword" }
+          }
+        },
+        "process": {
+          "properties": {
+            "pid": { "type": "long" },
+            "name": { "type": "keyword" },
+            "ppid": { "type": "long" },
+            "command_line": { "type": "text" },
+            "executable": { "type": "keyword" },
+            "title": { "type": "keyword" },
+            "thread": {
+              "properties": {
+                "id": { "type": "long" },
+                "name": { "type": "keyword" }
+              }
+            },
+            "args": { "type": "keyword" },
+            "working_directory": { "type": "keyword" }
+          }
+        },
+        "trace": {
+          "properties": {
+            "id": { "type": "keyword", "ignore_above": 64 },
+            "transaction_id": { "type": "keyword" }
+          }
+        },
+        "span": {
+          "properties": {
+            "id": { "type": "keyword", "ignore_above": 32 },
+            "parent_id": { "type": "keyword", "ignore_above": 32 }
+          }
+        },
+        "transaction": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "name": { "type": "keyword" },
+            "type": { "type": "keyword" },
+            "result": { "type": "keyword" }
+          }
+        },
+        "user": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "name": { "type": "keyword" },
+            "email": { "type": "keyword" },
+            "full_name": { "type": "keyword" },
+            "hash": { "type": "keyword" }
+          }
+        },
+        "error": {
+          "properties": {
+            "type": { "type": "keyword" },
+            "message": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 4096 } } },
+            "stack_trace": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 16384 } } },
+            "code": { "type": "keyword" },
+            "id": { "type": "keyword" }
+          }
+        },
+        "labels": {
+          "properties": {
+            "order_id": { "type": "keyword" },
+            "venue": { "type": "keyword" },
+            "symbol": { "type": "keyword" },
+            "asset_class": { "type": "keyword" },
+            "client_id": { "type": "keyword" },
+            "strategy": { "type": "keyword" },
+            "book": { "type": "keyword" },
+            "account": { "type": "keyword" },
+            "side": { "type": "keyword" },
+            "order_type": { "type": "keyword" },
+            "currency": { "type": "keyword" },
+            "exchange": { "type": "keyword" },
+            "session": { "type": "keyword" }
+          }
+        },
+        "data_stream": {
+          "properties": {
+            "type": { "type": "constant_keyword" },
+            "dataset": { "type": "constant_keyword" },
+            "namespace": { "type": "constant_keyword" }
+          }
+        },
+        "ecs": {
+          "properties": {
+            "version": { "type": "keyword" }
+          }
+        },
+        "http": {
+          "properties": {
+            "request": {
+              "properties": {
+                "method": { "type": "keyword" },
+                "referrer": { "type": "keyword" },
+                "bytes": { "type": "long" }
+              }
+            },
+            "response": {
+              "properties": {
+                "status_code": { "type": "short" },
+                "bytes": { "type": "long" }
+              }
+            },
+            "version": { "type": "keyword" }
+          }
+        },
+        "url": {
+          "properties": {
+            "original": { "type": "keyword", "fields": { "text": { "type": "text" } } },
+            "scheme": { "type": "keyword" },
+            "path": { "type": "keyword" },
+            "domain": { "type": "keyword" },
+            "port": { "type": "integer" },
+            "query": { "type": "keyword" }
+          }
+        },
+        "user_agent": {
+          "properties": {
+            "original": { "type": "keyword", "fields": { "text": { "type": "text" } } },
+            "os": {
+              "properties": {
+                "name": { "type": "keyword" },
+                "version": { "type": "keyword" },
+                "full": { "type": "keyword" }
+              }
+            },
+            "name": { "type": "keyword" },
+            "version": { "type": "keyword" },
+            "device": {
+              "properties": {
+                "name": { "type": "keyword" },
+                "type": { "type": "keyword" }
+              }
+            }
+          }
+        },
+        "pipeline": {
+          "type": "keyword"
+        }
+      }
+    },
+    "aliases": {
+      "ems-logs-write": {},
+      "ems-logs-read": {
+        "filter": {
+          "term": { "data_stream.dataset": "ems.application" }
+        }
+      }
+    }
+  },
+  "composed_of": [],
+  "data_stream": {}
+}
