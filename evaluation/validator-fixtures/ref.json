@@ -1,0 +1,164 @@
+{
+  "category": "REF",
+  "category_description": "Reference data reject codes: instrument lookup, calendar, and day-count resolution failures.",
+  "generated_at": "2026-06-07",
+  "schema_version": "1.0",
+  "fixture_count": 6,
+  "fixtures": [
+    {
+      "code": "EMS-REF-1001",
+      "title": "License denied",
+      "severity": "error",
+      "trigger_condition": "An order references a CUSIP identifier, but the submitting firm's license record does not include CUSIP in its licensed_identifier_classes.",
+      "sample_input": {
+        "order_id": "ORD-00123",
+        "identifier_class": "CUSIP",
+        "identifier_value": "037833100",
+        "firm_id": "FIRM-ABC",
+        "firm_licensed_identifiers": ["ISIN", "FIGI"]
+      },
+      "expected_reject": {
+        "code": "EMS-REF-1001",
+        "message": "License denied: FIRM-ABC is not licensed to access CUSIP identifiers.",
+        "category": "REF",
+        "severity": "error"
+      },
+      "remediation": "Contact the licensing admin to add CUSIP to the firm's licensed_identifier_classes, or use a licensed identifier type (ISIN or FIGI).",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-REF-1001'",
+        "response.severity == 'error'",
+        "response.category == 'REF'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-REF-2001",
+      "title": "Unknown FIGI",
+      "severity": "error",
+      "trigger_condition": "An order references a FIGI that is not present in the security master.",
+      "sample_input": {
+        "order_id": "ORD-00124",
+        "figi": "BBG000XXXXX",
+        "symbol": "AAPL",
+        "security_master_lookup": "miss"
+      },
+      "expected_reject": {
+        "code": "EMS-REF-2001",
+        "message": "Unknown FIGI: BBG000XXXXX not found in security master.",
+        "category": "REF",
+        "severity": "error"
+      },
+      "remediation": "Verify symbology onboarding for this instrument; re-fetch the FIGI from the identifier-mapping service before retransmitting.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-REF-2001'",
+        "response.severity == 'error'",
+        "response.category == 'REF'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-REF-2002",
+      "title": "Instrument inactive",
+      "severity": "error",
+      "trigger_condition": "The referenced instrument's lifecycle_status is MATURED rather than ACTIVE.",
+      "sample_input": {
+        "order_id": "ORD-00125",
+        "figi": "BBG000B9XRZ4",
+        "symbol": "EXPIRED-BOND",
+        "lifecycle_status": "MATURED",
+        "maturity_date": "2024-12-31"
+      },
+      "expected_reject": {
+        "code": "EMS-REF-2002",
+        "message": "Instrument BBG000B9XRZ4 is inactive (status: MATURED, matured 2024-12-31). Cannot accept new orders.",
+        "category": "REF",
+        "severity": "error"
+      },
+      "remediation": "Check whether the instrument has been replaced by a successor security (e.g., after maturity or corporate action); update the order to reference the active instrument.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-REF-2002'",
+        "response.severity == 'error'",
+        "response.category == 'REF'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-REF-2003",
+      "title": "Instrument version stale",
+      "severity": "error",
+      "trigger_condition": "The order references instrument version 3, but a stock split corporate action has advanced the master version to 4.",
+      "sample_input": {
+        "order_id": "ORD-00126",
+        "figi": "BBG000B9XRZ4",
+        "instrument_version": 3,
+        "current_version": 4,
+        "corporate_action": "STOCK_SPLIT",
+        "effective_date": "2026-06-01"
+      },
+      "expected_reject": {
+        "code": "EMS-REF-2003",
+        "message": "Instrument BBG000B9XRZ4 version 3 is stale; current version is 4 (STOCK_SPLIT effective 2026-06-01).",
+        "category": "REF",
+        "severity": "error"
+      },
+      "remediation": "Re-fetch the current instrument version from the security master and resubmit the order with the updated version.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-REF-2003'",
+        "response.severity == 'error'",
+        "response.category == 'REF'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-REF-3001",
+      "title": "Calendar not loaded",
+      "severity": "error",
+      "trigger_condition": "A bond order requires the GBP settlement calendar for settlement-date calculation, but the GBP-LONDON calendar is missing from the calendar service.",
+      "sample_input": {
+        "order_id": "ORD-00127",
+        "currency": "GBP",
+        "required_calendar": "GBP-LONDON",
+        "settlement_date": "2026-06-10",
+        "calendar_service_status": "MISSING"
+      },
+      "expected_reject": {
+        "code": "EMS-REF-3001",
+        "message": "Calendar not loaded: GBP-LONDON calendar required for GBP settlement date calculation is missing or stale.",
+        "category": "REF",
+        "severity": "error"
+      },
+      "remediation": "Reload the holiday calendar for GBP-LONDON from the reference data provider; contact the data-platform team if the feed is stale.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-REF-3001'",
+        "response.severity == 'error'",
+        "response.category == 'REF'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-REF-3002",
+      "title": "Day count not recognized",
+      "severity": "error",
+      "trigger_condition": "A bond order specifies day_count_convention='ACT/ACT-ISDA' but this code is not registered in the reference data day-count table.",
+      "sample_input": {
+        "order_id": "ORD-00128",
+        "figi": "BBG000B9XRZ4",
+        "day_count_convention": "ACT/ACT-ISDA",
+        "registered_conventions": ["ACT/365", "ACT/360", "30/360", "ACT/ACT-ICMA"]
+      },
+      "expected_reject": {
+        "code": "EMS-REF-3002",
+        "message": "Day count convention 'ACT/ACT-ISDA' is not recognized. Valid conventions: ACT/365, ACT/360, 30/360, ACT/ACT-ICMA.",
+        "category": "REF",
+        "severity": "error"
+      },
+      "remediation": "Use a recognized day-count convention code from the reference data catalog; contact the data-platform team to register new conventions.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-REF-3002'",
+        "response.severity == 'error'",
+        "response.category == 'REF'",
+        "response.message != null"
+      ]
+    }
+  ]
+}

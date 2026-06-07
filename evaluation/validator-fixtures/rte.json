@@ -1,0 +1,141 @@
+{
+  "category": "RTE",
+  "category_description": "Route reject codes: venue enablement, ClOrdID dedup, quote staleness, and replace throttling.",
+  "generated_at": "2026-06-07",
+  "schema_version": "1.0",
+  "fixture_count": 5,
+  "fixtures": [
+    {
+      "code": "EMS-RTE-1001",
+      "title": "Venue not enabled for instrument",
+      "severity": "error",
+      "trigger_condition": "An order routes an equity to XLON (London Stock Exchange) but the instrument's primary listing is XNYS and XLON is not in the instrument's enabled venues list.",
+      "sample_input": {
+        "route_id": "RTE-00301",
+        "figi": "BBG000B9XRZ4",
+        "symbol": "AAPL",
+        "target_venue": "XLON",
+        "instrument_enabled_venues": ["XNYS", "XNAS", "XCBO"]
+      },
+      "expected_reject": {
+        "code": "EMS-RTE-1001",
+        "message": "Venue XLON is not enabled for instrument BBG000B9XRZ4 (AAPL). Enabled venues: XNYS, XNAS, XCBO.",
+        "category": "RTE",
+        "severity": "error"
+      },
+      "remediation": "Route the order to one of the instrument's enabled venues, or contact the reference data team to onboard XLON for this instrument.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-RTE-1001'",
+        "response.severity == 'error'",
+        "response.category == 'RTE'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-RTE-1002",
+      "title": "Venue not enabled for desk",
+      "severity": "error",
+      "trigger_condition": "The EM-RATES-DESK attempts to route an order to MarketAxess (MAXX) but has no enablement record for that venue.",
+      "sample_input": {
+        "route_id": "RTE-00302",
+        "desk_id": "EM-RATES-DESK",
+        "target_venue": "MAXX",
+        "desk_enabled_venues": ["TRADEWEB", "BLOOMBERG-SEF", "BROKERTEC"]
+      },
+      "expected_reject": {
+        "code": "EMS-RTE-1002",
+        "message": "Venue MAXX is not enabled for desk EM-RATES-DESK. Enabled venues: TRADEWEB, BLOOMBERG-SEF, BROKERTEC.",
+        "category": "RTE",
+        "severity": "error"
+      },
+      "remediation": "Contact the venue-enablement team to onboard EM-RATES-DESK to MarketAxess, or route via an enabled venue.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-RTE-1002'",
+        "response.severity == 'error'",
+        "response.category == 'RTE'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-RTE-2005",
+      "title": "ClOrdID collision",
+      "severity": "error",
+      "trigger_condition": "A NewOrderSingle arrives with ClOrdID='ORD-2026-0601-A' but this exact ClOrdID was already used within the 24-hour dedup window on the same FIX session.",
+      "sample_input": {
+        "msg_type": "D",
+        "cl_ord_id": "ORD-2026-0601-A",
+        "session_id": "FIX-BUY01",
+        "dedup_window_hours": 24,
+        "first_seen_utc": "2026-06-07T09:15:00Z",
+        "duplicate_received_utc": "2026-06-07T14:22:00Z"
+      },
+      "expected_reject": {
+        "code": "EMS-RTE-2005",
+        "message": "ClOrdID 'ORD-2026-0601-A' collision on session FIX-BUY01: first seen at 09:15:00Z (within 24h dedup window).",
+        "category": "RTE",
+        "severity": "error"
+      },
+      "remediation": "Generate a new unique ClOrdID for each order; consider including a timestamp or UUID suffix to avoid collisions.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-RTE-2005'",
+        "response.severity == 'error'",
+        "response.category == 'RTE'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-RTE-3003",
+      "title": "Stale quote",
+      "severity": "warning",
+      "trigger_condition": "An order references QuoteID QT-TW-5511 whose timestamp is 45 seconds old, exceeding the venue's 30-second staleness threshold.",
+      "sample_input": {
+        "msg_type": "D",
+        "cl_ord_id": "CLIENT-303",
+        "quote_id": "QT-TW-5511",
+        "quote_timestamp_utc": "2026-06-07T14:29:00Z",
+        "order_received_utc": "2026-06-07T14:29:45Z",
+        "staleness_threshold_seconds": 30
+      },
+      "expected_reject": {
+        "code": "EMS-RTE-3003",
+        "message": "Quote QT-TW-5511 is stale: 45s old (threshold 30s). Price may have moved; order held pending operator review.",
+        "category": "RTE",
+        "severity": "warning"
+      },
+      "remediation": "Request a refreshed quote from the venue; or configure a shorter quote-validity window on the venue adapter.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-RTE-3003'",
+        "response.severity == 'warning'",
+        "response.category == 'RTE'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-RTE-3008",
+      "title": "Replace throttled",
+      "severity": "warning",
+      "trigger_condition": "The SOR sends a 6th cancel/replace request for route RTE-00400 within 1 second, exceeding the venue's 5-per-second replace cap.",
+      "sample_input": {
+        "route_id": "RTE-00400",
+        "venue": "XNAS",
+        "replace_count_last_1s": 6,
+        "venue_replace_cap_per_second": 5,
+        "throttle_window_start_utc": "2026-06-07T14:30:01.000Z",
+        "throttled_msg_utc": "2026-06-07T14:30:01.850Z"
+      },
+      "expected_reject": {
+        "code": "EMS-RTE-3008",
+        "message": "Replace throttled on route RTE-00400 (XNAS): 6 replaces in 1s exceeds cap of 5/s. Message queued.",
+        "category": "RTE",
+        "severity": "warning"
+      },
+      "remediation": "Reduce the frequency of cancel/replace messages; implement client-side rate limiting or use the SOR's built-in replace consolidation.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-RTE-3008'",
+        "response.severity == 'warning'",
+        "response.category == 'RTE'",
+        "response.message != null"
+      ]
+    }
+  ]
+}

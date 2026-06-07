@@ -1,0 +1,230 @@
+{
+  "category": "ORD",
+  "category_description": "Order reject codes: field presence, quantity, price, state-machine, and amend/replace lifecycle violations.",
+  "generated_at": "2026-06-07",
+  "schema_version": "1.0",
+  "fixture_count": 8,
+  "fixtures": [
+    {
+      "code": "EMS-ORD-1001",
+      "title": "Required field missing",
+      "severity": "error",
+      "trigger_condition": "A NewOrderSingle (35=D) arrives without the Side (54) field populated.",
+      "sample_input": {
+        "msg_type": "D",
+        "cl_ord_id": "CLIENT-001",
+        "symbol": "AAPL",
+        "order_qty": 1000,
+        "ord_type": "2",
+        "side": null
+      },
+      "expected_reject": {
+        "code": "EMS-ORD-1001",
+        "message": "Required field missing: Side (54) is absent on NewOrderSingle CLIENT-001.",
+        "category": "ORD",
+        "severity": "error"
+      },
+      "remediation": "Populate all required FIX fields (Side, OrderQty, Symbol, OrdType) before retransmitting the order.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-ORD-1001'",
+        "response.severity == 'error'",
+        "response.category == 'ORD'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-ORD-1014",
+      "title": "Missing limit price",
+      "severity": "error",
+      "trigger_condition": "A NewOrderSingle arrives with OrdType=2 (Limit) but the Price (44) field is absent.",
+      "sample_input": {
+        "msg_type": "D",
+        "cl_ord_id": "CLIENT-002",
+        "symbol": "MSFT",
+        "order_qty": 500,
+        "ord_type": "2",
+        "side": "1",
+        "price": null
+      },
+      "expected_reject": {
+        "code": "EMS-ORD-1014",
+        "message": "OrdType=Limit requires Price (44); field is absent on order CLIENT-002.",
+        "category": "ORD",
+        "severity": "error"
+      },
+      "remediation": "Set the Price (44) field on the limit order, or change OrdType to Market (1) if a limit price is not intended.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-ORD-1014'",
+        "response.severity == 'error'",
+        "response.category == 'ORD'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-ORD-2001",
+      "title": "Quantity zero or negative",
+      "severity": "error",
+      "trigger_condition": "A NewOrderSingle arrives with OrderQty set to 0.",
+      "sample_input": {
+        "msg_type": "D",
+        "cl_ord_id": "CLIENT-003",
+        "symbol": "GOOG",
+        "order_qty": 0,
+        "ord_type": "1",
+        "side": "1"
+      },
+      "expected_reject": {
+        "code": "EMS-ORD-2001",
+        "message": "OrderQty must be > 0; received 0 on order CLIENT-003.",
+        "category": "ORD",
+        "severity": "error"
+      },
+      "remediation": "Set OrderQty to a positive integer representing the number of shares or contract units.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-ORD-2001'",
+        "response.severity == 'error'",
+        "response.category == 'ORD'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-ORD-2003",
+      "title": "Quantity exceeds max",
+      "severity": "error",
+      "trigger_condition": "An order with OrderQty=2,000,000 shares of AAPL exceeds the desk's notional cap of $50M (at $175/share, 285,714 shares max).",
+      "sample_input": {
+        "msg_type": "D",
+        "cl_ord_id": "CLIENT-004",
+        "symbol": "AAPL",
+        "order_qty": 2000000,
+        "price": 175.00,
+        "side": "1",
+        "desk_notional_cap_usd": 50000000,
+        "order_notional_usd": 350000000
+      },
+      "expected_reject": {
+        "code": "EMS-ORD-2003",
+        "message": "OrderQty 2,000,000 (notional $350,000,000) exceeds desk notional cap $50,000,000 on order CLIENT-004.",
+        "category": "ORD",
+        "severity": "error"
+      },
+      "remediation": "Split the order into smaller child orders within the desk's notional cap, or request a cap increase via the permissions admin.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-ORD-2003'",
+        "response.severity == 'error'",
+        "response.category == 'ORD'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-ORD-2501",
+      "title": "Amend not allowed",
+      "severity": "error",
+      "trigger_condition": "A trader attempts to amend the quantity on an FX order that has already received a venue quote, locking the quantity for the two-step approval flow.",
+      "sample_input": {
+        "msg_type": "G",
+        "cl_ord_id": "CLIENT-005-RPL",
+        "orig_cl_ord_id": "CLIENT-005",
+        "order_qty": 5000000,
+        "quote_id": "QT-FX-9921",
+        "order_state": "QUOTED",
+        "amendment_type": "qty"
+      },
+      "expected_reject": {
+        "code": "EMS-ORD-2501",
+        "message": "Cannot amend qty on order CLIENT-005: a venue quote (QT-FX-9921) is active; qty is locked pending two-step approval.",
+        "category": "ORD",
+        "severity": "error"
+      },
+      "remediation": "Cancel the outstanding quote first, then resubmit the amendment, or complete the two-step approval on the existing quote.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-ORD-2501'",
+        "response.severity == 'error'",
+        "response.category == 'ORD'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-ORD-2502",
+      "title": "Quote expired",
+      "severity": "error",
+      "trigger_condition": "A trader submits an order referencing QuoteID QT-FX-9922 which expired 3 seconds ago.",
+      "sample_input": {
+        "msg_type": "D",
+        "cl_ord_id": "CLIENT-006",
+        "symbol": "EUR/USD",
+        "quote_id": "QT-FX-9922",
+        "quote_expiry_utc": "2026-06-07T14:30:00Z",
+        "order_received_utc": "2026-06-07T14:30:03Z"
+      },
+      "expected_reject": {
+        "code": "EMS-ORD-2502",
+        "message": "QuoteID QT-FX-9922 expired at 14:30:00Z; order received at 14:30:03Z (3s late). Restage required.",
+        "category": "ORD",
+        "severity": "error"
+      },
+      "remediation": "Request a new quote from the venue and resubmit the order within the quote's validity window.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-ORD-2502'",
+        "response.severity == 'error'",
+        "response.category == 'ORD'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-ORD-3001",
+      "title": "Order in terminal state",
+      "severity": "error",
+      "trigger_condition": "A cancel request arrives for order ORD-00789 which is already in the Filled terminal state.",
+      "sample_input": {
+        "msg_type": "F",
+        "cl_ord_id": "CANCEL-789",
+        "orig_cl_ord_id": "CLIENT-789",
+        "order_id": "ORD-00789",
+        "current_order_state": "FILLED",
+        "cum_qty": 10000,
+        "leaves_qty": 0
+      },
+      "expected_reject": {
+        "code": "EMS-ORD-3001",
+        "message": "Cannot cancel order ORD-00789: already in terminal state FILLED (cum_qty=10000, leaves_qty=0).",
+        "category": "ORD",
+        "severity": "error"
+      },
+      "remediation": "No action required — the order has been fully filled. Reconcile the fills against the OMS blotter.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-ORD-3001'",
+        "response.severity == 'error'",
+        "response.category == 'ORD'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-ORD-3002",
+      "title": "Pending-amend in flight",
+      "severity": "error",
+      "trigger_condition": "A second OrderCancelReplaceRequest arrives for order ORD-00790 while the first replace is already in PendingReplace state at the venue.",
+      "sample_input": {
+        "msg_type": "G",
+        "cl_ord_id": "CLIENT-790-RPL2",
+        "orig_cl_ord_id": "CLIENT-790",
+        "order_id": "ORD-00790",
+        "current_order_state": "PENDING_REPLACE",
+        "pending_replace_cl_ord_id": "CLIENT-790-RPL1"
+      },
+      "expected_reject": {
+        "code": "EMS-ORD-3002",
+        "message": "Cannot accept second amend on ORD-00790: first amend (CLIENT-790-RPL1) is still in PendingReplace.",
+        "category": "ORD",
+        "severity": "error"
+      },
+      "remediation": "Wait for the first amend to be acknowledged or rejected by the venue before sending a second replace request.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-ORD-3002'",
+        "response.severity == 'error'",
+        "response.category == 'ORD'",
+        "response.message != null"
+      ]
+    }
+  ]
+}

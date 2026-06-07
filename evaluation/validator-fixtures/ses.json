@@ -1,0 +1,140 @@
+{
+  "category": "SES",
+  "category_description": "Session-layer protocol reject codes covering FIX session establishment, sequencing, and lifecycle events.",
+  "generated_at": "2026-06-07",
+  "schema_version": "1.0",
+  "fixture_count": 5,
+  "fixtures": [
+    {
+      "code": "EMS-SES-1001",
+      "title": "Invalid credentials",
+      "severity": "error",
+      "trigger_condition": "Logon message (35=A) arrives with a password that does not match the stored credential for the SenderCompID.",
+      "sample_input": {
+        "msg_type": "A",
+        "sender_comp_id": "FIX-BUY01",
+        "target_comp_id": "EMS",
+        "msg_seq_num": 1,
+        "heart_bt_int": 30,
+        "password": "wrong_password"
+      },
+      "expected_reject": {
+        "code": "EMS-SES-1001",
+        "message": "Logon rejected: invalid credentials for SenderCompID FIX-BUY01.",
+        "category": "SES",
+        "severity": "error"
+      },
+      "remediation": "Verify the session password with the session admin and resubmit the Logon.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-SES-1001'",
+        "response.severity == 'error'",
+        "response.category == 'SES'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-SES-2001",
+      "title": "Sequence gap detected",
+      "severity": "error",
+      "trigger_condition": "An inbound message arrives with MsgSeqNum (34) greater than the expected next sequence number and PossDupFlag is not set.",
+      "sample_input": {
+        "msg_type": "D",
+        "sender_comp_id": "FIX-BUY01",
+        "msg_seq_num": 45,
+        "expected_next_seq": 42,
+        "poss_dup_flag": "N"
+      },
+      "expected_reject": {
+        "code": "EMS-SES-2001",
+        "message": "Sequence gap: MsgSeqNum 45 received, expected 42. Cannot reconcile without ResendRequest.",
+        "category": "SES",
+        "severity": "error"
+      },
+      "remediation": "Issue ResendRequest (35=2) for the missing range, or perform a sequence reset via SequenceReset (35=4).",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-SES-2001'",
+        "response.severity == 'error'",
+        "response.category == 'SES'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-SES-2002",
+      "title": "Sequence duplicate",
+      "severity": "error",
+      "trigger_condition": "An inbound message arrives with a MsgSeqNum that matches a previously received sequence number and PossDupFlag (43) is not set to Y.",
+      "sample_input": {
+        "msg_type": "D",
+        "sender_comp_id": "FIX-BUY01",
+        "msg_seq_num": 17,
+        "previously_received_seq": 17,
+        "poss_dup_flag": "N"
+      },
+      "expected_reject": {
+        "code": "EMS-SES-2002",
+        "message": "Sequence duplicate: MsgSeqNum 17 already received and PossDupFlag is not set.",
+        "category": "SES",
+        "severity": "error"
+      },
+      "remediation": "Set PossDupFlag=Y (43=Y) on retransmitted messages, or investigate the sender for sequence counter corruption.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-SES-2002'",
+        "response.severity == 'error'",
+        "response.category == 'SES'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-SES-3001",
+      "title": "CompID mismatch",
+      "severity": "error",
+      "trigger_condition": "A message arrives where SenderCompID or TargetCompID does not match the values registered for the established session.",
+      "sample_input": {
+        "msg_type": "D",
+        "sender_comp_id": "UNKNOWN-FIRM",
+        "target_comp_id": "EMS",
+        "msg_seq_num": 5,
+        "configured_sender_comp_id": "FIX-BUY01"
+      },
+      "expected_reject": {
+        "code": "EMS-SES-3001",
+        "message": "CompID mismatch: SenderCompID 'UNKNOWN-FIRM' does not match configured value 'FIX-BUY01'.",
+        "category": "SES",
+        "severity": "error"
+      },
+      "remediation": "Ensure SenderCompID and TargetCompID exactly match the values in the session configuration.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-SES-3001'",
+        "response.severity == 'error'",
+        "response.category == 'SES'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-SES-4001",
+      "title": "Heartbeat interval out of range",
+      "severity": "error",
+      "trigger_condition": "Logon message (35=A) specifies HeartBtInt (108) with a value outside the allowed 1-300 second range.",
+      "sample_input": {
+        "msg_type": "A",
+        "sender_comp_id": "FIX-BUY01",
+        "target_comp_id": "EMS",
+        "msg_seq_num": 1,
+        "heart_bt_int": 600
+      },
+      "expected_reject": {
+        "code": "EMS-SES-4001",
+        "message": "Heartbeat interval 600s is outside the allowed range [1, 300].",
+        "category": "SES",
+        "severity": "error"
+      },
+      "remediation": "Set HeartBtInt (108) to a value between 1 and 300 seconds in the Logon message.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-SES-4001'",
+        "response.severity == 'error'",
+        "response.category == 'SES'",
+        "response.message != null"
+      ]
+    }
+  ]
+}

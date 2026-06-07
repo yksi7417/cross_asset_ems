@@ -165,7 +165,7 @@ Hard-reject path. ~1-2 weeks.
 - [ ] **6.2** Layered evaluation pipeline (session → identity → ref → perm → ...) (sonnet)
 - [ ] **6.3** Permission denial messages with admin-hint pointers (sonnet) ← blocks: 6.1, 5.3
 - [~] **6.4** Per-asset-class validation rules (gemma first drafts, sonnet review)
-- [~] **6.5** Validator golden tests (one per code, full coverage) (gemma) ← blocks: 6.1
+- [x] **6.5** Validator golden tests (one per code, full coverage) (gemma) ← blocks: 6.1
 
 ## Phase 7 — OMS Core
 

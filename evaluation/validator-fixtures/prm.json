@@ -1,0 +1,138 @@
+{
+  "category": "PRM",
+  "category_description": "Permission reject codes: user tag, desk, firm, counterparty enablement, and override requirements.",
+  "generated_at": "2026-06-07",
+  "schema_version": "1.0",
+  "fixture_count": 5,
+  "fixtures": [
+    {
+      "code": "EMS-PRM-1001",
+      "title": "User missing tag",
+      "severity": "error",
+      "trigger_condition": "User TRADER-42 submits an FX order but does not hold the #fx-trader permission tag required for FX trading.",
+      "sample_input": {
+        "order_id": "ORD-00201",
+        "user_id": "TRADER-42",
+        "asset_class": "FX",
+        "required_tag": "#fx-trader",
+        "user_tags": ["#equity-trader", "#bond-viewer"]
+      },
+      "expected_reject": {
+        "code": "EMS-PRM-1001",
+        "message": "User TRADER-42 is missing required permission tag #fx-trader.",
+        "category": "PRM",
+        "severity": "error"
+      },
+      "remediation": "Contact the tag admin to grant #fx-trader to TRADER-42, or reassign the order to a user who holds the required tag.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-PRM-1001'",
+        "response.severity == 'error'",
+        "response.category == 'PRM'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-PRM-1002",
+      "title": "Desk not enabled",
+      "severity": "error",
+      "trigger_condition": "User TRADER-42 has the #fx-trader tag, but the EM-FX-DESK desk is not in the list of granted desks for that tag.",
+      "sample_input": {
+        "order_id": "ORD-00202",
+        "user_id": "TRADER-42",
+        "desk_id": "EM-FX-DESK",
+        "tag": "#fx-trader",
+        "user_granted_desks": ["G10-FX-DESK", "LATAM-FX-DESK"]
+      },
+      "expected_reject": {
+        "code": "EMS-PRM-1002",
+        "message": "Desk EM-FX-DESK is not granted for user TRADER-42 under tag #fx-trader.",
+        "category": "PRM",
+        "severity": "error"
+      },
+      "remediation": "Contact the desk admin to add EM-FX-DESK to the granted desks for #fx-trader, or route the order via a permitted desk.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-PRM-1002'",
+        "response.severity == 'error'",
+        "response.category == 'PRM'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-PRM-1003",
+      "title": "Firm not enabled",
+      "severity": "error",
+      "trigger_condition": "FIRM-XYZ submits an order requiring the #cross-border-equity tag, but that tag has not been granted to FIRM-XYZ at the firm level.",
+      "sample_input": {
+        "order_id": "ORD-00203",
+        "firm_id": "FIRM-XYZ",
+        "required_tag": "#cross-border-equity",
+        "firm_granted_tags": ["#domestic-equity", "#fx-trader"]
+      },
+      "expected_reject": {
+        "code": "EMS-PRM-1003",
+        "message": "Firm FIRM-XYZ is not granted tag #cross-border-equity.",
+        "category": "PRM",
+        "severity": "error"
+      },
+      "remediation": "Contact the firm admin to grant #cross-border-equity to FIRM-XYZ, subject to onboarding and regulatory requirements.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-PRM-1003'",
+        "response.severity == 'error'",
+        "response.category == 'PRM'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-PRM-2001",
+      "title": "Counterparty not enabled",
+      "severity": "error",
+      "trigger_condition": "The EM-RATES-DESK submits an order to trade with counterparty CPTY-OFFSHORE, which is not on the desk's enabled counterparty list.",
+      "sample_input": {
+        "order_id": "ORD-00204",
+        "desk_id": "EM-RATES-DESK",
+        "counterparty_id": "CPTY-OFFSHORE",
+        "desk_enabled_counterparties": ["CPTY-DOMESTIC-A", "CPTY-DOMESTIC-B", "CPTY-EU-PRIME"]
+      },
+      "expected_reject": {
+        "code": "EMS-PRM-2001",
+        "message": "Counterparty CPTY-OFFSHORE is not on the enabled list for desk EM-RATES-DESK.",
+        "category": "PRM",
+        "severity": "error"
+      },
+      "remediation": "Have the compliance team onboard CPTY-OFFSHORE to the desk's enabled counterparty list before routing orders to them.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-PRM-2001'",
+        "response.severity == 'error'",
+        "response.category == 'PRM'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-PRM-3001",
+      "title": "Override required",
+      "severity": "error",
+      "trigger_condition": "An order's notional value of $52M exceeds the desk's $50M fat-finger cap, but no #fat-finger-override tag is present on the submitting user.",
+      "sample_input": {
+        "order_id": "ORD-00205",
+        "user_id": "TRADER-42",
+        "notional_usd": 52000000,
+        "desk_fat_finger_cap_usd": 50000000,
+        "required_override_tag": "#fat-finger-override",
+        "user_tags": ["#equity-trader", "#fx-trader"]
+      },
+      "expected_reject": {
+        "code": "EMS-PRM-3001",
+        "message": "Order notional $52,000,000 exceeds desk cap $50,000,000. Tag #fat-finger-override required to proceed.",
+        "category": "PRM",
+        "severity": "error"
+      },
+      "remediation": "Obtain override authorization from a supervisor holding #fat-finger-override, or reduce the order notional below the desk cap.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-PRM-3001'",
+        "response.severity == 'error'",
+        "response.category == 'PRM'",
+        "response.message != null"
+      ]
+    }
+  ]
+}

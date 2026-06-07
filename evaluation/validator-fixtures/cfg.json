@@ -1,0 +1,238 @@
+{
+  "category": "CFG",
+  "category_description": "Configuration service reject codes: unknown keys, type/range violations, authorization, approval governance, and schema lifecycle rules.",
+  "generated_at": "2026-06-07",
+  "schema_version": "1.0",
+  "fixture_count": 9,
+  "fixtures": [
+    {
+      "code": "EMS-CFG-1001",
+      "title": "Unknown config key",
+      "severity": "error",
+      "trigger_condition": "An operator submits a configuration change for key 'oms.order.max_legs' which is not registered in the configuration schema.",
+      "sample_input": {
+        "key": "oms.order.max_legs",
+        "proposed_value": 8,
+        "schema_registered_keys": ["oms.order.max_qty", "oms.order.timeout_ms", "oms.route.max_retries"]
+      },
+      "expected_reject": {
+        "code": "EMS-CFG-1001",
+        "message": "Unknown config key 'oms.order.max_legs': not registered in configuration schema.",
+        "category": "CFG",
+        "severity": "error"
+      },
+      "remediation": "Register the key in the configuration schema via a schema-update PR before setting its value; do not create ad-hoc keys.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-CFG-1001'",
+        "response.severity == 'error'",
+        "response.category == 'CFG'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-CFG-1002",
+      "title": "Type mismatch",
+      "severity": "error",
+      "trigger_condition": "An operator sets 'oms.order.timeout_ms' to the string value '5000ms' but the schema declares the type as integer.",
+      "sample_input": {
+        "key": "oms.order.timeout_ms",
+        "proposed_value": "5000ms",
+        "schema_type": "integer",
+        "actual_type": "string"
+      },
+      "expected_reject": {
+        "code": "EMS-CFG-1002",
+        "message": "Type mismatch for 'oms.order.timeout_ms': expected integer, got string '5000ms'.",
+        "category": "CFG",
+        "severity": "error"
+      },
+      "remediation": "Provide the value as a bare integer (e.g., 5000) matching the schema-declared type.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-CFG-1002'",
+        "response.severity == 'error'",
+        "response.category == 'CFG'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-CFG-1003",
+      "title": "Out-of-band value",
+      "severity": "error",
+      "trigger_condition": "An operator sets 'oms.route.max_retries' to 100, but the schema declares the valid range as [1, 10].",
+      "sample_input": {
+        "key": "oms.route.max_retries",
+        "proposed_value": 100,
+        "schema_range_min": 1,
+        "schema_range_max": 10
+      },
+      "expected_reject": {
+        "code": "EMS-CFG-1003",
+        "message": "Value 100 for 'oms.route.max_retries' is outside declared range [1, 10].",
+        "category": "CFG",
+        "severity": "error"
+      },
+      "remediation": "Choose a value within the schema-declared range [1, 10]; request a schema range update via the config-author workflow if the range is too restrictive.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-CFG-1003'",
+        "response.severity == 'error'",
+        "response.category == 'CFG'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-CFG-1101",
+      "title": "Author lacks scope tag",
+      "severity": "error",
+      "trigger_condition": "OPERATOR-12 submits a change to the 'oms' scope but holds only #config-author-risk, not #config-author-oms.",
+      "sample_input": {
+        "key": "oms.order.timeout_ms",
+        "proposed_value": 3000,
+        "author_user": "OPERATOR-12",
+        "required_tag": "#config-author-oms",
+        "author_tags": ["#config-author-risk", "#config-viewer-oms"]
+      },
+      "expected_reject": {
+        "code": "EMS-CFG-1101",
+        "message": "Author OPERATOR-12 lacks #config-author-oms required to propose changes in the 'oms' scope.",
+        "category": "CFG",
+        "severity": "error"
+      },
+      "remediation": "Have OPERATOR-12 granted #config-author-oms by the config admin, or reassign the change to an authorized author.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-CFG-1101'",
+        "response.severity == 'error'",
+        "response.category == 'CFG'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-CFG-1102",
+      "title": "Approver lacks scope tag",
+      "severity": "error",
+      "trigger_condition": "APPROVER-07 attempts to approve a change in the 'oms' scope but holds only #config-approver-risk.",
+      "sample_input": {
+        "change_id": "CFG-CHG-0088",
+        "key": "oms.order.timeout_ms",
+        "approver_user": "APPROVER-07",
+        "required_tag": "#config-approver-oms",
+        "approver_tags": ["#config-approver-risk", "#config-viewer-oms"]
+      },
+      "expected_reject": {
+        "code": "EMS-CFG-1102",
+        "message": "Approver APPROVER-07 lacks #config-approver-oms required to approve changes in the 'oms' scope.",
+        "category": "CFG",
+        "severity": "error"
+      },
+      "remediation": "Assign an approver who holds #config-approver-oms to review this change.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-CFG-1102'",
+        "response.severity == 'error'",
+        "response.category == 'CFG'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-CFG-1201",
+      "title": "Self-approval not allowed",
+      "severity": "error",
+      "trigger_condition": "OPERATOR-12 proposes a change and then also attempts to approve the same change as the sole approver.",
+      "sample_input": {
+        "change_id": "CFG-CHG-0089",
+        "key": "oms.order.timeout_ms",
+        "proposed_by": "OPERATOR-12",
+        "approved_by": "OPERATOR-12",
+        "require_distinct_identities": true
+      },
+      "expected_reject": {
+        "code": "EMS-CFG-1201",
+        "message": "Self-approval not allowed on CFG-CHG-0089: proposer and approver are both OPERATOR-12.",
+        "category": "CFG",
+        "severity": "error"
+      },
+      "remediation": "Have a different qualified approver (holding #config-approver-oms) review and approve the change.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-CFG-1201'",
+        "response.severity == 'error'",
+        "response.category == 'CFG'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-CFG-1301",
+      "title": "Outside maintenance window",
+      "severity": "error",
+      "trigger_condition": "A change to 'oms.order.timeout_ms' is submitted at 14:30 UTC but the maintenance window for the OMS scope is 02:00-04:00 UTC Saturday, and no emergency override tag is present.",
+      "sample_input": {
+        "change_id": "CFG-CHG-0090",
+        "key": "oms.order.timeout_ms",
+        "submitted_utc": "2026-06-07T14:30:00Z",
+        "maintenance_window": "Saturday 02:00-04:00 UTC",
+        "emergency_override_tag": "#config-approver-window-emergency",
+        "approver_tags": ["#config-approver-oms"]
+      },
+      "expected_reject": {
+        "code": "EMS-CFG-1301",
+        "message": "CFG-CHG-0090 rejected: outside maintenance window (Saturday 02:00-04:00 UTC). Apply #config-approver-window-emergency to bypass.",
+        "category": "CFG",
+        "severity": "error"
+      },
+      "remediation": "Schedule the change within the maintenance window, or have an emergency-authorized approver grant #config-approver-window-emergency for urgent changes.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-CFG-1301'",
+        "response.severity == 'error'",
+        "response.category == 'CFG'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-CFG-1401",
+      "title": "Delete forbidden",
+      "severity": "error",
+      "trigger_condition": "An operator submits a DELETE operation for the registered config key 'oms.order.timeout_ms', which is not allowed — keys must be archived, not deleted.",
+      "sample_input": {
+        "operation": "DELETE",
+        "key": "oms.order.timeout_ms",
+        "key_status": "ACTIVE",
+        "policy": "append-only: keys must be archived with default_value, not deleted"
+      },
+      "expected_reject": {
+        "code": "EMS-CFG-1401",
+        "message": "DELETE not permitted for 'oms.order.timeout_ms': schema is append-only. Archive the key with a default_value instead.",
+        "category": "CFG",
+        "severity": "error"
+      },
+      "remediation": "Set the key status to ARCHIVED and provide a default_value for replay determinism; deletion is permanently forbidden.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-CFG-1401'",
+        "response.severity == 'error'",
+        "response.category == 'CFG'",
+        "response.message != null"
+      ]
+    },
+    {
+      "code": "EMS-CFG-1402",
+      "title": "Archive without default",
+      "severity": "error",
+      "trigger_condition": "An operator archives config key 'oms.order.timeout_ms' without providing a default_value, which is required for event-log replay determinism.",
+      "sample_input": {
+        "operation": "ARCHIVE",
+        "key": "oms.order.timeout_ms",
+        "default_value": null,
+        "requires_default_for_replay": true
+      },
+      "expected_reject": {
+        "code": "EMS-CFG-1402",
+        "message": "Cannot archive 'oms.order.timeout_ms' without a default_value: value is required for event-log replay determinism.",
+        "category": "CFG",
+        "severity": "error"
+      },
+      "remediation": "Provide a default_value (e.g., the current production value) when archiving; this value will be used during historical replay after the key is removed.",
+      "test_assertions": [
+        "response.rejectCode == 'EMS-CFG-1402'",
+        "response.severity == 'error'",
+        "response.category == 'CFG'",
+        "response.message != null"
+      ]
+    }
+  ]
+}
