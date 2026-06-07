@@ -5,10 +5,12 @@
 package io.crossasset.ems.observability;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.propagation.ContextPropagators;
+import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
 import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
@@ -17,8 +19,6 @@ import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
-import io.opentelemetry.semconv.ResourceAttributes;
-import io.opentelemetry.context.propagation.TextMapPropagator;
 import java.time.Duration;
 
 /**
@@ -30,8 +30,8 @@ import java.time.Duration;
  *   <li>W3C trace context propagation (always enabled, never overridden)
  *   <li>OTLP gRPC exporter for both traces and metrics
  *   <li>Batch span processor with sensible defaults
- *   <li>Resource attributes matching {@link ResourceAttributes} semantic
- *       conventions + the {@code ems.audit.required} and {@code ems.pod}
+ *   <li>Resource attributes matching OTel semantic conventions (service.name, service.version,
+ *       deployment.environment, host.name) + the {@code ems.audit.required} and {@code ems.pod}
  *       custom attributes
  *   <li>Periodic metric reader at 10s
  * </ul>
@@ -198,12 +198,12 @@ public final class EmsOpenTelemetry {
 
         private Resource buildResource() {
             final var builder = Resource.getDefault().toBuilder()
-                    .put(ResourceAttributes.SERVICE_NAME, serviceName)
-                    .put(ResourceAttributes.SERVICE_VERSION, serviceVersion)
-                    .put(ResourceAttributes.DEPLOYMENT_ENVIRONMENT, deploymentEnv)
+                    .put(AttributeKey.stringKey("service.name"), serviceName)
+                    .put(AttributeKey.stringKey("service.version"), serviceVersion)
+                    .put(AttributeKey.stringKey("deployment.environment"), deploymentEnv)
                     .put("ems.pod", podName);
             if (hostName != null) {
-                builder.put(ResourceAttributes.HOST_NAME, hostName);
+                builder.put(AttributeKey.stringKey("host.name"), hostName);
             }
             return builder.build();
         }
