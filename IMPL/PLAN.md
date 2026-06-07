@@ -84,10 +84,10 @@ The "what" layer. ~3-4 weeks.
 - [ ] **4.10** `FxOptionInstrument` template (claude — exotic discriminator)
 - [ ] **4.11** `ListedOptionInstrument` / `ListedFutureInstrument` (local drafts, claude review)
 - [ ] **4.12** `TbaMbsInstrument` / `SpecifiedPoolInstrument` (claude — fungibility handling)
-- [ ] **4.13** `AbsInstrument` / `ConvertibleBondInstrument` / `LoanInstrument` (local drafts, claude review)
+- [x] **4.13** `AbsInstrument` / `ConvertibleBondInstrument` / `LoanInstrument` (local drafts, claude review) `(49ceffd)`
 - [ ] **4.14** `StructuredProductInstrument` (claude — flexibility for bespoke)
-- [ ] **4.15** `CommodityFutureInstrument` / `CommodityPhysicalInstrument` (local drafts, claude review)
-- [ ] **4.16** `CryptoFungibleInstrument` / `NftInstrument` (local drafts, claude review)
+- [x] **4.15** `CommodityFutureInstrument` / `CommodityPhysicalInstrument` (local drafts, claude review) `(49ceffd)`
+- [x] **4.16** `CryptoFungibleInstrument` / `NftInstrument` (local drafts, claude review) `(49ceffd)`
 - [ ] **4.17** `EventContractInstrument` template (prediction markets) (claude)
 - [ ] **4.18** Package entity + Leg group schema (claude) ← blocks: 4.4
 - [ ] **4.19** Security master CRUD + supersession events per [[arch-security-master]] (claude) ← blocks: 4.4, 3.1
