@@ -248,12 +248,42 @@ After writing:
 2. Use the format `- [ ] **<phase>.<n>** Description (delegation-tier) ← blocks: <prereq-ids>`.
 3. If the new task changes phase boundary semantics, also update `IMPL/HERMES.md` (notification template) and `IMPL/CHECKPOINT.md` (phase table).
 
-## CI overview
+## CI overview — fast lane vs. full gate
 
-GitHub Actions workflows under `.github/workflows/`:
+CI is split for fast inner-loop feedback without losing the pre-merge quality bar:
+
+| Trigger | What runs | Purpose |
+|---|---|---|
+| **Push to a feature branch** | Java compile + unit tests, C++ compile + ctest | **Fast lane** — rapid feedback while iterating |
+| **Pull request → `main`** | the above **+** Spotless, shell/markdown lint, schema lint, SBOM + dependency review, CodeQL | **Full gate** — must pass before merge |
+| **Push to `main`** | full gate | post-merge safety net |
+
+The fast lane is a strict subset of the full gate, so nothing skips the pre-merge
+check — it's only deferred. Full-gate jobs/steps are guarded in `ci.yml` by
+`github.event_name != 'push' || github.ref == 'refs/heads/main'`. The
+`concurrency` block cancels superseded in-progress runs on feature branches, so
+rapid pushes don't queue.
+
+**Local mirror of the fast lane:**
+
+```bash
+./scripts/dev/fast-check.sh          # Java compile + unit tests (no linters)
+./scripts/dev/fast-check.sh --cpp    # also build + ctest the C++ tree
+# Before opening a PR, run the linters the full gate will run:
+./gradlew --no-daemon spotlessApply spotlessCheck
+```
+
+**Enforcing the gate (one-time, GitHub UI):** Settings → Branches → add a
+protection rule for `main` → *Require status checks to pass before merging*, and
+select the full-gate checks (`Java build + unit tests`, `C++ build + unit tests`,
+`Spotless`/`Schema lint`/`Lint (shell, markdown)`, `SBOM + dep review`, and
+`Analyze (java-kotlin)` from CodeQL). Without this, the full gate runs but doesn't
+*block* a merge.
+
+Workflows under `.github/workflows/`:
 
 - **`ci.yml`** — Java build + tests (Gradle), C++ build + tests (CMake/ctest), schema lint (yamllint + xmllint), shell + markdown lint, SBOM via CycloneDX, dependency review (PR only).
-- **`codeql.yml`** — security-and-quality query suite for Java/Kotlin (Mondays + every push/PR). `c-cpp` language added once `cpp/` modules have real source (task 1.7+).
+- **`codeql.yml`** — security-and-quality query suite for Java/Kotlin (PR + push to `main` + Mondays; not on feature pushes). `c-cpp` language added once `cpp/` modules have real source (task 1.7+).
 
 `dependabot.yml` opens weekly Monday bumps for Gradle and GitHub Actions. No CMake/C++ entry — C++ deps are managed via CMake FetchContent, not a versioned registry.
 

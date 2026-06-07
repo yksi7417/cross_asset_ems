@@ -1,8 +1,16 @@
 name: CI
 
+# Hybrid fast/full model:
+#   - Push to a feature branch  → FAST lane: compile + unit tests only (java, cpp).
+#   - Pull request → main        → FULL gate: + spotless, lint, schema, sbom (and
+#                                  CodeQL via codeql.yml).
+#   - Push to main               → FULL gate (post-merge safety net).
+# Full-gate jobs/steps are guarded by:
+#   github.event_name != 'push' || github.ref == 'refs/heads/main'
+# i.e. everything runs EXCEPT on a push to a non-main branch, which is fast-only.
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -38,14 +46,17 @@ jobs:
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
 
-      - name: Spotless check
-        run: ./gradlew --no-daemon spotlessCheck
-
+      # Fast lane: compile + unit tests always run (feature pushes included).
       - name: Compile
         run: ./gradlew --no-daemon assemble
 
       - name: Unit tests
         run: ./gradlew --no-daemon allTests
+
+      # Full gate only: skip on feature-branch pushes for fast feedback.
+      - name: Spotless check
+        if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+        run: ./gradlew --no-daemon spotlessCheck
 
       - name: Upload test reports on failure
         if: failure()
@@ -82,6 +93,7 @@ jobs:
     name: Schema lint
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
       - name: Install yamllint
@@ -99,6 +111,7 @@ jobs:
     name: Lint (shell, markdown)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
