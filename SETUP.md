@@ -21,6 +21,8 @@ Full setup instructions for all platforms. For the fast path on Fedora/Podman, s
 
 ## Platform: Fedora / RHEL (Podman)
 
+> For a full record of Podman-specific issues and fixes see **[docs/runbooks/podman.md](docs/runbooks/podman.md)**.
+
 Podman is the native container runtime on Fedora and RHEL. Use `podman-docker` for a transparent `docker` shim:
 
 ```bash
@@ -168,6 +170,8 @@ Then **Open folder as vault** → point at this repository root. See [`00_index/
 ---
 
 ## Troubleshooting
+
+> **Podman on Fedora/RHEL** — for a full deep-dive on every Podman-specific issue (SELinux bind mounts, registry prefixes, Cockpit port conflict, `podman-compose` limitations, Tailscale firewall) see **[docs/runbooks/podman.md](docs/runbooks/podman.md)**.
 
 | Problem | Fix |
 |---|---|
