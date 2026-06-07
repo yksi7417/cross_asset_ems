@@ -35,7 +35,7 @@ The core determinism guarantee. ~2-3 weeks.
 - [x] **1.3** Route FSM definition per [[arch-order-route-lifecycle]] (claude) ← blocks: 1.1 `(1a8de92)`
 - [x] **1.4** Multi-leg / Package FSM per [[arch-multileg]] (claude) ← blocks: 1.1 `(4708714)`
 - [x] **1.5** VenueSession FSM (use existing Gemma draft in fsm/) (claude) ← blocks: 1.1 `(e903037)`
-- [ ] **1.6** SOR FSM (claude) ← blocks: 1.1
+- [x] **1.6** SOR FSM (claude) ← blocks: 1.1 `(0917b01)`
 - [ ] **1.7** Codegen pipeline YAML → Java/Rust state structs (claude) ← blocks: 1.1
 - [ ] **1.8** Unit test generator: YAML → ~5000 transition tests (local) ← blocks: 1.7
 - [ ] **1.9** Lifecycle chaining (Order cancel cascades to Route) tests (claude) ← blocks: 1.2, 1.3
