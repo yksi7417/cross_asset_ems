@@ -221,7 +221,7 @@ Resilience + tooling. ~2-3 weeks.
 - [ ] **14.1** JMX introspection per [[arch-jmx-introspection]] (claude)
 - [ ] **14.2** Privileged event injection (security-gated) (claude) ← blocks: 14.1
 - [ ] **14.3** Time/Replay server UI (local for scaffold, claude for design)
-- [ ] **14.4** Configuration service UI (local for scaffold)
+- [x] **14.4** Configuration service UI (local for scaffold) `(6b3e666)`
 - [ ] **14.5** Blue/green switchover protocol per [[arch-deployment]] (claude)
 - [ ] **14.6** Cluster-of-clusters active lease (claude) ← blocks: 14.5
 - [ ] **14.7** Fence-token venue credential rotation (claude) ← blocks: 14.5
