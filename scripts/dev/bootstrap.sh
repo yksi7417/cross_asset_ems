@@ -1,76 +1,135 @@
 #!/usr/bin/env bash
-# Bootstrap local development: install Java 21 + Gradle 8.10 via SDKMAN,
-# then generate the Gradle wrapper (gradlew + gradle-wrapper.jar).
+# Bootstrap local development: install Java 21 + generate the Gradle wrapper.
 #
 # Run once after cloning. Safe to re-run — all steps are idempotent.
+#
+# Platform support:
+#   Fedora / RHEL / CentOS  — uses dnf
+#   Ubuntu / Debian         — uses apt
+#   macOS                   — uses Homebrew
 #
 # Usage:
 #   ./scripts/dev/bootstrap.sh
 #
-# Requirements:
-#   - curl (for SDKMAN install)
-#   - bash 4+, unzip, zip (standard on Linux / macOS)
-#
 # After this script succeeds, use ./gradlew for all Java builds.
-# The gradle-wrapper.jar it generates is in .gitignore — re-run this
-# script on a fresh clone instead of committing the binary JAR.
+# gradle-wrapper.jar is generated here and intentionally not committed.
 
 set -eo pipefail
 
-JAVA_CANDIDATE="21.0.7-tem"   # Temurin 21 LTS
-GRADLE_VERSION="8.10"
+GRADLE_VERSION="21.0.7"    # unused directly, kept for docs; wrapper targets 8.10
+REQUIRED_JAVA_MAJOR="21"
+GRADLE_WRAPPER_VERSION="8.10"
+GRADLE_DIST_URL="https://services.gradle.org/distributions/gradle-${GRADLE_WRAPPER_VERSION}-bin.zip"
+GRADLE_LOCAL_DIR="${HOME}/.local/share/gradle/${GRADLE_WRAPPER_VERSION}"
 
 cd "$(git rev-parse --show-toplevel)"
 
-# ── 1. SDKMAN ───────────────────────────────────────────────────────────────
+# ── helpers ──────────────────────────────────────────────────────────────────
 
-SDKMAN_DIR="${SDKMAN_DIR:-$HOME/.sdkman}"
+die() { echo "ERROR: $*" >&2; exit 1; }
 
-if [ ! -f "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
-    echo "==> Installing SDKMAN..."
-    curl -s "https://get.sdkman.io" | bash
+java_major() {
+    # Extracts major version from `java -version` output for both old (1.8)
+    # and new (17, 21, 25) version strings.
+    local ver
+    ver=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+    # Strip leading "1." for Java 8 and older
+    ver="${ver#1.}"
+    echo "${ver%%.*}"
+}
+
+# ── 1. Java 21 ───────────────────────────────────────────────────────────────
+
+# Check if an appropriate Java is already on PATH
+if command -v java &>/dev/null && [ "$(java_major)" -eq "$REQUIRED_JAVA_MAJOR" ]; then
+    echo "==> Java ${REQUIRED_JAVA_MAJOR} already active ($(java -version 2>&1 | head -1))"
+
+# Check SDKMAN candidates (may be installed but not on PATH in this shell)
+elif [ -x "${HOME}/.sdkman/candidates/java/${REQUIRED_JAVA_MAJOR}."*"/bin/java" ] 2>/dev/null \
+  || ls "${HOME}/.sdkman/candidates/java/" 2>/dev/null | grep -q "^${REQUIRED_JAVA_MAJOR}\."; then
+    SDKMAN_JAVA=$(ls -d "${HOME}/.sdkman/candidates/java/${REQUIRED_JAVA_MAJOR}."* 2>/dev/null | head -1)
+    echo "==> Found SDKMAN Java at ${SDKMAN_JAVA}"
+    export JAVA_HOME="${SDKMAN_JAVA}"
+    export PATH="${JAVA_HOME}/bin:${PATH}"
+
+else
+    echo "==> Installing Java ${REQUIRED_JAVA_MAJOR}..."
+
+    if command -v dnf &>/dev/null; then
+        # Fedora / RHEL / CentOS
+        sudo dnf install -y "java-${REQUIRED_JAVA_MAJOR}-openjdk-devel"
+        # Point the session at Java 21 without permanently changing the system default
+        JAVA_HOME="/usr/lib/jvm/java-${REQUIRED_JAVA_MAJOR}-openjdk"
+        export JAVA_HOME
+        export PATH="${JAVA_HOME}/bin:${PATH}"
+
+    elif command -v apt-get &>/dev/null; then
+        # Ubuntu / Debian — prefer Eclipse Temurin if repo is configured, else OpenJDK
+        if apt-cache show "temurin-${REQUIRED_JAVA_MAJOR}-jdk" &>/dev/null; then
+            sudo apt-get install -y "temurin-${REQUIRED_JAVA_MAJOR}-jdk"
+        else
+            sudo apt-get install -y "openjdk-${REQUIRED_JAVA_MAJOR}-jdk"
+        fi
+        JAVA_HOME="/usr/lib/jvm/java-${REQUIRED_JAVA_MAJOR}-openjdk-$(dpkg --print-architecture)"
+        export JAVA_HOME
+        export PATH="${JAVA_HOME}/bin:${PATH}"
+
+    elif command -v brew &>/dev/null; then
+        # macOS
+        brew install --cask "temurin@${REQUIRED_JAVA_MAJOR}"
+        # Homebrew Temurin cask sets JAVA_HOME via /usr/libexec/java_home
+        JAVA_HOME="$(/usr/libexec/java_home -v "${REQUIRED_JAVA_MAJOR}" 2>/dev/null)"
+        export JAVA_HOME
+        export PATH="${JAVA_HOME}/bin:${PATH}"
+
+    else
+        die "No supported package manager found (dnf, apt-get, brew). Install Java ${REQUIRED_JAVA_MAJOR} manually, set JAVA_HOME, and re-run."
+    fi
 fi
 
-# shellcheck disable=SC1090
-source "$SDKMAN_DIR/bin/sdkman-init.sh"
-
-# ── 2. Java 21 ──────────────────────────────────────────────────────────────
-
-if ! sdk list java 2>/dev/null | grep -q "${JAVA_CANDIDATE}.*installed\|${JAVA_CANDIDATE}.*current"; then
-    echo "==> Installing Java ${JAVA_CANDIDATE}..."
-    SDKMAN_AUTO_ANSWER=true sdk install java "$JAVA_CANDIDATE"
-fi
-
-echo "==> Using Java ${JAVA_CANDIDATE}"
-SDKMAN_AUTO_ANSWER=true sdk use java "$JAVA_CANDIDATE"
 java -version
+[ "$(java_major)" -eq "$REQUIRED_JAVA_MAJOR" ] \
+    || die "Expected Java ${REQUIRED_JAVA_MAJOR} but got $(java_major). Set JAVA_HOME and retry."
 
-# ── 3. Gradle 8.10 ──────────────────────────────────────────────────────────
+# ── 2. Gradle (download-only, used once to generate the wrapper) ─────────────
+#
+# We download Gradle to a local cache dir instead of relying on a version
+# manager. The downloaded copy is only needed to run `gradle wrapper` once;
+# after that ./gradlew (the generated wrapper) handles everything.
 
-if ! sdk list gradle 2>/dev/null | grep -q "${GRADLE_VERSION}.*installed\|${GRADLE_VERSION}.*current"; then
-    echo "==> Installing Gradle ${GRADLE_VERSION}..."
-    SDKMAN_AUTO_ANSWER=true sdk install gradle "$GRADLE_VERSION"
+if [ -x "${GRADLE_LOCAL_DIR}/bin/gradle" ]; then
+    echo "==> Gradle ${GRADLE_WRAPPER_VERSION} already cached at ${GRADLE_LOCAL_DIR}"
+else
+    echo "==> Downloading Gradle ${GRADLE_WRAPPER_VERSION}..."
+    TMP_ZIP="$(mktemp /tmp/gradle-XXXXXX.zip)"
+    curl -fsSL "$GRADLE_DIST_URL" -o "$TMP_ZIP"
+    mkdir -p "${HOME}/.local/share/gradle"
+    unzip -q "$TMP_ZIP" -d "${HOME}/.local/share/gradle/"
+    # Rename versioned dir to a predictable path
+    mv "${HOME}/.local/share/gradle/gradle-${GRADLE_WRAPPER_VERSION}" "$GRADLE_LOCAL_DIR" 2>/dev/null || true
+    rm -f "$TMP_ZIP"
+    echo "==> Cached to ${GRADLE_LOCAL_DIR}"
 fi
 
-echo "==> Using Gradle ${GRADLE_VERSION}"
-SDKMAN_AUTO_ANSWER=true sdk use gradle "$GRADLE_VERSION"
-gradle --version | head -3
+GRADLE_BIN="${GRADLE_LOCAL_DIR}/bin/gradle"
+"$GRADLE_BIN" --version | head -3
 
-# ── 4. Generate Gradle wrapper ──────────────────────────────────────────────
+# ── 3. Generate Gradle wrapper ───────────────────────────────────────────────
 
-echo "==> Generating Gradle wrapper (gradlew + gradle-wrapper.jar)..."
-gradle wrapper --gradle-version="$GRADLE_VERSION"
+echo "==> Generating Gradle wrapper..."
+"$GRADLE_BIN" wrapper --gradle-version="$GRADLE_WRAPPER_VERSION"
 chmod +x gradlew
 
-echo
 echo "==> Verifying wrapper..."
 ./gradlew --version | head -3
 
 echo
 echo "Bootstrap complete. Daily workflow:"
-echo "  ./gradlew assemble        — build all Java modules"
-echo "  ./gradlew allTests        — run all unit tests"
+echo "  ./gradlew assemble          — build all Java modules"
+echo "  ./gradlew allTests          — run all unit tests"
 echo "  ./scripts/dev/start-dev-stack.sh  — bring up Docker infra"
 echo
-echo "To make Java ${JAVA_CANDIDATE} the default for new shells:"
-echo "  sdk default java ${JAVA_CANDIDATE}"
+echo "NOTE: Java ${REQUIRED_JAVA_MAJOR} is active for this shell session."
+echo "To make it the system default on Fedora/RHEL:"
+echo "  sudo alternatives --set java /usr/lib/jvm/java-${REQUIRED_JAVA_MAJOR}-openjdk/bin/java"
+echo "  sudo alternatives --set javac /usr/lib/jvm/java-${REQUIRED_JAVA_MAJOR}-openjdk/bin/javac"
