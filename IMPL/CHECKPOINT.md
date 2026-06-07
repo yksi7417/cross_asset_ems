@@ -8,16 +8,16 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 13.2 + 13.3 — ELK/OpenSearch ingest pipeline + Prometheus exporters
-- **Last commit (main):** `feat(13.2,13.3): ELK/OpenSearch ingest pipeline + Prometheus exporters`
-- **Last commit sha (main):** `6c9601c`
-- **Tasks merged/marked this session:** 13.2, 13.3 done; 11.2-11.10 abandoned (empty stubs) + reset to `[ ]`
+- **Last completed task:** 6.5 — Validator golden test fixtures (42 fixtures, 7 categories, all catalog codes)
+- **Last commit (main):** `feat(6.5): validator golden test fixtures — 42 fixtures, 7 categories`
+- **Last commit sha (main):** `546d5ff`
+- **Tasks merged/marked this session:** 13.2, 13.3 done `6c9601c`; 6.5 done `546d5ff`; 11.2-11.10 abandoned + reset to `[ ]`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-07
 - **Next task — `(opus)` tier:** **1.7** (codegen pipeline YAML→Java/C++, blocks: 1.1 ✓) or **1.10** (Pending Replace / Pending Cancel edge cases, blocks: 1.9 ✓). Both are now `(opus)` crown-jewel tasks (foundational codegen / silent-race correctness). Recommended: 1.7 to unlock 1.8 (unit test generator); ensure generated Java/C++ compiles before marking done.
-- **Total progress:** **31 of 150 tasks [x]** (20.7%). Phases with at least one [x]: 0, 1 (partial: 1.1–1.6/1.9), 2, 3, 4, 6, 13, 14.
-- **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes misaligned with catalog — need design decision: extend catalog vs remap), 6.5 (wrong category/code scheme, must regenerate from actual catalog), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
+- **Total progress:** **33 of 150 tasks [x]** (22.0%). Phases with at least one [x]: 0, 1 (partial: 1.1–1.6/1.9), 2, 3, 4, 6, 13, 14.
+- **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## WIP branches awaiting Claude review-and-merge
 
@@ -37,7 +37,7 @@ Claude tokens are out. Claude to review and merge when budget resets.
 | `wip/4.24-mic-codes` | 4.24 | `569cc47`, `ed13df4` | **merged** `0001738` | 72 MICs + 25 brokers; follow-up: XCHI/MEMX naming nit |
 | `wip/6.1-reject-codes` | 6.1 | `ee3ec32` | ready | 47 reject codes across 10 categories |
 | `wip/6.4-validation-rules` | 6.4 | (1 commit) | **needs rework** | 185 per-asset validation rules, real YAML content. Reject codes misaligned: uses sequential `EMS-ORD-1001/1002/…` for field-format checks, but catalog uses those codes for different semantics (e.g. ORD-1001 = "Required field missing"). Rules also cover concepts absent from catalog. Sonnet must decide: extend catalog with new codes, or remap to closest existing code. |
-| `wip/6.5-validator-golden` | 6.5 | (1 commit) | **needs regen** | 47 JSON fixtures, real content. Wrong category scheme (SESS/IDENT/PERM/REF/VAL/ROUT/CONF/AUTH/MKT/INFRA) vs catalog (SES/REF/PRM/ORD/RTE/AUT/CFG). Codes sequential 0001-indexed vs catalog non-sequential 1001/2001/… . Regenerate from `schemas/reject-codes/catalog.yaml` entries rather than patching. |
+| ~~`wip/6.5-validator-golden`~~ | 6.5 | `546d5ff` | **DONE** | Regenerated from scratch: 42 fixtures, 7 files, all catalog codes covered. Branch no longer needed. |
 | ~~`wip/13.2-13.4-observability`~~ | 13.2, 13.3, 13.4 | `6c9601c` | **extracted** | 13.2/13.3 merged as `6c9601c`. 13.4 scaffold only (9/9/6 panels, targets 24/12/12). Branch no longer needed. |
 | `wip/14.3-14.4-ui-scaffolds` | 14.3, 14.4 | (1 commit) | ready | 2 Next.js 14 / React / TypeScript scaffolds (34 files each): time-replay console + config-service admin console. Mock-data backed; runnable as-is. |
 | `wip/14.8-14.9-drills` | 14.8, 14.9 | (1 commit) | ready | 2 drill scripts: weekly-leader-kill.sh (401 lines) + monthly-cold-start.sh (624 lines). Both follow set -euo pipefail, --dry-run + --help flags, configurable via env vars. |
@@ -53,7 +53,7 @@ The loop appends a one-line entry per session.
 | 2026-06-06 | 2026-06-06 | 3-commit pacing trigger (loop wrap-up) | 4 substantive (4.23 feat + annotate, 4.24 cherry-pick + mark) | 4.23, 4.24 merged from wip/ branches | next = 4.5/4.6/4.9/4.13-15-16/4.22 reviews, then 0.7 (claude) |
 | 2026-06-06 | 2026-06-06 | 3-commit pacing trigger (loop wrap-up) | 6 (3 feat + 3 task-annotate for 1.2/1.3/1.5) | 1.2, 1.3, 1.5 | next = 1.4 (MultiLeg FSM) or 1.6 (SOR FSM) |
 | 2026-06-06 | 2026-06-06 | 3-commit pacing trigger (loop wrap-up) | 6 (3 feat + 3 task-annotate for 1.4/1.6/1.9) | 1.4, 1.6, 1.9 | next = 1.7 (codegen) or 1.10 (edge cases) |
-| 2026-06-07 | 2026-06-07 | WIP branch audit + extraction | 1 feat (`6c9601c`) + 1 annotation | 13.2, 13.3 extracted from wip; 11.2-11.10 abandoned (empty); 6.4/6.5 documented for reconciliation | next = 1.7 (opus) or pick up 6.4 reconciliation (sonnet) |
+| 2026-06-07 | 2026-06-07 | WIP branch audit + extraction | 3 substantive + 1 annotation | 13.2, 13.3 extracted; 6.5 regenerated (42 fixtures); 11.2-11.10 abandoned; 6.4 documented | next = 1.7 (opus) or 6.4 catalog extension (sonnet) |
 
 ## Phase progress
 
