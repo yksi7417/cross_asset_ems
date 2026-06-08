@@ -66,6 +66,41 @@ jobs:
           path: '**/build/reports/tests/**'
           retention-days: 7
 
+  # ---- Phase-0 smoke gate -----------------------------------------------------
+  # Runs the Aeron Cluster + Archive round-trip tagged "phase0-smoke".
+  # Separate job so Phase-0 regression is visible as its own check, not buried
+  # inside the full allTests sweep. Runs on every branch + PR.
+  phase0-smoke:
+    name: Phase-0 smoke (Aeron Cluster + Archive)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/wrapper-validation@v4
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+
+      - name: Phase-0 smoke gate
+        run: ./gradlew --no-daemon phase0Smoke
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase0-smoke-reports
+          path: '**/build/reports/tests/phase0Smoke/**'
+          retention-days: 7
+
   # ---- C++ CMake build --------------------------------------------------------
   cpp:
     name: C++ build + unit tests

@@ -25,9 +25,23 @@ tasks.withType<Test>().configureEach {
     )
 }
 
+// Phase-0 smoke gate — runs only tests tagged "phase0-smoke".
+// Invoked by the root phase0Smoke task and the dedicated CI job.
+tasks.register<Test>("phase0Smoke") {
+    group = "verification"
+    description = "Phase-0 acceptance gate: Aeron Cluster + Archive round-trip."
+    useJUnitPlatform { includeTags("phase0-smoke") }
+    jvmArgs(
+        "--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED",
+        "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED",
+    )
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+}
+
 // Run the toy interactively so you can inspect the archive before it closes.
 // Usage: ./gradlew :ems-transport:runToy
-// Then: hexdump -C /tmp/ems-aeron-demo/archive/*.log | grep -A1 "PING\|PONG"
+// Then: hexdump -C /tmp/ems-aeron-demo/archive/*.rec | grep -A1 "PING\|PONG"
 tasks.register<JavaExec>("runToy") {
     group = "application"
     description = "Run AeronToyPingPong interactively (leaves archive in /tmp/ems-aeron-demo)"

@@ -10,3 +10,9 @@ tasks.register("allTests") {
     description = "Run tests across every module."
     dependsOn(subprojects.map { "${it.path}:test" })
 }
+
+tasks.register("phase0Smoke") {
+    group = "verification"
+    description = "Phase-0 acceptance gate — Aeron Cluster + Archive round-trip."
+    dependsOn(":ems-transport:phase0Smoke")
+}

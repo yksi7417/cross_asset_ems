@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.List;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
@@ -18,7 +19,11 @@ import org.junit.jupiter.api.io.TempDir;
  *
  * <p>Boots a real media driver + archive + consensus module in-process — no mocks. Expect ~5–15s
  * for cluster startup and leader election.
+ *
+ * <p>Tagged {@code phase0-smoke}: run by the dedicated CI gate via {@code
+ * ./gradlew phase0Smoke}.
  */
+@Tag("phase0-smoke")
 class AeronToyPingPongTest {
 
   @TempDir File tempDir;
