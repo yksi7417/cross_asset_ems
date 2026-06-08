@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 0.7 — Aeron Cluster + Archive toy ping/pong (single-node cluster, PongService, 2 integration tests green)
-- **Last commit (main):** `feat(0.7): Aeron Cluster + Archive toy ping/pong`
-- **Last commit sha (main):** `d2bfd66`
-- **Tasks merged/marked this session:** fix(deps) aeron-cluster 1.46.6→1.51.0 `5d22cf0`; 0.7 done `d2bfd66`
+- **Last completed task:** 0.10 — Phase-0 smoke gate (phase0Smoke task + CI job, 2 tests green)
+- **Last commit (main):** `feat(0.10): Phase-0 smoke test gate in CI`
+- **Last commit sha (main):** `83b694f`
+- **Tasks merged/marked this session:** 0.7 done `d2bfd66`; 0.10 done `83b694f`; docs+observability `b8c30f3`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-07
-- **Next task — `(sonnet)` tier:** **0.10** Phase-0 smoke test job in CI (blocks: 0.4 ✓, 0.7 ✓). Or jump to `(opus)` crown-jewel tasks: **1.7** (codegen pipeline YAML→Java/C++) or **1.10** (Pending Replace / Cancel edge cases).
-- **Total progress:** **34 of 150 tasks [x]** (22.7%). Phases with at least one [x]: 0 (partial: 0.1–0.9), 1 (partial), 2, 3, 4, 6, 13, 14.
+- **Next task:** **1.7** (codegen pipeline YAML→Java/C++, opus) or **1.10** (Pending Replace/Cancel edge cases, opus). Phase 0 complete.
+- **Total progress:** **35 of 150 tasks [x]** (23.3%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## WIP branches awaiting Claude review-and-merge
@@ -55,6 +55,7 @@ The loop appends a one-line entry per session.
 | 2026-06-06 | 2026-06-06 | 3-commit pacing trigger (loop wrap-up) | 6 (3 feat + 3 task-annotate for 1.4/1.6/1.9) | 1.4, 1.6, 1.9 | next = 1.7 (codegen) or 1.10 (edge cases) |
 | 2026-06-07 | 2026-06-07 | WIP branch audit + extraction | 3 substantive + 1 annotation | 13.2, 13.3 extracted; 6.5 regenerated (42 fixtures); 11.2-11.10 abandoned; 6.4 documented | next = 1.7 (opus) or 6.4 catalog extension (sonnet) |
 | 2026-06-07 | 2026-06-07 | 3-commit pacing trigger (loop wrap-up) | 3 (aeron-cluster bump + claim, feat 0.7, task-annotate) | 0.7 done | next = 0.10 (sonnet) or 1.7/1.10 (opus) |
+| 2026-06-07 | 2026-06-07 | 3-commit pacing trigger + Phase 0 complete | 4 (docs+obs, claim 0.10, feat 0.10, annotate) | 0.10 done; Phase 0 all [x] | next = 1.7 (opus) or 1.10 (opus) |
 
 ## Phase progress
 
