@@ -87,7 +87,7 @@ The core determinism guarantee. ~2-3 weeks.
 - [x] **1.6** SOR FSM (sonnet) ← blocks: 1.1 `(0917b01)`
 - [x] **1.7** Codegen pipeline YAML → Java/C++ state structs (opus — foundational; all FSM code derives from it) ← blocks: 1.1 `(0f4a5b9)` **Note: Java complete; C++ headers committed as TODO stubs — transition impl deferred to 1.7b**
 - [x] **1.7b** C++ FSM transition impl: fill `transition()` stubs in `cpp/fsm/generated/*.hpp`; compile-verify via CMake (sonnet) ← blocks: C++ simulator path `(994d8fa)`
-- [~] **1.8** Unit test generator: YAML → ~5000 transition tests (gemma) ← blocks: 1.7
+- [x] (40deac8) **1.8** Unit test generator: YAML → ~5000 transition tests (gemma) ← blocks: 1.7
 - [x] **1.9** Lifecycle chaining (Order cancel cascades to Route) tests (sonnet) ← blocks: 1.2, 1.3 `(b6cd1e4)`
 - [ ] **1.10** Pending Replace / Pending Cancel edge cases per [[arch-fix-appendix-d]] (opus — silent-race correctness) ← blocks: 1.9
 - [x] **1.11** Replay determinism test harness (single FSM, replay log slice) (sonnet) ← blocks: 1.7 `(32acdac)`

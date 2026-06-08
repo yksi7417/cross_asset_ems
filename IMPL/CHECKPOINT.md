@@ -8,14 +8,14 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 1.11 — Replay determinism harness: 4 scenarios, 27 tests green
-- **Last commit (main):** `feat(1.11): replay determinism harness for OrderFsm`
-- **Last commit sha (main):** `32acdac`
-- **Tasks merged/marked this session:** 0.7 done `d2bfd66`; 0.10 done `83b694f`; 1.7 done `0f4a5b9`; 1.7b done `994d8fa`; 1.11 done `32acdac`
+- **Last completed task:** 1.8 — Unit test generator: Generated ~850 tests across all FSMs, verifying all defined transitions and negative cases.
+- **Last commit (main):** `feat(1.8): implement FSM unit test generator`
+- **Last commit sha (main):** `40deac8`
+- **Tasks merged/marked this session:** 1.8 done `40deac8`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-07
-- **Next task:** **1.8** (unit test generator, gemma, unblocked by 1.7) or **1.10** (Pending Replace/Cancel edge cases, opus) or **1.12** (identity chaining, sonnet, unblocked by 1.7).
+- **Next task:** **1.12** (identity chaining, sonnet, unblocked by 1.7).
 - **Total progress:** **45 of 144 tasks [x]** (31.3%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
