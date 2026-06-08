@@ -66,6 +66,29 @@ if [ -n "$SHELL_FILES" ] && command -v shellcheck >/dev/null 2>&1; then
     echo "$SHELL_FILES" | xargs shellcheck || FAIL=1
 fi
 
+# --- 7. Spotless Java formatting (auto-apply + re-stage) ---
+# Derives the Gradle task from the file path: java/ems-foo/... → :ems-foo:spotlessApply
+# Runs only the modules that have staged Java files; no-op (~200ms) when already formatted.
+# Auto-applies and re-stages so the commit always lands clean.
+JAVA_STAGED=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep '^java/.*\.java$' \
+    | grep -v '/generated/' || true)
+if [ -n "$JAVA_STAGED" ]; then
+    SPOTLESS_TASKS=$(echo "$JAVA_STAGED" \
+        | sed 's|^java/\([^/]*\)/.*|:\1:spotlessApply|' \
+        | sort -u \
+        | tr '\n' ' ')
+    # shellcheck disable=SC2086
+    if ! ./gradlew $SPOTLESS_TASKS --quiet 2>&1; then
+        echo "ERROR: Spotless failed. Fix manually or run: ./gradlew spotlessApply"
+        FAIL=1
+    else
+        # Re-add the staged files so any reformatting is included in the commit.
+        # Only touches files that were already staged — does not pull in unstaged changes.
+        echo "$JAVA_STAGED" | xargs git add
+    fi
+fi
+
 if [ $FAIL -ne 0 ]; then
     echo
     echo "pre-commit checks failed. Fix the issues above, or bypass with --no-verify."
