@@ -41,20 +41,22 @@ def generate_fsm_tests(yaml_dir, output_dir):
         with open(fsm_file, 'r') as f:
             fsm = yaml.safe_load(f)
 
-        name = fsm['name']
+        # FSM name is e.g., "OrderFsm"
+        name = fsm['name'] 
         states = fsm['states']
         events = fsm['events']
         transitions = fsm['transitions']
         context_schema = fsm.get('context_schema', {})
 
-        # The actual generated classes are like OrderFsmContext, OrderFsmRunner
-        ctx_class = f"{name}FsmContext"
-        runner_class = f"{name}FsmRunner"
-        payloads_class = f"{name}FsmPayloads"
-
+        # Correct class names: {Name}FsmContext, {Name}FsmRunner, {Name}FsmPayloads
+        # Since 'name' is already 'OrderFsm', we just use it.
+        ctx_class = f"{name}Context"
+        runner_class = f"{name}Runner"
+        payloads_class = f"{name}Payloads"
+        
         test_class_name = f"{name}GeneratedTest"
         package_name = "io.crossasset.ems.fsm.generated"
-
+        
         code = []
         code.append(f"package {package_name};")
         code.append("")
@@ -74,7 +76,7 @@ def generate_fsm_tests(yaml_dir, output_dir):
         ctx_args = []
         for field, props in context_schema.items():
             ctx_args.append(get_default_value(props['type']))
-
+        
         code.append(f"    return new {ctx_class}({', '.join(ctx_args)});")
         code.append("  }")
         code.append("")
@@ -91,23 +93,23 @@ def generate_fsm_tests(yaml_dir, output_dir):
                 code.append("")
 
         # Generate tests for every defined transition
-        for trans in transitions:
+        for i, trans in enumerate(transitions):
             from_state = trans['from']
             event = trans['event']
             to_state = trans['to']
-
-            # Deduplicate method names (especially for guarded transitions)
-            method_name = f"test_{from_state}_{event}_to_{to_state}"
-
+            
+            # Append index to avoid duplicate method names
+            method_name = f"test_trans_{i}_{from_state}_{event}_to_{to_state}"
+            
             code.append("  @Test")
             code.append(f"  void {method_name}() {{")
             code.append(f"    var ctx = minimalCtx();")
-
+            
             event_def = next(e for e in events if e['name'] == event)
             payload_call = "null"
             if event_def.get('payload_schema'):
                 payload_call = f"create{event}Payload()"
-
+            
             code.append(f"    var result = {runner_class}.transition({from_state}, {event}, ctx, {payload_call});")
             code.append("    assertFalse(result.isNoTransition(), \"Expected transition from " + from_state + " on " + event + "\");")
             code.append(f"    assertEquals({to_state}, result.newState());")
@@ -116,16 +118,16 @@ def generate_fsm_tests(yaml_dir, output_dir):
 
         # Generate negative tests
         defined_trans = {f"{t['from']}->{t['event']}" for t in transitions}
-        for state in states:
+        for s_idx, state in enumerate(states):
             s_name = state['name']
-            for event in events:
+            for e_idx, event in enumerate(events):
                 e_name = event['name']
                 if f"{s_name}->{e_name}" not in defined_trans:
-                    method_name = f"test_no_trans_{s_name}_{e_name}"
+                    method_name = f"test_no_trans_{s_idx}_{e_idx}_{s_name}_{e_name}"
                     code.append("  @Test")
                     code.append(f"  void {method_name}() {{")
                     code.append(f"    var ctx = minimalCtx();")
-
+                    
                     event_def = next(e for e in events if e['name'] == e_name)
                     payload_call = "null"
                     if event_def.get('payload_schema'):
