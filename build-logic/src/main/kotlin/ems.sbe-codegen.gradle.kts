@@ -61,6 +61,9 @@ afterEvaluate {
     tasks.named("compileJava") {
         dependsOn(sbeCodegen)
     }
+    // sourcesJar also includes the generated source tree; declare the dependency
+    // so Gradle's task-validation doesn't reject the implicit output usage.
+    tasks.findByName("sourcesJar")?.dependsOn(sbeCodegen)
 }
 
 tasks.named("clean") {
