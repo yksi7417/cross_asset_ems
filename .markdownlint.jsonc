@@ -15,5 +15,8 @@
   "MD024": { "siblings_only": true },
 
   // MD036: emphasis-as-heading — we deliberately use bold for sub-callouts.
-  "MD036": false
+  "MD036": false,
+
+  // MD060: table-column-style — repo convention uses `| value |` headers with `|---|` separators.
+  "MD060": false
 }
