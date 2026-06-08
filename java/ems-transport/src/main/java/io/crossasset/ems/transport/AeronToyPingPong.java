@@ -206,7 +206,8 @@ public final class AeronToyPingPong implements AutoCloseable {
         System.out.println("Press Enter to close (inspect archive files before closing)...");
         System.in.read();
       } else {
-        System.out.println("Exiting. Run with --wait (./gradlew runToy --args='--wait') to inspect archive before close.");
+        System.out.println(
+            "Exiting. Run with --wait (./gradlew runToy --args='--wait') to inspect archive before close.");
       }
     }
     System.out.println("Done.");
