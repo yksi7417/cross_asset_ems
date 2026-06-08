@@ -8,14 +8,14 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 1.8 — Unit test generator: Generated ~850 tests across all FSMs, verifying all defined transitions and negative cases.
-- **Last commit (main):** `feat(1.8): implement FSM unit test generator`
-- **Last commit sha (main):** `40deac8`
-- **Tasks merged/marked this session:** 1.8 done `40deac8`
+- **Last completed task:** 1.12 — Identity chaining stamping into FSM events (OrderFsm updated with initial_cl_ord_id, chain_id, and order_version; stamping effect added to OrderAccepted).
+- **Last commit (main):** `feat(1.12): stamp identity chaining and versioning in OrderFsm`
+- **Last commit sha (main):** `2faef35`
+- **Tasks merged/marked this session:** 1.12 done `2faef35`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-07
-- **Next task:** **1.12** (identity chaining, sonnet, unblocked by 1.7).
+- **Next task:** **2.3** (Aeron channel layout, sonnet, unblocked by 2.1).
 - **Total progress:** **45 of 144 tasks [x]** (31.3%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
