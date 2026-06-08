@@ -50,13 +50,20 @@ YAML_FILES=$(git diff --cached --name-only --diff-filter=ACM \
 if [ -n "$YAML_FILES" ] && command -v yamllint >/dev/null 2>&1; then
     echo "$YAML_FILES" | xargs yamllint -d "{rules: {line-length: {max: 200}, indentation: {spaces: 2}}}" || FAIL=1
 fi
+# When any FSM YAML is staged, lint the entire schemas/fsm/ directory —
+# matches CI scope so pre-existing violations in adjacent files are caught.
+FSM_YAML_STAGED=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep -E '^schemas/fsm/.*\.ya?ml$' || true)
+if [ -n "$FSM_YAML_STAGED" ] && command -v yamllint >/dev/null 2>&1; then
+    yamllint -d "{rules: {line-length: {max: 200}, indentation: {spaces: 2}}}" schemas/fsm/ || FAIL=1
+fi
 
-# --- 5. Markdown lint (vault notes) — best-effort ---
-if command -v markdownlint >/dev/null 2>&1; then
-    git diff --cached --name-only --diff-filter=ACM \
-        | grep -E '\.md$' \
-        | xargs --no-run-if-empty markdownlint --disable MD013 MD033 MD041 \
-        || true   # warnings only; don't fail
+# --- 5. Markdown lint (vault notes) ---
+MD_FILES=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep -E '\.md$' || true)
+if [ -n "$MD_FILES" ] && command -v markdownlint >/dev/null 2>&1; then
+    echo "$MD_FILES" | xargs --no-run-if-empty markdownlint --config .markdownlint.jsonc \
+        || FAIL=1
 fi
 
 # --- 6. Shell script lint ---
