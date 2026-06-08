@@ -57,10 +57,7 @@ final class PongService implements ClusteredService {
       // timestamp = cluster logical time in ms (same unit as Cluster.timeUnit(), defaults to ms).
       // This is the wall-clock time at which the ConsensusModule committed this message to the
       // Raft log. All cluster members see the same value for the same message — deterministic.
-      log.info(
-          "PING committed at cluster time {}ms (session={})",
-          timestamp,
-          session.id());
+      log.info("PING committed at cluster time {}ms (session={})", timestamp, session.id());
       while (session.offer(pongBuffer, 0, 4) < 0) {
         cluster.idleStrategy().idle();
       }

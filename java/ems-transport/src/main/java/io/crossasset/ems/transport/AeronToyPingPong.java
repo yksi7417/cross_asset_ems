@@ -11,12 +11,10 @@ import io.aeron.cluster.ClusteredMediaDriver;
 import io.aeron.cluster.ConsensusModule;
 import io.aeron.cluster.client.AeronCluster;
 import io.aeron.cluster.client.EgressListener;
-import io.aeron.cluster.service.ClusteredService;
 import io.aeron.cluster.service.ClusteredServiceContainer;
 import io.aeron.driver.MediaDriver;
 import io.aeron.driver.ThreadingMode;
 import java.io.File;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -115,8 +113,8 @@ public final class AeronToyPingPong implements AutoCloseable {
   }
 
   /**
-   * Sends {@code count} PING messages and collects RTT measurements (nanoseconds). Connects a
-   * fresh client for this run; the client is closed when done.
+   * Sends {@code count} PING messages and collects RTT measurements (nanoseconds). Connects a fresh
+   * client for this run; the client is closed when done.
    */
   public List<Long> runPingPong(final int count) {
     final List<Long> rttsNs = new ArrayList<>(count);
@@ -132,8 +130,7 @@ public final class AeronToyPingPong implements AutoCloseable {
         };
 
     try (Aeron aeron =
-            Aeron.connect(
-                new Aeron.Context().aeronDirectoryName(aeronDir.getAbsolutePath()));
+            Aeron.connect(new Aeron.Context().aeronDirectoryName(aeronDir.getAbsolutePath()));
         AeronCluster client =
             AeronCluster.connect(
                 new AeronCluster.Context()
@@ -177,7 +174,9 @@ public final class AeronToyPingPong implements AutoCloseable {
     // Fixed dir so you can inspect the archive after the toy exits.
     // Override with: java ... AeronToyPingPong /your/path
     final File baseDir =
-        args.length > 0 ? new File(args[0]) : new File(System.getProperty("java.io.tmpdir"), "ems-aeron-demo");
+        args.length > 0
+            ? new File(args[0])
+            : new File(System.getProperty("java.io.tmpdir"), "ems-aeron-demo");
     baseDir.mkdirs();
     System.out.println("Base dir : " + baseDir.getAbsolutePath());
     System.out.println("Archive  : " + new File(baseDir, "archive").getAbsolutePath());
