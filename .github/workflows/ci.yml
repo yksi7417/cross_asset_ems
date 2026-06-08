@@ -149,9 +149,9 @@ jobs:
           find schemas/sbe -name '*.xml' -print0 \
             | xargs -0 -r -I{} xmllint --noout --schema schemas/sbe/sbe.xsd {} || true
 
-  # ---- Shell + Markdown lint -------------------------------------------------
+  # ---- Shell lint ------------------------------------------------------------
   lint:
-    name: Lint (shell, markdown)
+    name: Lint (shell)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     if: github.event_name != 'push' || github.ref == 'refs/heads/main'
@@ -162,12 +162,6 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
           find scripts .githooks -type f \( -name '*.sh' -o -name '*.bash' \) -print0 \
             | xargs -0 -r shellcheck
-      - name: markdownlint
-        uses: DavidAnson/markdownlint-cli2-action@v17
-        with:
-          globs: '**/*.md'
-          config: '.markdownlint.jsonc'
-        continue-on-error: true   # warnings only for now
 
   # SBOM + dependency-review job dropped for now. dependency-review-action
   # requires GitHub Advanced Security on private repos (free only on public),
