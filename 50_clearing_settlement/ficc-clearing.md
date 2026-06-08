@@ -12,12 +12,14 @@ tags: [clearing/ccp]
 ## Divisions
 
 ### GSD — Government Securities Division
+
 - Clears UST cash trades (interdealer + Sponsored — see below).
 - Operates **GCF Repo Service** ([[gcf-repo]]).
 - Operates **Sponsored Service** for bilateral repo (buy-side access via a sponsor).
 - Operates **CCIT (Centrally Cleared Institutional Tri-party)** — emerging buy-side clearing.
 
 ### MBSD — Mortgage-Backed Securities Division
+
 - Clears TBA MBS interdealer flow.
 - Net settlement around the SIFMA monthly Class A/B/C/D dates.
 

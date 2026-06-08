@@ -10,7 +10,7 @@ How [[PLAN]] gets consumed task-by-task until the whole thing is done. Designed 
 
 Paste this into `/goal` exactly. The Stop hook will block exit until the loop's wrap-up conditions trigger.
 
-```
+```text
 Read IMPL/PLAN.md. Find the next unchecked [ ] task whose ← blocks: prerequisites are all [x] complete (skip [~] tasks — they are in-progress in another session or locked). Apply IMPL/DELEGATION.md to select the tier and switch the OpenCode model to the matching provider. Implement, write tests, run tests, commit with conventional-commit message, mark [x] (sha1234) in PLAN.md, advance IMPL/CHECKPOINT.md. If a phase boundary completes (last task in a phase goes [x]), invoke Hermes notification per IMPL/HERMES.md. Continue to the next task. Stop conditions: (1) you have committed 3 or more substantive commits this session OR (2) the conversation has exceeded ~100 messages OR (3) /cost shows context above 80% — when any triggers, gracefully wrap up the current task (commit any partial work to a feature branch, mark task [~] not [x]), post the Hermes "session-ending" notification with the cursor, and stop. Do not push to main on a partial task. Do not start a new task with <20% expected token budget remaining.
 ```
 
@@ -21,38 +21,45 @@ That's the literal goal. It references the other files; they're the spec.
 The agent runs this loop per session:
 
 ### 1. Initialize
+
 - `cd ~/dvlp/cross_asset_ems`
 - Read `IMPL/CHECKPOINT.md` to see the current cursor.
 - Read `IMPL/PLAN.md` to find the next `[ ]` task with all prerequisites `[x]`.
 - If nothing is unblocked (every `[ ]` task has a `[~]` or `[ ]` blocker), check whether all `[~]` tasks are stale (no commits in 24h). If so, reset them to `[ ]` and continue. Otherwise post "loop idle" Hermes notification and stop.
 
 ### 2. Pick the task
+
 - Lock the task by editing PLAN.md to set `[~]` and committing immediately (`task: claim X.Y`).
 - This prevents two parallel sessions from picking the same task.
 
 ### 3. Choose tier
+
 - Look at the tag (`(gemma)`, `(gemma first draft, sonnet review)`, `(minimax)`, `(sonnet)`, `(opus)`) per [[DELEGATION]].
 - **Tiers 1–3 → OpenCode:** switch the model to that tier's provider (Google → Gemma, OpenCode Zen → MiniMax, GitHub Copilot → Sonnet).
 - **Tier 4 `(opus)` → Claude Code:** do NOT use OpenCode. Run the task in this Claude Code session. Call `advisor()` before any design commitment.
 - For `(gemma)` tasks: draft in OpenCode with Gemma, run tests, escalate to Sonnet only on failure.
 
 ### 4. Execute
+
 - Implement against the architecture notes referenced in the task description.
 - Write tests in the same commit.
 - Run tests locally — if green, proceed; if red, debug or escalate per [[DELEGATION]] escalation rules.
 
 ### 5. Commit + mark done
+
 - Conventional commit: `<type>(<phase>.<task>): <what>` (e.g. `feat(1.1): FSM YAML schema with effects`).
 - Reference the architecture notes the task depended on in the commit body.
 - Mark `[x] (sha1234)` in PLAN.md.
 - Advance CHECKPOINT.md.
 
 ### 6. Hermes notification (conditional)
+
 - If this task completed a phase, post a `phase complete` notification per [[HERMES]].
 - If the task is critical-path and significantly large (3+ commits in service of one task), post a `task complete` notification.
 - Routine tasks: silent.
 
 ### 7. Token / session check
+
 - After every commit, check estimated session usage.
 - Hard wrap-up triggers:
   - 3+ substantive commits this session.
@@ -64,6 +71,7 @@ The agent runs this loop per session:
 - On any trigger, jump to step 8.
 
 ### 8. Wrap up
+
 - If a task is in-progress (`[~]`), commit current partial work to a `wip/<task-id>` branch.
 - Do NOT push to main on partial work.
 - Update CHECKPOINT.md with the cursor.
@@ -71,6 +79,7 @@ The agent runs this loop per session:
 - Exit.
 
 ### 9. Continue
+
 - If wrap-up triggers haven't fired, return to step 2 and pick the next task.
 
 ## Recovery: how the next session resumes
@@ -110,6 +119,7 @@ A task that can't be completed at any tier (missing external dependency, blocked
 - The loop skips `[!]` tasks and continues with the next `[ ]`.
 
 A human review (you) determines whether to:
+
 - Unblock and reset to `[ ]`.
 - Re-decompose into smaller tasks that ARE possible.
 - Defer to v1 (move below "Done criteria" line in PLAN.md).

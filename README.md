@@ -57,9 +57,9 @@ Each lands in a different backend:
 
 | Signal | What the toy emits | Flows to | View it |
 |---|---|---|---|
-| **Traces** | `ems-toy-root` + 3 stage spans | collector → **Jaeger** | http://localhost:16686 → service `ems-otel-toy` |
-| **Logs** | 1 INFO record per stage (trace-correlated) | collector → **OpenSearch** | http://localhost:5601 → index pattern `ems-logs*` |
-| **Metrics** | counter `ems.toy.stages.processed` | collector → **Prometheus** → **Grafana** | http://localhost:9091 → query `ems_toy_stages_processed_total`; or the provisioned **OTel Pipeline Overview** dashboard at http://localhost:3000/d/ems-otel-overview |
+| **Traces** | `ems-toy-root` + 3 stage spans | collector → **Jaeger** | <http://localhost:16686> → service `ems-otel-toy` |
+| **Logs** | 1 INFO record per stage (trace-correlated) | collector → **OpenSearch** | <http://localhost:5601> → index pattern `ems-logs*` |
+| **Metrics** | counter `ems.toy.stages.processed` | collector → **Prometheus** → **Grafana** | <http://localhost:9091> → query `ems_toy_stages_processed_total`; or the provisioned **OTel Pipeline Overview** dashboard at <http://localhost:3000/d/ems-otel-overview> |
 
 Or validate the whole stack (liveness + wiring + all three signals) in one shot:
 
@@ -72,13 +72,13 @@ Or validate the whole stack (liveness + wiring + all three signals) in one shot:
 
 | Service | URL |
 |---|---|
-| Grafana | http://localhost:3000 |
-| Jaeger | http://localhost:16686 |
-| OpenSearch Dashboards | http://localhost:5601 |
-| Prometheus | http://localhost:9091 |
-| OpenSearch API | http://localhost:9200 |
+| Grafana | <http://localhost:3000> |
+| Jaeger | <http://localhost:16686> |
+| OpenSearch Dashboards | <http://localhost:5601> |
+| Prometheus | <http://localhost:9091> |
+| OpenSearch API | <http://localhost:9200> |
 | Postgres | `postgres://ems:ems_dev@localhost:5432/ems` |
-| OTel HTTP | http://localhost:4318 |
+| OTel HTTP | <http://localhost:4318> |
 | OTel gRPC | `localhost:4317` |
 
 ---

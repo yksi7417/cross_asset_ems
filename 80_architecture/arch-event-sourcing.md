@@ -18,7 +18,7 @@ All system state is derived from an **append-only sequence of events**. There is
 
 ## Event envelope
 
-```
+```text
 Event {
   event_id          UUID
   global_seq        uint64       // append order, log-wide
@@ -76,17 +76,20 @@ Projections are **idempotent** in event id. Rebuilds from scratch are routine.
 ## Replay
 
 A replay run takes:
+
 - A log slice (e.g. `2025-11-03 09:30:00 → 16:00:00 UTC`).
 - A target code version.
 - A clock source — usually the [[arch-time-replay-server|time/replay server]] in `simulated` mode.
 
 It produces:
+
 - Re-derived state.
 - A new event stream (kept separate) that is `diff`ed against the original. Any divergence is a bug — either in the code change or in a non-deterministic dependency that needs to be eliminated.
 
 ## Determinism rules
 
 Code that participates in event derivation **must not**:
+
 - Read wall-clock time directly. Use [[arch-time-replay-server|the clock interface]].
 - Generate UUIDs from time. Use a deterministic seed where required.
 - Depend on iteration order of hash maps where outputs are externalized.

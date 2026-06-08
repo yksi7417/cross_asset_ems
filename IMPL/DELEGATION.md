@@ -23,6 +23,7 @@ Work is driven through two tools depending on tier:
 **Provider:** Google (in OpenCode). Smallest/cheapest. Treat as a fast first-draft engine with limited reasoning depth.
 
 **Use for:**
+
 - Boilerplate code, scaffolding, templates.
 - Unit tests for straightforward functions (one-input → one-output checks).
 - FIX adapter boilerplate (4.4 wire format, standard tags).
@@ -36,6 +37,7 @@ Work is driven through two tools depending on tier:
 - Grafana dashboard JSON, OTel SDK boilerplate.
 
 **Don't use for:**
+
 - Multi-file architectural reasoning.
 - Complex debugging or root-cause analysis.
 - Security-sensitive code review.
@@ -47,6 +49,7 @@ Work is driven through two tools depending on tier:
 **Provider:** OpenCode Zen. Strong mid model — larger context and better reasoning than Gemma; cheaper than Sonnet. Good at reviewing and researching across files.
 
 **Use for:**
+
 - Code review of a finished module (find bugs, suggest improvements).
 - Multi-file research questions ("how do all the FIX adapters handle reject codes?").
 - Drafting documentation for completed code.
@@ -55,6 +58,7 @@ Work is driven through two tools depending on tier:
 - Second-opinion pass before a `(sonnet)` task, to cut Sonnet iterations.
 
 **Don't use for:**
+
 - Final sign-off on security or correctness-critical paths (escalate to Sonnet).
 - Multi-step architectural decisions that need the full design-vault context.
 
@@ -63,6 +67,7 @@ Work is driven through two tools depending on tier:
 **Provider:** GitHub Copilot. Strongest tier; highest cost. The only tier that should make architectural commitments or final correctness judgements.
 
 **Use for:**
+
 - Architecture and design tasks.
 - FSM design and verification.
 - FIX Appendix D race-condition handling.
@@ -72,6 +77,7 @@ Work is driven through two tools depending on tier:
 - Anything that dispatches to other tiers and assembles results.
 
 **Don't use for:**
+
 - Tasks a cheaper tier can complete reliably.
 
 ## Tier 4 — Opus 4.x · `(opus)` · **Claude Code only**
@@ -79,12 +85,14 @@ Work is driven through two tools depending on tier:
 **Tool:** Claude Code (this session). Do NOT use OpenCode for opus tasks.
 
 **Reserved for tasks where a subtle error is silent and catastrophic:**
+
 - Event-sourcing replay determinism (wrong output = silent data corruption on replay).
 - Distributed consensus (Aeron Cluster 3-node Raft, split-brain edge cases).
 - FIX Appendix D cancel/replace race conditions (silent double-fill, wrong state).
 - Codegen pipeline correctness (generated Java/C++ used everywhere — wrong template = systemic bugs).
 
 **How to run:**
+
 1. Open (or continue) a Claude Code session.
 2. Call `advisor()` before committing to any design — the advisor is backed by Opus.
 3. Implement, test, commit here in Claude Code.

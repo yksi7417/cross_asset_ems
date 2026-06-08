@@ -17,20 +17,24 @@ tags: [documentation]
 ## Key documents
 
 ### Credit Agreement
+
 - Principal terms: borrower, lender(s), amount, tenor, interest rate (typically SOFR + spread for USD).
 - Covenants — financial covenants (leverage, coverage), affirmative covenants, negative covenants.
 - Events of default and remedies.
 - Mandatory prepayment events (asset sales, debt issuance, etc.).
 
 ### Intercreditor Agreement
+
 - Priority among different lender groups (first-lien, second-lien, mezzanine).
 - Standstill periods, payment subordination.
 
 ### Assignment / Participation
+
 - LSTA standard assignment forms for trading the loan.
 - T+7 LSTA settlement standard (target; often slips).
 
 ### Borrower Confidentiality
+
 - Lender obligations regarding non-public borrower information.
 - KYC requirements per AML.
 

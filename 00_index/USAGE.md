@@ -54,15 +54,19 @@ flatpak --user run md.obsidian.Obsidian &
 ## 3. Find your way around
 
 ### Start at HOME
+
 Open [[HOME]] (Quick Switcher: <kbd>Ctrl+O</kbd> → `home`). It's the **Map of Content** — every domain entry point is one click away.
 
 ### The asset-class matrix
+
 [[asset-class-matrix]] is a wide table comparing every sub-asset class on the same axes (venues, RFQ, netting, reporting, clearing, doc, trade type, liquidity). Cells contain wikilinks where helpful — click through to drill in.
 
 ### The workflow index
+
 [[workflow-index]] groups every workflow under the FX taxonomy headings (Staging / Pre-Trade / Routing / Corporate Treasury / Others). Use this when you want to find "where's the note on partial routes?" rather than browsing the folder.
 
 ### The architecture index
+
 [[architecture-index]] lists the system-level architecture notes. **Every expanded workflow links back here** — when reading a workflow, follow the architecture wikilinks to understand the surrounding mechanics (event sourcing, validator codes, FIX-API bridge rules, tag permissions, etc.).
 
 ### Navigation hotkeys
@@ -117,9 +121,11 @@ If a fact lives in another note, **link to it** — don't restate. Example: in `
 ## 5. Conventions
 
 ### Atomic notes
+
 One concept per file. Don't bundle. `route-to-algo.md` and `route-to-rfq.md` are separate notes even though they're both routing — they have independent backlink graphs, independent edit histories, and independent maturity.
 
 ### Frontmatter is the source of truth
+
 The body of a note is for humans. The frontmatter is for queries. Keep these fields accurate:
 
 ```yaml
@@ -170,19 +176,25 @@ Flat tags (`#corp-bonds`, `#fx`) clutter the tag pane and don't compose. Don't u
 ## 6. Working in Obsidian — day-to-day
 
 ### Adding a wikilink
+
 Type `[[`. Obsidian shows a fuzzy-search dropdown of every note in the vault. Hit Enter on the match. Use `|` to set link text: `[[corp-bonds-ig|IG Corp]]` renders as "IG Corp" but still links to the file.
 
 ### Embedding a note inside another
+
 `![[note-name]]` embeds the entire content (live, not a copy). Useful for embedding shared callouts or images.
 
 ### Inserting a template
+
 With the **Templates** core plugin enabled (it is): <kbd>Ctrl+P</kbd> → "Insert template" → choose. Inserts at cursor.
 
 ### Properties panel
+
 Frontmatter renders as a structured **Properties** panel at the top of every note. Edit frontmatter visually there — type changes propagate to the YAML on save.
 
 ### Graph view tips
+
 <kbd>Ctrl+G</kbd> opens the global graph. Filter controls (top-right):
+
 - **Filter** by `tag:#workflow/routing` to see only routing workflows.
 - **Colour groups**: add a group `tag:#asset` → all asset notes one colour.
 - **Forces**: lower "Link force" if clusters overlap.
@@ -223,12 +235,14 @@ Install via: Settings → Community plugins → Browse. **Turn off safe mode fir
 The vault is a git repo. Treat commits like checkpoints, not perfection gates.
 
 ### Committed
+
 - All markdown content
 - `templates/`
 - `.obsidian/app.json`, `appearance.json`, `core-plugins.json`, `templates.json` (so the vault opens consistently)
 - `attachments/`
 
 ### Gitignored (per-machine state)
+
 - `.obsidian/workspace*` — your open-tabs layout
 - `.obsidian/cache` — index cache
 - `.obsidian/plugins/*/data.json` — per-plugin local state
@@ -236,6 +250,7 @@ The vault is a git repo. Treat commits like checkpoints, not perfection gates.
 - OS junk (`.DS_Store`, `Thumbs.db`)
 
 ### Sensible commit cadence
+
 - One commit per note promoted (`stub → draft`) or per topical session.
 - Commit message format: `<type>: <what>` — e.g. `notes: flesh out corp-bonds-ig venues` or `index: rebuild workflow-index`.
 

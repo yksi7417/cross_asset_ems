@@ -15,19 +15,23 @@ Spot trading of digital assets — BTC, ETH, stablecoins (USDT, USDC, DAI), and 
 ## Venues
 
 ### Centralized exchanges (CEX)
+
 - **Binance**, **Coinbase Pro / Advanced**, **OKX**, **Bybit**, **Kraken**, **Bitstamp**, **Bitfinex**, **Gemini**, **HTX (Huobi)**, **Bitget**, **KuCoin**.
 - **Regulated US**: Coinbase, Kraken, Gemini.
 - **Regulated EU**: Bitstamp, Coinbase EU, OKX MiFID.
 - **APAC**: Binance Japan, bitFlyer (JP), Upbit / Bithumb (KR), Coinbase Singapore.
 
 ### Decentralized exchanges (DEX)
+
 - **Uniswap** (v3, v4), **Curve**, **Balancer**, **PancakeSwap**, **dYdX** (hybrid).
 - AMM pricing (constant-product / concentrated-liquidity); not CLOB.
 
 ### OTC desks
+
 - Cumberland (DRW), Genesis (defunct), Galaxy Digital, B2C2, Wintermute, GSR, Falcon, Bitstamp OTC. Bilateral block execution; voice + chat.
 
 ### RFQ / liquidity-aggregator platforms
+
 - **Talos**, **FalconX**, **Paradigm** (block + complex), **Hidden Road**, **Wintermute Trading API**. Cross-venue RFQ.
 
 ## How to Access Market

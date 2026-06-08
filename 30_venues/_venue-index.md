@@ -13,20 +13,25 @@ Folder is **asset class**. The `venue_kind:` frontmatter field distinguishes `ex
 ## Categories
 
 ### [[fixed_income/]] — Fixed Income
+
 MTFs, all-to-all platforms, interdealer venues, dealer RFQ networks, primary auction portals, and tri-party financing. Covers govts, IG/HY corp, muni, money markets, repo, TBA-MBS, EM bonds, convertibles.
 
 ### [[fx/]] — Foreign Exchange
+
 ECNs and multi-dealer FX platforms covering spot, forward, swap, NDF, and FX options. Bilateral LP streams are abstracted as the dealer-of-record on the venue, not as separate venues.
 
 ### [[equity/]] — Equity (cash + listed derivatives)
+
 Lit exchanges, regulated MTFs, independent ATSs (IEX, MEMX), listed options exchanges. **Broker-internalized destinations (dark pools, central risk books) sit under [[brokers/]]**, not here, because they are operationally part of the broker offering.
 
 ### [[brokers/]] — Equity Routing Brokers
+
 Bulge-bracket and agency brokers as **equity routing destinations**: algo suite, DMA, dark pool, capital commitment, RFQ desk, central risk book.
 
 > **Dual-role disclaimer.** The same legal entities (Goldman, Morgan Stanley, UBS, JPM, Citi, BAML) are also **FI dealers** (reached via [[marketaxess]], [[tradeweb]], and dealer-direct RFQ — see [[arch-rfq]]) and **FX liquidity providers** (reached via the FX ECNs). They appear under `brokers/` here because the *equity* routing concept is meaningfully different — equity routing involves smart-order-routing decisions across algos, dark pools, and capital commitment. FI and FX routes hit the dealer through a multi-dealer platform's RFQ flow, not through a dedicated broker note.
 
 ### [[multi_asset/]] — Multi-Asset Routable Bloomberg Destinations
+
 Bloomberg products that genuinely span asset classes as **routable** destinations (not terminal screens): [[bloomberg-sef]], [[bloomberg-bmtf]], [[bloomberg-tradebook-us]], [[bloomberg-tradebook-sg]].
 
 ## What's *not* a venue (lives in [[70_concepts/terminal_screens/]])

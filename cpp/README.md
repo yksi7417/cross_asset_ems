@@ -53,6 +53,7 @@ ctest --test-dir build/cpp --output-on-failure
 
 **2026-06-07 — replaced Rust with C++.**
 Rust was present as empty scaffolding with no committed source. C++ was chosen instead because:
+
 - The Aeron ecosystem (transport layer) has a mature, actively-maintained C++ media driver and client
   library (`aeron` C++ client). Java is the primary Aeron runtime; C++ is the natural second language
   for latency-critical components that need to share the same media driver process without a JVM.

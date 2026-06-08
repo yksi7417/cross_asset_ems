@@ -24,7 +24,7 @@ npm run dev
 
 ## Layout
 
-```
+```text
 app/
   layout.tsx              shell: nav + top bar
   page.tsx                dashboard
@@ -115,7 +115,6 @@ The route handlers in `app/api/*` are the only boundary with the
 real Configuration Service. Swap the `MOCK_*` imports for calls to
 your service (e.g. via `fetch` to a gRPC-gateway) — the SWR hooks in
 `lib/api.ts` don't need to change.
-```
 
 > Note: the `Skeleton` and `Tabs` components referenced by the pages
 > are intentionally minimal — they live alongside `components/`

@@ -13,11 +13,12 @@ FIX is **not** a parallel surface. It is a **subset** of [[arch-api-first|the AP
 
 Every supported inbound FIX message decodes to **one API operation**. There is a single bridge layer:
 
-```
+```text
 FIX wire → FIX parser → API operation (SBE) → core layers
 ```
 
 The bridge owns:
+
 - Tag-by-tag translation tables (one per supported message type).
 - Session-level concerns (logon, heartbeat, sequence reset) — locally implemented to match FIX semantics without a third-party engine. See [[arch-sequence-recovery]].
 - Asymmetric capability: some API operations have no FIX counterpart (e.g. fine-grained rule binding). Those are simply unavailable to pure FIX clients.

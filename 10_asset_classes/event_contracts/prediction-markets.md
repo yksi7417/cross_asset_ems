@@ -22,12 +22,14 @@ The user category named was Polymarket; the broader institutional space includes
 ## Venues
 
 ### Regulated US
+
 - **Kalshi** — CFTC-regulated DCM (Designated Contract Market) for event contracts; 2020 launch, expanding rapidly.
 - **CME event contracts** — CME's own event-contract launch covering equity index outcomes (e.g. "will S&P 500 close above X").
 - **ICE event contracts** — similar to CME.
 - **Forecast Foundation** (defunct / Augur) — early DeFi.
 
 ### Crypto / DeFi
+
 - **Polymarket** — USDC-settled, on-chain (Polygon); CFTC enforcement action 2022 led to non-US-only access for some markets; reorienting under new framework.
 - **Manifold Markets**.
 - **PredictIt** — operated under CFTC no-action letter (currently being wound down).

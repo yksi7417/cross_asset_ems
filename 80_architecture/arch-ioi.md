@@ -31,7 +31,7 @@ A common implementation mistake is shoving IOIs into the same table as orders or
 
 ## Data model
 
-```
+```text
 IOI {
   ioi_id                       UUID                    # EMS-internal
   source_network               AUTEX | BBG_IOI | LIQUIDNET | CANTOR | DEALER_DIRECT | OTHER
@@ -111,6 +111,7 @@ flowchart LR
 ```
 
 Each adapter:
+
 - Speaks the network's protocol (FIX `35=6`, proprietary REST / WebSocket, file feed).
 - Translates to the canonical `IOI` envelope.
 - Emits `IoiReceived` events.
@@ -148,7 +149,7 @@ sequenceDiagram
 
 Like [[arch-quote-server|quotes]], IOIs are distributed via PubSub with permission-scoped subscriptions:
 
-```
+```text
 ioi.{figi}                              # all IOIs for an instrument
 ioi.network.{network}                   # all from a specific network
 ioi.qualifier.{qualifier}               # filter by qualifier
@@ -174,7 +175,7 @@ Sell-side IOI publication is **separately gated** by `#ioi-publish-{network}` ta
 
 ## State machine (small)
 
-```
+```text
 NEW -> ACTIVE -> EXPIRED | CANCELLED | TRADED_AGAINST
                   ^
                   +-- on REPLACE: new IOI version supersedes; prior moves to CANCELLED

@@ -13,6 +13,7 @@ tags: [workflow/routing, workflow/fixing]
 ## Purpose
 
 Handle fixing orders' two atypical requirements:
+
 1. **Time-bound execution** — the order must price at the fix, not before.
 2. **Benchmark-tracking strategy** — execution must minimise tracking error vs the published fix (often a TWAP around the fix window).
 
@@ -88,7 +89,7 @@ sequenceDiagram
 
 ## API mapping
 
-```
+```yaml
 operation: bind_rule
 items: [{
   rule_id,

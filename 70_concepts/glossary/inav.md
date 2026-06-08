@@ -11,6 +11,7 @@ tags: [concept/glossary, glossary/equity]
 iNAV is the natural reference price for ETF trading: an ETF's market price should track its iNAV within a small spread; significant deviations signal arbitrage opportunities for [[authorized-participant|APs]]. The ETF issuer or a data vendor publishes the iNAV (often the issuer outsources to ICE / Refinitiv / Bloomberg).
 
 For an EMS, iNAV serves as:
+
 - The **best-ex benchmark** for ETF executions (ETF NBBO isn't a meaningful reference for thinly-traded ETFs).
 - The **fat-finger reference** in pre-trade compliance.
 - The **pre-trade fair-price estimate** for ETF block RFQs.

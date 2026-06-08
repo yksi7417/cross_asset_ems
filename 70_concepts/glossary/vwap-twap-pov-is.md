@@ -18,6 +18,7 @@ Plus variants: VWAP-to-close, IS-with-aggression, POV-with-cap, dark-only IS, li
 ## Example
 
 A trader buys 200K shares over 9:30-16:00. Choosing a strategy:
+
 - "Match the day's tape" → VWAP algo. Risk: if late-day volume spikes, VWAP backloads heavily.
 - "Be steady, predictable" → TWAP. Risk: ignores live conditions.
 - "Don't push >10% of the prints" → POV 10%. Risk: never finishes if volume is light.

@@ -46,7 +46,7 @@ Sessions wrap up gracefully when commit-count or context thresholds are hit. The
 
 Pre-commit and commit-msg hooks enforce **Conventional Commits**:
 
-```
+```text
 <type>(<scope>): <subject under 72 chars>
 ```
 
@@ -54,12 +54,13 @@ Valid types: `feat fix docs style refactor perf test build ci chore task impl ar
 
 When implementing a task, use its ID as the scope:
 
-```
+```text
 feat(1.3): SBE codegen for OrderNew message
 task(1.3): claim codegen pipeline
 ```
 
 The hooks also guard against:
+
 - Accidental secrets (`AKIA…`, PEM keys, `sk-*`, `ghp_*`)
 - Files > 10 MB
 - Trailing whitespace + CRLF

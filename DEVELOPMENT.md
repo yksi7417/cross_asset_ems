@@ -53,7 +53,7 @@ The Gradle wrapper (`gradlew` + `gradle/wrapper/gradle-wrapper.jar`) is committe
 
 ## Project structure (code side)
 
-```
+```text
 java/                  15 Gradle modules, layered per architecture spine
   ems-core             Shared types — no upstream deps
   ems-fsm              Shared FIX-compliant FSM (YAML→code)
@@ -144,6 +144,7 @@ docker compose -f infra/docker-compose/compose.dev.yaml logs -f opensearch
 ```
 
 Endpoints:
+
 - Postgres: `postgres://ems:ems_dev@localhost:5432/ems`
 - OpenSearch API: `http://localhost:9200` · Dashboards: `http://localhost:5601`
 - Prometheus: `http://localhost:9091`
@@ -179,7 +180,7 @@ remapped ports.
 Dashboards are **provisioned from files** — Grafana loads every JSON under
 `infra/grafana/dashboards/` into the **EMS** folder on startup (and reloads
 every 30s). The first one is **OTel Pipeline Overview**
-(http://localhost:3000/d/ems-otel-overview): the toy app counter, per-signal
+(<http://localhost:3000/d/ems-otel-overview>): the toy app counter, per-signal
 received-vs-exported throughput, collector health, and a live OpenSearch logs
 panel.
 
@@ -295,6 +296,7 @@ Workflows under `.github/workflows/`:
 ## Coding rules
 
 ### Java
+
 - JDK 21 (`emsJavaVersion=21` in `gradle.properties`).
 - `-Werror -Xlint:all` (from `ems.java-conventions`).
 - **No reflection on the hot path.**
@@ -303,6 +305,7 @@ Workflows under `.github/workflows/`:
 - Spotless w/ google-java-format runs in CI; auto-format with `./gradlew spotlessApply`.
 
 ### C++
+
 - C++20, CMake 3.25+, GCC 14+ or Clang 17+.
 - `-Wall -Wextra -Wpedantic -Werror` are CI gates once source lands.
 - `#pragma once` at every header. No raw `new`/`delete` — use RAII and standard containers.
@@ -310,6 +313,7 @@ Workflows under `.github/workflows/`:
 - All cross-component boundaries use SBE-encoded messages via `ems-transport`.
 
 ### Tests
+
 - Tier-1: every module has unit tests (`src/test/java`, `tests/`).
 - Cross-module tests live in `ems-it` and `tests/integration/`.
 - Pyramid: ~5,000 unit + 500 component + 50 BDD per `arch-ddd-tdd`.

@@ -19,7 +19,7 @@ The quote server consolidates outbound market data distribution into a single **
 
 Topics are keyed by FIGI plus a quote-level qualifier:
 
-```
+```text
 quote.{figi}.l1           // top of book
 quote.{figi}.l2           // depth, N levels
 quote.{figi}.trade        // last trade prints
@@ -28,6 +28,7 @@ quote.{composite_figi}.l1 // cross-venue composite, see [[arch-symbology-figi]]
 ```
 
 A subscription includes:
+
 - `topic` (or glob, e.g. `quote.BBG000B9XRY4.*`)
 - `qos` — best-effort (multicast tail) or guaranteed (unicast replay)
 - `throttle` — max msgs/sec downsampling
@@ -40,7 +41,7 @@ A subscription includes:
 
 ## API operations
 
-```
+```text
 subscribe([ Subscription ])
 unsubscribe([ subscription_id ])
 list_subscriptions(filter)            // admin

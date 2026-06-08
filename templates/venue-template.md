@@ -11,21 +11,27 @@ tags: [venue/{{kind}}]
 > **Status:** stub.
 
 ## What it is
+
 TODO.
 
 ## Asset classes supported
+
 - TODO
 
 ## Bloomberg shortcut / URL
+
 TODO.
 
 ## Connectivity
+
 - FIX: TODO
 - API: TODO
 - GUI: TODO
 
 ## RFQ vs. CLOB vs. Voice
+
 TODO.
 
 ## Notes
+
 TODO.

@@ -35,6 +35,7 @@ The vocabulary is **the shared single-source-of-truth dictionary** drawn from th
 | Trace ID, Span Link, Sampled Bit | [[arch-observability]] — verbatim from W3C trace context spec |
 
 Every name on this list appears identically in:
+
 - The SBE schema field name (`initial_order_id`).
 - The Java / C++ / Go / Python codegen output (no language-idiomatic rename to `firstOrderId`).
 - The integration test scenario titles ("an OrderReplaceRequested under PartiallyFilled with new qty above CumQty transitions to PendingReplaceAtVenue").
@@ -151,7 +152,7 @@ The integration tests are where DDD pays off most.
 
 Integration tests are written in **scenario form** using ubiquitous language. Example:
 
-```
+```gherkin
 Scenario: A spot-first FX swap with partial spot fill
   Given an enabled trader at the FX G10 desk with #fx-trade and #multileg-sequenced tags
   And the GBP/USD pair has a fresh L1 quote of 1.2750/1.2752
@@ -205,7 +206,7 @@ The pyramid is **load-bearing on its bottom layer**. Most coverage is in unit te
 
 The architectural property that makes TDD scale to a system of this complexity: **every component contract is an SBE schema over an Aeron channel**.
 
-```
+```text
 Component A  --[SBE schema X]-->  Component B
 ```
 
@@ -221,7 +222,7 @@ For unit tests, the test substitutes the publisher/subscriber with a direct in-m
 
 Because every component reads SBE events from Aeron channels, **replay mode** (per [[arch-time-replay-server]]) is just one more way to feed the same events:
 
-```
+```text
 Live mode    : Real network -> Aeron live channels -> Components -> Live state
 Test mode    : Test driver  -> In-process Aeron   -> Components -> Asserted state
 Replay mode  : Archive read -> In-process Aeron   -> Components -> Re-derived state (must equal historical)

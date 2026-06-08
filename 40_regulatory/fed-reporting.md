@@ -12,24 +12,31 @@ The **US Federal Reserve System** collects various structured reports from regul
 ## Major Fed-administered reports
 
 ### FR Y-14 (CCAR Stress Tests)
+
 Large bank holding companies submit detailed risk-position and capital data for stress-test analysis.
 
 ### FR Y-15 (Banking Organization Systemic Risk Report)
+
 Large banks report systemic-risk indicator data — cross-border activity, intra-financial assets/liabilities, securities outstanding.
 
 ### FR 2900 / 2950 (Money Stock)
+
 Deposit-based monetary aggregate inputs.
 
 ### FR Y-9C (Consolidated Financial Statements for Bank Holding Companies)
+
 Quarterly call report.
 
 ### OFR-100 (Large Position Report — Treasury)
+
 For UST primary dealers and other significant Treasury holders, position-level reporting.
 
 ### TIC (Treasury International Capital)
+
 Cross-border securities flows.
 
 ### Primary Dealer Statistics
+
 Primary dealers report trading, position, and inventory data to the New York Fed weekly.
 
 ## Touchpoints in the EMS

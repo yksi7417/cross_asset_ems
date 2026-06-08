@@ -12,9 +12,11 @@ The **Federal Reserve's wholesale wire payment and securities settlement system*
 ## Asset classes / instruments
 
 ### Fedwire Funds
+
 - USD large-value wire payments — interbank, commercial, settlement of clearings (DTC, CHIPS).
 
 ### Fedwire Securities
+
 - US [[govt-bonds|Treasury securities]] (cash, on-the-run, off-the-run).
 - US Agency debt (Fannie, Freddie, Ginnie, FHLB, Farm Credit) — discount notes + bonds.
 - Some Agency MBS pass-through.

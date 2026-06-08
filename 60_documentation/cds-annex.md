@@ -16,14 +16,17 @@ The **CDS-specific annex to the [[isda|ISDA Master Agreement]]**, plus the **201
 ## Key terms
 
 ### Reference Entity
+
 - The legal entity whose default triggers the swap.
 - Successor mechanics for mergers, demergers, name changes.
 
 ### Reference Obligation
+
 - The specific debt issue used to determine pricing (par value vs market value).
 - Substitution rules if the reference obligation is repaid.
 
 ### Credit Events
+
 - **Bankruptcy** — Chapter 7, 11, equivalents.
 - **Failure to Pay** — missed coupon / principal payment after grace period.
 - **Restructuring** — debt restructuring; multiple variants (No Restructuring, Mod-R, Mod-Mod-R, Full Restructuring) — the regional convention varies.
@@ -31,10 +34,12 @@ The **CDS-specific annex to the [[isda|ISDA Master Agreement]]**, plus the **201
 - **Obligation Acceleration** — debt accelerated and declared due.
 
 ### Determinations Committee
+
 - ISDA-administered committee that decides whether a credit event has occurred.
 - Decisions are binding industry-wide.
 
 ### Auction Settlement
+
 - Post-event, an industry auction sets the recovery rate.
 - Used to determine cash settlement on bilateral and cleared trades.
 

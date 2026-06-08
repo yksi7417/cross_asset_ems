@@ -12,15 +12,19 @@ The **FDIC** (Federal Deposit Insurance Corporation) and **OCC** (Office of the 
 ## Major reports
 
 ### Call Report (FFIEC 031 / 041 / 051)
+
 Quarterly consolidated financial report submitted by all FDIC-insured banks. Includes detailed trading-asset, derivative-position, and OTC-derivative data. Required of all US banks.
 
 ### Bank Holding Company reports
+
 Joint Fed-FDIC-OCC reports on bank holding companies.
 
 ### Volcker Rule reporting
+
 OCC oversees Volcker Rule compliance — banks limited in proprietary trading; required to report trading activity, risk limits, position turnover. Drives the "trading vs market-making" determination.
 
 ### CECL — Current Expected Credit Losses
+
 Quarterly credit-loss provision under accounting rules (FASB ASU 2016-13); not a trade report but interacts with credit-exposure data.
 
 ## Touchpoints in the EMS

@@ -15,6 +15,7 @@ Exchange-listed crypto futures with fixed expiry dates. Distinct from [[crypto-p
 ## Venues
 
 ### US-regulated
+
 - **CME Group** — BTC and ETH futures (standard and micro contracts):
   - BTC: standard (5 BTC), micro (0.1 BTC).
   - ETH: standard (50 ETH), micro (0.1 ETH).
@@ -24,6 +25,7 @@ Exchange-listed crypto futures with fixed expiry dates. Distinct from [[crypto-p
 - **CFTC-regulated**.
 
 ### Offshore
+
 - **Binance Futures dated** (quarterly).
 - **OKX dated futures**.
 - **Bybit dated futures**.

@@ -23,9 +23,11 @@ A cross-referenced wiki of how institutional execution management works, written
 For different audiences:
 
 ### "I want the 30-second pitch"
+
 Read [`README.md`](README.md). Vision, current state, get-started recipe.
 
 ### "I'm a finance person new to EMS engineering"
+
 1. [`00_index/HOME.md`](00_index/HOME.md) — entry point.
 2. [`70_concepts/glossary-index.md`](70_concepts/glossary-index.md) — translate any term you don't recognise.
 3. [`10_asset_classes/`](10_asset_classes/) — one note per asset class.
@@ -33,6 +35,7 @@ Read [`README.md`](README.md). Vision, current state, get-started recipe.
 5. [`20_workflows/`](20_workflows/) — how a trade flows through the system.
 
 ### "I'm an engineer new to capital markets"
+
 1. [`70_concepts/glossary-index.md`](70_concepts/glossary-index.md) — read the glossary first.
 2. [`00_index/asset-class-matrix.md`](00_index/asset-class-matrix.md) — cross-asset comparison in one table.
 3. [`00_index/architecture-index.md`](00_index/architecture-index.md) — system design entry point.
@@ -41,6 +44,7 @@ Read [`README.md`](README.md). Vision, current state, get-started recipe.
 6. [`80_architecture/arch-fix-fsm-design.md`](80_architecture/arch-fix-fsm-design.md) — the FSM that ties it together.
 
 ### "I want to understand a specific concept"
+
 - **A specific term** → search `70_concepts/glossary/` or hover any wikilink in Obsidian.
 - **A specific asset class** → `10_asset_classes/<class>/<sub-class>.md`.
 - **A specific venue** → `30_venues/<category>/<venue>.md`.
@@ -104,6 +108,7 @@ flatpak run md.obsidian.Obsidian
 Then **Open folder as vault** → point at this repository. Obsidian picks up the committed `.obsidian/` config (wikilinks on, attachments folder set, core plugins enabled).
 
 Useful hotkeys:
+
 - `Ctrl+O` — Quick Switcher (open any note by name).
 - `Ctrl+Shift+F` — global search.
 - `Ctrl+Shift+B` — backlinks panel.

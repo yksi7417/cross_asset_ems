@@ -24,6 +24,7 @@ Perpetual futures-like contracts on crypto. **No expiry** — funded by a period
 - **GMX**, **Aevo**, **Vertex** — DeFi alternatives.
 
 US-regulated equivalents:
+
 - **CME** does not offer perpetuals — it offers dated futures only (see [[crypto-futures]]).
 - **Coinbase** offered some perps internationally (Bahamas / non-US).
 
@@ -36,7 +37,7 @@ US-regulated equivalents:
 
 Periodic (typically every 8 hours, or every hour on some venues) cash exchange between longs and shorts based on:
 
-```
+```text
 funding_rate = clamp(premium_index + interest_rate_component, -cap, +cap)
 ```
 

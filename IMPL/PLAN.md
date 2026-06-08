@@ -282,8 +282,11 @@ Resilience + tooling. ~2-3 weeks.
 ## Done criteria for v0 (MVP)
 
 All phases 0-14 marked `[x]`. Plus:
+
 - End-to-end smoke: a FIX inbound NewOrderSingle → validator → staged → routed via venue adapter (mock) → fill ack → allocation → confirmation → TRACE-mock submission. Single trace ID through the whole chain.
+
 - One asset class fully wired (start: US IG corp via mocked MarketAxess) end-to-end with full audit trail.
+
 - Replay determinism passes on a 1-day mock log slice.
 
 ## What v1 looks like
