@@ -186,7 +186,10 @@ transitions:
   - from: LEGS_WORKING
     event: LegFilled
     to: PARTIALLY_FILLED
-    guard: "context.execution_mode == 'LEGS_INDEPENDENT' AND context.legs_filled + 1 + context.legs_rejected + context.legs_canceled == context.total_legs AND (context.legs_rejected > 0 OR context.legs_canceled > 0)"
+    guard: >-
+      context.execution_mode == 'LEGS_INDEPENDENT'
+      AND context.legs_filled + 1 + context.legs_rejected + context.legs_canceled == context.total_legs
+      AND (context.legs_rejected > 0 OR context.legs_canceled > 0)
     effects:
       - kind: update_context
         args: { legs_filled: "context.legs_filled + 1" }

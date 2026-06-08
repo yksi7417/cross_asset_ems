@@ -5,6 +5,7 @@ Atomic-notes Obsidian vault covering execution workflows across every asset clas
 **New here?** → [[USAGE]] — install, navigate, author, maintain.
 
 ## Reference
+
 - [[USAGE]] — how to use this vault (runbook)
 - [[architecture-index]] — system architecture (API, FIX bridge, SBE/Aeron, OMS layers, validator, perms)
 - [[asset-class-matrix]] — side-by-side comparison of all asset classes
@@ -16,6 +17,7 @@ Atomic-notes Obsidian vault covering execution workflows across every asset clas
 ## Asset Classes
 
 ### Equity
+
 - [[cash-equity|Cash Equity]]
 - [[equity-options|Equity Options]]
 - [[equity-futures|Equity Futures (Index + SSF)]]
@@ -23,6 +25,7 @@ Atomic-notes Obsidian vault covering execution workflows across every asset clas
 - [[equity-derivatives|Equity Derivatives (overview)]]
 
 ### Fixed Income
+
 - [[govt-bonds|Government Bonds]]
 - [[corp-bonds-ig|Corporate Bonds — Investment Grade]]
 - [[corp-bonds-hy|Corporate Bonds — High Yield]]
@@ -36,11 +39,13 @@ Atomic-notes Obsidian vault covering execution workflows across every asset clas
 - [[abs|Asset-Backed Securities (ABS)]]
 
 ### Rates / Credit Derivatives
+
 - [[interest-rate-swaps|Interest Rate Swaps (IRS)]]
 - [[credit-default-swaps|Credit Default Swaps (CDS)]]
 - [[structured-products|Structured Products]]
 
 ### FX
+
 - [[fx-spot|FX Spot]]
 - [[fx-forward|FX Forward]]
 - [[fx-swap|FX Swap]]
