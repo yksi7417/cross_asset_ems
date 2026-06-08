@@ -85,7 +85,7 @@ The core determinism guarantee. ~2-3 weeks.
 - [x] **1.4** Multi-leg / Package FSM per [[arch-multileg]] (sonnet) ← blocks: 1.1 `(4708714)`
 - [x] **1.5** VenueSession FSM (use existing Gemma draft in fsm/) (sonnet) ← blocks: 1.1 `(e903037)`
 - [x] **1.6** SOR FSM (sonnet) ← blocks: 1.1 `(0917b01)`
-- [ ] **1.7** Codegen pipeline YAML → Java/C++ state structs (opus — foundational; all FSM code derives from it) ← blocks: 1.1
+- [~] **1.7** Codegen pipeline YAML → Java/C++ state structs (opus — foundational; all FSM code derives from it) ← blocks: 1.1
 - [ ] **1.8** Unit test generator: YAML → ~5000 transition tests (gemma) ← blocks: 1.7
 - [x] **1.9** Lifecycle chaining (Order cancel cascades to Route) tests (sonnet) ← blocks: 1.2, 1.3 `(b6cd1e4)`
 - [ ] **1.10** Pending Replace / Pending Cancel edge cases per [[arch-fix-appendix-d]] (opus — silent-race correctness) ← blocks: 1.9
