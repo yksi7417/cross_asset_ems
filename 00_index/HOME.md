@@ -54,22 +54,27 @@ Atomic-notes Obsidian vault covering execution workflows across every asset clas
 - [[fx-futures|FX Futures (CME, EUREX, ICE)]]
 
 ### Crypto / Digital Assets
+
 - [[crypto-spot|Crypto Spot]]
 - [[crypto-perpetual|Crypto Perpetuals (Perp Swaps)]]
 - [[crypto-futures|Crypto Futures (CME, Deribit, etc.)]]
 - [[crypto-options|Crypto Options (Deribit, CME, DeFi)]]
 
 ### Commodity
+
 - [[commodity-futures|Commodity Futures]]
 - [[commodity-physical|Commodity Physical]]
 
 ### CFD (Contract For Difference)
+
 - [[cfd-overview|CFD Overview — Equity / Index / FX / Commodity / Crypto / Bond CFDs]]
 
 ### Event Contracts / Prediction Markets
+
 - [[prediction-markets|Prediction Markets — Polymarket / Kalshi / CME event contracts]]
 
 ## Common Reference Domains
+
 - Venues — see `30_venues/`
 - Regulatory — see `40_regulatory/`
 - Clearing & Settlement — see `50_clearing_settlement/`
