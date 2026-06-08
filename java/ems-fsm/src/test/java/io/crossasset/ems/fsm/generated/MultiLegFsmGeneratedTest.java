@@ -72,7 +72,7 @@ class MultiLegFsmGeneratedTest {
 
   @Test
   void test_trans_5_LEGS_WORKING_LegFilled_to_FILLED() {
-    var ctx = minimalCtx();
+    var ctx = new MultiLegFsmContext("default", "default", "default", 1, 0, 0, 0, "default");
     var result = MultiLegFsmRunner.transition(LEGS_WORKING, LegFilled, ctx, createLegFilledPayload());
     assertFalse(result.isNoTransition(), "Expected transition from LEGS_WORKING on LegFilled");
     assertEquals(FILLED, result.newState());
@@ -80,7 +80,7 @@ class MultiLegFsmGeneratedTest {
 
   @Test
   void test_trans_6_LEGS_WORKING_LegFilled_to_PARTIALLY_FILLED() {
-    var ctx = minimalCtx();
+    var ctx = new MultiLegFsmContext("default", "default", "LEGS_INDEPENDENT", 2, 0, 1, 0, "default");
     var result = MultiLegFsmRunner.transition(LEGS_WORKING, LegFilled, ctx, createLegFilledPayload());
     assertFalse(result.isNoTransition(), "Expected transition from LEGS_WORKING on LegFilled");
     assertEquals(PARTIALLY_FILLED, result.newState());
@@ -88,7 +88,7 @@ class MultiLegFsmGeneratedTest {
 
   @Test
   void test_trans_7_LEGS_WORKING_LegFilled_to_LEGS_WORKING() {
-    var ctx = minimalCtx();
+    var ctx = new MultiLegFsmContext("default", "default", "default", 3, 0, 0, 0, "default");
     var result = MultiLegFsmRunner.transition(LEGS_WORKING, LegFilled, ctx, createLegFilledPayload());
     assertFalse(result.isNoTransition(), "Expected transition from LEGS_WORKING on LegFilled");
     assertEquals(LEGS_WORKING, result.newState());
@@ -96,7 +96,7 @@ class MultiLegFsmGeneratedTest {
 
   @Test
   void test_trans_8_LEGS_WORKING_LegRejected_to_REJECTED() {
-    var ctx = minimalCtx();
+    var ctx = new MultiLegFsmContext("default", "default", "ALL_OR_NONE", 0, 0, 0, 0, "default");
     var result = MultiLegFsmRunner.transition(LEGS_WORKING, LegRejected, ctx, createLegRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from LEGS_WORKING on LegRejected");
     assertEquals(REJECTED, result.newState());
@@ -104,7 +104,7 @@ class MultiLegFsmGeneratedTest {
 
   @Test
   void test_trans_9_LEGS_WORKING_LegRejected_to_REJECTED() {
-    var ctx = minimalCtx();
+    var ctx = new MultiLegFsmContext("default", "default", "SEQUENCED", 0, 0, 0, 0, "default");
     var result = MultiLegFsmRunner.transition(LEGS_WORKING, LegRejected, ctx, createLegRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from LEGS_WORKING on LegRejected");
     assertEquals(REJECTED, result.newState());
@@ -112,7 +112,7 @@ class MultiLegFsmGeneratedTest {
 
   @Test
   void test_trans_10_LEGS_WORKING_LegRejected_to_PARTIALLY_FILLED() {
-    var ctx = minimalCtx();
+    var ctx = new MultiLegFsmContext("default", "default", "LEGS_INDEPENDENT", 2, 1, 0, 0, "default");
     var result = MultiLegFsmRunner.transition(LEGS_WORKING, LegRejected, ctx, createLegRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from LEGS_WORKING on LegRejected");
     assertEquals(PARTIALLY_FILLED, result.newState());
@@ -120,7 +120,7 @@ class MultiLegFsmGeneratedTest {
 
   @Test
   void test_trans_11_LEGS_WORKING_LegRejected_to_CANCELED() {
-    var ctx = minimalCtx();
+    var ctx = new MultiLegFsmContext("default", "default", "LEGS_INDEPENDENT", 1, 0, 0, 0, "default");
     var result = MultiLegFsmRunner.transition(LEGS_WORKING, LegRejected, ctx, createLegRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from LEGS_WORKING on LegRejected");
     assertEquals(CANCELED, result.newState());
@@ -128,7 +128,7 @@ class MultiLegFsmGeneratedTest {
 
   @Test
   void test_trans_12_LEGS_WORKING_LegRejected_to_LEGS_WORKING() {
-    var ctx = minimalCtx();
+    var ctx = new MultiLegFsmContext("default", "default", "LEGS_INDEPENDENT", 3, 0, 0, 0, "default");
     var result = MultiLegFsmRunner.transition(LEGS_WORKING, LegRejected, ctx, createLegRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from LEGS_WORKING on LegRejected");
     assertEquals(LEGS_WORKING, result.newState());
@@ -136,7 +136,7 @@ class MultiLegFsmGeneratedTest {
 
   @Test
   void test_trans_13_LEGS_WORKING_LegCanceled_to_PARTIALLY_FILLED() {
-    var ctx = minimalCtx();
+    var ctx = new MultiLegFsmContext("default", "default", "default", 2, 1, 0, 0, "default");
     var result = MultiLegFsmRunner.transition(LEGS_WORKING, LegCanceled, ctx, createLegCanceledPayload());
     assertFalse(result.isNoTransition(), "Expected transition from LEGS_WORKING on LegCanceled");
     assertEquals(PARTIALLY_FILLED, result.newState());
@@ -144,7 +144,7 @@ class MultiLegFsmGeneratedTest {
 
   @Test
   void test_trans_14_LEGS_WORKING_LegCanceled_to_CANCELED() {
-    var ctx = minimalCtx();
+    var ctx = new MultiLegFsmContext("default", "default", "default", 1, 0, 0, 0, "default");
     var result = MultiLegFsmRunner.transition(LEGS_WORKING, LegCanceled, ctx, createLegCanceledPayload());
     assertFalse(result.isNoTransition(), "Expected transition from LEGS_WORKING on LegCanceled");
     assertEquals(CANCELED, result.newState());
@@ -152,7 +152,7 @@ class MultiLegFsmGeneratedTest {
 
   @Test
   void test_trans_15_LEGS_WORKING_LegCanceled_to_LEGS_WORKING() {
-    var ctx = minimalCtx();
+    var ctx = new MultiLegFsmContext("default", "default", "default", 3, 0, 0, 0, "default");
     var result = MultiLegFsmRunner.transition(LEGS_WORKING, LegCanceled, ctx, createLegCanceledPayload());
     assertFalse(result.isNoTransition(), "Expected transition from LEGS_WORKING on LegCanceled");
     assertEquals(LEGS_WORKING, result.newState());

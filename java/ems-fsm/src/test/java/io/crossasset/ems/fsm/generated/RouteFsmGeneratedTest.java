@@ -136,7 +136,7 @@ class RouteFsmGeneratedTest {
 
   @Test
   void test_trans_12_PENDING_CANCEL_AT_VENUE_RouteCancelRejected_to_WORKING() {
-    var ctx = minimalCtx();
+    var ctx = new RouteFsmContext("default", "default", "default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, 0L, "default", "0");
     var result = RouteFsmRunner.transition(PENDING_CANCEL_AT_VENUE, RouteCancelRejected, ctx, createRouteCancelRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from PENDING_CANCEL_AT_VENUE on RouteCancelRejected");
     assertEquals(WORKING, result.newState());
@@ -144,7 +144,7 @@ class RouteFsmGeneratedTest {
 
   @Test
   void test_trans_13_PENDING_CANCEL_AT_VENUE_RouteCancelRejected_to_PARTIALLY_FILLED() {
-    var ctx = minimalCtx();
+    var ctx = new RouteFsmContext("default", "default", "default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, 0L, "default", "1");
     var result = RouteFsmRunner.transition(PENDING_CANCEL_AT_VENUE, RouteCancelRejected, ctx, createRouteCancelRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from PENDING_CANCEL_AT_VENUE on RouteCancelRejected");
     assertEquals(PARTIALLY_FILLED, result.newState());

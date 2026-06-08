@@ -152,7 +152,7 @@ class SorFsmGeneratedTest {
 
   @Test
   void test_trans_14_PENDING_CANCEL_AT_VENUE_RouteCancelRejected_to_WORKING() {
-    var ctx = minimalCtx();
+    var ctx = new SorFsmContext("default", "default", "default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, 0L, "default", "0", "default");
     var result = SorFsmRunner.transition(PENDING_CANCEL_AT_VENUE, RouteCancelRejected, ctx, createRouteCancelRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from PENDING_CANCEL_AT_VENUE on RouteCancelRejected");
     assertEquals(WORKING, result.newState());
@@ -160,7 +160,7 @@ class SorFsmGeneratedTest {
 
   @Test
   void test_trans_15_PENDING_CANCEL_AT_VENUE_RouteCancelRejected_to_PARTIALLY_FILLED() {
-    var ctx = minimalCtx();
+    var ctx = new SorFsmContext("default", "default", "default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, 0L, "default", "1", "default");
     var result = SorFsmRunner.transition(PENDING_CANCEL_AT_VENUE, RouteCancelRejected, ctx, createRouteCancelRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from PENDING_CANCEL_AT_VENUE on RouteCancelRejected");
     assertEquals(PARTIALLY_FILLED, result.newState());
