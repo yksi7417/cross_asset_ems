@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 1.7b — C++ FSM transition impl: inline codegen, compile-verify 1/1 pass
-- **Last commit (main):** `feat(1.7b): C++ FSM transition impl — YAML→inline C++ via codegen`
-- **Last commit sha (main):** `994d8fa`
-- **Tasks merged/marked this session:** 0.7 done `d2bfd66`; 0.10 done `83b694f`; 1.7 done `0f4a5b9`; 1.7b done `994d8fa`
+- **Last completed task:** 1.11 — Replay determinism harness: 4 scenarios, 27 tests green
+- **Last commit (main):** `feat(1.11): replay determinism harness for OrderFsm`
+- **Last commit sha (main):** `32acdac`
+- **Tasks merged/marked this session:** 0.7 done `d2bfd66`; 0.10 done `83b694f`; 1.7 done `0f4a5b9`; 1.7b done `994d8fa`; 1.11 done `32acdac`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-07
-- **Next task:** **1.8** (unit test generator, gemma, now unblocked by 1.7b) or **1.10** (Pending Replace/Cancel edge cases, opus), or **1.11**/**1.12** (sonnet, both unblocked by 1.7).
-- **Total progress:** **44 of 144 tasks [x]** (30.6%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **1.8** (unit test generator, gemma, unblocked by 1.7) or **1.10** (Pending Replace/Cancel edge cases, opus) or **1.12** (identity chaining, sonnet, unblocked by 1.7).
+- **Total progress:** **45 of 144 tasks [x]** (31.3%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## WIP branches awaiting Claude review-and-merge
@@ -56,7 +56,7 @@ The loop appends a one-line entry per session.
 | 2026-06-07 | 2026-06-07 | WIP branch audit + extraction | 3 substantive + 1 annotation | 13.2, 13.3 extracted; 6.5 regenerated (42 fixtures); 11.2-11.10 abandoned; 6.4 documented | next = 1.7 (opus) or 6.4 catalog extension (sonnet) |
 | 2026-06-07 | 2026-06-07 | 3-commit pacing trigger (loop wrap-up) | 3 (aeron-cluster bump + claim, feat 0.7, task-annotate) | 0.7 done | next = 0.10 (sonnet) or 1.7/1.10 (opus) |
 | 2026-06-07 | 2026-06-07 | 3-commit pacing trigger + Phase 0 complete | 4 (docs+obs, claim 0.10, feat 0.10, annotate) | 0.10 done; Phase 0 all [x] | next = 1.7 (opus) or 1.10 (opus) |
-| 2026-06-07 | 2026-06-07 | context-resuming prior session | 1 (feat 1.7b: C++ inline FSM transitions) | 1.7b done `994d8fa` | next = 1.8 (gemma) or 1.10/1.11/1.12 |
+| 2026-06-07 | 2026-06-07 | context-resuming prior session | 3 (1.7b C++ inline FSMs + task annotation; 1.11 replay harness) | 1.7b `994d8fa`, 1.11 `32acdac` | next = 1.8 (gemma) or 1.10/1.12 |
 
 ## Phase progress
 
