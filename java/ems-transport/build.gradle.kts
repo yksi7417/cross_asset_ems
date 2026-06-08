@@ -39,12 +39,15 @@ tasks.register<Test>("phase0Smoke") {
     classpath = sourceSets["test"].runtimeClasspath
 }
 
-// Run the toy interactively so you can inspect the archive before it closes.
-// Usage: ./gradlew :ems-transport:runToy
-// Then: hexdump -C /tmp/ems-aeron-demo/archive/*.rec | grep -A1 "PING\|PONG"
+// Run AeronToyPingPong and exit immediately after printing results (default).
+// Pass --args='--wait' to block for archive inspection before shutdown.
+//
+// Usage (non-blocking):  ./gradlew :ems-transport:runToy
+// Usage (blocking):      ./gradlew :ems-transport:runToy --args='--wait'
+// Inspect after exit:    hexdump -C /tmp/ems-aeron-demo/archive/*.rec | grep -A1 "PING\|PONG"
 tasks.register<JavaExec>("runToy") {
     group = "application"
-    description = "Run AeronToyPingPong interactively (leaves archive in /tmp/ems-aeron-demo)"
+    description = "Run AeronToyPingPong (exits after results; use --args='--wait' to block for archive inspection)"
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("io.crossasset.ems.transport.AeronToyPingPong")
     jvmArgs(

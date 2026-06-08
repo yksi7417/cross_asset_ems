@@ -171,11 +171,20 @@ public final class AeronToyPingPong implements AutoCloseable {
   }
 
   public static void main(final String[] args) throws Exception {
-    // Fixed dir so you can inspect the archive after the toy exits.
-    // Override with: java ... AeronToyPingPong /your/path
+    // Parse flags: --wait keeps the process alive for archive inspection.
+    // Override archive dir with the first non-flag arg.
+    boolean wait = false;
+    String dirArg = null;
+    for (final String arg : args) {
+      if ("--wait".equals(arg)) {
+        wait = true;
+      } else {
+        dirArg = arg;
+      }
+    }
     final File baseDir =
-        args.length > 0
-            ? new File(args[0])
+        dirArg != null
+            ? new File(dirArg)
             : new File(System.getProperty("java.io.tmpdir"), "ems-aeron-demo");
     baseDir.mkdirs();
     System.out.println("Base dir : " + baseDir.getAbsolutePath());
@@ -193,8 +202,12 @@ public final class AeronToyPingPong implements AutoCloseable {
       System.out.printf("  Avg RTT : %,d μs%n", avgNs / 1_000);
       System.out.printf("  Archive : %s%n", toy.hasArchiveRecordings() ? "recorded ✓" : "EMPTY ✗");
       System.out.println();
-      System.out.println("Press Enter to close (inspect archive files before closing)...");
-      System.in.read();
+      if (wait) {
+        System.out.println("Press Enter to close (inspect archive files before closing)...");
+        System.in.read();
+      } else {
+        System.out.println("Exiting. Run with --wait (./gradlew runToy --args='--wait') to inspect archive before close.");
+      }
     }
     System.out.println("Done.");
   }
