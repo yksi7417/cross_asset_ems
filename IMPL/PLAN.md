@@ -73,7 +73,7 @@ Foundation for everything else. ~1-2 weeks of work.
 - [x] **0.7** Aeron Cluster + Archive toy ping/pong (sonnet) ← blocks: 0.6 `(d2bfd66)`
 - [x] **0.8** OpenTelemetry SDK + collector + Jaeger toy trace (gemma) `(b86e7f8)`
 - [x] **0.9** Conventional commit + changelog automation (gemma) `(27ce39f)`
-- [ ] **0.10** Phase-0 smoke test job in CI (sonnet) ← blocks: 0.4, 0.7
+- [~] **0.10** Phase-0 smoke test job in CI (sonnet) ← blocks: 0.4, 0.7
 
 ## Phase 1 — Shared FIX-Compliant FSM
 
