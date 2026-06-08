@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2017/sbe"
                    package="io.crossasset.ems.schemas.event"
-                   id="0x02"
+                   id="2"
                    version="1"
                    semanticVersion="1.0.0"
                    description="Event envelope per arch-event-sourcing.md — the append-only audit spine."
@@ -114,7 +114,7 @@
 
       Variable-length stream_id and payload follow the fixed block.
     -->
-    <sbe:message name="Event" id="0x0200"
+    <sbe:message name="Event" id="512"
                  description="Universal event envelope per arch-event-sourcing.md.">
 
         <!-- Identity (16 + 16 + 16 = 48 bytes) -->
@@ -201,7 +201,7 @@
         </composite>
 
         <composite name="varDataEncoding">
-            <type name="length"  primitiveType="uint32"/>
+            <type name="length"  primitiveType="uint32" maxValue="1048576"/>
             <type name="varData" primitiveType="uint8" length="0"/>
         </composite>
     </types>

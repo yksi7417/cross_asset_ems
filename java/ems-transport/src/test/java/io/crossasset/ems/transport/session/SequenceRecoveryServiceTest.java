@@ -61,4 +61,34 @@ class SequenceRecoveryServiceTest {
     Optional<String> gap = service.checkSequence(1L, 100L);
     assertTrue(gap.isEmpty()); // duplicate should not trigger resend
   }
+
+  @Test
+  void testLogonSessionResumed() {
+    service.logon(2L, 50L);
+    var result = service.logon(2L, 50L);
+    assertTrue(result.success());
+    assertEquals(50L, result.expectedSeq());
+    assertTrue(result.message().contains("resumed"));
+  }
+
+  @Test
+  void testGetSessionExists() {
+    service.logon(3L, 200L);
+    var state = service.getSession(3L);
+    assertTrue(state.isPresent());
+    assertEquals(3L, state.get().sessionId());
+  }
+
+  @Test
+  void testGetSessionNotFound() {
+    var state = service.getSession(999L);
+    assertTrue(state.isEmpty());
+  }
+
+  @Test
+  void testCheckSequenceSessionNotFound() {
+    Optional<String> result = service.checkSequence(404L, 1L);
+    assertTrue(result.isPresent());
+    assertEquals("SESSION_NOT_FOUND", result.get());
+  }
 }

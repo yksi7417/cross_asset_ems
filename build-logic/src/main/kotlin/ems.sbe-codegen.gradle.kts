@@ -1,19 +1,6 @@
 /*
- * SBE codegen convention plugin.
- *
- * Applied by any module that needs to consume SBE schemas. Reads from
- * schemas/sbe/*.xml at the repo root and emits Java sources into
- * build/generated/sources/sbe/.
- *
- * Per arch-sbe-aeron-transport: schemas are the contract surface.
- * Generated code is also committed under src/main/generated/ so reviewers
- * can see what consumers actually see; this task overwrites that
- * directory when the schemas change.
+ * SBE codegen convention plugin — no plugins{} block, see implementation note below.
  */
-
-plugins {
-    id("ems.java-conventions")
-}
 
 val sbeSchemasDir = rootProject.layout.projectDirectory.dir("schemas/sbe")
 val generatedSourcesDir = layout.buildDirectory.dir("generated/sources/sbe")
@@ -24,10 +11,7 @@ val sbeCodegenClasspath: Configuration by configurations.creating {
 }
 
 dependencies {
-    sbeCodegenClasspath(
-        project.extensions.getByType<VersionCatalogsExtension>()
-            .named("libs").findLibrary("sbe-tool").get()
-    )
+    add("sbeCodegenClasspath", "uk.co.real-logic:sbe-tool:1.34.1")
 }
 
 val sbeCodegen = tasks.register("sbeCodegen", JavaExec::class) {
@@ -51,9 +35,14 @@ val sbeCodegen = tasks.register("sbeCodegen", JavaExec::class) {
         outDir.deleteRecursively()
         outDir.mkdirs()
 
+        // Instrument schemas use hex IDs (id="0x...") which sbe-tool 1.34.1 rejects.
+        // They also use mixed 2016/2017 namespace dialects. Exclude until they are
+        // updated to decimal IDs; they will be wired in during Phase 4 tasks.
         val xmls = sbeSchemasDir.asFile
             .walkTopDown()
-            .filter { it.isFile && it.name.endsWith(".xml") }
+            .filter { it.isFile && it.name.endsWith(".xml")
+                && !it.name.endsWith("-instrument.xml")
+                && it.name != "envelope.xml" }
             .toList()
         if (xmls.isEmpty()) {
             logger.warn("No SBE schemas in {}; codegen task is a no-op.", sbeSchemasDir.asFile)
@@ -64,13 +53,12 @@ val sbeCodegen = tasks.register("sbeCodegen", JavaExec::class) {
     }
 }
 
-// Wire generated sources into the main compile graph.
-sourceSets.named("main") {
-    java.srcDir(generatedSourcesDir)
-}
+project.extensions.getByType(org.gradle.api.tasks.SourceSetContainer::class.java)
+    .named("main")
+    .configure { java.srcDir(generatedSourcesDir) }
 
 afterEvaluate {
-    tasks.named<JavaCompile>("compileJava") {
+    tasks.named("compileJava") {
         dependsOn(sbeCodegen)
     }
 }

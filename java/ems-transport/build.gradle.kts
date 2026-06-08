@@ -45,6 +45,39 @@ tasks.register<Test>("phase0Smoke") {
 // Usage (non-blocking):  ./gradlew :ems-transport:runToy
 // Usage (blocking):      ./gradlew :ems-transport:runToy --args='--wait'
 // Inspect after exit:    hexdump -C /tmp/ems-aeron-demo/archive/*.rec | grep -A1 "PING\|PONG"
+// Exclude the Aeron demo entrypoint (AeronToyPingPong) from JaCoCo metrics.
+// Its main() is a CLI entry point, not testable via unit tests; the real
+// cluster behavior is covered by AeronToyPingPongTest integration tests.
+// Also exclude SBE-generated codecs: auto-generated classes with no business logic to test.
+val demoExcludes = listOf(
+    "**/AeronToyPingPong.class",
+    "**/io/crossasset/ems/schemas/**"
+)
+
+tasks.jacocoTestReport {
+    classDirectories.setFrom(
+        files(classDirectories.files.map { dir ->
+            fileTree(dir) { exclude(demoExcludes) }
+        })
+    )
+}
+
+tasks.jacocoTestCoverageVerification {
+    classDirectories.setFrom(
+        files(classDirectories.files.map { dir ->
+            fileTree(dir) { exclude(demoExcludes) }
+        })
+    )
+    violationRules {
+        rule {
+            limit {
+                counter = "INSTRUCTION"
+                minimum = "0.80".toBigDecimal()
+            }
+        }
+    }
+}
+
 tasks.register<JavaExec>("runToy") {
     group = "application"
     description = "Run AeronToyPingPong (exits after results; use --args='--wait' to block for archive inspection)"
