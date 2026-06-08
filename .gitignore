@@ -42,9 +42,11 @@ __pycache__/
 venv/
 .pytest_cache/
 
-# Generated code (committed but ignored by code-search tooling)
+# Generated code — committed where noted; ignored by code-search tooling otherwise.
 **/src/main/generated/
 **/src/generated/
+# FSM codegen output is committed so reviewers can diff it and CI stays hermetic.
+!java/ems-fsm/src/main/generated/
 
 # Secrets
 .env

@@ -53,6 +53,14 @@ jobs:
       - name: Unit tests
         run: ./gradlew --no-daemon allTests
 
+      # Verify committed FSM sources match what the codegen script would produce.
+      # pyyaml is available on ubuntu-24.04 runners as a system package.
+      - name: FSM sources sync check
+        if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+        run: |
+          python3 tools/codegen/fsm_codegen.py --java-only
+          git diff --exit-code java/ems-fsm/src/main/generated/
+
       # Full gate only: skip on feature-branch pushes for fast feedback.
       - name: Spotless check
         if: github.event_name != 'push' || github.ref == 'refs/heads/main'
