@@ -51,12 +51,15 @@ context_schema:
   tif:
     type: u8
     description: "FIX tag 59 — time-in-force (0=Day, 1=GTC, 3=IOC, 4=FOK, ...)."
-  trace_id:
-    type: u64
-    description: Identity-chaining trace ID (arch-identity-chaining).
-  initial_order_id:
+  initial_cl_ord_id:
+    type: string
+    description: The first ClOrdID ever seen or assigned to this order chain.
+  chain_id:
     type: uuid
-    description: ID of the order that originated this chain (same as order_id for originals).
+    description: Stable identifier for the order chain (alias of initial_order_id).
+  order_version:
+    type: u32
+    description: Increments on every replace; 1 at NewOrderSingle.
   pre_cancel_status:
     type: string
     nullable: true
@@ -205,6 +208,7 @@ transitions:
     event: ValidationPassed
     to: NEW
     effects:
+      - kind: chain_identity_stamp
       - kind: publish_fix_message
         args: { msg_type: "8", exec_type: "0", ord_status: "0" }
       - kind: publish_event_log
@@ -225,7 +229,7 @@ transitions:
     to: PENDING_REPLACE
     effects:
       - kind: update_context
-        args: { pre_replace_status: "0" }
+        args: { order_version: "context.order_version + 1" }
       - kind: publish_fix_message
         args: { msg_type: "8", exec_type: "E", ord_status: "E" }
       - kind: publish_event_log
@@ -237,7 +241,7 @@ transitions:
     to: PENDING_REPLACE
     effects:
       - kind: update_context
-        args: { pre_replace_status: "5" }
+        args: { pre_replace_status: "5", order_version: "context.order_version + 1" }
       - kind: publish_fix_message
         args: { msg_type: "8", exec_type: "E", ord_status: "E" }
       - kind: publish_event_log
