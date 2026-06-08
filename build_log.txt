@@ -1,0 +1,38 @@
+Initialized native services in: /home/yksi7417/.gradle/native
+Initialized jansi services in: /home/yksi7417/.gradle/native
+Received JVM installation metadata from '/home/yksi7417/.sdkman/candidates/java/21.0.7-tem': {JAVA_HOME=/home/yksi7417/.sdkman/candidates/java/21.0.7-tem, JAVA_VERSION=21.0.7, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=21.0.7+6-LTS, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=21.0.7+6-LTS, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+Found daemon DaemonInfo{pid=2803317, address=[f41a9027-92b9-4819-9328-75d21c70dda0 port:43967, addresses:[/127.0.0.1]], state=Idle, lastBusy=1780887806861, context=DefaultDaemonContext[uid=b22fcd6e-cff6-4542-a17d-9ee3b0245d4f,javaHome=/usr/lib/jvm/java-21-openjdk,javaVersion=21,javaVendor=Red Hat, Inc.,daemonRegistryDir=/home/yksi7417/.gradle/daemon,pid=2803317,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-XX:MaxMetaspaceSize=1g,--add-opens=java.base/java.util=ALL-UNNAMED,--add-opens=java.base/java.lang=ALL-UNNAMED,--add-opens=java.base/java.lang.invoke=ALL-UNNAMED,--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED,--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED,--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED,--add-opens=java.base/java.nio.charset=ALL-UNNAMED,--add-opens=java.base/java.net=ALL-UNNAMED,--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED,-Xmx4g,-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]} however its context does not match the desired criteria.
+JVM is incompatible.
+Wanted: DaemonRequestContext{jvmCriteria=/home/yksi7417/.sdkman/candidates/java/21.0.7-tem (no JDK specified, using current Java home), daemonOpts=[-XX:MaxMetaspaceSize=1g, --add-opens=java.base/java.util=ALL-UNNAMED, --add-opens=java.base/java.lang=ALL-UNNAMED, --add-opens=java.base/java.lang.invoke=ALL-UNNAMED, --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED, --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED, --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED, --add-opens=java.base/java.nio.charset=ALL-UNNAMED, --add-opens=java.base/java.net=ALL-UNNAMED, --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED, -Xmx4g, -Dfile.encoding=UTF-8, -Duser.country=US, -Duser.language=en, -Duser.variant], applyInstrumentationAgent=true, nativeServicesMode=ENABLED, priority=NORMAL}
+Actual: DefaultDaemonContext[uid=b22fcd6e-cff6-4542-a17d-9ee3b0245d4f,javaHome=/usr/lib/jvm/java-21-openjdk,javaVersion=21,javaVendor=Red Hat, Inc.,daemonRegistryDir=/home/yksi7417/.gradle/daemon,pid=2803317,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-XX:MaxMetaspaceSize=1g,--add-opens=java.base/java.util=ALL-UNNAMED,--add-opens=java.base/java.lang=ALL-UNNAMED,--add-opens=java.base/java.lang.invoke=ALL-UNNAMED,--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED,--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED,--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED,--add-opens=java.base/java.nio.charset=ALL-UNNAMED,--add-opens=java.base/java.net=ALL-UNNAMED,--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED,-Xmx4g,-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]
+
+  Looking for a different daemon...
+The client will now receive all logging from the daemon (pid: 529704). The daemon log file: /home/yksi7417/.gradle/daemon/8.10/daemon-529704.out.log
+Starting 31st build in daemon [uptime: 6 hrs 11 mins 8.8 secs, performance: 100%, GC rate: 0.00/s, heap usage: 0% of 4 GiB, non-heap usage: 17% of 1 GiB]
+Using 32 worker leases.
+Now considering [/home/yksi7417/dvlp/cross_asset_ems, /home/yksi7417/dvlp/cross_asset_ems/build-logic, /home/yksi7417/dvlp/cross_asset_ems/build-logic/build/tmp/generatePrecompiledScriptPluginAccessors/accessors11939715345017896985, /home/yksi7417/dvlp/cross_asset_ems/build-logic/build/tmp/generatePrecompiledScriptPluginAccessors/accessors8294831566406175530, /home/yksi7417/dvlp/cross_asset_ems/build-logic/build/tmp/generatePrecompiledScriptPluginAccessors/accessors13256555994743628597, /home/yksi7417/dvlp/cross_asset_ems/build-logic/build/tmp/generatePrecompiledScriptPluginAccessors/accessors9766771277440773696] as hierarchies to watch
+Now considering [/home/yksi7417/dvlp/cross_asset_ems/build-logic, /home/yksi7417/dvlp/cross_asset_ems, /home/yksi7417/dvlp/cross_asset_ems/build-logic/build/tmp/generatePrecompiledScriptPluginAccessors/accessors11939715345017896985, /home/yksi7417/dvlp/cross_asset_ems/build-logic/build/tmp/generatePrecompiledScriptPluginAccessors/accessors8294831566406175530, /home/yksi7417/dvlp/cross_asset_ems/build-logic/build/tmp/generatePrecompiledScriptPluginAccessors/accessors13256555994743628597, /home/yksi7417/dvlp/cross_asset_ems/build-logic/build/tmp/generatePrecompiledScriptPluginAccessors/accessors9766771277440773696] as hierarchies to watch
+Reusing configuration cache.
+Now considering [/home/yksi7417/dvlp/cross_asset_ems, /home/yksi7417/dvlp/cross_asset_ems/build-logic, /home/yksi7417/dvlp/cross_asset_ems/build-logic/build/tmp/generatePrecompiledScriptPluginAccessors/accessors11939715345017896985, /home/yksi7417/dvlp/cross_asset_ems/build-logic/build/tmp/generatePrecompiledScriptPluginAccessors/accessors8294831566406175530, /home/yksi7417/dvlp/cross_asset_ems/build-logic/build/tmp/generatePrecompiledScriptPluginAccessors/accessors13256555994743628597, /home/yksi7417/dvlp/cross_asset_ems/build-logic/build/tmp/generatePrecompiledScriptPluginAccessors/accessors9766771277440773696] as hierarchies to watch
+Watching the file system is configured to be enabled if available
+File system watching is active
+Using local directory build cache for the root build (location = /home/yksi7417/.gradle/caches/build-cache-1, removeUnusedEntriesAfter = 7 days).
+Tasks to be executed: [task ':ems-core:compileJava', task ':ems-transport:compileJava']
+Tasks that were excluded: []
+Resolve mutations for :ems-core:compileJava (Thread[#4726,Execution worker,5,main]) started.
+:ems-core:compileJava (Thread[#4746,Execution worker Thread 21,5,main]) started.
+
+> Task :ems-core:compileJava NO-SOURCE
+Skipping task ':ems-core:compileJava' as it has no source files and no previous output files.
+work action resolve main (project :ems-core) (Thread[#4746,Execution worker Thread 21,5,main]) started.
+Resolve mutations for :ems-transport:compileJava (Thread[#4747,Execution worker Thread 22,5,main]) started.
+:ems-transport:compileJava (Thread[#4725,included builds,5,main]) started.
+
+> Task :ems-transport:compileJava UP-TO-DATE
+Build cache key for task ':ems-transport:compileJava' is 4ee23992baf9717155fb17717a5934e6
+Skipping task ':ems-transport:compileJava' as it is up-to-date.
+No compile result for :ems-transport:compileJava
+
+BUILD SUCCESSFUL in 413ms
+1 actionable task: 1 up-to-date
+Configuration cache entry reused.

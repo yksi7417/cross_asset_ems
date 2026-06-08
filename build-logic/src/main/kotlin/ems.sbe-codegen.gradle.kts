@@ -30,7 +30,7 @@ dependencies {
     )
 }
 
-val sbeCodegen by tasks.registering(JavaExec::class) {
+val sbeCodegen = tasks.register("sbeCodegen", JavaExec::class) {
     group = "build"
     description = "Generate Java codecs from SBE XML schemas."
     classpath = sbeCodegenClasspath
@@ -47,6 +47,7 @@ val sbeCodegen by tasks.registering(JavaExec::class) {
     systemProperty("sbe.java.generate.interfaces", "true")
 
     doFirst {
+        println("SBE Codegen starting. Output dir: ${outDir.absolutePath}")
         outDir.deleteRecursively()
         outDir.mkdirs()
 
@@ -68,8 +69,10 @@ sourceSets.named("main") {
     java.srcDir(generatedSourcesDir)
 }
 
-tasks.named<JavaCompile>("compileJava") {
-    dependsOn(sbeCodegen)
+afterEvaluate {
+    tasks.named<JavaCompile>("compileJava") {
+        dependsOn(sbeCodegen)
+    }
 }
 
 tasks.named("clean") {

@@ -69,7 +69,7 @@ Loop adds `[!]` tasks here for human review.
 
 | Task ID | Reason | First flagged |
 |---|---|---|
-| _(none)_ | | |
+| 2.7 | SBE generated code missing and `ems.sbe-codegen` plugin failing to register tasks/produce output. | 2026-06-08 |
 
 ## Abandoned wip branches
 

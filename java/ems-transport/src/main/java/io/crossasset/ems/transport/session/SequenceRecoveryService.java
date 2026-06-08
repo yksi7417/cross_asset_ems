@@ -5,12 +5,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 
-    /**
-     * SequenceRecoveryService provides a skeleton for tracking session sequence numbers,
-     * detecting gaps, and managing the session lifecycle per arch-sequence-recovery.md.
-     *
-     * This is a skeleton implementation focused on the core state tracking logic.
-     */
+/**
+ * SequenceRecoveryService provides a skeleton for tracking session sequence numbers, detecting
+ * gaps, and managing the session lifecycle per arch-sequence-recovery.md.
+ *
+ * <p>This is a skeleton implementation focused on the core state tracking logic.
+ */
 public class SequenceRecoveryService {
   private static final Logger logger = Logger.getLogger(SequenceRecoveryService.class.getName());
 
