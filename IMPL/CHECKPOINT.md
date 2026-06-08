@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 0.10 — Phase-0 smoke gate (phase0Smoke task + CI job, 2 tests green)
-- **Last commit (main):** `feat(0.10): Phase-0 smoke test gate in CI`
-- **Last commit sha (main):** `83b694f`
-- **Tasks merged/marked this session:** 0.7 done `d2bfd66`; 0.10 done `83b694f`; docs+observability `b8c30f3`
+- **Last completed task:** 1.7 — FSM codegen pipeline YAML→Java/C++ (12 tests green)
+- **Last commit (main):** `feat(1.7): FSM codegen pipeline — YAML→Java/C++ state structs`
+- **Last commit sha (main):** `0f4a5b9`
+- **Tasks merged/marked this session:** 0.7 done `d2bfd66`; 0.10 done `83b694f`; 1.7 done `0f4a5b9`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-07
-- **Next task:** **1.7** (codegen pipeline YAML→Java/C++, opus) or **1.10** (Pending Replace/Cancel edge cases, opus). Phase 0 complete.
-- **Total progress:** **35 of 150 tasks [x]** (23.3%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **1.10** (Pending Replace/Cancel edge cases, opus) or **1.8** (unit test generator, gemma, now unblocked by 1.7).
+- **Total progress:** **36 of 150 tasks [x]** (24.0%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## WIP branches awaiting Claude review-and-merge
