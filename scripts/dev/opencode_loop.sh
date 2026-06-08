@@ -71,10 +71,12 @@ while [ $session -lt $MAX_SESSIONS ]; do
   sha_before=$(git rev-parse HEAD)
 
   # ── Run OpenCode ──────────────────────────────────────────────────────
+  prompt=$(cat IMPL/OPENCODE_PROMPT.txt)
+
   if $DRY_RUN; then
-    log "[dry-run] would run: opencode --prompt-file IMPL/OPENCODE_PROMPT.txt --max-iterations 1"
+    log "[dry-run] would run: opencode --prompt \"$(head -c 80 IMPL/OPENCODE_PROMPT.txt)...\""
   else
-    opencode --prompt-file IMPL/OPENCODE_PROMPT.txt --max-iterations 1 || {
+    opencode --prompt "$prompt" || {
       log "ERROR: opencode exited non-zero (exit code $?). Stopping loop."
       exit 1
     }
