@@ -20,8 +20,9 @@ public final class OrderFsmContext {
   private long leavesQty;
   private String account;
   private int tif;
-  private long traceId;
-  private String initialOrderId;
+  private String initialClOrdId;
+  private String chainId;
+  private long orderVersion;
   private @Nullable String preCancelStatus;
   private @Nullable String preReplaceStatus;
 
@@ -37,8 +38,9 @@ public final class OrderFsmContext {
       long leavesQty,
       String account,
       int tif,
-      long traceId,
-      String initialOrderId,
+      String initialClOrdId,
+      String chainId,
+      long orderVersion,
       @Nullable String preCancelStatus,
       @Nullable String preReplaceStatus
   ) {
@@ -53,8 +55,9 @@ public final class OrderFsmContext {
     this.leavesQty = leavesQty;
     this.account = account;
     this.tif = tif;
-    this.traceId = traceId;
-    this.initialOrderId = initialOrderId;
+    this.initialClOrdId = initialClOrdId;
+    this.chainId = chainId;
+    this.orderVersion = orderVersion;
     this.preCancelStatus = preCancelStatus;
     this.preReplaceStatus = preReplaceStatus;
   }
@@ -70,15 +73,16 @@ public final class OrderFsmContext {
   public long leavesQty() { return leavesQty; }
   public String account() { return account; }
   public int tif() { return tif; }
-  public long traceId() { return traceId; }
-  public String initialOrderId() { return initialOrderId; }
+  public String initialClOrdId() { return initialClOrdId; }
+  public String chainId() { return chainId; }
+  public long orderVersion() { return orderVersion; }
   public @Nullable String preCancelStatus() { return preCancelStatus; }
   public @Nullable String preReplaceStatus() { return preReplaceStatus; }
 
   /** Return a copy with the given field updated. */
   public OrderFsmContext with(
-      String orderId, String clOrdId, @Nullable String origClOrdId, String instrumentId, int side, long orderQty, @Nullable Long price, long cumQty, long leavesQty, String account, int tif, long traceId, String initialOrderId, @Nullable String preCancelStatus, @Nullable String preReplaceStatus
+      String orderId, String clOrdId, @Nullable String origClOrdId, String instrumentId, int side, long orderQty, @Nullable Long price, long cumQty, long leavesQty, String account, int tif, String initialClOrdId, String chainId, long orderVersion, @Nullable String preCancelStatus, @Nullable String preReplaceStatus
   ) {
-    return new OrderFsmContext(orderId, clOrdId, origClOrdId, instrumentId, side, orderQty, price, cumQty, leavesQty, account, tif, traceId, initialOrderId, preCancelStatus, preReplaceStatus);
+    return new OrderFsmContext(orderId, clOrdId, origClOrdId, instrumentId, side, orderQty, price, cumQty, leavesQty, account, tif, initialClOrdId, chainId, orderVersion, preCancelStatus, preReplaceStatus);
   }
 }

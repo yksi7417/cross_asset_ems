@@ -42,7 +42,7 @@ public final class OrderFsmRunner {
           yield TransitionResult.of(
             OrderFsmState.NEW,
             ctx,
-            List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "0", "ord_status", "0")), new OrderFsmEffect.PublishEventLog("OrderAccepted")));
+            List.of(new OrderFsmEffect.ChainIdentityStamp(Map.of()), new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "0", "ord_status", "0")), new OrderFsmEffect.PublishEventLog("OrderAccepted")));
         }
         case ValidationFailed -> {
           yield TransitionResult.of(
@@ -57,27 +57,27 @@ public final class OrderFsmRunner {
           var payload = (OrderFsmPayloads.ReplaceRequestedPayload) rawPayload;
           yield TransitionResult.of(
             OrderFsmState.PENDING_REPLACE,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus(), "0"),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), (ctx.orderVersion() + 1), ctx.preCancelStatus(), ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "E", "ord_status", "E")), new OrderFsmEffect.PublishEventLog("OrderReplaceRequested")));
         }
         case CancelRequested -> {
           yield TransitionResult.of(
             OrderFsmState.PENDING_CANCEL,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), "0", ctx.preReplaceStatus()),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), "0", ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "6", "ord_status", "6")), new OrderFsmEffect.PublishEventLog("OrderCancelRequested")));
         }
         case PartialFill -> {
           var payload = (OrderFsmPayloads.PartialFillPayload) rawPayload;
           yield TransitionResult.of(
             OrderFsmState.PARTIALLY_FILLED,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), (ctx.leavesQty() - payload.lastQty()), ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), (ctx.leavesQty() - payload.lastQty()), ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "F", "ord_status", "1")), new OrderFsmEffect.PublishEventLog("OrderPartiallyFilled")));
         }
         case FullFill -> {
           var payload = (OrderFsmPayloads.FullFillPayload) rawPayload;
           yield TransitionResult.of(
             OrderFsmState.FILLED,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), 0L, ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), 0L, ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "F", "ord_status", "2")), new OrderFsmEffect.PublishEventLog("OrderFilled")));
         }
         case OrderExpired -> {
@@ -99,7 +99,7 @@ public final class OrderFsmRunner {
           var payload = (OrderFsmPayloads.ReplaceAcceptedPayload) rawPayload;
           yield TransitionResult.of(
             OrderFsmState.REPLACED,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus(), null),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), ctx.preCancelStatus(), null),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "5", "ord_status", "0")), new OrderFsmEffect.PublishEventLog("OrderReplaced")));
         }
         case ReplaceRejected -> {
@@ -122,7 +122,7 @@ public final class OrderFsmRunner {
           var payload = (OrderFsmPayloads.PartialFillPayload) rawPayload;
           yield TransitionResult.of(
             OrderFsmState.PARTIALLY_FILLED,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), (ctx.leavesQty() - payload.lastQty()), ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), (ctx.leavesQty() - payload.lastQty()), ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "F", "ord_status", "1")), new OrderFsmEffect.PublishEventLog("OrderPartiallyFilled")));
         }
         default -> TransitionResult.noTransition(state);
@@ -132,27 +132,27 @@ public final class OrderFsmRunner {
           var payload = (OrderFsmPayloads.ReplaceRequestedPayload) rawPayload;
           yield TransitionResult.of(
             OrderFsmState.PENDING_REPLACE,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus(), "5"),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), (ctx.orderVersion() + 1), ctx.preCancelStatus(), "5"),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "E", "ord_status", "E")), new OrderFsmEffect.PublishEventLog("OrderReplaceRequested")));
         }
         case CancelRequested -> {
           yield TransitionResult.of(
             OrderFsmState.PENDING_CANCEL,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), "5", ctx.preReplaceStatus()),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), "5", ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "6", "ord_status", "6")), new OrderFsmEffect.PublishEventLog("OrderCancelRequested")));
         }
         case PartialFill -> {
           var payload = (OrderFsmPayloads.PartialFillPayload) rawPayload;
           yield TransitionResult.of(
             OrderFsmState.PARTIALLY_FILLED,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), (ctx.leavesQty() - payload.lastQty()), ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), (ctx.leavesQty() - payload.lastQty()), ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "F", "ord_status", "1")), new OrderFsmEffect.PublishEventLog("OrderPartiallyFilled")));
         }
         case FullFill -> {
           var payload = (OrderFsmPayloads.FullFillPayload) rawPayload;
           yield TransitionResult.of(
             OrderFsmState.FILLED,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), 0L, ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), 0L, ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "F", "ord_status", "2")), new OrderFsmEffect.PublishEventLog("OrderFilled")));
         }
         case OrderExpired -> {
@@ -198,21 +198,21 @@ public final class OrderFsmRunner {
         case CancelRequested -> {
           yield TransitionResult.of(
             OrderFsmState.PENDING_CANCEL,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), "1", ctx.preReplaceStatus()),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), "1", ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "6", "ord_status", "6")), new OrderFsmEffect.PublishEventLog("OrderCancelRequested")));
         }
         case PartialFill -> {
           var payload = (OrderFsmPayloads.PartialFillPayload) rawPayload;
           yield TransitionResult.of(
             OrderFsmState.PARTIALLY_FILLED,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), (ctx.leavesQty() - payload.lastQty()), ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), (ctx.leavesQty() - payload.lastQty()), ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "F", "ord_status", "1")), new OrderFsmEffect.PublishEventLog("OrderPartiallyFilled")));
         }
         case FullFill -> {
           var payload = (OrderFsmPayloads.FullFillPayload) rawPayload;
           yield TransitionResult.of(
             OrderFsmState.FILLED,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), 0L, ctx.account(), ctx.tif(), ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), 0L, ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "F", "ord_status", "2")), new OrderFsmEffect.PublishEventLog("OrderFilled")));
         }
         case OrderExpired -> {
