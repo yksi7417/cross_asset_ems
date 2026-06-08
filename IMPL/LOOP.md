@@ -32,7 +32,8 @@ The agent runs this loop per session:
 
 ### 3. Choose tier
 - Look at the tag (`(gemma)`, `(gemma first draft, sonnet review)`, `(minimax)`, `(sonnet)`, `(opus)`) per [[DELEGATION]].
-- Switch the OpenCode model to that tier's provider (Google → Gemma, OpenCode Zen → MiniMax, GitHub Copilot → Sonnet or Opus).
+- **Tiers 1–3 → OpenCode:** switch the model to that tier's provider (Google → Gemma, OpenCode Zen → MiniMax, GitHub Copilot → Sonnet).
+- **Tier 4 `(opus)` → Claude Code:** do NOT use OpenCode. Run the task in this Claude Code session. Call `advisor()` before any design commitment.
 - For `(gemma)` tasks: draft in OpenCode with Gemma, run tests, escalate to Sonnet only on failure.
 
 ### 4. Execute

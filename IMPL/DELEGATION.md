@@ -2,15 +2,19 @@
 
 Pick the cheapest tier that gets the work done. Cost/capability go up tier-by-tier. Default to the tier the task's tag in [[PLAN]] specifies, and escalate only on actual failure (test red, build red, integration fail).
 
-Work is now driven through **OpenCode**, with one model pinned per connected provider:
+Work is driven through two tools depending on tier:
 
-| Tag | Tier | OpenCode provider | Model | Role |
+| Tag | Tier | Tool | Model | Role |
 |---|---|---|---|---|
-| `(gemma)` | 1 — cheapest | **Google** | **Gemma 4 31B** | boilerplate, scaffolding, fixtures |
-| `(minimax)` | 2 — mid | **OpenCode Zen** | **MiniMax 2.7 / 3** | review, research, drafting, ports |
-| `(sonnet)` | 3 — strongest | **GitHub Copilot** | **Sonnet 4.6** | architecture, correctness, orchestration |
+| `(gemma)` | 1 — cheapest | **OpenCode** → Google | **Gemma 4 31B** | boilerplate, scaffolding, fixtures |
+| `(minimax)` | 2 — mid | **OpenCode** → OpenCode Zen | **MiniMax 2.7 / 3** | review, research, drafting, ports |
+| `(sonnet)` | 3 — strong | **OpenCode** → GitHub Copilot | **Sonnet 4.6** | architecture, correctness, orchestration |
+| `(opus)` | 4 — apex | **Claude Code** (this session) | **Opus 4.x** | crown jewels: replay determinism, consensus, FIX races |
 
-> Switch models with OpenCode's model selector (the `/models` picker, or `opencode run -m <provider>/<model>`). The provider→model bindings above are configured once in your OpenCode auth/config; the tags below name the *tier*, not a hard-coded model — re-point a provider and the tiers still hold.
+> Tiers 1–3 use OpenCode — switch the model with `/models` or `opencode run -m <provider>/<model>`.
+> **Tier 4 (`(opus)`) is run directly in Claude Code**, not in OpenCode. Claude Code already has
+> the Opus-backed `advisor` tool and full file/bash access; no provider switch needed.
+> Use `/model opus` in the Claude Code session to confirm the model, then proceed.
 
 ---
 
@@ -70,6 +74,24 @@ Work is now driven through **OpenCode**, with one model pinned per connected pro
 **Don't use for:**
 - Tasks a cheaper tier can complete reliably.
 
+## Tier 4 — Opus 4.x · `(opus)` · **Claude Code only**
+
+**Tool:** Claude Code (this session). Do NOT use OpenCode for opus tasks.
+
+**Reserved for tasks where a subtle error is silent and catastrophic:**
+- Event-sourcing replay determinism (wrong output = silent data corruption on replay).
+- Distributed consensus (Aeron Cluster 3-node Raft, split-brain edge cases).
+- FIX Appendix D cancel/replace race conditions (silent double-fill, wrong state).
+- Codegen pipeline correctness (generated Java/C++ used everywhere — wrong template = systemic bugs).
+
+**How to run:**
+1. Open (or continue) a Claude Code session.
+2. Call `advisor()` before committing to any design — the advisor is backed by Opus.
+3. Implement, test, commit here in Claude Code.
+4. Do not mark the task `[x]` until tests pass in this session.
+
+**Don't dilute this tier.** If you're unsure whether a task needs Opus, it's `(sonnet)`.
+
 ## The first-draft loop (cheap draft → Sonnet review)
 
 For non-trivial coding tasks:
@@ -108,7 +130,7 @@ For non-trivial coding tasks:
 
 ## Escalation rule
 
-If a task at tier N produces output that fails tests, **escalate to tier N+1 with the failed output as input** (Gemma → MiniMax → Sonnet). Don't loop at the same tier — escalation is the loop. If Sonnet fails, mark the task `[~]` (blocked) and note it in [[CHECKPOINT]].
+If a task at tier N produces output that fails tests, **escalate to tier N+1 with the failed output as input** (Gemma → MiniMax → Sonnet → Claude Code/Opus). Don't loop at the same tier — escalation is the loop. If Opus (Claude Code) fails, mark the task `[!]` (blocked) and note it in [[CHECKPOINT]] — this is a genuine blocker requiring human design input.
 
 ## See also
 
