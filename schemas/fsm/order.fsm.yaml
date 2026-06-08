@@ -229,7 +229,7 @@ transitions:
     to: PENDING_REPLACE
     effects:
       - kind: update_context
-        args: { order_version: "context.order_version + 1" }
+        args: { pre_replace_status: "0", order_version: "context.order_version + 1" }
       - kind: publish_fix_message
         args: { msg_type: "8", exec_type: "E", ord_status: "E" }
       - kind: publish_event_log

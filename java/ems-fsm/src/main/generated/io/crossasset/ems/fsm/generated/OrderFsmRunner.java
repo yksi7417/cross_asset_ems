@@ -57,7 +57,7 @@ public final class OrderFsmRunner {
           var payload = (OrderFsmPayloads.ReplaceRequestedPayload) rawPayload;
           yield TransitionResult.of(
             OrderFsmState.PENDING_REPLACE,
-            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), (ctx.orderVersion() + 1), ctx.preCancelStatus(), ctx.preReplaceStatus()),
+            ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), ctx.cumQty(), ctx.leavesQty(), ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), (ctx.orderVersion() + 1), ctx.preCancelStatus(), "0"),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "E", "ord_status", "E")), new OrderFsmEffect.PublishEventLog("OrderReplaceRequested")));
         }
         case CancelRequested -> {

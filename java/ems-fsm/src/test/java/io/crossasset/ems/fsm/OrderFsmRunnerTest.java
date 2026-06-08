@@ -32,8 +32,9 @@ class OrderFsmRunnerTest {
         100L, // leavesQty
         "ACC-1", // account
         0, // tif (Day)
-        0L, // traceId
-        "order-001", // initialOrderId
+        "order-001", // initialClOrdId
+        "chain-001", // chainId
+        0L, // orderVersion
         null, // preCancelStatus
         null // preReplaceStatus
         );
@@ -69,8 +70,9 @@ class OrderFsmRunnerTest {
             ctx.leavesQty(),
             ctx.account(),
             ctx.tif(),
-            ctx.traceId(),
-            ctx.initialOrderId(),
+            ctx.initialClOrdId(),
+            ctx.chainId(),
+            ctx.orderVersion(),
             ctx.preCancelStatus(),
             "0");
 
@@ -98,8 +100,9 @@ class OrderFsmRunnerTest {
             ctx.leavesQty(),
             ctx.account(),
             ctx.tif(),
-            ctx.traceId(),
-            ctx.initialOrderId(),
+            ctx.initialClOrdId(),
+            ctx.chainId(),
+            ctx.orderVersion(),
             ctx.preCancelStatus(),
             "5");
 
@@ -127,8 +130,9 @@ class OrderFsmRunnerTest {
             ctx.leavesQty(),
             ctx.account(),
             ctx.tif(),
-            ctx.traceId(),
-            ctx.initialOrderId(),
+            ctx.initialClOrdId(),
+            ctx.chainId(),
+            ctx.orderVersion(),
             ctx.preCancelStatus(),
             "BOGUS");
 
@@ -156,8 +160,9 @@ class OrderFsmRunnerTest {
             ctx.leavesQty(),
             ctx.account(),
             ctx.tif(),
-            ctx.traceId(),
-            ctx.initialOrderId(),
+            ctx.initialClOrdId(),
+            ctx.chainId(),
+            ctx.orderVersion(),
             "0",
             ctx.preReplaceStatus());
 
@@ -184,8 +189,9 @@ class OrderFsmRunnerTest {
             ctx.leavesQty(),
             ctx.account(),
             ctx.tif(),
-            ctx.traceId(),
-            ctx.initialOrderId(),
+            ctx.initialClOrdId(),
+            ctx.chainId(),
+            ctx.orderVersion(),
             "5",
             ctx.preReplaceStatus());
 
@@ -212,8 +218,9 @@ class OrderFsmRunnerTest {
             ctx.leavesQty(),
             ctx.account(),
             ctx.tif(),
-            ctx.traceId(),
-            ctx.initialOrderId(),
+            ctx.initialClOrdId(),
+            ctx.chainId(),
+            ctx.orderVersion(),
             "1",
             ctx.preReplaceStatus());
 
@@ -269,8 +276,9 @@ class OrderFsmRunnerTest {
             ctx.leavesQty(),
             ctx.account(),
             ctx.tif(),
-            ctx.traceId(),
-            ctx.initialOrderId(),
+            ctx.initialClOrdId(),
+            ctx.chainId(),
+            ctx.orderVersion(),
             ctx.preCancelStatus(),
             "0"); // in pending replace
 
@@ -340,7 +348,10 @@ class OrderFsmRunnerTest {
     assertEquals(NEW, result.newState());
 
     var effects = result.effects();
-    assertEquals(2, effects.size(), "ValidationPassed should emit exactly 2 effects");
+    // ChainIdentityStamp was added in the FSM update (stamps initialClOrdId/chainId on acceptance)
+    assertEquals(3, effects.size(), "ValidationPassed should emit ChainIdentityStamp + PublishFixMessage + PublishEventLog");
+    assertTrue(effects.stream().anyMatch(e -> e instanceof OrderFsmEffect.ChainIdentityStamp),
+        "Missing ChainIdentityStamp effect");
 
     var fix =
         effects.stream()
@@ -374,8 +385,9 @@ class OrderFsmRunnerTest {
             ctx.leavesQty(),
             ctx.account(),
             ctx.tif(),
-            ctx.traceId(),
-            ctx.initialOrderId(),
+            ctx.initialClOrdId(),
+            ctx.chainId(),
+            ctx.orderVersion(),
             "0",
             ctx.preReplaceStatus());
 

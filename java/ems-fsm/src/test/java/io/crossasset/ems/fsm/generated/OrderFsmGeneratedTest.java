@@ -11,7 +11,7 @@ import java.util.*;
 class OrderFsmGeneratedTest {
 
   private static OrderFsmContext minimalCtx() {
-    return new OrderFsmContext("default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, "default", 0, 0L, "default", "default", "default");
+    return new OrderFsmContext("default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, "default", 0, "default", "default", 0L, "default", "default");
   }
 
   private static Object createReplaceRequestedPayload() {
@@ -88,7 +88,7 @@ class OrderFsmGeneratedTest {
 
   @Test
   void test_trans_5_PENDING_REPLACE_ReplaceRejected_to_NEW() {
-    var ctx = new OrderFsmContext("default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, "default", 0, 0L, "default", "default", "0");
+    var ctx = new OrderFsmContext("default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, "default", 0, "default", "default", 0L, "default", "0");
     var result = OrderFsmRunner.transition(PENDING_REPLACE, ReplaceRejected, ctx, createReplaceRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from PENDING_REPLACE on ReplaceRejected");
     assertEquals(NEW, result.newState());
@@ -96,7 +96,7 @@ class OrderFsmGeneratedTest {
 
   @Test
   void test_trans_6_PENDING_REPLACE_ReplaceRejected_to_REPLACED() {
-    var ctx = new OrderFsmContext("default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, "default", 0, 0L, "default", "default", "5");
+    var ctx = new OrderFsmContext("default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, "default", 0, "default", "default", 0L, "default", "5");
     var result = OrderFsmRunner.transition(PENDING_REPLACE, ReplaceRejected, ctx, createReplaceRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from PENDING_REPLACE on ReplaceRejected");
     assertEquals(REPLACED, result.newState());
@@ -136,7 +136,7 @@ class OrderFsmGeneratedTest {
 
   @Test
   void test_trans_11_PENDING_CANCEL_CancelRejected_to_NEW() {
-    var ctx = new OrderFsmContext("default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, "default", 0, 0L, "default", "0", "default");
+    var ctx = new OrderFsmContext("default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, "default", 0, "default", "default", 0L, "0", "default");
     var result = OrderFsmRunner.transition(PENDING_CANCEL, CancelRejected, ctx, createCancelRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from PENDING_CANCEL on CancelRejected");
     assertEquals(NEW, result.newState());
@@ -144,7 +144,7 @@ class OrderFsmGeneratedTest {
 
   @Test
   void test_trans_12_PENDING_CANCEL_CancelRejected_to_REPLACED() {
-    var ctx = new OrderFsmContext("default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, "default", 0, 0L, "default", "5", "default");
+    var ctx = new OrderFsmContext("default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, "default", 0, "default", "default", 0L, "5", "default");
     var result = OrderFsmRunner.transition(PENDING_CANCEL, CancelRejected, ctx, createCancelRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from PENDING_CANCEL on CancelRejected");
     assertEquals(REPLACED, result.newState());
@@ -152,7 +152,7 @@ class OrderFsmGeneratedTest {
 
   @Test
   void test_trans_13_PENDING_CANCEL_CancelRejected_to_PARTIALLY_FILLED() {
-    var ctx = new OrderFsmContext("default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, "default", 0, 0L, "default", "1", "default");
+    var ctx = new OrderFsmContext("default", "default", "default", "default", 0, 0L, 0L, 0L, 0L, "default", 0, "default", "default", 0L, "1", "default");
     var result = OrderFsmRunner.transition(PENDING_CANCEL, CancelRejected, ctx, createCancelRejectedPayload());
     assertFalse(result.isNoTransition(), "Expected transition from PENDING_CANCEL on CancelRejected");
     assertEquals(PARTIALLY_FILLED, result.newState());

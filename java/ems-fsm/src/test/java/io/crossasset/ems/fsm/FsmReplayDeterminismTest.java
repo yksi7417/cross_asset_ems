@@ -41,8 +41,9 @@ class FsmReplayDeterminismTest {
       long expectedLeavesQty,
       String expectedAccount,
       int expectedTif,
-      long expectedTraceId,
-      String expectedInitialOrderId,
+      String expectedInitialClOrdId,
+      String expectedChainId,
+      long expectedOrderVersion,
       String expectedPreCancelStatus,
       String expectedPreReplaceStatus) {}
 
@@ -71,8 +72,9 @@ class FsmReplayDeterminismTest {
         nc.leavesQty(),
         nc.account(),
         nc.tif(),
-        nc.traceId(),
-        nc.initialOrderId(),
+        nc.initialClOrdId(),
+        nc.chainId(),
+        nc.orderVersion(),
         nc.preCancelStatus(),
         nc.preReplaceStatus());
   }
@@ -96,8 +98,9 @@ class FsmReplayDeterminismTest {
         assertEquals(e.expectedLeavesQty(), nc.leavesQty(), tag + ": leavesQty");
         assertEquals(e.expectedAccount(), nc.account(), tag + ": account");
         assertEquals(e.expectedTif(), nc.tif(), tag + ": tif");
-        assertEquals(e.expectedTraceId(), nc.traceId(), tag + ": traceId");
-        assertEquals(e.expectedInitialOrderId(), nc.initialOrderId(), tag + ": initialOrderId");
+        assertEquals(e.expectedInitialClOrdId(), nc.initialClOrdId(), tag + ": initialClOrdId");
+        assertEquals(e.expectedChainId(), nc.chainId(), tag + ": chainId");
+        assertEquals(e.expectedOrderVersion(), nc.orderVersion(), tag + ": orderVersion");
         assertEquals(e.expectedPreCancelStatus(), nc.preCancelStatus(), tag + ": preCancelStatus");
         assertEquals(
             e.expectedPreReplaceStatus(), nc.preReplaceStatus(), tag + ": preReplaceStatus");
@@ -120,8 +123,9 @@ class FsmReplayDeterminismTest {
         100L,
         "ACC-1",
         0,
-        0L,
         "order-001",
+        "chain-001",
+        0L,
         null,
         null);
   }
