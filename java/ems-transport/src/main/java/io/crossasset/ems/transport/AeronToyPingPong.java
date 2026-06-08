@@ -174,7 +174,14 @@ public final class AeronToyPingPong implements AutoCloseable {
   }
 
   public static void main(final String[] args) throws Exception {
-    final File baseDir = Files.createTempDirectory("ems-aeron-toy-").toFile();
+    // Fixed dir so you can inspect the archive after the toy exits.
+    // Override with: java ... AeronToyPingPong /your/path
+    final File baseDir =
+        args.length > 0 ? new File(args[0]) : new File(System.getProperty("java.io.tmpdir"), "ems-aeron-demo");
+    baseDir.mkdirs();
+    System.out.println("Base dir : " + baseDir.getAbsolutePath());
+    System.out.println("Archive  : " + new File(baseDir, "archive").getAbsolutePath());
+
     try (AeronToyPingPong toy = new AeronToyPingPong(baseDir)) {
       toy.start();
       final int rounds = 10;
@@ -186,6 +193,9 @@ public final class AeronToyPingPong implements AutoCloseable {
       final long avgNs = rtts.stream().mapToLong(Long::longValue).sum() / rtts.size();
       System.out.printf("  Avg RTT : %,d μs%n", avgNs / 1_000);
       System.out.printf("  Archive : %s%n", toy.hasArchiveRecordings() ? "recorded ✓" : "EMPTY ✗");
+      System.out.println();
+      System.out.println("Press Enter to close (inspect archive files before closing)...");
+      System.in.read();
     }
     System.out.println("Done.");
   }

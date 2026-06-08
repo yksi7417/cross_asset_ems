@@ -14,6 +14,7 @@ dependencies {
     api(libs.bundles.aeron)
     api(libs.aeron.cluster)
     api(libs.aeron.archive)
+    runtimeOnly(libs.logback.classic)
 }
 
 tasks.withType<Test>().configureEach {
@@ -22,4 +23,19 @@ tasks.withType<Test>().configureEach {
         "--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED",
         "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED",
     )
+}
+
+// Run the toy interactively so you can inspect the archive before it closes.
+// Usage: ./gradlew :ems-transport:runToy
+// Then: hexdump -C /tmp/ems-aeron-demo/archive/*.log | grep -A1 "PING\|PONG"
+tasks.register<JavaExec>("runToy") {
+    group = "application"
+    description = "Run AeronToyPingPong interactively (leaves archive in /tmp/ems-aeron-demo)"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("io.crossasset.ems.transport.AeronToyPingPong")
+    jvmArgs(
+        "--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED",
+        "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED",
+    )
+    standardInput = System.`in`
 }
