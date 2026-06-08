@@ -349,8 +349,12 @@ class OrderFsmRunnerTest {
 
     var effects = result.effects();
     // ChainIdentityStamp was added in the FSM update (stamps initialClOrdId/chainId on acceptance)
-    assertEquals(3, effects.size(), "ValidationPassed should emit ChainIdentityStamp + PublishFixMessage + PublishEventLog");
-    assertTrue(effects.stream().anyMatch(e -> e instanceof OrderFsmEffect.ChainIdentityStamp),
+    assertEquals(
+        3,
+        effects.size(),
+        "ValidationPassed should emit ChainIdentityStamp + PublishFixMessage + PublishEventLog");
+    assertTrue(
+        effects.stream().anyMatch(e -> e instanceof OrderFsmEffect.ChainIdentityStamp),
         "Missing ChainIdentityStamp effect");
 
     var fix =
