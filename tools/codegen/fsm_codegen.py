@@ -849,7 +849,7 @@ def gen_java_for_fsm(fsm: dict, dry_run: bool) -> list[str]:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# C++ stub codegen (skeletal — compile verified in a follow-up)
+# C++ full codegen (inline transition implementation, header-only)
 # ──────────────────────────────────────────────────────────────────────────────
 
 CPP_HEADER_TEMPLATE = """\
@@ -884,19 +884,339 @@ struct {prefix}FsmContext {{
 struct {prefix}FsmTransitionResult {{
   {prefix}FsmState newState;
   {prefix}FsmContext newContext;
-  // effects: TODO — will be replaced by generated effect variant
+  // effects: deferred — C++ effect dispatch not yet generated (Java has full effects)
   bool isNoTransition;
 }};
 
-// ── Transition function stub ───────────────────────────────────────────────────
-// TODO: implement from YAML via codegen in a follow-up commit.
-{prefix}FsmTransitionResult transition(
-    {prefix}FsmState state,
-    {prefix}FsmEvent event,
-    const {prefix}FsmContext& ctx) noexcept;
-
+{payload_struct}
+{transition_impl}
 }} // namespace crossasset::ems::fsm
 """
+
+
+class ExprParserCpp:
+    """C++ expression compiler — same DSL grammar as ExprParser, C++ emission.
+
+    Differences from the Java ExprParser:
+    - context.field  → ctx.camelField  (struct member, not method call)
+    - payload.field  → p->camelField
+    - null           → std::nullopt
+    - optional string EQ/NEQ get has_value() + dereference guards
+    - optional field == null  → !ctx.field.has_value()
+    """
+
+    def __init__(self, tokens: list[Token], ctx_schema: dict):
+        self.tokens = tokens
+        self.pos = 0
+        self.ctx_schema = ctx_schema
+
+    def peek(self) -> Token | None:
+        return self.tokens[self.pos] if self.pos < len(self.tokens) else None
+
+    def consume(self, kind: str | None = None) -> Token:
+        t = self.tokens[self.pos]
+        if kind and t.kind != kind:
+            raise ValueError(f"Expected {kind}, got {t}")
+        self.pos += 1
+        return t
+
+    def parse_expr(self) -> str:
+        return self.parse_or()
+
+    def parse_or(self) -> str:
+        left = self.parse_and()
+        parts = [left]
+        while self.peek() and self.peek().kind == "OR":
+            self.consume("OR")
+            parts.append(self.parse_and())
+        return ("(" + " || ".join(parts) + ")") if len(parts) > 1 else parts[0]
+
+    def parse_and(self) -> str:
+        left = self.parse_cmp()
+        parts = [left]
+        while self.peek() and self.peek().kind == "AND":
+            self.consume("AND")
+            parts.append(self.parse_cmp())
+        return ("(" + " && ".join(parts) + ")") if len(parts) > 1 else parts[0]
+
+    def parse_cmp(self) -> str:
+        first_left_tok = self.peek()
+        left = self.parse_arith()
+        t = self.peek()
+        if t and t.kind in ("EQ", "NEQ", "LT", "GT", "LEQ", "GEQ"):
+            op_tok = self.consume()
+            first_right_tok = self.peek()
+            right = self.parse_arith()
+            op_map = {"LT": "<", "GT": ">", "LEQ": "<=", "GEQ": ">="}
+
+            # context.nullable_field == null / != null
+            if (first_left_tok and first_left_tok.kind == "CONTEXT_FIELD" and
+                    first_right_tok and first_right_tok.kind == "NULL"):
+                finfo = self.ctx_schema.get(first_left_tok.value, {})
+                if finfo.get("nullable"):
+                    if op_tok.kind == "EQ":
+                        return f"(!{left}.has_value())"
+                    else:
+                        return f"({left}.has_value())"
+
+            # context.nullable_string_field == 'literal' / != 'literal'
+            if (op_tok.kind in ("EQ", "NEQ") and
+                    first_left_tok and first_left_tok.kind == "CONTEXT_FIELD" and
+                    first_right_tok and first_right_tok.kind == "STRING"):
+                finfo = self.ctx_schema.get(first_left_tok.value, {})
+                if finfo.get("nullable") and finfo.get("type") == "string":
+                    val = first_right_tok.value
+                    if op_tok.kind == "EQ":
+                        return f'({left}.has_value() && *{left} == "{val}")'
+                    else:
+                        return f'(!{left}.has_value() || *{left} != "{val}")'
+
+            if op_tok.kind == "EQ":
+                return f"({left} == {right})"
+            elif op_tok.kind == "NEQ":
+                return f"({left} != {right})"
+            else:
+                return f"({left} {op_map[op_tok.kind]} {right})"
+        return left
+
+    def parse_arith(self) -> str:
+        result = self.parse_term()
+        while self.peek() and self.peek().kind in ("PLUS", "MINUS"):
+            op = self.consume()
+            rhs = self.parse_term()
+            result = f"({result} {op.value} {rhs})"
+        return result
+
+    def parse_term(self) -> str:
+        t = self.peek()
+        if t is None:
+            raise ValueError("Unexpected end of expression")
+        if t.kind == "LPAREN":
+            self.consume("LPAREN")
+            inner = self.parse_expr()
+            self.consume("RPAREN")
+            return f"({inner})"
+        elif t.kind == "NULL":
+            self.consume()
+            return "std::nullopt"
+        elif t.kind == "INT":
+            self.consume()
+            return t.value
+        elif t.kind == "STRING":
+            self.consume()
+            return f'"{t.value}"'
+        elif t.kind == "CONTEXT_FIELD":
+            self.consume()
+            return f"ctx.{snake_to_camel(t.value)}"
+        elif t.kind == "PAYLOAD_FIELD":
+            self.consume()
+            return f"p->{snake_to_camel(t.value)}"
+        else:
+            raise ValueError(f"Unexpected token {t!r}")
+
+
+def compile_guard_cpp(expr: str, ctx_schema: dict) -> str:
+    """Compile a guard expression to a C++ boolean expression."""
+    if not expr or expr.strip() == "":
+        return "true"
+    tokens = tokenize(expr.strip())
+    parser = ExprParserCpp(tokens, ctx_schema)
+    result = parser.parse_expr()
+    if parser.pos != len(parser.tokens):
+        raise ValueError(f"Unconsumed tokens in C++ guard {expr!r}: {parser.tokens[parser.pos:]}")
+    return result
+
+
+def compile_update_expr_cpp(yaml_expr, fname: str, finfo: dict, ctx_schema: dict) -> str:
+    """Compile a context update expression to a C++ rvalue expression."""
+    ctype = YAML_TO_CPP.get(finfo.get("type", "string"), "std::string")
+    unsigned_types = ("uint64_t", "uint32_t", "uint16_t", "uint8_t")
+    signed_types = ("int64_t", "int32_t", "int16_t", "int8_t")
+
+    if yaml_expr is None:
+        return "std::nullopt"
+    if isinstance(yaml_expr, bool):
+        return "true" if yaml_expr else "false"
+    if isinstance(yaml_expr, int):
+        if ctype in unsigned_types or ctype in signed_types:
+            return f"static_cast<{ctype}>({yaml_expr})"
+        return str(yaml_expr)
+
+    expr = str(yaml_expr).strip()
+    if expr == "null":
+        return "std::nullopt"
+    if expr.lower() == "true":
+        return "true"
+    if expr.lower() == "false":
+        return "false"
+
+    # Plain string literal (no context/payload reference)
+    if ctype == "std::string" and not expr.startswith("context.") and not expr.startswith("payload."):
+        return f'"{expr}"'
+
+    tokens = tokenize(expr)
+    parser = ExprParserCpp(tokens, ctx_schema)
+    result = parser.parse_arith()
+    if parser.pos != len(parser.tokens):
+        raise ValueError(f"Unconsumed tokens in C++ update {yaml_expr!r}")
+
+    if ctype in unsigned_types and result.isdigit():
+        return f"static_cast<{ctype}>({result})"
+    return result
+
+
+def _row_uses_payload(row: dict) -> bool:
+    """Return True if any effect or guard expression in this row references payload fields."""
+    if "payload." in str(row.get("guard") or ""):
+        return True
+    for eff in row.get("effects", []):
+        if eff.get("kind") == "update_context":
+            for v in eff.get("args", {}).values():
+                if isinstance(v, str) and "payload." in v:
+                    return True
+    return False
+
+
+def gen_cpp_payload_struct(fsm: dict, prefix: str) -> str:
+    """Generate the {Prefix}FsmPayloads outer struct with per-event inner structs.
+
+    Nesting payload structs inside {Prefix}FsmPayloads avoids name collisions when
+    multiple FSMs (e.g. Route and Sor) share the same event vocabulary.
+    """
+    events_with_payloads = [
+        (e["name"], e["payload_schema"])
+        for e in fsm["events"]
+        if e.get("payload_schema")
+    ]
+    if not events_with_payloads:
+        return ""
+
+    lines = [
+        "// ── Payload structs ──────────────────────────────────────────────────────────",
+        f"struct {prefix}FsmPayloads {{",
+    ]
+    for ename, schema in events_with_payloads:
+        lines.append(f"  struct {ename}Payload {{")
+        for pfname, pfinfo in schema.items():
+            ctype = YAML_TO_CPP[pfinfo["type"]]
+            camel = snake_to_camel(pfname)
+            if pfinfo.get("nullable"):
+                lines.append(f"    std::optional<{ctype}> {camel}{{}};")
+            else:
+                lines.append(f"    {ctype} {camel}{{}};")
+        lines.append("  };")
+    lines.append("};")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def gen_cpp_transition_impl(fsm: dict, prefix: str) -> str:
+    """Generate the inline transition() function body for a C++ header."""
+    ctx_schema = fsm["context_schema"]
+
+    event_payload: dict[str, str] = {
+        e["name"]: f"{prefix}FsmPayloads::{e['name']}Payload"
+        for e in fsm["events"]
+        if e.get("payload_schema")
+    }
+
+    from_map: dict[str, list] = {s["name"]: [] for s in fsm["states"]}
+    for t in fsm["transitions"]:
+        from_map[t["from"]].append(t)
+
+    lines = [
+        "// ── Transition implementation (inline) ──────────────────────────────────────",
+        f"inline {prefix}FsmTransitionResult transition(",
+        f"    {prefix}FsmState state,",
+        f"    {prefix}FsmEvent event,",
+        f"    const {prefix}FsmContext& ctx,",
+        f"    [[maybe_unused]] const void* rawPayload = nullptr) noexcept {{",
+        f"  switch (state) {{",
+    ]
+
+    for sinfo in fsm["states"]:
+        sname = sinfo["name"]
+        transitions = from_map[sname]
+        lines.append(f"  case {prefix}FsmState::{sname}:")
+        lines.append("    switch (event) {")
+
+        event_map: dict[str, list] = {}
+        for t in transitions:
+            event_map.setdefault(t["event"], []).append(t)
+
+        for ename, rows in event_map.items():
+            payload_type = event_payload.get(ename)
+            all_guarded = all(r.get("guard") for r in rows)
+
+            # Payload pointer — mark [[maybe_unused]] if no row references payload fields
+            if payload_type:
+                if any(_row_uses_payload(r) for r in rows):
+                    p_decl = f"      const auto* p = static_cast<const {payload_type}*>(rawPayload);"
+                else:
+                    p_decl = f"      [[maybe_unused]] const auto* p = static_cast<const {payload_type}*>(rawPayload);"
+            else:
+                p_decl = None
+
+            # Case needs braces when it declares variables at case scope
+            # (payload ptr, or unguarded updates where auto newCtx lives at case scope)
+            has_case_scope_decl = bool(p_decl) or any(
+                not r.get("guard") and extract_update_context(r.get("effects", []), ctx_schema)
+                for r in rows
+            )
+            use_braces = has_case_scope_decl
+
+            if use_braces:
+                lines.append(f"    case {prefix}FsmEvent::{ename}: {{")
+            else:
+                lines.append(f"    case {prefix}FsmEvent::{ename}:")
+
+            if p_decl:
+                lines.append(p_decl)
+
+            for row in rows:
+                guard = row.get("guard")
+                to_state = row["to"]
+                updates = extract_update_context(row.get("effects", []), ctx_schema)
+                return_ctx = "newCtx" if updates else "ctx"
+
+                update_stmts = []
+                if updates:
+                    update_stmts.append("auto newCtx = ctx;")
+                    for field, yaml_expr in updates.items():
+                        finfo = ctx_schema.get(field, {"type": "string"})
+                        cpp_expr = compile_update_expr_cpp(yaml_expr, field, finfo, ctx_schema)
+                        update_stmts.append(f"newCtx.{snake_to_camel(field)} = {cpp_expr};")
+
+                if guard:
+                    cpp_guard = compile_guard_cpp(guard, ctx_schema)
+                    lines.append(f"      if ({cpp_guard}) {{")
+                    for stmt in update_stmts:
+                        lines.append(f"        {stmt}")
+                    lines.append(f"        return {{{prefix}FsmState::{to_state}, {return_ctx}, false}};")
+                    lines.append("      }")
+                else:
+                    for stmt in update_stmts:
+                        lines.append(f"      {stmt}")
+                    lines.append(f"      return {{{prefix}FsmState::{to_state}, {return_ctx}, false}};")
+
+            if all_guarded:
+                lines.append("      return {state, ctx, true};")
+
+            if use_braces:
+                lines.append("    }")
+
+        lines.append("    default:")
+        lines.append("      return {state, ctx, true};")
+        lines.append("    }")  # end inner switch(event)
+
+    lines.append("  default:")
+    lines.append("    return {state, ctx, true};")
+    lines.append("  }")  # end outer switch(state)
+    lines.append("  return {state, ctx, true};")
+    lines.append("}")
+    lines.append("")
+
+    return "\n".join(lines)
 
 
 def gen_cpp_header(fsm: dict) -> str:
@@ -907,17 +1227,20 @@ def gen_cpp_header(fsm: dict) -> str:
     for fname, finfo in fsm["context_schema"].items():
         ctype = YAML_TO_CPP[finfo["type"]]
         camel = snake_to_camel(fname)
-        nullable = finfo.get("nullable", False)
-        if nullable:
+        if finfo.get("nullable"):
             ctx_fields.append(f"  std::optional<{ctype}> {camel}{{}};")
         else:
             ctx_fields.append(f"  {ctype} {camel}{{}};")
+    payload_struct = gen_cpp_payload_struct(fsm, prefix)
+    transition_impl = gen_cpp_transition_impl(fsm, prefix)
     return CPP_HEADER_TEMPLATE.format(
         source=fsm["name"].lower(),
         prefix=prefix,
         states=states,
         events=events,
         ctx_fields="\n".join(ctx_fields),
+        payload_struct=payload_struct,
+        transition_impl=transition_impl,
     )
 
 

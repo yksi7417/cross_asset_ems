@@ -59,15 +59,124 @@ struct VenueSessionFsmContext {
 struct VenueSessionFsmTransitionResult {
   VenueSessionFsmState newState;
   VenueSessionFsmContext newContext;
-  // effects: TODO — will be replaced by generated effect variant
+  // effects: deferred — C++ effect dispatch not yet generated (Java has full effects)
   bool isNoTransition;
 };
 
-// ── Transition function stub ───────────────────────────────────────────────────
-// TODO: implement from YAML via codegen in a follow-up commit.
-VenueSessionFsmTransitionResult transition(
+
+// ── Transition implementation (inline) ──────────────────────────────────────
+inline VenueSessionFsmTransitionResult transition(
     VenueSessionFsmState state,
     VenueSessionFsmEvent event,
-    const VenueSessionFsmContext& ctx) noexcept;
+    const VenueSessionFsmContext& ctx,
+    [[maybe_unused]] const void* rawPayload = nullptr) noexcept {
+  switch (state) {
+  case VenueSessionFsmState::DISCONNECTED:
+    switch (event) {
+    case VenueSessionFsmEvent::ConnectRequested:
+      return {VenueSessionFsmState::CONNECTING, ctx, false};
+    default:
+      return {state, ctx, true};
+    }
+  case VenueSessionFsmState::CONNECTING:
+    switch (event) {
+    case VenueSessionFsmEvent::TcpConnected:
+      return {VenueSessionFsmState::LOGON_SENT, ctx, false};
+    case VenueSessionFsmEvent::TcpFailed:
+      return {VenueSessionFsmState::DISCONNECTED, ctx, false};
+    default:
+      return {state, ctx, true};
+    }
+  case VenueSessionFsmState::LOGON_SENT:
+    switch (event) {
+    case VenueSessionFsmEvent::LogonAcknowledged:
+      return {VenueSessionFsmState::ACTIVE, ctx, false};
+    case VenueSessionFsmEvent::LogonRejected:
+      return {VenueSessionFsmState::DISCONNECTED, ctx, false};
+    case VenueSessionFsmEvent::UnexpectedDisconnect:
+      return {VenueSessionFsmState::DISCONNECTED, ctx, false};
+    default:
+      return {state, ctx, true};
+    }
+  case VenueSessionFsmState::ACTIVE:
+    switch (event) {
+    case VenueSessionFsmEvent::HeartbeatReceived:
+      return {VenueSessionFsmState::ACTIVE, ctx, false};
+    case VenueSessionFsmEvent::HeartbeatOverdue: {
+      auto newCtx = ctx;
+      newCtx.testRequestOutstanding = true;
+      return {VenueSessionFsmState::TEST_REQUEST_SENT, newCtx, false};
+    }
+    case VenueSessionFsmEvent::GapDetected:
+      return {VenueSessionFsmState::RESEND_IN_PROGRESS, ctx, false};
+    case VenueSessionFsmEvent::InboundResendRequest:
+      return {VenueSessionFsmState::ACTIVE, ctx, false};
+    case VenueSessionFsmEvent::SequenceResetReceived:
+      return {VenueSessionFsmState::SEQUENCE_RESETTING, ctx, false};
+    case VenueSessionFsmEvent::LogoutRequested:
+      return {VenueSessionFsmState::LOGOUT_IN_PROGRESS, ctx, false};
+    case VenueSessionFsmEvent::LogoutReceived:
+      return {VenueSessionFsmState::LOGOUT_IN_PROGRESS, ctx, false};
+    case VenueSessionFsmEvent::UnexpectedDisconnect:
+      return {VenueSessionFsmState::DISCONNECTED, ctx, false};
+    default:
+      return {state, ctx, true};
+    }
+  case VenueSessionFsmState::TEST_REQUEST_SENT:
+    switch (event) {
+    case VenueSessionFsmEvent::TestRequestResponse: {
+      auto newCtx = ctx;
+      newCtx.testRequestOutstanding = false;
+      return {VenueSessionFsmState::ACTIVE, newCtx, false};
+    }
+    case VenueSessionFsmEvent::TestRequestTimeout:
+      return {VenueSessionFsmState::DISCONNECTED, ctx, false};
+    case VenueSessionFsmEvent::UnexpectedDisconnect:
+      return {VenueSessionFsmState::DISCONNECTED, ctx, false};
+    default:
+      return {state, ctx, true};
+    }
+  case VenueSessionFsmState::RESEND_IN_PROGRESS:
+    switch (event) {
+    case VenueSessionFsmEvent::ResendComplete: {
+      auto newCtx = ctx;
+      newCtx.resendWindowLow = static_cast<uint64_t>(0);
+      newCtx.resendWindowHigh = static_cast<uint64_t>(0);
+      return {VenueSessionFsmState::ACTIVE, newCtx, false};
+    }
+    case VenueSessionFsmEvent::SequenceResetReceived:
+      return {VenueSessionFsmState::SEQUENCE_RESETTING, ctx, false};
+    case VenueSessionFsmEvent::UnexpectedDisconnect:
+      return {VenueSessionFsmState::DISCONNECTED, ctx, false};
+    default:
+      return {state, ctx, true};
+    }
+  case VenueSessionFsmState::SEQUENCE_RESETTING:
+    switch (event) {
+    case VenueSessionFsmEvent::ResendComplete: {
+      auto newCtx = ctx;
+      newCtx.resendWindowLow = static_cast<uint64_t>(0);
+      newCtx.resendWindowHigh = static_cast<uint64_t>(0);
+      return {VenueSessionFsmState::ACTIVE, newCtx, false};
+    }
+    case VenueSessionFsmEvent::UnexpectedDisconnect:
+      return {VenueSessionFsmState::DISCONNECTED, ctx, false};
+    default:
+      return {state, ctx, true};
+    }
+  case VenueSessionFsmState::LOGOUT_IN_PROGRESS:
+    switch (event) {
+    case VenueSessionFsmEvent::LogoutEchoed:
+      return {VenueSessionFsmState::DISCONNECTED, ctx, false};
+    case VenueSessionFsmEvent::UnexpectedDisconnect:
+      return {VenueSessionFsmState::DISCONNECTED, ctx, false};
+    default:
+      return {state, ctx, true};
+    }
+  default:
+    return {state, ctx, true};
+  }
+  return {state, ctx, true};
+}
 
 } // namespace crossasset::ems::fsm
