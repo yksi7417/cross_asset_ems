@@ -110,7 +110,7 @@ Wire protocol and clustering. ~1-2 weeks.
 The auditable spine. ~2 weeks.
 
 - [x] **3.1** Event envelope SBE schema per [[arch-event-sourcing]] (sonnet) ← blocks: 2.1 `(eca3725)`
-- [ ] **3.2** Event log writer (append-only, fsync discipline) (gemma) ← blocks: 3.1
+- [x] **3.2** Event log writer (append-only, fsync discipline) (gemma) ← blocks: 3.1 `(19a6eb9)`
 - [ ] **3.3** Stream-id partitioning (order.{id}, route.{id}, etc.) (sonnet) ← blocks: 3.1
 - [ ] **3.4** Projection framework (idempotent, rebuild-from-scratch) (opus — determinism spine) ← blocks: 3.1
 - [ ] **3.5** Replay engine (log slice → re-derive state) (opus — determinism spine) ← blocks: 3.4

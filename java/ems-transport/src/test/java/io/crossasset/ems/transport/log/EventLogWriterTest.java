@@ -20,11 +20,12 @@ class EventLogWriterTest {
       UnsafeBuffer buffer = new UnsafeBuffer(ByteBuffer.allocateDirect(100));
       buffer.putBytes(0, "event-1".getBytes());
 
-      long seq1 = writer.append(buffer, 0, 7);
+      // Use ADMIN stream for basic persistence test
+      long seq1 = writer.append(StreamId.ADMIN, buffer, 0, 7);
       assertThat(seq1).isEqualTo(0);
 
       buffer.putBytes(0, "event-2".getBytes());
-      long seq2 = writer.append(buffer, 0, 7);
+      long seq2 = writer.append(StreamId.ADMIN, buffer, 0, 7);
       assertThat(seq2).isEqualTo(1);
 
       assertThat(writer.getGlobalSeq()).isEqualTo(2);
