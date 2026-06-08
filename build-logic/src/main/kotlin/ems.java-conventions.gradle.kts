@@ -69,3 +69,38 @@ spotless {
         endWithNewline()
     }
 }
+
+// ── JaCoCo ───────────────────────────────────────────────────────────────────
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
+// jacocoTestCoverageVerification: called explicitly from the pre-commit hook,
+// NOT wired into :check so CI is not blocked on modules with no tests yet.
+// Threshold is 60% line / 50% branch — calibrated against ems-fsm baseline.
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                minimum = "0.60".toBigDecimal()
+            }
+        }
+        rule {
+            limit {
+                counter = "BRANCH"
+                minimum = "0.50".toBigDecimal()
+            }
+        }
+    }
+}

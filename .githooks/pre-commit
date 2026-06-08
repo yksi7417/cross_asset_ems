@@ -89,6 +89,35 @@ if [ -n "$JAVA_STAGED" ]; then
     fi
 fi
 
+# --- 8. JaCoCo coverage gate (60% line / 50% branch) ---
+# Runs only when Java source (non-generated, non-test) is staged.
+# Fails if a module has src/main but no src/test (enforces tests-in-same-commit).
+# Gate is NOT wired into :check so CI is unaffected; only the pre-commit hook calls it.
+# Gradle's up-to-date check makes this fast when tests haven't changed.
+JAVA_MAIN_STAGED=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep '^java/.*\.java$' \
+    | grep '/src/main/' \
+    | grep -v '/generated/' || true)
+if [ -n "$JAVA_MAIN_STAGED" ]; then
+    COVERAGE_MODULES=$(echo "$JAVA_MAIN_STAGED" \
+        | sed 's|^java/\([^/]*\)/.*|\1|' \
+        | sort -u)
+    for MODULE in $COVERAGE_MODULES; do
+        if find "java/$MODULE/src/test" -name "*.java" -quit 2>/dev/null | grep -q .; then
+            # shellcheck disable=SC2086
+            if ! ./gradlew ":$MODULE:test" ":$MODULE:jacocoTestCoverageVerification" --quiet 2>&1; then
+                echo "ERROR: :$MODULE coverage gate failed (60% line / 50% branch required)."
+                echo "       Run: ./gradlew :$MODULE:test :$MODULE:jacocoTestReport :$MODULE:jacocoTestCoverageVerification"
+                FAIL=1
+            fi
+        else
+            echo "WARN: :$MODULE has production code staged but no test sources found."
+            echo "      Add tests in the same commit to pass the coverage gate."
+            FAIL=1
+        fi
+    done
+fi
+
 if [ $FAIL -ne 0 ]; then
     echo
     echo "pre-commit checks failed. Fix the issues above, or bypass with --no-verify."
