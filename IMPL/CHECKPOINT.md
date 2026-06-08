@@ -8,14 +8,14 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 2.3 — Aeron channel layout doc and code (Defined logical/physical channel layout and SBE envelope spec in docs/transport/channel-layout.md).
-- **Last commit (main):** `docs(2.3): define Aeron channel layout and transport config`
-- **Last commit sha (main):** `b9ef33c`
-- **Tasks merged/marked this session:** 1.12 done `2faef35`, 2.3 done `b9ef33c`
+- **Last completed task:** 2.4 — Sequence recovery service skeleton (Implemented core session sequence tracking and gap detection in java/ems-transport).
+- **Last commit (main):** `feat(2.4): implement sequence recovery service skeleton`
+- **Last commit sha (main):** `5b05c48`
+- **Tasks merged/marked this session:** 2.4 done `5b05c48`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-07
-- **Next task:** **2.4** (Sequence recovery service skeleton, sonnet, unblocked by 2.2).
+- **Next task:** **2.5** (Aeron Cluster 3-node bootstrap, opus, unblocked by 0.7).
 - **Total progress:** **45 of 144 tasks [x]** (31.3%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
