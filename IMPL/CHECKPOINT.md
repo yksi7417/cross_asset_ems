@@ -47,9 +47,9 @@ Updated when a phase completes.
 
 | Phase | Status | Completed at |
 |---|---|---|
-| 0 — Bootstrap | not started | |
-| 1 — FSM Foundation | not started | |
-| 2 — Transport | not started | |
+| 0 — Bootstrap | complete | 2026-06-07 |
+| 1 — FSM Foundation | complete | 2026-06-07 |
+| 2 — Transport | complete | 2026-06-08 |
 | 3 — Event Sourcing | complete | 2026-06-09 |
 | 4 — Reference Data | not started | |
 | 5 — Identity & Permissions | not started | |
