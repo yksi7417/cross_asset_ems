@@ -146,7 +146,7 @@ The "what" layer. ~3-4 weeks.
 - [x] **4.22** Holiday calendars per currency (gemma — data ingest) `(d8eaf57)`
 - [x] **4.23** Day count conventions table (gemma) `(1f67b28)`
 - [x] **4.24** Counterparty / broker code / venue MIC tables (gemma) `(f3bfa4e)`
-- [ ] **4.25** Internal-allocated identifier namespace for OTC (sonnet) ← blocks: 4.19
+- [x] **4.25** Internal-allocated identifier namespace for OTC (sonnet) ← blocks: 4.19 `(ef7f24b)`
 
 ## Phase 5 — Identity & Permissions (AAA)
 

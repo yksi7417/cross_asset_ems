@@ -8,14 +8,14 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 4.21 — Reference data service: RefDataStatus, RefDataRecord<V> (generic wrapper, amend/retire), HolidayCalendar (epoch-day sets, isBusinessDay, nextBusinessDay, previousBusinessDay, weekendDays), DayCountConvention (fpmlId, fixmlName, yearFractionFormula), TickSizeEntry (price-band → tick/lot), TickSizeRegime (ordered lookup by price band, regimeRef links InstrumentCore), RefDataEvent<V> sealed hierarchy (Added/Amended/Retired), RefDataSnapshot<V> (immutable, apply), RefDataService<V> + InMemoryRefDataService<V> (AtomicReference). 27 tests pass.
-- **Last commit (main):** `feat(4.21): reference data service — calendars, day counts, tick sizes`
-- **Last commit sha (main):** `8f47358`
-- **Tasks merged/marked this session:** 4.20 done `8a514fc`, 4.21 done `8f47358`
+- **Last completed task:** 4.25 — OTC internal identifier namespace: OtcInternalId record (ems_iid:{firm}:{class}:{counter} or ems_iid:{firm}:{counter} format, ≤20-char constraint, parse/isOtcInternalId, alphanumeric+hyphen+underscore validation), OtcInternalIdAllocator (AtomicLong, resume-from-last-issued, fast-fail at construction). 21 tests including concurrent uniqueness assertion.
+- **Last commit (main):** `feat(4.25): OTC internal identifier namespace`
+- **Last commit sha (main):** `ef7f24b`
+- **Tasks merged/marked this session:** 4.20 done `8a514fc`, 4.21 done `8f47358`, 4.25 done `ef7f24b`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-09
-- **Next task:** **4.25** (Internal-allocated identifier namespace for OTC, unblocked by 4.19).
+- **Next task:** **4.12** (TbaMbsInstrument / SpecifiedPoolInstrument — fungibility handling) or **4.14** (StructuredProductInstrument).
 - **Total progress:** **61 of 144 tasks [x]** (42.4%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
