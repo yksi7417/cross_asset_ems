@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 4.2 — MeteredSymbologyService decorator: per-firm LicenseRegistry gates ISIN/CUSIP/SEDOL; FIGI/TICKER unrestricted. AccessAuditLog captures all licensed-type attempts (granted + denied); InMemoryBillingMeter counts successes only (dispute-safe). Decorator pattern over SimpleSymbologyService; EMS-REF-1001 on denial. 10 tests: deny fires EMS-REF-1001, deny audited, deny not billed, grant audited, grant billed, FIGI/TICKER pass-through, mixed-batch per-item independence, not-found not billed. MeteredIdentifierAccess event-log emission deferred to event-bus integration phase.
-- **Last commit (main):** `feat(4.2): license-metering and audit for secondary identifiers`
-- **Last commit sha (main):** `2cad5e5`
-- **Tasks merged/marked this session:** 4.2 done `2cad5e5`
+- **Last completed task:** 4.3 — InstrumentTemplateRegistry: static registry of 18 deployed SBE instrument templates (0x2001–0x2081). InstrumentAssetClass enum, InstrumentTemplateDescriptor record, InstrumentTemplateRegistry singleton. 11 tests; discriminating test parses each XML and asserts templateId + name match sbe:message element — only test that catches registry-vs-wire drift. Unbuilt templates (TBA-MBS, ETF, StructuredProduct, EventContract) intentionally absent until tasks 4.12/4.14/4.17 land.
+- **Last commit (main):** `feat(4.3): SBE template registry for 18 deployed instrument templates`
+- **Last commit sha (main):** `5564f71`
+- **Tasks merged/marked this session:** 4.3 done `5564f71`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-09
-- **Next task:** **4.3** (SBE template registry for Instrument templates, sonnet, unblocked by 2.1, 4.1).
-- **Total progress:** **57 of 144 tasks [x]** (39.6%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **4.4** (InstrumentCore SBE block per arch-security-master, sonnet, unblocked by 4.3).
+- **Total progress:** **58 of 144 tasks [x]** (40.3%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
