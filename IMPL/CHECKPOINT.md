@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 2.5 — Aeron Cluster (Raft) 3-node bootstrap: AeronClusterBootstrap launches 3 ClusteredMediaDriver+container instances in-process with separate port ranges (29200-29225). Real Raft election (no appointedLeaderId). Tests: 1 leader + 2 followers, PING/PONG through quorum commit, archive recordings on all 3 members.
-- **Last commit (main):** `feat(2.5): implement 3-node Aeron Cluster Raft bootstrap`
-- **Last commit sha (main):** `e5bd144`
-- **Tasks merged/marked this session:** 2.5 done `e5bd144`
+- **Last completed task:** 2.6 — Aeron Archive recording + byte-precise replay APIs: AeronArchiveReplayService wraps AeronArchive for startLocalRecording, findLatestRecording (listRecordings scan — findLastMatchingRecording returns NULL for ID=0 in 1.51), replayAll, awaitRecordingPosition. Tests: full replay from 0 and mid-position replay (tail-only).
+- **Last commit (main):** `feat(2.6): implement Aeron Archive recording and byte-precise replay APIs`
+- **Last commit sha (main):** `91bc0d7`
+- **Tasks merged/marked this session:** 2.5 done `e5bd144`; 2.6 done `91bc0d7`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-08
-- **Next task:** **2.6** (Aeron Archive recording + replay APIs, sonnet, unblocked by 2.5). **2.7** ([!] Schema evolution test, sonnet, unblocked by 2.1 — was blocked on SBE codegen issue). **3.4** (Projection framework, opus, unblocked by 3.1).
-- **Total progress:** **49 of 144 tasks [x]** (34.0%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **2.7** ([!] Schema evolution test, sonnet, unblocked by 2.1 — investigate SBE codegen issue). **3.4** (Projection framework, opus, unblocked by 3.1).
+- **Total progress:** **50 of 144 tasks [x]** (34.7%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
