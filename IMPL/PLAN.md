@@ -152,11 +152,11 @@ The "what" layer. ~3-4 weeks.
 
 Trust boundary. ~1-2 weeks.
 
-- [ ] **5.1** AAA service skeleton per [[entry-point-aaa]] (sonnet)
-- [ ] **5.2** Firm/Desk/User hierarchy per [[arch-firm-desk-user]] (sonnet) ← blocks: 5.1
-- [ ] **5.3** Tag permissions 3-layer AND-gate per [[arch-tag-permissions]] (sonnet) ← blocks: 5.2
-- [ ] **5.4** Trace ID stamping at session-logon (sonnet) ← blocks: 5.1, 2.2
-- [ ] **5.5** Session sequence recovery integrated (sonnet) ← blocks: 5.4, 2.4
+- [x] **5.1** AAA service skeleton per [[entry-point-aaa]] (sonnet) `(66a79c7)`
+- [x] **5.2** Firm/Desk/User hierarchy per [[arch-firm-desk-user]] (sonnet) ← blocks: 5.1 `(4316e34)`
+- [x] **5.3** Tag permissions 3-layer AND-gate per [[arch-tag-permissions]] (sonnet) ← blocks: 5.2 `(2aa7528)`
+- [x] **5.4** Trace ID stamping at session-logon (sonnet) ← blocks: 5.1, 2.2 `(dac894d)`
+- [x] **5.5** Session sequence recovery integrated (sonnet) ← blocks: 5.4, 2.4 `(ff8d71c)`
 
 ## Phase 6 — Validator
 

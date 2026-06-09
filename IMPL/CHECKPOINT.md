@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 4.25 — OTC internal identifier namespace: OtcInternalId record (ems_iid:{firm}:{class}:{counter} or ems_iid:{firm}:{counter} format, ≤20-char constraint, parse/isOtcInternalId, alphanumeric+hyphen+underscore validation), OtcInternalIdAllocator (AtomicLong, resume-from-last-issued, fast-fail at construction). 21 tests including concurrent uniqueness assertion.
-- **Last commit (main):** `feat(4.25): OTC internal identifier namespace`
-- **Last commit sha (main):** `ef7f24b`
-- **Tasks merged/marked this session:** 4.20 done `8a514fc`, 4.21 done `8f47358`, 4.25 done `ef7f24b`
+- **Last completed task:** 5.5 — Session sequence recovery integrated into AAA logon: LogonCredentials gains declaredSeq, InMemoryAaaService wires SequenceRecoveryService, AaaService.checkIncoming() delegates gap/duplicate detection. 65 tests across Phase 5.
+- **Last commit (main):** `feat(5.5): Session sequence recovery integrated into AAA logon`
+- **Last commit sha (main):** `ff8d71c`
+- **Tasks merged/marked this session:** 5.1 done `66a79c7`, 5.2 done `4316e34`, 5.3 done `2aa7528`, 5.4 done `dac894d`, 5.5 done `ff8d71c`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-09
-- **Next task:** **4.12** (TbaMbsInstrument / SpecifiedPoolInstrument — fungibility handling) or **4.14** (StructuredProductInstrument).
-- **Total progress:** **61 of 144 tasks [x]** (42.4%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **4.12** (TbaMbsInstrument / SpecifiedPoolInstrument — fungibility handling), **4.14** (StructuredProductInstrument), or **4.17** (EventContractInstrument).
+- **Total progress:** **66 of 144 tasks [x]** (45.8%). Phase 5 all [x]: 5.1–5.5.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -40,6 +40,7 @@ The loop appends a one-line entry per session.
 | 2026-06-07 | 2026-06-07 | 3-commit pacing trigger (loop wrap-up) | 3 (aeron-cluster bump + claim, feat 0.7, task-annotate) | 0.7 done | next = 0.10 (sonnet) or 1.7/1.10 (opus) |
 | 2026-06-07 | 2026-06-07 | 3-commit pacing trigger + Phase 0 complete | 4 (docs+obs, claim 0.10, feat 0.10, annotate) | 0.10 done; Phase 0 all [x] | next = 1.7 (opus) or 1.10 (opus) |
 | 2026-06-07 | 2026-06-07 | context-resuming prior session | 3 (1.7b C++ inline FSMs + task annotation; 1.11 replay harness) | 1.7b `994d8fa`, 1.11 `32acdac` | next = 1.8 (gemma) or 1.10/1.12 |
+| 2026-06-09 | 2026-06-09 | phase goal: complete Phase 5 | 5 (5.1–5.5 all committed) | 5.1 `66a79c7`, 5.2 `4316e34`, 5.3 `2aa7528`, 5.4 `dac894d`, 5.5 `ff8d71c` | Phase 5 complete; next = 4.12/4.14/4.17 |
 
 ## Phase progress
 
@@ -51,8 +52,8 @@ Updated when a phase completes.
 | 1 — FSM Foundation | complete | 2026-06-07 |
 | 2 — Transport | complete | 2026-06-08 |
 | 3 — Event Sourcing | complete | 2026-06-09 |
-| 4 — Reference Data | not started | |
-| 5 — Identity & Permissions | not started | |
+| 4 — Reference Data | partial (4.12/4.14/4.17 pending) | |
+| 5 — Identity & Permissions | complete | 2026-06-09 |
 | 6 — Validator | not started | |
 | 7 — OMS Core | not started | |
 | 8 — FIX / API Bridge | not started | |
