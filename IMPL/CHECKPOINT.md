@@ -8,14 +8,14 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 4.20 — Corporate actions → supersession integration: CorporateActionType (13 types), CorporateActionState (state machine with canTransitionTo), CorporateActionSource (DTCC/BLOOMBERG_CACS/EDI/MANUAL), Money record, CorporateActionOption, CorporateAction immutable record with withState transition guard, CorporateActionEvent sealed hierarchy (Announced/Updated/Locked/Applied/Cancelled/Discrepancy), CorporateActionBridge (APPLIED state + causedBy linkage validation → InstrumentSuperseded or InstrumentRetired). 20 tests; integration test validates full SecurityMasterSnapshot round-trip.
-- **Last commit (main):** `feat(4.20): corporate actions model + supersession bridge`
-- **Last commit sha (main):** `8a514fc`
-- **Tasks merged/marked this session:** 4.20 done `8a514fc`
+- **Last completed task:** 4.21 — Reference data service: RefDataStatus, RefDataRecord<V> (generic wrapper, amend/retire), HolidayCalendar (epoch-day sets, isBusinessDay, nextBusinessDay, previousBusinessDay, weekendDays), DayCountConvention (fpmlId, fixmlName, yearFractionFormula), TickSizeEntry (price-band → tick/lot), TickSizeRegime (ordered lookup by price band, regimeRef links InstrumentCore), RefDataEvent<V> sealed hierarchy (Added/Amended/Retired), RefDataSnapshot<V> (immutable, apply), RefDataService<V> + InMemoryRefDataService<V> (AtomicReference). 27 tests pass.
+- **Last commit (main):** `feat(4.21): reference data service — calendars, day counts, tick sizes`
+- **Last commit sha (main):** `8f47358`
+- **Tasks merged/marked this session:** 4.20 done `8a514fc`, 4.21 done `8f47358`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-09
-- **Next task:** **4.21** (Reference data service — calendars, day counts, tick sizes) or **4.25** (Internal-allocated identifier namespace for OTC).
+- **Next task:** **4.25** (Internal-allocated identifier namespace for OTC, unblocked by 4.19).
 - **Total progress:** **61 of 144 tasks [x]** (42.4%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
