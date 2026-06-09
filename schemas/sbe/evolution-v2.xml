@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Schema evolution test fixture — task 2.7.
+
+  Demonstrates the SBE forward-compatibility guarantee (per arch-sbe-aeron-transport.md):
+  an old reader (actingVersion=1) can decode bytes written by a new writer (version=2) without
+  errors; the new field (sinceVersion="2") returns its nullValue when actingVersion < 2.
+
+  This schema is for integration-testing only — it is NOT part of the production protocol.
+  The package "io.crossasset.ems.schemas.evolution" is isolated from production packages.
+
+  See SchemaEvolutionTest.java in ems-transport tests.
+-->
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2017/sbe"
+                   package="io.crossasset.ems.schemas.evolution"
+                   id="9"
+                   version="2"
+                   semanticVersion="2.0.0"
+                   description="Schema evolution fixture: version-1 baseline + version-2 extension field."
+                   byteOrder="littleEndian">
+
+    <types>
+        <!-- Minimal SBE 1.0 MessageHeader for this test schema. -->
+        <composite name="messageHeader"
+                   description="Standard SBE 1.0 message header.">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="templateId"  primitiveType="uint16"/>
+            <type name="schemaId"    primitiveType="uint16"/>
+            <type name="version"     primitiveType="uint16"/>
+        </composite>
+    </types>
+
+    <!--
+      SessionLogon message (templateId=1).
+
+      Version-1 fields:
+        sessionId     uint64  — edge-assigned session ID (see arch-sequence-recovery)
+        seqNum        uint64  — monotonic sequence number within session
+
+      Version-2 added field (sinceVersion="2"):
+        correlationId uint64  — optional correlation tag added in v2 for cross-system tracing.
+                                Old (v1) readers see nullValue = Long.MIN_VALUE for this field.
+
+      SBE forward-compat guarantee:
+        - A v2 encoder sets MessageHeader.version=2 and blockLength=24 (3 × uint64).
+        - A v1 reader wraps with actingVersion=1 and reads only the 16-byte v1 block.
+        - correlationId() returns Long.MIN_VALUE (the uint64 sinceVersion null sentinel)
+          when actingVersion < 2.
+    -->
+    <sbe:message name="SessionLogon" id="1"
+                 description="Session logon event. Version 1: sessionId+seqNum. Version 2 adds correlationId.">
+        <field name="sessionId"     id="1" type="uint64"
+               description="Edge-assigned session identifier."/>
+        <field name="seqNum"        id="2" type="uint64"
+               description="Monotonic sequence number within the session."/>
+        <field name="correlationId" id="3" type="uint64" sinceVersion="2"
+               description="Cross-system correlation tag (added v2). Absent in v1 bytes — returns nullValue."/>
+    </sbe:message>
+
+</sbe:messageSchema>
