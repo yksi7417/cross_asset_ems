@@ -43,7 +43,7 @@ jobs:
           languages: ${{ matrix.language }}
           queries: security-and-quality
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         if: matrix.language == 'java-kotlin'
 
       - name: Build for CodeQL
