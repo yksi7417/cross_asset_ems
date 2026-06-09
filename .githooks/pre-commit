@@ -19,4 +19,5 @@ fi
 cd "$REPO_ROOT"
 ./gradlew spotlessApply --quiet
 # Re-stage any Java files that spotless reformatted.
-git diff --name-only | grep '\.java$' | xargs --no-run-if-empty git add
+# grep exits 1 when no .java files changed; the subshell absorbs that so set -e doesn't kill us.
+git diff --name-only | { grep '\.java$' || true; } | xargs --no-run-if-empty git add
