@@ -114,7 +114,7 @@ The auditable spine. ~2 weeks.
 - [x] **3.3** Stream-id partitioning (order.{id}, route.{id}, etc.) (sonnet) ← blocks: 3.1 `(ddfa937)`
 - [x] **3.4** Projection framework (idempotent, rebuild-from-scratch) (opus — determinism spine) ← blocks: 3.1 `(48c2305)`
 - [x] **3.5** Replay engine (log slice → re-derive state) (opus — determinism spine) ← blocks: 3.4 `(b0cc12b)`
-- [ ] **3.6** Time/Replay server (sim-clock interface) per [[arch-time-replay-server]] (sonnet) ← blocks: 3.5
+- [x] **3.6** Time/Replay server (sim-clock interface) per [[arch-time-replay-server]] (sonnet) ← blocks: 3.5 `(5733929)`
 - [ ] **3.7** Configuration service per [[arch-configuration-service]] (sonnet) ← blocks: 3.1, 3.5
 - [ ] **3.8** Local cache snapshot agent (atomic message-boundary swap) (sonnet) ← blocks: 3.7
 

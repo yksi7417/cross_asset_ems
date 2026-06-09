@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 3.5 — Replay engine: ReplaySlice (bounded globalSeq range, both ends inclusive), ReplayResult<S>, ReplayEngine (single-pass multi-projection feed, determinism contract). 5 tests in ReplayEngineTest using order-sensitive List<Long> projection; golden-replay guarantee, exact boundary [2,4]→[2,3,4], empty-slice sentinel preservation, multi-projection single-pass==separate-passes, fullReplay.all()==ProjectionRunner.rebuild() cross-task anchor.
-- **Last commit (main):** `feat(3.5): replay engine — log slice → re-derive state`
-- **Last commit sha (main):** `b0cc12b`
-- **Tasks merged/marked this session:** 3.5 done `b0cc12b`
+- **Last completed task:** 3.6 — Sim-clock interface: Clock interface (now/schedule/schedulePeriodic) in ems-core, Timestamp value object (epoch-millis), SimulatedClock (TreeMap-sorted, monotonicity guard, period>0 guard, advanceTo/advanceBy, periodic via recursive self-scheduling). 14 tests in SimulatedClockTest; discriminating out-of-order-fires-in-time-order test, callback sees correct now(), golden two-clock equivalence, all guards. Event-time-driven advancement deferred — LogRecord has no occurred_at yet.
+- **Last commit (main):** `feat(3.6): sim-clock interface — Clock, Timestamp, SimulatedClock`
+- **Last commit sha (main):** `5733929`
+- **Tasks merged/marked this session:** 3.5 done `b0cc12b`, 3.6 done `5733929`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-08
-- **Next task:** **3.6** (Time/Replay server, sonnet, unblocked by 3.5) or **3.7** (Configuration service, sonnet, unblocked by 3.1+3.5).
-- **Total progress:** **53 of 144 tasks [x]** (36.8%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **3.7** (Configuration service, sonnet, unblocked by 3.1+3.5+3.6).
+- **Total progress:** **54 of 144 tasks [x]** (37.5%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
