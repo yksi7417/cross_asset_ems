@@ -140,7 +140,7 @@ The "what" layer. ~3-4 weeks.
 - [x] **4.16** `CryptoFungibleInstrument` / `NftInstrument` (gemma drafts, sonnet review) `(49ceffd)`
 - [ ] **4.17** `EventContractInstrument` template (prediction markets) (sonnet)
 - [x] **4.18** Package entity + Leg group schema (sonnet) ← blocks: 4.4 `(b3ec442)`
-- [ ] **4.19** Security master CRUD + supersession events per [[arch-security-master]] (sonnet) ← blocks: 4.4, 3.1
+- [x] **4.19** Security master CRUD + supersession events per [[arch-security-master]] (sonnet) ← blocks: 4.4, 3.1 `(c8eaddb)`
 - [ ] **4.20** Corporate actions → supersession integration per [[arch-corporate-actions]] (sonnet) ← blocks: 4.19
 - [ ] **4.21** Reference data service (calendars, day counts, tick sizes) per [[arch-reference-data-service]] (sonnet)
 - [x] **4.22** Holiday calendars per currency (gemma — data ingest) `(d8eaf57)`

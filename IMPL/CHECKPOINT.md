@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 4.18 — InstrumentPackage + Leg domain model: InstrumentPackage record (packageId UUID, packageType, legs List<Leg>); Leg record (legSeq, instrumentFigi char[12], instrumentVersion uint32, side, ratioOrQuantity BigDecimal, optionalOverrides byte[] nullable); PackageType enum SINGLE/MULTI_LEG/PAIRED/BWIC_LIST/ETF_RFQ_BLOCK; Side enum BUY/SELL/BUY_MINUS/SELL_PLUS/SELL_SHORT aligned with FIX tag 54. 12 tests pass.
-- **Last commit (main):** `feat(4.18): Package entity + Leg group schema`
-- **Last commit sha (main):** `b3ec442`
-- **Tasks merged/marked this session:** 4.3 done `5564f71`, 4.4 done `dba3903`, 4.18 done `b3ec442`
+- **Last completed task:** 4.19 — Security master CRUD + supersession events: InstrumentVersioned (wraps InstrumentCore + causedByCorporateActionEventId UUID); SecurityMasterEvent sealed interface with InstrumentCreated/InstrumentSuperseded/InstrumentRetired record subtypes; SecurityMasterSnapshot immutable store indexed by (FIGI, versionSeq) with apply(event), lookup(figi), lookup(figi, versionSeq); SecurityMasterService interface + InMemorySecurityMasterService (AtomicReference, lock-free reads). 15 tests pass including retirement closing effectiveTo=effectiveFrom, immutability invariant, sealed switch exhaustiveness.
+- **Last commit (main):** `feat(4.19): security master CRUD + supersession events`
+- **Last commit sha (main):** `c8eaddb`
+- **Tasks merged/marked this session:** 4.4 done `dba3903`, 4.18 done `b3ec442`, 4.19 done `c8eaddb`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-09
-- **Next task:** **4.19** (Security master CRUD + supersession events, sonnet, unblocked by 4.4 + 3.1).
-- **Total progress:** **60 of 144 tasks [x]** (41.7%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **4.20** (Corporate actions → supersession integration, unblocked by 4.19) or **4.25** (Internal-allocated identifier namespace for OTC, unblocked by 4.19).
+- **Total progress:** **61 of 144 tasks [x]** (42.4%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
