@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 3.4 — Projection framework: LogRecord, EventLogReader (sequential big-endian reader), Projection<S> interface (pure reducer), ProjectionRunner<S> (globalSeq-based idempotency, rebuild-from-scratch). 8 tests in ProjectionFrameworkTest including the discriminating incremental-duplicate no-op test.
-- **Last commit (main):** `feat(3.4): projection framework — EventLogReader, Projection<S>, ProjectionRunner`
-- **Last commit sha (main):** `48c2305`
-- **Tasks merged/marked this session:** 3.4 done `48c2305`
+- **Last completed task:** 3.5 — Replay engine: ReplaySlice (bounded globalSeq range, both ends inclusive), ReplayResult<S>, ReplayEngine (single-pass multi-projection feed, determinism contract). 5 tests in ReplayEngineTest using order-sensitive List<Long> projection; golden-replay guarantee, exact boundary [2,4]→[2,3,4], empty-slice sentinel preservation, multi-projection single-pass==separate-passes, fullReplay.all()==ProjectionRunner.rebuild() cross-task anchor.
+- **Last commit (main):** `feat(3.5): replay engine — log slice → re-derive state`
+- **Last commit sha (main):** `b0cc12b`
+- **Tasks merged/marked this session:** 3.5 done `b0cc12b`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-08
-- **Next task:** **3.5** (Replay engine, opus, unblocked by 3.4).
-- **Total progress:** **52 of 144 tasks [x]** (36.1%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **3.6** (Time/Replay server, sonnet, unblocked by 3.5) or **3.7** (Configuration service, sonnet, unblocked by 3.1+3.5).
+- **Total progress:** **53 of 144 tasks [x]** (36.8%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
