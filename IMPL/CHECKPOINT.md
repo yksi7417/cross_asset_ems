@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 4.3 — InstrumentTemplateRegistry: static registry of 18 deployed SBE instrument templates (0x2001–0x2081). InstrumentAssetClass enum, InstrumentTemplateDescriptor record, InstrumentTemplateRegistry singleton. 11 tests; discriminating test parses each XML and asserts templateId + name match sbe:message element — only test that catches registry-vs-wire drift. Unbuilt templates (TBA-MBS, ETF, StructuredProduct, EventContract) intentionally absent until tasks 4.12/4.14/4.17 land.
-- **Last commit (main):** `feat(4.3): SBE template registry for 18 deployed instrument templates`
-- **Last commit sha (main):** `5564f71`
-- **Tasks merged/marked this session:** 4.3 done `5564f71`
+- **Last completed task:** 4.4 — InstrumentCore canonical domain type: 22-field record (arch-security-master order) + 6 supporting enums (AssetClass, InstrumentType, CurrencyCode, Fungibility, SettlementConvention, LifecycleStatus). No byte decoder — instrument SBE XMLs excluded from codegen until task 4.11 reconciles hex IDs. 18 tests; discriminating test opens equity/bond/fx-spot SBE XMLs and asserts Java wireCode values match XML validValue ordinals. AssetClass wire codes: EQUITY=2, FIXED_INCOME=5, FX=10 from schemas; others provisional. LifecycleStatus uses arch-doc names (SUSPENDED/EXPIRED/MATURED/DEFAULTED) not schema editorial names (SUPERSEDED/RETIRED/DRAFT) — reconciled in 4.11.
+- **Last commit (main):** `feat(4.4): InstrumentCore canonical domain type — 22-field record + 6 enums`
+- **Last commit sha (main):** `dba3903`
+- **Tasks merged/marked this session:** 4.3 done `5564f71`, 4.4 done `dba3903`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-09
-- **Next task:** **4.4** (InstrumentCore SBE block per arch-security-master, sonnet, unblocked by 4.3).
-- **Total progress:** **58 of 144 tasks [x]** (40.3%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **4.18** (Package entity + Leg group schema, sonnet, unblocked by 4.4) or **4.19** (Security master CRUD + supersession events, unblocked by 4.4 + 3.1).
+- **Total progress:** **59 of 144 tasks [x]** (41.0%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches

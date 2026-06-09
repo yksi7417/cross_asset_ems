@@ -125,7 +125,7 @@ The "what" layer. ~3-4 weeks.
 - [x] **4.1** Symbology service (FIGI + licensed secondaries) per [[arch-symbology-figi]] (sonnet) `(4ee2074)`
 - [x] **4.2** License-metering and audit (sonnet) ← blocks: 4.1 `(2cad5e5)`
 - [x] **4.3** SBE template registry for Instrument templates (sonnet) ← blocks: 2.1, 4.1 `(5564f71)`
-- [ ] **4.4** `InstrumentCore` SBE block per [[arch-security-master]] (sonnet) ← blocks: 4.3
+- [x] **4.4** `InstrumentCore` SBE block per [[arch-security-master]] (sonnet) ← blocks: 4.3 `(dba3903)`
 - [x] **4.5** `EquityInstrument` template (gemma first draft, sonnet review) `(5752d7c)`
 - [x] **4.6** `BondInstrument` template (gemma first draft, sonnet review) `(f58abcd)`
 - [x] **4.7** `IrsInstrument` template (sonnet — composition complexity) `(72cda34)`
