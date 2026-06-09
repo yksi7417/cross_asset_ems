@@ -10,7 +10,7 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 - **Last completed task:** 4.1 — Symbology service (FIGI + licensed secondaries): SymbologyService interface, SimpleSymbologyService with seeded ISIN/CUSIP/SEDOL/TICKER→FIGI secondary lookups for Apple and Microsoft sample instruments.
 - **Last commit (main):** `fix(4.1): seed secondary ID map for ISIN/CUSIP/SEDOL/TICKER resolution`
-- **Last commit sha (main):** _(pending commit)_
+- **Last commit sha (main):** `6cf6404`
 - **Tasks merged/marked this session:** 1.10 done `6ce061e`; 4.1 done `4ee2074` + fixup
 - **In-progress task:** _(none)_
 - **WIP branch:** main
