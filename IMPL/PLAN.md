@@ -101,7 +101,7 @@ Wire protocol and clustering. ~1-2 weeks.
 - [x] **2.2** SessionHeader extended with `trace_id`, `parent_span_id`, `initial_order_id`, `initial_route_id` per [[arch-sbe-aeron-transport]] (sonnet) ← blocks: 2.1 `(937904f)`
 - [x] **2.3** Aeron channel layout doc and code (sonnet) ← blocks: 2.1 `(b9ef33c)`
 - [x] **2.4** Sequence recovery service skeleton (sonnet) ← blocks: 2.2 `(5b05c48)`
-- [ ] **2.5** Aeron Cluster (Raft) 3-node bootstrap (opus — distributed consensus) ← blocks: 0.7
+- [x] **2.5** Aeron Cluster (Raft) 3-node bootstrap (opus — distributed consensus) ← blocks: 0.7 `(e5bd144)`
 - [ ] **2.6** Aeron Archive recording + replay APIs (sonnet) ← blocks: 2.5
 - [!] **2.7** Schema evolution test: old reader + new writer (sonnet) ← blocks: 2.1
 
