@@ -453,10 +453,12 @@ class OrderFsmGeneratedTest {
   }
 
   @Test
-  void test_no_trans_2_9_PENDING_REPLACE_FullFill() {
+  void test_trans_2_9_PENDING_REPLACE_FullFill_to_FILLED() {
+    // FIX D5: full fill wins over in-flight replace (arch-fix-appendix-d, task 1.10)
     var ctx = minimalCtx();
     var result = OrderFsmRunner.transition(PENDING_REPLACE, FullFill, ctx, createFullFillPayload());
-    assertTrue(result.isNoTransition(), "Expected no transition for PENDING_REPLACE with FullFill");
+    assertFalse(result.isNoTransition(), "Expected transition from PENDING_REPLACE on FullFill");
+    assertEquals(FILLED, result.newState());
   }
 
   @Test
@@ -593,17 +595,21 @@ class OrderFsmGeneratedTest {
   }
 
   @Test
-  void test_no_trans_4_8_PENDING_CANCEL_PartialFill() {
+  void test_trans_4_8_PENDING_CANCEL_PartialFill_to_PARTIALLY_FILLED() {
+    // FIX D4: partial fill races against in-flight cancel (arch-fix-appendix-d, task 1.10)
     var ctx = minimalCtx();
     var result = OrderFsmRunner.transition(PENDING_CANCEL, PartialFill, ctx, createPartialFillPayload());
-    assertTrue(result.isNoTransition(), "Expected no transition for PENDING_CANCEL with PartialFill");
+    assertFalse(result.isNoTransition(), "Expected transition from PENDING_CANCEL on PartialFill");
+    assertEquals(PARTIALLY_FILLED, result.newState());
   }
 
   @Test
-  void test_no_trans_4_9_PENDING_CANCEL_FullFill() {
+  void test_trans_4_9_PENDING_CANCEL_FullFill_to_FILLED() {
+    // FIX D4/D5: full fill races against in-flight cancel (arch-fix-appendix-d, task 1.10)
     var ctx = minimalCtx();
     var result = OrderFsmRunner.transition(PENDING_CANCEL, FullFill, ctx, createFullFillPayload());
-    assertTrue(result.isNoTransition(), "Expected no transition for PENDING_CANCEL with FullFill");
+    assertFalse(result.isNoTransition(), "Expected transition from PENDING_CANCEL on FullFill");
+    assertEquals(FILLED, result.newState());
   }
 
   @Test

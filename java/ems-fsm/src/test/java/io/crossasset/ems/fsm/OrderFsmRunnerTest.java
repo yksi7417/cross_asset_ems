@@ -294,6 +294,122 @@ class OrderFsmRunnerTest {
     assertEquals(95L, result.newContext().leavesQty());
   }
 
+  // ── (3b) FIX Appendix D race scenarios (task 1.10) ──────────────────────
+
+  @Test
+  void fullFill_duringPendingReplace_isTerminalFilled_d5() {
+    // FIX D5: full fill wins over in-flight replace — order becomes terminal FILLED.
+    OrderFsmContext ctx =
+        minimal()
+            .with(
+                minimal().orderId(),
+                minimal().clOrdId(),
+                minimal().origClOrdId(),
+                minimal().instrumentId(),
+                minimal().side(),
+                minimal().orderQty(),
+                minimal().price(),
+                minimal().cumQty(),
+                minimal().leavesQty(),
+                minimal().account(),
+                minimal().tif(),
+                minimal().initialClOrdId(),
+                minimal().chainId(),
+                minimal().orderVersion(),
+                minimal().preCancelStatus(),
+                "0"); // pre_replace_status = NEW
+
+    var payload = new OrderFsmPayloads.FullFillPayload(100L, 10050L, "EXEC-D5");
+    var result = fire(PENDING_REPLACE, FullFill, ctx, payload);
+
+    assertFalse(result.isNoTransition(), "PENDING_REPLACE+FullFill must transition");
+    assertEquals(FILLED, result.newState(), "Fill wins: order must be terminal FILLED");
+    assertEquals(100L, result.newContext().cumQty(), "cumQty must include the fill");
+    assertEquals(0L, result.newContext().leavesQty(), "leavesQty must be 0 after full fill");
+
+    // Verify subsequent ReplaceAccepted from FILLED is noTransition (informational only)
+    var lateAck = new OrderFsmPayloads.ReplaceAcceptedPayload("cl-002");
+    var lateResult = fire(FILLED, ReplaceAccepted, result.newContext(), lateAck);
+    assertTrue(
+        lateResult.isNoTransition(),
+        "Late ReplaceAccepted on terminal FILLED must be noTransition (informational)");
+  }
+
+  @Test
+  void fullFill_duringPendingCancel_isTerminalFilled_d4d5() {
+    // FIX D4/D5: full fill wins over in-flight cancel — order is terminal FILLED.
+    // The eventual 35=9 CancelRejected arrives at FILLED and must be noTransition.
+    OrderFsmContext ctx =
+        minimal()
+            .with(
+                minimal().orderId(),
+                minimal().clOrdId(),
+                minimal().origClOrdId(),
+                minimal().instrumentId(),
+                minimal().side(),
+                minimal().orderQty(),
+                minimal().price(),
+                minimal().cumQty(),
+                minimal().leavesQty(),
+                minimal().account(),
+                minimal().tif(),
+                minimal().initialClOrdId(),
+                minimal().chainId(),
+                minimal().orderVersion(),
+                "0", // pre_cancel_status = NEW
+                null);
+
+    var payload = new OrderFsmPayloads.FullFillPayload(100L, 10050L, "EXEC-D4");
+    var result = fire(PENDING_CANCEL, FullFill, ctx, payload);
+
+    assertFalse(result.isNoTransition(), "PENDING_CANCEL+FullFill must transition");
+    assertEquals(FILLED, result.newState(), "Fill wins: order must be terminal FILLED");
+    assertEquals(100L, result.newContext().cumQty());
+    assertEquals(0L, result.newContext().leavesQty());
+
+    // The 35=9 CancelRejected that arrives later must be ignored (already terminal)
+    var lateCancelReject = new OrderFsmPayloads.CancelRejectedPayload(0);
+    var lateResult = fire(FILLED, CancelRejected, result.newContext(), lateCancelReject);
+    assertTrue(
+        lateResult.isNoTransition(), "Late CancelRejected on terminal FILLED must be noTransition");
+  }
+
+  @Test
+  void partialFill_duringPendingCancel_updatesQtyAndLeavesActive() {
+    // FIX D4: partial fill races against in-flight cancel; fill wins at prior params.
+    // Decision: mirrors PENDING_REPLACE+PartialFill pattern (adapter handles eventual ack).
+    OrderFsmContext ctx =
+        minimal()
+            .with(
+                minimal().orderId(),
+                minimal().clOrdId(),
+                minimal().origClOrdId(),
+                minimal().instrumentId(),
+                minimal().side(),
+                minimal().orderQty(),
+                minimal().price(),
+                minimal().cumQty(),
+                minimal().leavesQty(),
+                minimal().account(),
+                minimal().tif(),
+                minimal().initialClOrdId(),
+                minimal().chainId(),
+                minimal().orderVersion(),
+                "0", // pre_cancel_status = NEW
+                null);
+
+    var payload = new OrderFsmPayloads.PartialFillPayload(30L, 10050L, "EXEC-D4-PF");
+    var result = fire(PENDING_CANCEL, PartialFill, ctx, payload);
+
+    assertFalse(result.isNoTransition(), "PENDING_CANCEL+PartialFill must transition");
+    assertEquals(
+        PARTIALLY_FILLED,
+        result.newState(),
+        "Partial fill during cancel lands in PARTIALLY_FILLED");
+    assertEquals(30L, result.newContext().cumQty());
+    assertEquals(70L, result.newContext().leavesQty());
+  }
+
   // ── (4) Totality ─────────────────────────────────────────────────────────
 
   @Test

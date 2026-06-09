@@ -395,6 +395,19 @@ transitions:
       - kind: publish_event_log
         args: { event: "OrderPartiallyFilled" }
 
+  # Full fill while replace in-flight (FIX D5): fill wins, order terminal (arch-fix-appendix-d).
+  - from: PENDING_REPLACE
+    event: FullFill
+    to: FILLED
+    description: Full fill while replace is in-flight; fill wins and order becomes terminal FILLED. The eventual ReplaceAccepted/ReplaceRejected arrives at terminal state and is correctly ignored.
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "0" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "2" }
+      - kind: publish_event_log
+        args: { event: "OrderFilled" }
+
   - from: PARTIALLY_FILLED
     event: PartialFill
     to: PARTIALLY_FILLED
@@ -431,6 +444,35 @@ transitions:
   - from: PARTIALLY_FILLED
     event: FullFill
     to: FILLED
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "0" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "2" }
+      - kind: publish_event_log
+        args: { event: "OrderFilled" }
+
+  # Partial fill while cancel in-flight (FIX D4): fill wins at prior params (arch-fix-appendix-d).
+  # Decision: mirrors existing PENDING_REPLACE+PartialFill precedent. The eventual
+  # CancelAccepted/CancelRejected arrives at PARTIALLY_FILLED; adapter layer must handle.
+  - from: PENDING_CANCEL
+    event: PartialFill
+    to: PARTIALLY_FILLED
+    description: Partial fill races against in-flight cancel; fill wins. Symmetric with PENDING_REPLACE+PartialFill.
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "context.leaves_qty - payload.last_qty" }
+      - kind: publish_fix_message
+        args: { msg_type: "8", exec_type: "F", ord_status: "1" }
+      - kind: publish_event_log
+        args: { event: "OrderPartiallyFilled" }
+
+  # Full fill while cancel in-flight (FIX D4/D5): fill wins, order terminal (arch-fix-appendix-d).
+  # The eventual 35=9 CancelRejected arrives at terminal FILLED and is correctly ignored.
+  - from: PENDING_CANCEL
+    event: FullFill
+    to: FILLED
+    description: Full fill races against in-flight cancel; fill wins and order becomes terminal FILLED.
     effects:
       - kind: update_context
         args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "0" }

@@ -288,4 +288,78 @@ class FsmReplayDeterminismTest {
 
     replayAndAssert(log);
   }
+
+  // ── Scenario 5: FIX D4/D5 — full fill races cancel (arch-fix-appendix-d) ─
+
+  @Test
+  void d4d5FullFillRaceCancel_isReplayDeterministic() {
+    // Order enters PENDING_CANCEL; before the ack, a full fill arrives and wins.
+    // The FSM must reach terminal FILLED; a subsequent noTransition from FILLED is verified.
+    List<ReplayEntry> log = new ArrayList<>();
+    OrderFsmState state = PENDING_NEW;
+    OrderFsmContext ctx = minimal();
+
+    // PENDING_NEW → NEW
+    var r1 = fire(state, ValidationPassed, ctx);
+    assertFalse(r1.isNoTransition());
+    log.add(capture(state, ValidationPassed, ctx, null, r1));
+    state = r1.newState();
+    ctx = r1.newContext();
+
+    // NEW + CancelRequested → PENDING_CANCEL
+    var r2 = fire(state, CancelRequested, ctx);
+    assertFalse(r2.isNoTransition());
+    assertEquals(PENDING_CANCEL, r2.newState());
+    assertEquals("0", r2.newContext().preCancelStatus());
+    log.add(capture(state, CancelRequested, ctx, null, r2));
+    state = r2.newState();
+    ctx = r2.newContext();
+
+    // PENDING_CANCEL + FullFill → FILLED (fill wins; D4/D5)
+    var ff = new OrderFsmPayloads.FullFillPayload(100L, 10050L, "EXEC-RACE");
+    var r3 = fire(state, FullFill, ctx, ff);
+    assertFalse(r3.isNoTransition());
+    assertEquals(FILLED, r3.newState());
+    assertEquals(100L, r3.newContext().cumQty());
+    assertEquals(0L, r3.newContext().leavesQty());
+    log.add(capture(state, FullFill, ctx, ff, r3));
+
+    replayAndAssert(log);
+  }
+
+  // ── Scenario 6: FIX D5 — full fill races replace ────────────────────────
+
+  @Test
+  void d5FullFillRaceReplace_isReplayDeterministic() {
+    List<ReplayEntry> log = new ArrayList<>();
+    OrderFsmState state = PENDING_NEW;
+    OrderFsmContext ctx = minimal();
+
+    // PENDING_NEW → NEW
+    var r1 = fire(state, ValidationPassed, ctx);
+    assertFalse(r1.isNoTransition());
+    log.add(capture(state, ValidationPassed, ctx, null, r1));
+    state = r1.newState();
+    ctx = r1.newContext();
+
+    // NEW + ReplaceRequested → PENDING_REPLACE
+    var rreq = new OrderFsmPayloads.ReplaceRequestedPayload("cl-002", 200L, null);
+    var r2 = fire(state, ReplaceRequested, ctx, rreq);
+    assertFalse(r2.isNoTransition());
+    assertEquals(PENDING_REPLACE, r2.newState());
+    log.add(capture(state, ReplaceRequested, ctx, rreq, r2));
+    state = r2.newState();
+    ctx = r2.newContext();
+
+    // PENDING_REPLACE + FullFill → FILLED (fill wins; D5)
+    var ff = new OrderFsmPayloads.FullFillPayload(100L, 10050L, "EXEC-RRACE");
+    var r3 = fire(state, FullFill, ctx, ff);
+    assertFalse(r3.isNoTransition());
+    assertEquals(FILLED, r3.newState());
+    assertEquals(100L, r3.newContext().cumQty());
+    assertEquals(0L, r3.newContext().leavesQty());
+    log.add(capture(state, FullFill, ctx, ff, r3));
+
+    replayAndAssert(log);
+  }
 }
