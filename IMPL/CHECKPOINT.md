@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 2.7 — Schema evolution test: added evolution-v2.xml SBE fixture (version=2, sinceVersion="2" correlationId field) and SchemaEvolutionTest (5 tests). Proves SBE forward-compat contract: old reader (actingVersion=1) decodes v1 fields correctly and gets correlationIdNullValue for the absent v2 field without crashing.
-- **Last commit (main):** `feat(2.7): schema evolution test — old reader + new writer forward compatibility`
-- **Last commit sha (main):** `b3a4c33`
-- **Tasks merged/marked this session:** 2.5 done `e5bd144`; 2.6 done `91bc0d7`; 2.7 done `b3a4c33`
+- **Last completed task:** 3.4 — Projection framework: LogRecord, EventLogReader (sequential big-endian reader), Projection<S> interface (pure reducer), ProjectionRunner<S> (globalSeq-based idempotency, rebuild-from-scratch). 8 tests in ProjectionFrameworkTest including the discriminating incremental-duplicate no-op test.
+- **Last commit (main):** `feat(3.4): projection framework — EventLogReader, Projection<S>, ProjectionRunner`
+- **Last commit sha (main):** `48c2305`
+- **Tasks merged/marked this session:** 3.4 done `48c2305`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-08
-- **Next task:** **3.4** (Projection framework, opus, unblocked by 3.1). Phase 2 now all [x].
-- **Total progress:** **51 of 144 tasks [x]** (35.4%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **3.5** (Replay engine, opus, unblocked by 3.4).
+- **Total progress:** **52 of 144 tasks [x]** (36.1%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
