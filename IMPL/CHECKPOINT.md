@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 4.4 — InstrumentCore canonical domain type: 22-field record (arch-security-master order) + 6 supporting enums (AssetClass, InstrumentType, CurrencyCode, Fungibility, SettlementConvention, LifecycleStatus). No byte decoder — instrument SBE XMLs excluded from codegen until task 4.11 reconciles hex IDs. 18 tests; discriminating test opens equity/bond/fx-spot SBE XMLs and asserts Java wireCode values match XML validValue ordinals. AssetClass wire codes: EQUITY=2, FIXED_INCOME=5, FX=10 from schemas; others provisional. LifecycleStatus uses arch-doc names (SUSPENDED/EXPIRED/MATURED/DEFAULTED) not schema editorial names (SUPERSEDED/RETIRED/DRAFT) — reconciled in 4.11.
-- **Last commit (main):** `feat(4.4): InstrumentCore canonical domain type — 22-field record + 6 enums`
-- **Last commit sha (main):** `dba3903`
-- **Tasks merged/marked this session:** 4.3 done `5564f71`, 4.4 done `dba3903`
+- **Last completed task:** 4.18 — InstrumentPackage + Leg domain model: InstrumentPackage record (packageId UUID, packageType, legs List<Leg>); Leg record (legSeq, instrumentFigi char[12], instrumentVersion uint32, side, ratioOrQuantity BigDecimal, optionalOverrides byte[] nullable); PackageType enum SINGLE/MULTI_LEG/PAIRED/BWIC_LIST/ETF_RFQ_BLOCK; Side enum BUY/SELL/BUY_MINUS/SELL_PLUS/SELL_SHORT aligned with FIX tag 54. 12 tests pass.
+- **Last commit (main):** `feat(4.18): Package entity + Leg group schema`
+- **Last commit sha (main):** `b3ec442`
+- **Tasks merged/marked this session:** 4.3 done `5564f71`, 4.4 done `dba3903`, 4.18 done `b3ec442`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-09
-- **Next task:** **4.18** (Package entity + Leg group schema, sonnet, unblocked by 4.4) or **4.19** (Security master CRUD + supersession events, unblocked by 4.4 + 3.1).
-- **Total progress:** **59 of 144 tasks [x]** (41.0%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **4.19** (Security master CRUD + supersession events, sonnet, unblocked by 4.4 + 3.1).
+- **Total progress:** **60 of 144 tasks [x]** (41.7%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
