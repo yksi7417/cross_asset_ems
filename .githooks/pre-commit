@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Pre-commit hook: regenerate FSM Java files from YAML sources.
-# Prevents CI "fsm drift" failures by keeping generated/ in sync at commit time.
+# Pre-commit hook: (1) regenerate FSM Java from YAML, (2) apply spotless formatting.
+# Prevents CI failures for both fsm-drift and spotlessCheck.
 #
 # Install (once per clone):
 #   git config core.hooksPath .githooks
@@ -8,9 +8,15 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# Always regenerate — it's fast (<1s) and avoids stale-generated CI failures.
+# 1. Regenerate FSM Java — fast (<1s), avoids stale-generated CI failures.
 if command -v python3 &>/dev/null && [[ -f "$REPO_ROOT/tools/codegen/fsm_codegen.py" ]]; then
   python3 "$REPO_ROOT/tools/codegen/fsm_codegen.py" --java-only >/dev/null
-  # Stage any regenerated files so they're included in this commit.
   git add "$REPO_ROOT/java/ems-fsm/src/main/generated/"
 fi
+
+# 2. Apply spotless to all staged Java files (google-java-format).
+# spotlessApply auto-formats; we then re-stage any files it touched.
+cd "$REPO_ROOT"
+./gradlew spotlessApply --quiet
+# Re-stage any Java files that spotless reformatted.
+git diff --name-only | grep '\.java$' | xargs --no-run-if-empty git add

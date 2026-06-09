@@ -22,7 +22,13 @@ public class SimpleSymbologyService implements SymbologyService {
   }
 
   private void seed(
-      String figi, String name, String ticker, String exch, String isin, String cusip, String sedol) {
+      String figi,
+      String name,
+      String ticker,
+      String exch,
+      String isin,
+      String cusip,
+      String sedol) {
     InstrumentData data = new InstrumentData(figi, name, ticker, exch);
     figiMap.put(figi, data);
     secondaryMap.put(isin, figi);
