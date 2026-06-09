@@ -103,7 +103,7 @@ Wire protocol and clustering. ~1-2 weeks.
 - [x] **2.4** Sequence recovery service skeleton (sonnet) ← blocks: 2.2 `(5b05c48)`
 - [x] **2.5** Aeron Cluster (Raft) 3-node bootstrap (opus — distributed consensus) ← blocks: 0.7 `(e5bd144)`
 - [x] **2.6** Aeron Archive recording + replay APIs (sonnet) ← blocks: 2.5 `(91bc0d7)`
-- [!] **2.7** Schema evolution test: old reader + new writer (sonnet) ← blocks: 2.1
+- [x] **2.7** Schema evolution test: old reader + new writer (sonnet) ← blocks: 2.1 `(b3a4c33)`
 
 ## Phase 3 — Event Sourcing + Configuration
 

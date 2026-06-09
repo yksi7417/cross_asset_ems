@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 2.6 — Aeron Archive recording + byte-precise replay APIs: AeronArchiveReplayService wraps AeronArchive for startLocalRecording, findLatestRecording (listRecordings scan — findLastMatchingRecording returns NULL for ID=0 in 1.51), replayAll, awaitRecordingPosition. Tests: full replay from 0 and mid-position replay (tail-only).
-- **Last commit (main):** `feat(2.6): implement Aeron Archive recording and byte-precise replay APIs`
-- **Last commit sha (main):** `91bc0d7`
-- **Tasks merged/marked this session:** 2.5 done `e5bd144`; 2.6 done `91bc0d7`
+- **Last completed task:** 2.7 — Schema evolution test: added evolution-v2.xml SBE fixture (version=2, sinceVersion="2" correlationId field) and SchemaEvolutionTest (5 tests). Proves SBE forward-compat contract: old reader (actingVersion=1) decodes v1 fields correctly and gets correlationIdNullValue for the absent v2 field without crashing.
+- **Last commit (main):** `feat(2.7): schema evolution test — old reader + new writer forward compatibility`
+- **Last commit sha (main):** `b3a4c33`
+- **Tasks merged/marked this session:** 2.5 done `e5bd144`; 2.6 done `91bc0d7`; 2.7 done `b3a4c33`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-08
-- **Next task:** **2.7** ([!] Schema evolution test, sonnet, unblocked by 2.1 — investigate SBE codegen issue). **3.4** (Projection framework, opus, unblocked by 3.1).
-- **Total progress:** **50 of 144 tasks [x]** (34.7%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **3.4** (Projection framework, opus, unblocked by 3.1). Phase 2 now all [x].
+- **Total progress:** **51 of 144 tasks [x]** (35.4%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -69,7 +69,7 @@ Loop adds `[!]` tasks here for human review.
 
 | Task ID | Reason | First flagged |
 |---|---|---|
-| 2.7 | SBE generated code missing and `ems.sbe-codegen` plugin failing to register tasks/produce output. | 2026-06-08 |
+| _(none)_ | | |
 
 ## Abandoned wip branches
 
