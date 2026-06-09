@@ -123,7 +123,7 @@ The auditable spine. ~2 weeks.
 The "what" layer. ~3-4 weeks.
 
 - [x] **4.1** Symbology service (FIGI + licensed secondaries) per [[arch-symbology-figi]] (sonnet) `(4ee2074)`
-- [ ] **4.2** License-metering and audit (sonnet) ← blocks: 4.1
+- [x] **4.2** License-metering and audit (sonnet) ← blocks: 4.1 `(2cad5e5)`
 - [ ] **4.3** SBE template registry for Instrument templates (sonnet) ← blocks: 2.1, 4.1
 - [ ] **4.4** `InstrumentCore` SBE block per [[arch-security-master]] (sonnet) ← blocks: 4.3
 - [x] **4.5** `EquityInstrument` template (gemma first draft, sonnet review) `(5752d7c)`
