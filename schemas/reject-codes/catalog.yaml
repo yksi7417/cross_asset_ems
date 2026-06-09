@@ -20,6 +20,7 @@ reject_codes:
 
   # --- SES — Session layer -------------------------------------------------
   - { code: EMS-SES-1001, category: SES, severity: error, title: "Invalid credentials", description: "Logon (35=A) failed credential check.", admin_hint: "Talk to session admin." }
+  - { code: EMS-SES-1002, category: SES, severity: error, title: "Session not found or expired", description: "Per-request session lookup failed: session ID unknown or already logged out.", admin_hint: "Talk to session admin." }
   - { code: EMS-SES-2001, category: SES, severity: error, title: "Sequence gap detected", description: "MsgSeqNum advances past expected next; cannot reconcile.", admin_hint: "Issue ResendRequest (35=2)." }
   - { code: EMS-SES-2002, category: SES, severity: error, title: "Sequence duplicate", description: "MsgSeqNum matches a prior message and PossDupFlag is not set." }
   - { code: EMS-SES-3001, category: SES, severity: error, title: "CompID mismatch", description: "SenderCompID or TargetCompID does not match the configured session." }
