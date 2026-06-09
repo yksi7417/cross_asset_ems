@@ -91,7 +91,8 @@ public final class InMemoryAaaService implements AaaService {
             credentials.token(),
             entry.tags(),
             effectiveTags);
-    Session session = new Session(sessionId, identity, nowMicros);
+    TraceContext traceContext = TraceContextFactory.mint();
+    Session session = new Session(sessionId, identity, nowMicros, traceContext);
     activeSessions.put(sessionId, session);
     eventLog.record(new AaaEvent.Authenticated(sessionId, identity, nowMicros));
     return new LogonOutcome.Accepted(session);

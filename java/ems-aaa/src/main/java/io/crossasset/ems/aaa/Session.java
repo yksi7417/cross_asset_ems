@@ -11,9 +11,11 @@ import java.util.Objects;
  *
  * <p>Task 5.1 — AAA service skeleton. TraceContext added in task 5.4.
  */
-public record Session(long sessionId, Identity identity, long establishedAtMicros) {
+public record Session(
+    long sessionId, Identity identity, long establishedAtMicros, TraceContext traceContext) {
 
   public Session {
     Objects.requireNonNull(identity, "identity");
+    Objects.requireNonNull(traceContext, "traceContext");
   }
 }
