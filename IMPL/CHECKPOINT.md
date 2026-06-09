@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 1.10 — FIX Appendix D fill-race transitions (PENDING_REPLACE+FullFill, PENDING_CANCEL+PartialFill, PENDING_CANCEL+FullFill).
-- **Last commit (main):** `feat(1.10): add FIX Appendix D fill-race transitions to Order FSM`
-- **Last commit sha (main):** `6ce061e`
-- **Tasks merged/marked this session:** 1.10 done `6ce061e`
+- **Last completed task:** 4.1 — Symbology service (FIGI + licensed secondaries): SymbologyService interface, SimpleSymbologyService with seeded ISIN/CUSIP/SEDOL/TICKER→FIGI secondary lookups for Apple and Microsoft sample instruments.
+- **Last commit (main):** `fix(4.1): seed secondary ID map for ISIN/CUSIP/SEDOL/TICKER resolution`
+- **Last commit sha (main):** _(pending commit)_
+- **Tasks merged/marked this session:** 1.10 done `6ce061e`; 4.1 done `4ee2074` + fixup
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-08
-- **Next task:** **3.4** (Projection framework, opus, unblocked by 3.1) or **4.1** (Symbology service, sonnet, no blocks — partial files already untracked).
-- **Total progress:** **47 of 144 tasks [x]** (32.6%). Phase 0 all [x]: 0.1–0.10.
+- **Next task:** **3.4** (Projection framework, opus, unblocked by 3.1) — defer to fresh session (determinism spine). **4.2** (License-metering, sonnet, unblocked by 4.1). **4.3** (SBE template registry, sonnet, unblocked by 2.1, 4.1).
+- **Total progress:** **48 of 144 tasks [x]** (33.3%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches

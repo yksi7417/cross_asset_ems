@@ -17,14 +17,18 @@ public class SimpleSymbologyService implements SymbologyService {
 
   public SimpleSymbologyService() {
     // Seed with some sample data
-    seed("BBG000B9XRX4", "Apple Inc", "AAPL", "XNAS");
-    seed("BBG000B9XRY1", "Microsoft Corp", "MSFT", "XNAS");
+    seed("BBG000B9XRX4", "Apple Inc", "AAPL", "XNAS", "US0378331005", "037833100", "2046251");
+    seed("BBG000B9XRY1", "Microsoft Corp", "MSFT", "XNAS", "US5949181045", "594918104", "2588173");
   }
 
-  private void seed(String figi, String name, String ticker, String exch) {
+  private void seed(
+      String figi, String name, String ticker, String exch, String isin, String cusip, String sedol) {
     InstrumentData data = new InstrumentData(figi, name, ticker, exch);
     figiMap.put(figi, data);
-    // In a real system, we would seed ISIN/CUSIP/SEDOL here as well.
+    secondaryMap.put(isin, figi);
+    secondaryMap.put(cusip, figi);
+    secondaryMap.put(sedol, figi);
+    secondaryMap.put(ticker + ":" + exch, figi); // ticker keyed as TICKER:MIC to avoid collisions
   }
 
   @Override
@@ -38,6 +42,9 @@ public class SimpleSymbologyService implements SymbologyService {
 
     if (item.type() == IdType.ID_BB_GLOBAL) {
       figi = lookupValue;
+    } else if (item.type() == IdType.ID_TICKER) {
+      String micCode = item.exchCode() != null ? item.exchCode() : item.micCode();
+      figi = secondaryMap.get(lookupValue + ":" + micCode);
     } else {
       figi = secondaryMap.get(lookupValue);
     }
