@@ -4,6 +4,7 @@
  */
 package io.crossasset.ems.aaa;
 
+import io.crossasset.ems.aaa.permission.TagPermissionEvaluator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -14,14 +15,14 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * In-memory AAA service skeleton. Validates credentials against a pre-registered token store.
  *
- * <p>Identity resolution uses a flat token→identity registry. The Firm/Desk/User hierarchy (task
- * 5.2) and the tag-permission AND-gate (task 5.3) extend this service. Sequence recovery
- * integration follows in task 5.5.
+ * <p>Identity resolution uses a flat token→identity registry. When a {@link TagPermissionEvaluator}
+ * is supplied (task 5.3), {@code effectiveTags} is the AND-gated intersection; otherwise it equals
+ * {@code tags}. Sequence recovery integration follows in task 5.5.
  *
  * <p>Clock: uses wall time via {@code System.currentTimeMillis()}. Production code injects the
  * sim-clock per arch-time-replay-server.md.
  *
- * <p>Task 5.1 — AAA service skeleton.
+ * <p>Task 5.1 — AAA service skeleton. Extended in tasks 5.3, 5.4, 5.5.
  */
 public final class InMemoryAaaService implements AaaService {
 
@@ -31,15 +32,20 @@ public final class InMemoryAaaService implements AaaService {
   private final Map<Long, Session> activeSessions = new ConcurrentHashMap<>();
   private final AtomicLong sessionIdSeq = new AtomicLong(1);
   private final AaaEventLog eventLog;
+  private final TagPermissionEvaluator tagPermissionEvaluator;
 
+  /** Skeleton constructor — no tag-permission AND-gate; effectiveTags equals tags. */
   public InMemoryAaaService(AaaEventLog eventLog) {
-    this.eventLog = Objects.requireNonNull(eventLog, "eventLog");
+    this(eventLog, null);
   }
 
-  /**
-   * Register a token credential for testing or bootstrap. Tags supplied here become both {@code
-   * tags} and {@code effectiveTags} on the resulting Identity; task 5.3 wires in the AND-gate.
-   */
+  /** Full constructor — wires in the tag-permission AND-gate (task 5.3). */
+  public InMemoryAaaService(AaaEventLog eventLog, TagPermissionEvaluator tagPermissionEvaluator) {
+    this.eventLog = Objects.requireNonNull(eventLog, "eventLog");
+    this.tagPermissionEvaluator = tagPermissionEvaluator; // nullable: null → passthrough
+  }
+
+  /** Register a token credential for testing or bootstrap. */
   public void registerCredential(
       String token, String firmId, String deskId, String userId, Set<String> tags) {
     credentialStore.put(
@@ -64,8 +70,8 @@ public final class InMemoryAaaService implements AaaService {
     }
 
     long sessionId = sessionIdSeq.getAndIncrement();
-    // effectiveTags equals tags in the skeleton; task 5.3 computes the AND-gate intersection
-    Identity identity =
+    // Build identity with tags; compute effectiveTags via the AND-gate if evaluator is present
+    Identity identityForGating =
         new Identity(
             entry.firmId(),
             entry.deskId(),
@@ -73,6 +79,18 @@ public final class InMemoryAaaService implements AaaService {
             credentials.token(),
             entry.tags(),
             entry.tags());
+    Set<String> effectiveTags =
+        tagPermissionEvaluator != null
+            ? tagPermissionEvaluator.computeEffectiveTags(identityForGating)
+            : entry.tags();
+    Identity identity =
+        new Identity(
+            entry.firmId(),
+            entry.deskId(),
+            entry.userId(),
+            credentials.token(),
+            entry.tags(),
+            effectiveTags);
     Session session = new Session(sessionId, identity, nowMicros);
     activeSessions.put(sessionId, session);
     eventLog.record(new AaaEvent.Authenticated(sessionId, identity, nowMicros));
