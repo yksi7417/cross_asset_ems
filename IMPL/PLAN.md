@@ -116,7 +116,7 @@ The auditable spine. ~2 weeks.
 - [x] **3.5** Replay engine (log slice → re-derive state) (opus — determinism spine) ← blocks: 3.4 `(b0cc12b)`
 - [x] **3.6** Time/Replay server (sim-clock interface) per [[arch-time-replay-server]] (sonnet) ← blocks: 3.5 `(5733929)`
 - [x] **3.7** Configuration service per [[arch-configuration-service]] (sonnet) ← blocks: 3.1, 3.5 `(a47adfa)`
-- [ ] **3.8** Local cache snapshot agent (atomic message-boundary swap) (sonnet) ← blocks: 3.7
+- [x] **3.8** Local cache snapshot agent (atomic message-boundary swap) (sonnet) ← blocks: 3.7 `(1d3c380)`
 
 ## Phase 4 — Reference Data
 

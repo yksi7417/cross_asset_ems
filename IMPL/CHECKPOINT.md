@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 3.7 — Configuration service: ConfigScopeLevel (9-level cascade enum, RESOLUTION_ORDER), ConfigScope (level + qualifiers record, factory methods), ConfigKey<T> (typed, non-null default, archive-locks-default/never-delete), ResolutionContext (cascade builder, scopeAt returns null for absent levels), ConfigSnapshot (immutable, version-stamped, most-specific-wins get, Builder rejects archived keys), ConfigService (read interface), InMemoryConfigService (volatile snapshot). 11 tests: cascade desk-shadows-firm (discriminating), sparse fall-through, full 9-level hierarchy, archival locked-default, rejected writes on archived key, golden two-service equivalence.
-- **Last commit (main):** `feat(3.7): config service: ConfigSnapshot, 9-level cascade, archival`
-- **Last commit sha (main):** `a47adfa`
-- **Tasks merged/marked this session:** 3.5 done `b0cc12b`, 3.6 done `5733929`, 3.7 done `a47adfa`
-- **In-progress task:** _(none — 3-commit pacing trigger reached, session ending)_
+- **Last completed task:** 3.8 — LocalCacheAgent: two-slot staging discipline (stageSnapshot + onMessageBoundary + publish-immediate). publish() is immediate and honors ConfigService contract; stageSnapshot() queues for next boundary; onMessageBoundary() atomically promotes staged → current. AtomicReference<staged> + volatile current. 11 tests: one-message-one-view (discriminating), last-write-wins, publish-is-immediate (LSP check), boundary no-op, staged slot cleared after promotion, multi-message sequence. Live-mode only; replay as-of deferred.
+- **Last commit (main):** `feat(3.8): local cache snapshot agent — atomic message-boundary swap`
+- **Last commit sha (main):** `1d3c380`
+- **Tasks merged/marked this session:** 3.8 done `1d3c380`
+- **In-progress task:** _(none)_
 - **WIP branch:** main
-- **Last updated:** 2026-06-08
-- **Next task:** **3.8** (Local cache snapshot agent, atomic message-boundary swap, sonnet, unblocked by 3.7).
-- **Total progress:** **55 of 144 tasks [x]** (38.2%). Phase 0 all [x]: 0.1–0.10.
+- **Last updated:** 2026-06-09
+- **Next task:** **4.2** (License-metering and audit, sonnet, unblocked by 4.1) or **4.3** (SBE template registry, sonnet, unblocked by 2.1, 4.1).
+- **Total progress:** **56 of 144 tasks [x]** (38.9%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -50,7 +50,7 @@ Updated when a phase completes.
 | 0 — Bootstrap | not started | |
 | 1 — FSM Foundation | not started | |
 | 2 — Transport | not started | |
-| 3 — Event Sourcing | not started | |
+| 3 — Event Sourcing | complete | 2026-06-09 |
 | 4 — Reference Data | not started | |
 | 5 — Identity & Permissions | not started | |
 | 6 — Validator | not started | |
