@@ -89,7 +89,7 @@ The core determinism guarantee. ~2-3 weeks.
 - [x] **1.7b** C++ FSM transition impl: fill `transition()` stubs in `cpp/fsm/generated/*.hpp`; compile-verify via CMake (sonnet) ← blocks: C++ simulator path `(994d8fa)`
 - [x] (40deac8) **1.8** Unit test generator: YAML → ~5000 transition tests (gemma) ← blocks: 1.7
 - [x] **1.9** Lifecycle chaining (Order cancel cascades to Route) tests (sonnet) ← blocks: 1.2, 1.3 `(b6cd1e4)`
-- [x] **1.10** Pending Replace / Pending Cancel edge cases per [[arch-fix-appendix-d]] (opus — silent-race correctness) ← blocks: 1.9 `(pending-sha)`
+- [x] **1.10** Pending Replace / Pending Cancel edge cases per [[arch-fix-appendix-d]] (opus — silent-race correctness) ← blocks: 1.9 `(6ce061e)`
 - [x] **1.11** Replay determinism test harness (single FSM, replay log slice) (sonnet) ← blocks: 1.7 `(32acdac)`
 - [x] **1.12** Identity chaining stamping into FSM events per [[arch-identity-chaining]] (sonnet) ← blocks: 1.7 `(2faef35)`
 

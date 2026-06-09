@@ -8,14 +8,14 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 3.3 — Stream-id partitioning (Implemented StreamId value object and record-based partitioning in EventLogWriter).
-- **Last commit (main):** `feat(3.3): implement stream-id partitioning for event log`
-- **Last commit sha (main):** `ddfa937`
-- **Tasks merged/marked this session:** 3.3 done `ddfa937`
+- **Last completed task:** 1.10 — FIX Appendix D fill-race transitions (PENDING_REPLACE+FullFill, PENDING_CANCEL+PartialFill, PENDING_CANCEL+FullFill).
+- **Last commit (main):** `feat(1.10): add FIX Appendix D fill-race transitions to Order FSM`
+- **Last commit sha (main):** `6ce061e`
+- **Tasks merged/marked this session:** 1.10 done `6ce061e`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-08
-- **Next task:** **3.4** (Projection framework, opus, unblocked by 3.1).
+- **Next task:** **3.4** (Projection framework, opus, unblocked by 3.1) or **4.1** (Symbology service, sonnet, no blocks — partial files already untracked).
 - **Total progress:** **47 of 144 tasks [x]** (32.6%). Phase 0 all [x]: 0.1–0.10.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
