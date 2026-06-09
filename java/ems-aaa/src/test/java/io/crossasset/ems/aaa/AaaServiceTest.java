@@ -33,7 +33,7 @@ class AaaServiceTest {
 
   @Test
   void logon_validToken_returnsAccepted() {
-    LogonOutcome outcome = service.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice"));
+    LogonOutcome outcome = service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice"));
     assertInstanceOf(LogonOutcome.Accepted.class, outcome);
   }
 
@@ -42,7 +42,7 @@ class AaaServiceTest {
     LogonOutcome.Accepted accepted =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            service.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice")));
+            service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice")));
     Identity id = accepted.session().identity();
     assertEquals("alice", id.userId());
     assertEquals("ACME", id.firmId());
@@ -55,13 +55,13 @@ class AaaServiceTest {
     LogonOutcome.Accepted accepted =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            service.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice")));
+            service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice")));
     assertTrue(accepted.session().sessionId() > 0);
   }
 
   @Test
   void logon_success_emitsConnectAttemptedThenAuthenticated() {
-    service.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice"));
+    service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice"));
     List<AaaEvent> events = eventLog.events();
     assertEquals(2, events.size());
     assertInstanceOf(AaaEvent.ConnectAttempted.class, events.get(0));
@@ -73,11 +73,11 @@ class AaaServiceTest {
     LogonOutcome.Accepted a1 =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            service.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice")));
+            service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice")));
     LogonOutcome.Accepted a2 =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            service.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice")));
+            service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice")));
     assertNotEquals(a1.session().sessionId(), a2.session().sessionId());
   }
 
@@ -85,7 +85,7 @@ class AaaServiceTest {
 
   @Test
   void logon_badToken_returnsRejected() {
-    LogonOutcome outcome = service.logon(new LogonCredentials(CredentialKind.TOKEN, "bad-token"));
+    LogonOutcome outcome = service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "bad-token"));
     assertInstanceOf(LogonOutcome.Rejected.class, outcome);
   }
 
@@ -94,13 +94,13 @@ class AaaServiceTest {
     LogonOutcome.Rejected rejected =
         assertInstanceOf(
             LogonOutcome.Rejected.class,
-            service.logon(new LogonCredentials(CredentialKind.TOKEN, "bad-token")));
+            service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "bad-token")));
     assertEquals("EMS-SES-1001", rejected.rejectCode());
   }
 
   @Test
   void logon_badToken_emitsConnectAttemptedThenLogonRejected() {
-    service.logon(new LogonCredentials(CredentialKind.TOKEN, "bad-token"));
+    service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "bad-token"));
     List<AaaEvent> events = eventLog.events();
     assertEquals(2, events.size());
     assertInstanceOf(AaaEvent.ConnectAttempted.class, events.get(0));
@@ -115,7 +115,7 @@ class AaaServiceTest {
     LogonOutcome.Accepted accepted =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            service.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice")));
+            service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice")));
     long sessionId = accepted.session().sessionId();
     assertTrue(service.sessionInfo(sessionId).isPresent());
     assertEquals(sessionId, service.sessionInfo(sessionId).get().sessionId());
@@ -133,7 +133,7 @@ class AaaServiceTest {
     LogonOutcome.Accepted accepted =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            service.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice")));
+            service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice")));
     long sessionId = accepted.session().sessionId();
     service.logout(sessionId, "user-requested");
     assertTrue(service.sessionInfo(sessionId).isEmpty());
@@ -144,7 +144,7 @@ class AaaServiceTest {
     LogonOutcome.Accepted accepted =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            service.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice")));
+            service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice")));
     long sessionId = accepted.session().sessionId();
     service.logout(sessionId, "user-requested");
     List<AaaEvent> events = eventLog.events();
@@ -170,7 +170,7 @@ class AaaServiceTest {
     LogonOutcome.Accepted accepted =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            service.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice")));
+            service.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice")));
     Identity id = accepted.session().identity();
     assertEquals(id.tags(), id.effectiveTags());
   }

@@ -144,7 +144,7 @@ class TraceContextTest {
     LogonOutcome.Accepted accepted =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            svc.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice")));
+            svc.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice")));
     assertNotNull(accepted.session().traceContext());
   }
 
@@ -156,11 +156,11 @@ class TraceContextTest {
     LogonOutcome.Accepted a1 =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            svc.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice")));
+            svc.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice")));
     LogonOutcome.Accepted a2 =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            svc.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice")));
+            svc.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice")));
     // Different trace IDs for different sessions
     assertFalse(
         a1.session().traceContext().traceIdHigh() == a2.session().traceContext().traceIdHigh()
@@ -176,7 +176,7 @@ class TraceContextTest {
     LogonOutcome.Accepted accepted =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            svc.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-alice")));
+            svc.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-alice")));
     assertTrue(accepted.session().traceContext().isSampled());
   }
 }

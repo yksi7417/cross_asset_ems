@@ -5,6 +5,7 @@
 package io.crossasset.ems.aaa;
 
 import io.crossasset.ems.aaa.permission.TagPermissionEvaluator;
+import io.crossasset.ems.transport.session.SequenceRecoveryService;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -17,7 +18,8 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p>Identity resolution uses a flat token→identity registry. When a {@link TagPermissionEvaluator}
  * is supplied (task 5.3), {@code effectiveTags} is the AND-gated intersection; otherwise it equals
- * {@code tags}. Sequence recovery integration follows in task 5.5.
+ * {@code tags}. When a {@link SequenceRecoveryService} is supplied (task 5.5), sequence state is
+ * tracked per session.
  *
  * <p>Clock: uses wall time via {@code System.currentTimeMillis()}. Production code injects the
  * sim-clock per arch-time-replay-server.md.
@@ -33,16 +35,26 @@ public final class InMemoryAaaService implements AaaService {
   private final AtomicLong sessionIdSeq = new AtomicLong(1);
   private final AaaEventLog eventLog;
   private final TagPermissionEvaluator tagPermissionEvaluator;
+  private final SequenceRecoveryService seqRecovery;
 
-  /** Skeleton constructor — no tag-permission AND-gate; effectiveTags equals tags. */
+  /** Skeleton constructor — no tag-permission AND-gate, no sequence recovery. */
   public InMemoryAaaService(AaaEventLog eventLog) {
-    this(eventLog, null);
+    this(eventLog, null, null);
   }
 
-  /** Full constructor — wires in the tag-permission AND-gate (task 5.3). */
+  /** Constructor with tag-permission AND-gate. */
   public InMemoryAaaService(AaaEventLog eventLog, TagPermissionEvaluator tagPermissionEvaluator) {
+    this(eventLog, tagPermissionEvaluator, null);
+  }
+
+  /** Full constructor with tag-permission AND-gate and sequence recovery (task 5.5). */
+  public InMemoryAaaService(
+      AaaEventLog eventLog,
+      TagPermissionEvaluator tagPermissionEvaluator,
+      SequenceRecoveryService seqRecovery) {
     this.eventLog = Objects.requireNonNull(eventLog, "eventLog");
-    this.tagPermissionEvaluator = tagPermissionEvaluator; // nullable: null → passthrough
+    this.tagPermissionEvaluator = tagPermissionEvaluator; // nullable
+    this.seqRecovery = seqRecovery; // nullable
   }
 
   /** Register a token credential for testing or bootstrap. */
@@ -91,6 +103,10 @@ public final class InMemoryAaaService implements AaaService {
             credentials.token(),
             entry.tags(),
             effectiveTags);
+    // Sequence recovery: initialize or resume session seq state (task 5.5)
+    if (seqRecovery != null) {
+      seqRecovery.logon(sessionId, credentials.declaredSeq());
+    }
     TraceContext traceContext = TraceContextFactory.mint();
     Session session = new Session(sessionId, identity, nowMicros, traceContext);
     activeSessions.put(sessionId, session);
@@ -110,5 +126,11 @@ public final class InMemoryAaaService implements AaaService {
   @Override
   public Optional<Session> sessionInfo(long sessionId) {
     return Optional.ofNullable(activeSessions.get(sessionId));
+  }
+
+  @Override
+  public Optional<String> checkIncoming(long sessionId, long seqNum) {
+    if (seqRecovery == null) return Optional.empty();
+    return seqRecovery.checkSequence(sessionId, seqNum);
   }
 }

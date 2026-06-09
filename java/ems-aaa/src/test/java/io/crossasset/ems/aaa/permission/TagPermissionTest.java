@@ -196,7 +196,7 @@ class TagPermissionTest {
     LogonOutcome.Accepted accepted =
         assertInstanceOf(
             LogonOutcome.Accepted.class,
-            svc.logon(new LogonCredentials(CredentialKind.TOKEN, "tok-anne")));
+            svc.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "tok-anne")));
 
     Identity id = accepted.session().identity();
     assertEquals(Set.of("trade-eq", "trade-fi"), id.tags()); // raw grants unchanged

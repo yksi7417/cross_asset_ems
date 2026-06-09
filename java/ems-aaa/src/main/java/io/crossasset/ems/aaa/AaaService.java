@@ -4,6 +4,7 @@
  */
 package io.crossasset.ems.aaa;
 
+import io.crossasset.ems.transport.session.SequenceRecoveryService;
 import java.util.Optional;
 
 /**
@@ -11,12 +12,14 @@ import java.util.Optional;
  * FIX, automation — passes through here before reaching any business operation. Per
  * entry-point-aaa.md.
  *
- * <p>Task 5.1 — AAA service skeleton.
+ * <p>Task 5.1 — AAA service skeleton. checkIncoming added in task 5.5.
  */
 public interface AaaService {
 
   /**
-   * Authenticate the caller and establish a session.
+   * Authenticate the caller and establish a session. For FIX callers, {@code
+   * credentials.declaredSeq()} is the MsgSeqNum from the 35=A Logon; the service calls the
+   * underlying {@link SequenceRecoveryService} to decide if the session needs gap recovery.
    *
    * @return {@link LogonOutcome.Accepted} on success, {@link LogonOutcome.Rejected} on credential
    *     or policy failure.
@@ -28,4 +31,11 @@ public interface AaaService {
 
   /** Introspect an active session. Empty if the session is unknown or has been logged out. */
   Optional<Session> sessionInfo(long sessionId);
+
+  /**
+   * Check an inbound message sequence number against the session's expected sequence. Returns an
+   * empty optional if the message is in-order; returns a non-empty diagnostic string ("RESEND",
+   * "SESSION_NOT_FOUND") if a gap or duplicate is detected.
+   */
+  Optional<String> checkIncoming(long sessionId, long seqNum);
 }
