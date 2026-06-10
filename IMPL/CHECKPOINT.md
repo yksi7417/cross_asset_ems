@@ -8,17 +8,17 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **🚀 MVP v0 COMPLETE (2026-06-10).** All 11 [MVP]-tagged tasks `[x]`. Done criteria met: end-to-end smoke (`MvpSmokeTest`, ems-it) drives FIX NewOrderSingle (US IG corp) → validator → staged → mock MarketAxess venue → fill → allocation (60/40) → confirmation (matched) → TRACE-mock (acked), asserting a single trace ID across all 5 hops and byte-identical replay. One asset class wired end-to-end with full audit trail.
-- **Last completed task:** 15.1 — End-to-end MVP smoke + replay-determinism. `MvpSmokeTest` wires the full chain (8.1 FIX → 7.1 staged → 11.2 venue → 12.1 alloc → 12.2 STP → 12.3 confirm → 12.6 TRACE → 13.5 trace verify); replay is a pure-function double-run with identical canonical event log. 2 tests green.
-- **Last commit (main):** `feat(15.1): end-to-end MVP smoke + replay determinism (v0 done-criteria)`
-- **Last commit sha (main):** `26f29d8`
-- **Tasks merged/marked this session:** 8.1 `b3aa7ab`, 12.1 `31911bb`, 12.2 `bc92f1c`, 12.3 `b218e63`, 12.5 `51e1713`, 12.6 `39a9a88`, 13.5 `6953c3c`, 15.1 `26f29d8` (Opus). Prior MVP session: 8.9 `981c33d`, 11.1 `1d95436`, 11.2 `7bb2739`; 7.7 `9e90812`.
+- **🚀 MVP v0 COMPLETE + Phase 16 cross-asset coverage COMPLETE (2026-06-10).** MVP smoke (`MvpSmokeTest`) wires corp bond end-to-end with single trace ID + byte-identical replay. Phase 16 extends coverage to **7 asset classes** (US IG corp, treasury, US equity, preferred, listed fut/opt, FX spot, FX forward), each flowing allocation→STP→confirmation→reporting per its `AssetClassProfile` with single trace + replay (`CrossAssetSmokeTest`).
+- **Last completed task:** 16.3 — Cross-asset end-to-end smoke. Parametrized over all `Coverage` labels; asserts per-asset stage sets (FX-spot confirms-not-reports, equity reports-not-confirms, corp/treasury both, FX-fwd/listed CFTC), single trace, full lot-sized allocation, byte-identical replay. Added `MockRegulatorAdapter` + `ReportingProfile.mock()`. 2 tests (7 asset classes each).
+- **Last commit (main):** `feat(16.3): cross-asset end-to-end smoke (v1)`
+- **Last commit sha (main):** `e944197`
+- **Tasks merged/marked this session:** 16.1 `e3dde05`, 16.2 `dcd250c`, 16.3 `e944197` (cross-asset, Opus). Earlier this session: 8.1, 12.1, 12.2, 12.3, 12.5, 12.6, 13.5, 15.1 (MVP v0).
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-10
-- **MVP v0 track:** **11 of 11 [MVP] tasks [x]** — 8.9, 11.1, 11.2, 8.1, 12.1, 12.2, 12.3, 12.5, 12.6, 13.5, 15.1. ✅
-- **Next task:** v1 — three asset classes end-to-end (US IG corp ✓, US equity, USD IRS); real venue adapters (11.3+) to UAT; compliance/risk/best-ex parity. Per PLAN "What v1 looks like". Also worth promoting post-trade services off in-memory stubs and wiring the real router (7.2) into the smoke instead of a direct venue submit.
-- **Total progress:** **85 of 144 tasks [x]** (59.0%). MVP v0: **11 of 11 done — COMPLETE.**
+- **MVP v0 track:** **11 of 11 [MVP] tasks [x]** ✅. **Phase 16 (cross-asset): 3 of 3 [x]** ✅.
+- **Next task:** v1 remainder — wire the real router (7.2) + AAA-backed validator into the smokes (replace direct venue submit / permissive validator); promote post-trade services off in-memory stubs; real venue adapters (11.3+) to UAT; USD IRS (rates) as the 8th coverage; compliance/risk/best-ex parity. Per PLAN "What v1 looks like".
+- **Total progress:** **88 of 144 tasks [x]** (61.1%). MVP v0 complete; Phase 16 cross-asset complete.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches

@@ -324,7 +324,9 @@ byte-identical replay. Builds directly on 12.1–12.6, 13.5, 15.1.
 
 - [x] **16.1** Cross-asset post-trade profile registry: per-`AssetClass` `StageProfile` + confirmation `MatchTolerance` + `RegulatorDeterminer.crossAssetUs()` (equity→CAT, treasury→TRACE, fut/opt→CFTC, FX-fwd→CFTC SDR, FX-spot→none) (sonnet) ← blocks: 12.2, 12.3, 12.5 `(e3dde05)`
 - [x] **16.2** Asset-class allocation precision (lot sizing: equity/options whole units, FI $1k denomination, FX 10k min-notional) (sonnet) ← blocks: 12.1, 16.1 `(dcd250c)`
-- [ ] **16.3** Cross-asset end-to-end smoke: US equity, preferred, treasury, listed fut/opt, FX spot, FX forward each through allocation→STP→confirmation→reporting, asserting single trace ID + byte-identical replay (sonnet) ← blocks: 16.1, 16.2, 15.1
+- [x] **16.3** Cross-asset end-to-end smoke: US equity, preferred, treasury, listed fut/opt, FX spot, FX forward each through allocation→STP→confirmation→reporting, asserting single trace ID + byte-identical replay (sonnet) ← blocks: 16.1, 16.2, 15.1 `(e944197)`
+
+> **Phase 16 complete (2026-06-10).** Cross-asset post-trade coverage: 7 asset classes (US IG corp, treasury, US equity, preferred, listed fut/opt, FX spot, FX forward) flow end-to-end through allocation → STP → confirmation → reporting per their `AssetClassProfile`, each with a single trace ID and byte-identical replay (`CrossAssetSmokeTest`).
 
 ## Done criteria for v0 (MVP)
 
