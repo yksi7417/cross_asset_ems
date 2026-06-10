@@ -58,6 +58,11 @@ reject_codes:
   - { code: EMS-RTE-2005, category: RTE, severity: error, title: "ClOrdID collision", description: "ClOrdID already used in this session within the dedup window." }
   - { code: EMS-RTE-3003, category: RTE, severity: warning, title: "Stale quote", description: "QuoteID timestamp older than staleness_threshold." }
   - { code: EMS-RTE-3008, category: RTE, severity: warning, title: "Replace throttled", description: "Cancel/Replace rate exceeds per-route cap; throttling." }
+  - { code: EMS-RTE-4001, category: RTE, severity: error, title: "Order not found for routing", description: "OrderID references an unknown or purged staged order; cannot create route." }
+  - { code: EMS-RTE-4002, category: RTE, severity: error, title: "Order not ready for routing", description: "Order sub-state is not READY or ROUTING; must call markReady() before routing." }
+  - { code: EMS-RTE-4003, category: RTE, severity: error, title: "Route qty exceeds order remaining", description: "Requested route qty plus existing open route qty exceeds the order's leavesQty." }
+  - { code: EMS-RTE-5001, category: RTE, severity: error, title: "Route not found", description: "RouteID references an unknown route; may have never been created in this session." }
+  - { code: EMS-RTE-5002, category: RTE, severity: error, title: "Route event not applicable", description: "Route FSM cannot process this event in its current state (terminal or wrong state)." }
 
   # --- AUT — Automation ---------------------------------------------------
   - { code: EMS-AUT-1001, category: AUT, severity: error, title: "Rule scope mismatch", description: "Rule scope does not include the firing event's actor." }
@@ -80,6 +85,6 @@ reject_codes:
 metadata:
   version: 1
   schema_url: "schemas/reject-codes/catalog.schema.yaml"   # planned in task 6.2
-  total_codes: 39
+  total_codes: 44
   categories: 7
   source_of_truth: "80_architecture/arch-validator.md + arch-configuration-service.md"

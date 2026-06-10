@@ -261,4 +261,53 @@ public final class InMemoryStagedOrderManager implements StagedOrderManager {
   public Optional<StagedOrder> findOrder(String orderId) {
     return Optional.ofNullable(orders.get(orderId));
   }
+
+  @Override
+  public Optional<StagedOrder> applyOrderFsmEvent(
+      String orderId, OrderFsmEvent event, Object payload) {
+    AtomicReference<StagedOrder> result = new AtomicReference<>();
+    orders.computeIfPresent(
+        orderId,
+        (id, order) -> {
+          TransitionResult<OrderFsmState, OrderFsmContext, ?> tr =
+              OrderFsmRunner.transition(order.fsmState(), event, order.fsmContext(), payload);
+          StagedOrder next =
+              tr.isNoTransition()
+                  ? order
+                  : new StagedOrder(
+                      order.orderId(),
+                      order.clOrdId(),
+                      order.sessionId(),
+                      tr.newState(),
+                      tr.newContext(),
+                      order.subState(),
+                      order.pendingActions(),
+                      order.stagedAtMicros());
+          result.set(next);
+          return next;
+        });
+    return Optional.ofNullable(result.get());
+  }
+
+  @Override
+  public Optional<StagedOrder> markRouting(String orderId) {
+    AtomicReference<StagedOrder> result = new AtomicReference<>();
+    orders.computeIfPresent(
+        orderId,
+        (id, order) -> {
+          StagedOrder routing =
+              new StagedOrder(
+                  order.orderId(),
+                  order.clOrdId(),
+                  order.sessionId(),
+                  order.fsmState(),
+                  order.fsmContext(),
+                  OrderSubState.ROUTING,
+                  order.pendingActions(),
+                  order.stagedAtMicros());
+          result.set(routing);
+          return routing;
+        });
+    return Optional.ofNullable(result.get());
+  }
 }

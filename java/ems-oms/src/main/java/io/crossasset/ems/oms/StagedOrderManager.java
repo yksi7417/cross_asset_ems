@@ -4,6 +4,7 @@
  */
 package io.crossasset.ems.oms;
 
+import io.crossasset.ems.fsm.generated.OrderFsmEvent;
 import java.util.Optional;
 
 /**
@@ -49,4 +50,17 @@ public interface StagedOrderManager {
 
   /** Returns the order if it exists, empty otherwise. */
   Optional<StagedOrder> findOrder(String orderId);
+
+  /**
+   * Applies a raw FSM event directly to the order (used by the router layer to propagate fills and
+   * expirations). Returns the updated order, or empty if the order is not found. If the event is a
+   * no-transition in the current state, the order is returned unchanged.
+   */
+  Optional<StagedOrder> applyOrderFsmEvent(String orderId, OrderFsmEvent event, Object payload);
+
+  /**
+   * Transitions the order subState to {@link OrderSubState#ROUTING}. Called by the router on first
+   * route creation. Returns the updated order, or empty if the order is not found.
+   */
+  Optional<StagedOrder> markRouting(String orderId);
 }
