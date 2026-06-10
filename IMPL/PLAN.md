@@ -172,7 +172,7 @@ Hard-reject path. ~1-2 weeks.
 
 The order/route layers. ~3-4 weeks.
 
-- [ ] **7.1** Staged Order Manager per [[arch-order-staged]] (sonnet) ← blocks: 1.2, 4.19, 6.2
+- [x] **7.1** Staged Order Manager per [[arch-order-staged]] (sonnet) ← blocks: 1.2, 4.19, 6.2 `(8de5bab)`
 - [ ] **7.2** Router Layer per [[arch-router-layer]] (sonnet) ← blocks: 1.3, 7.1
 - [ ] **7.3** Automation Layer per [[arch-automation-layer]] (sonnet) ← blocks: 7.1, 7.2
 - [ ] **7.4** Multi-leg / Package handling per [[arch-multileg]] (sonnet) ← blocks: 1.4, 7.2

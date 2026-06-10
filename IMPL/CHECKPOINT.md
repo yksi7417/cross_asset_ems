@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 6.3 — Permission denial messages with admin-hint pointers: 11 golden tests asserting exact firm/desk/tag admin contact resolution for EMS-PRM-1001/1002/1003. 31 total tests across Phase 6 (6.2+6.3).
-- **Last commit (main):** `feat(6.3): permission denial messages with admin-hint pointers`
-- **Last commit sha (main):** `b80b305`
-- **Tasks merged/marked this session:** 6.2 done `b099d4a`, 6.3 done `b80b305`
+- **Last completed task:** 7.1 — Staged Order Manager: InMemoryStagedOrderManager + sealed result types (StageResult/AmendResult/CancelResult/MarkReadyResult) backed by OrderFsmRunner + ValidatorPipeline. Pre-route amends are field edits; cancels fire CancelRequested then CancelAccepted atomically. 17 tests, JaCoCo pass. Added EMS-ORD-4001 to catalog.
+- **Last commit (main):** `feat(7.1): Staged Order Manager -- stage, amend, cancel, markReady`
+- **Last commit sha (main):** `8de5bab`
+- **Tasks merged/marked this session:** 6.2 done `b099d4a`, 6.3 done `b80b305`, 7.1 done `8de5bab`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-09
-- **Next task:** **4.12** (TbaMbsInstrument / SpecifiedPoolInstrument — fungibility handling), **4.14** (StructuredProductInstrument), or **4.17** (EventContractInstrument). Phase 6 complete except 6.4 [~] (locked, reject-code reconciliation needed).
-- **Total progress:** **69 of 144 tasks [x]** (47.9%). Phase 5 all [x]: 5.1–5.5. Phase 6 partial: 6.1 [x], 6.2 [x], 6.3 [x], 6.4 [~] locked, 6.5 [x].
+- **Next task:** **7.2** Router Layer (sonnet) — now unblocked by 7.1. Or **4.12/4.14/4.17** (Phase 4 remainder).
+- **Total progress:** **70 of 144 tasks [x]** (48.6%). Phase 7 started: 7.1 [x]; 7.2–7.8 pending.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -42,6 +42,7 @@ The loop appends a one-line entry per session.
 | 2026-06-07 | 2026-06-07 | context-resuming prior session | 3 (1.7b C++ inline FSMs + task annotation; 1.11 replay harness) | 1.7b `994d8fa`, 1.11 `32acdac` | next = 1.8 (gemma) or 1.10/1.12 |
 | 2026-06-09 | 2026-06-09 | phase goal: complete Phase 5 | 5 (5.1–5.5 all committed) | 5.1 `66a79c7`, 5.2 `4316e34`, 5.3 `2aa7528`, 5.4 `dac894d`, 5.5 `ff8d71c` | Phase 5 complete; next = 4.12/4.14/4.17 |
 | 2026-06-09 | 2026-06-09 | phase goal: complete Phase 6 | 4 (6.2 impl + annotate, 6.3 impl + annotate) | 6.2 `b099d4a`, 6.3 `b80b305` | Phase 6 partial (6.4 [~] locked); next = 4.12/4.14/4.17 or 7.1 |
+| 2026-06-09 | 2026-06-09 | phase goal: complete Phase 7 | 1 (7.1 staged order manager) | 7.1 `8de5bab` | Phase 7 started; next = 7.2 Router Layer |
 
 ## Phase progress
 
@@ -56,7 +57,7 @@ Updated when a phase completes.
 | 4 — Reference Data | partial (4.12/4.14/4.17 pending) | |
 | 5 — Identity & Permissions | complete | 2026-06-09 |
 | 6 — Validator | partial (6.4 [~] locked; 6.1/6.2/6.3/6.5 done) | |
-| 7 — OMS Core | not started | |
+| 7 — OMS Core | partial (7.1 done; 7.2–7.8 pending) | |
 | 8 — FIX / API Bridge | not started | |
 | 9 — Market Data | not started | |
 | 10 — Pre-Trade Auxiliaries | not started | |
