@@ -10,6 +10,7 @@ plugins {
 dependencies {
     api(project(":ems-core"))
     api(project(":ems-oms"))
+    api(project(":ems-venue-connectivity"))
     implementation(project(":ems-aaa"))
     implementation(project(":ems-validator"))
     implementation(libs.quickfixj.core)

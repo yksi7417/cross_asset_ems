@@ -45,4 +45,14 @@ public final class FixTags {
   public static final int REF_MSG_TYPE = 372;
   public static final int BUSINESS_REJECT_REASON = 380;
   public static final int TEST_REQ_ID = 112;
+
+  // ── Venue-facing gateway (8.2) ─────────────────────────────────────────────
+  public static final int LAST_PX = 31;
+  public static final int LAST_QTY = 32;
+  public static final int ORD_TYPE = 40;
+  public static final int ORIG_CL_ORD_ID = 41;
+  public static final int ENCRYPT_METHOD = 98;
+  public static final int CXL_REJ_REASON = 102;
+  public static final int HEART_BT_INT = 108;
+  public static final int CXL_REJ_RESPONSE_TO = 434;
 }
