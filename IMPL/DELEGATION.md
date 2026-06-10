@@ -1,5 +1,10 @@
 # Delegation Rules
 
+> **⛔ SUSPENDED (2026-06-10).** Delegation is **off** — every task is executed directly by Fable
+> (Claude Code) in the [[LOOP]] session. No OpenCode, no model switching, no local-LLM or subagent
+> tiers. The tier tags in [[PLAN]] are complexity hints only. The rules below are retained
+> unchanged in case delegation is re-enabled later.
+
 Pick the cheapest tier that gets the work done. Cost/capability go up tier-by-tier. Default to the tier the task's tag in [[PLAN]] specifies, and escalate only on actual failure (test red, build red, integration fail).
 
 Work is driven through two tools depending on tier:

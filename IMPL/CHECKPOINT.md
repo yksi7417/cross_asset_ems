@@ -17,8 +17,9 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 - **WIP branch:** main
 - **Last updated:** 2026-06-10
 - **MVP v0 track:** **11 of 11 [MVP] tasks [x]** ✅. **Phase 16 (cross-asset): 3 of 3 [x]** ✅.
-- **Next task:** v1 remainder — wire the real router (7.2) + AAA-backed validator into the smokes (replace direct venue submit / permissive validator); promote post-trade services off in-memory stubs; real venue adapters (11.3+) to UAT; USD IRS (rates) as the 8th coverage; compliance/risk/best-ex parity. Per PLAN "What v1 looks like".
-- **Total progress:** **88 of 144 tasks [x]** (61.1%). MVP v0 complete; Phase 16 cross-asset complete.
+- **Active goal (set 2026-06-10): v1 build-out, no delegation.** Complete the tasks that were `[ ]` in Phases 7, 8, 9, 10, 14, plus **11.15** FIX venue simulator → **15.2** FIX-wire end-to-end smoke, then **Phase 17** usage docs. Fable (Claude Code) executes every task directly — goal text in [[LOOP]]. Carry-over intent folded in: 15.2 should drive the **real router + AAA-backed validator** path (replace the smokes' direct venue submit / permissive validator) and pull post-trade services off in-memory stubs where the flow demands it.
+- **Next task:** **7.4** Multi-leg / Package handling (blockers 1.4, 7.2 are `[x]`).
+- **Total progress:** **95 of 174 tasks [x]** (54.6%). MVP v0 + Phase 16 cross-asset complete. (Corrected 2026-06-10: previous "88 of 144" was a stale count; 23 tasks added by the loop-rework + buyer-gap analysis: 11.15–11.17, 12.12–12.16, 15.2, 17.1–17.3, 18.1–18.11.)
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -51,6 +52,7 @@ The loop appends a one-line entry per session.
 | 2026-06-10 | 2026-06-10 | MVP v0 build (3-commit pacing trigger) | 3 (8.9 prior; 11.1 `1d95436`, 11.2 `7bb2739`) | 11.1, 11.2 — MVP Track B (venue) complete | next = 8.1 (Track A) or 12.1/12.5 (Track C) |
 | 2026-06-10 | 2026-06-10 | MVP v0 build (Opus, user-directed local execution); 3-commit pacing stop | 3 (8.1 `b3aa7ab`, 12.1 `31911bb`, 12.2 `bc92f1c`) | 8.1 — client FIX edge (Track A); 12.1 — allocation service; 12.2 — STP pipeline orchestrator | next = 12.3 confirmation (← 12.2) / 12.5→12.6 / 13.5 trace verify |
 | 2026-06-10 | 2026-06-10 | MVP v0 completion run (Opus, /goal 10-commit cap) | 5 (12.3 `b218e63`, 12.5 `51e1713`, 12.6 `39a9a88`, 13.5 `6953c3c`, 15.1 `26f29d8`) | 12.3 confirmation, 12.5 reg reporting, 12.6 TRACE-mock, 13.5 trace verify, 15.1 end-to-end smoke — **MVP v0 COMPLETE** | next = v1 (US equity + USD IRS; real venues) |
+| 2026-06-10 | 2026-06-10 | planning: loop rework + buyer's-lens gap analysis (Fable; no build tasks) | 1 (docs) | LOOP.md rewritten — no delegation, continuous run; goal reset to v1 build-out (Phases 7/8/9/10/14 + 11.15/15.2 + 17); PLAN +23 tasks (11.15–11.17, 12.12–12.16, 15.2, 17.1–17.3, 18.1–18.11); DELEGATION suspended; initial docs/USER_GUIDE.md | next = 7.4 |
 
 ## Phase progress
 
@@ -65,15 +67,18 @@ Updated when a phase completes.
 | 4 — Reference Data | partial (4.12/4.14/4.17 pending) | |
 | 5 — Identity & Permissions | complete | 2026-06-09 |
 | 6 — Validator | partial (6.4 [~] locked; 6.1/6.2/6.3/6.5 done) | |
-| 7 — OMS Core | partial (7.1 done; 7.2–7.8 pending) | |
-| 8 — FIX / API Bridge | partial (8.1, 8.9 done; 8.2-8.8/8.10-8.11 pending) | |
-| 9 — Market Data | not started | |
-| 10 — Pre-Trade Auxiliaries | not started | |
-| 11 — Venue Connectivity | not started | |
-| 12 — Post-Trade | not started | |
+| 7 — OMS Core | partial (7.1–7.3, 7.7, 7.8 done; 7.4–7.6 pending — in active goal) | |
+| 8 — FIX / API Bridge | partial (8.1, 8.9 done; 8.2-8.8/8.10-8.11 pending — in active goal) | |
+| 9 — Market Data | not started — in active goal | |
+| 10 — Pre-Trade Auxiliaries | not started — in active goal | |
+| 11 — Venue Connectivity | partial (11.1, 11.2 done; 11.15 in active goal; 11.3–11.14, 11.16–11.17 queued) | |
+| 12 — Post-Trade | partial (12.1–12.3, 12.5, 12.6 done; 12.4, 12.7–12.16 queued) | |
 | 13 — Observability | partial (13.1-13.3, 13.5 done; 13.4 [~], 13.6 pending) | |
-| 14 — Operations | not started | |
-| 15 — MVP Integration | complete | 2026-06-10 |
+| 14 — Operations | partial (14.3, 14.4, 14.8, 14.9 done; rest in active goal) | |
+| 15 — MVP Integration | partial (15.1 done 2026-06-10; 15.2 FIX-wire smoke in active goal) | |
+| 16 — Cross-asset coverage | complete | 2026-06-10 |
+| 17 — Usage Documentation | not started — in active goal (final leg) | |
+| 18 — Trader Desktop & Buyer-Readiness | not started — queued as next goal | |
 
 ## Blocked tasks
 

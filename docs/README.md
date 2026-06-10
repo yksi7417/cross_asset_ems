@@ -8,8 +8,9 @@ The **vault** (root + `10_asset_classes/` + `20_workflows/` + `30_venues/` + `40
 
 ## Layout
 
-| Folder | Contents |
+| Folder / file | Contents |
 |---|---|
+| `USER_GUIDE.md` | **How to use the system**: build, run, test, drive the end-to-end flows, module map, what's coming. Start here. |
 | `decisions/` | ADRs (Architecture Decision Records). One markdown file per decision, numbered `NNNN-<slug>.md`. Records what was decided, why, and what was rejected. |
 | `runbooks/` | Operational runbooks: how to deploy, how to switchover, how to handle incidents, how to onboard a new pod. |
 | `onboarding/` | New-engineer guide: setup, code tour, first-PR walkthrough, where to find what. |

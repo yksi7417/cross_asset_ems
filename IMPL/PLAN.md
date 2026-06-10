@@ -1,22 +1,38 @@
 # Cross-Asset EMS — Implementation Plan
 
-The build queue. **One source of truth** for what gets done, in what order, by which model tier. Work is driven through **OpenCode**, one model pinned per connected provider:
+The build queue. **One source of truth** for what gets done, in what order.
 
-| Tag | Tier | OpenCode provider | Model | When |
-|---|---|---|---|---|
-| `(gemma)` | 1 — cheapest | Google | Gemma 4 31B | boilerplate, fixtures, config tables, first drafts |
-| `(minimax)` | 2 — mid | OpenCode Zen | MiniMax 2.7 / 3 | review, research, docs, cross-language ports |
-| `(sonnet)` | 3 — strong | GitHub Copilot | Sonnet 4.6 | most design + correctness work, orchestration |
-| `(opus)` | 4 — apex | GitHub Copilot (Opus model) | Opus 4.x | crown jewels: replay determinism, consensus, FIX races (see below). Falls back to Sonnet if Opus isn't available. |
+> **Execution model (since 2026-06-10): no delegation.** Every task is executed directly by **Fable
+> (Claude Code)** in the [[LOOP]] session — no OpenCode, no model switching, no local-LLM or
+> subagent tiers. The per-task tags (`(gemma)`, `(minimax)`, `(sonnet)`, `(opus)`) are retained as
+> **complexity hints only** — they no longer route work to different models. [[DELEGATION]] is
+> suspended.
 
-- Each task is one checklist line. `[ ]` = pending, `[~]` = in-progress (started, draft on a branch, or not yet committed), `[x]` = done.
-- The tag after a task names its **tier**, not a hard-coded model — re-point a provider in OpenCode and the tiers still hold. See [[DELEGATION]] for what each tier may/may not do.
+- Each task is one checklist line. `[ ]` = pending, `[~]` = in-progress (started, draft on a branch, or not yet committed), `[x]` = done, `[!]` = blocked (needs human input).
 - `← blocks: a.b` records prerequisites. The loop must not start a task until its blockers are `[x]`.
 - When marking `[x]`, append a short commit SHA: `[x] (abc1234)`.
 
-**`(opus)` — reserved for the apex tier.** Use Opus only where a subtle error is *silent and catastrophic*: event-sourcing replay determinism, distributed consensus, and FIX cancel/replace race conditions. Everything else that needs strong reasoning is `(sonnet)`. Don't dilute the apex tier — if you're unsure, it's `(sonnet)`.
+The loop protocol is in [[LOOP]]. Current cursor + open WIP branches in [[CHECKPOINT]]. (Hermes Discord notifications are optional/legacy.)
 
-The loop protocol is in [[LOOP]]. Current cursor + open WIP branches in [[CHECKPOINT]]. (Hermes Discord notifications are optional/legacy under the OpenCode workflow.)
+---
+
+## Current goal — v1 build-out (set 2026-06-10)
+
+The active [[LOOP]] scope, executed entirely by Fable. In order:
+
+1. **Phase 7 remainder** — 7.4 multi-leg, 7.5 aggregation, 7.6 FX netting
+2. **Phase 8 remainder** — 8.2, 8.3, 8.4 → 8.5/8.6/8.7 → 8.8, 8.10, 8.11
+3. **Phase 9 (all)** — 9.1 → 9.2/9.3; 9.4; 9.5
+4. **Phase 10 (all)** — 10.1 → 10.2–10.5; 10.7 → 10.6; 10.8 → 10.9
+5. **FIX simulator track** — **11.15** venue-side FIX simulator → **15.2** FIX-wire end-to-end
+   smoke (the in-process mock venue 11.2 stays green alongside)
+6. **Phase 14 remainder** — 14.1 → 14.2; 14.5 → 14.6/14.7; 14.10
+7. **Phase 17 (docs)** — 17.1 user guide, 17.2 operator guide, 17.3 developer guide refresh
+
+Scope is frozen to the tasks that were `[ ]` in these phases on 2026-06-10 plus the three tracks
+named above. Later additions (11.16+, 12.12+, Phase 18) are **queued for the next goal**, not this
+one. Out of scope and unchanged: 4.12/4.14/4.17, 6.4 reconciliation, 11.3–11.14 real venue
+adapters, 12.4/12.7–12.11, 13.4/13.6.
 
 ---
 
@@ -74,11 +90,8 @@ entries rather than trying to patch-fix the existing files.
 useful commits onto a fresh branch — they diverged early and will conflict. Then
 the carry-forward tier above picks up the draft.
 
-**What the weaker tiers can pull from the open queue** (no branch yet): any
-`[ ]`/`[~]` task tagged `(gemma)` or `(minimax)` whose blockers are all `[x]`.
-Today that includes **1.8** (test generator, blocked on 1.7), **3.2** (event-log
-writer), **8.4/8.6/8.7** (REST scaffold + bulk I/O), **9.5** (analytics math).
-See [[DELEGATION]] for the per-task-type tier cheatsheet.
+**No-delegation note (2026-06-10):** the open queue is consumed solely by the [[LOOP]] session
+(Fable). The tier carry-forward notes above describe *what the rework needs*, not who does it.
 
 ---
 
@@ -262,6 +275,9 @@ Outbound to the market. ~4-6 weeks.
 - [ ] **11.12** Algo wheel selection strategies (sonnet) ← blocks: 11.11
 - [ ] **11.13** RFQ orchestration per [[arch-rfq]] (sonnet) ← blocks: 11.1
 - [ ] **11.14** RFQ-to-3 enforcement for [[mat|MAT]] swaps (sonnet) ← blocks: 11.13
+- [ ] **11.15** FIX venue simulator — venue-side FIX acceptor for end-to-end wire tests (sits alongside the in-process mock 11.2, which stays): session layer (Logon/Heartbeat/TestRequest/SequenceReset + ResendRequest recovery), NewOrderSingle/Cancel/Replace handling with Appendix-D-correct pending states, configurable execution model (ack → partial/full fills, rejects, busts), runs in-process for `ems-it` and standalone via Gradle (sonnet) ← blocks: 11.1
+- [ ] **11.16** Broker algo support: FIX `StrategyParameters` / FIXatdl ingestion + algo ticket metadata so broker algos are routable with custom parameters (sonnet) ← blocks: 11.1
+- [ ] **11.17** FX ESP streaming executable quotes + last-look handling (complements RFQ; needed for click-to-trade) (sonnet) ← blocks: 9.1, 11.1
 
 ## Phase 12 — Post-Trade
 
@@ -278,6 +294,11 @@ STP and reporting. ~3-4 weeks.
 - [ ] **12.9** [[rts-22-27-28|RTS 22]] submission (sonnet) ← blocks: 12.5
 - [ ] **12.10** Best execution audit per [[arch-best-execution]] (sonnet)
 - [ ] **12.11** Per-pod / per-firm jurisdiction routing per [[arch-jurisdictional-compliance]] (sonnet)
+- [ ] **12.12** [[finra|CAT]] submission — equities/options order-event reporting (16.1 already maps equity→CAT; this is the submission adapter, sibling of 12.6–12.9) (sonnet) ← blocks: 12.5
+- [ ] **12.13** Commissions / fees / accrued-interest engine — per-broker + per-asset-class schedules, applied at allocation and carried onto confirms (a buyer expects net-money confirms, not clean qty×price) (sonnet) ← blocks: 12.1
+- [ ] **12.14** TCA per [[arch-tca]] — slippage vs arrival/VWAP/IS benchmarks, venue/broker league tables, exportable best-ex committee pack (sonnet) ← blocks: 9.5, 12.10
+- [ ] **12.15** Surveillance feed per [[arch-surveillance]] — order/exec event export + baseline alerts (layering, wash, spoof-pattern, fat-finger cluster) (sonnet) ← blocks: 3.3
+- [ ] **12.16** Client drop-copy service — real-time FIX drop of executions per client/desk/firm scope (sonnet) ← blocks: 8.2
 
 ## Phase 13 — Observability
 
@@ -310,6 +331,7 @@ Resilience + tooling. ~2-3 weeks.
 The v0 done-criteria, made executable. ~1 week.
 
 - [x] **[MVP] 15.1** End-to-end MVP smoke test + replay-determinism on a 1-day mock log slice: FIX NewOrderSingle (US IG corp) → validator → staged → routed via mock venue → fill ack → allocation → confirmation → TRACE-mock, asserting a single trace ID through the whole chain and byte-identical replay (sonnet) ← blocks: 8.1, 11.2, 12.3, 12.6, 13.5 `(26f29d8)`
+- [ ] **15.2** FIX-wire end-to-end smoke — client FIX NewOrderSingle → validator → staged → routed → venue-facing FIX gateway (8.2) over a **real FIX session** to the venue simulator (11.15) → ack/fills back → allocation → confirmation → TRACE-mock; single trace ID + byte-identical replay; the 11.2 in-process-mock path stays green alongside (sonnet) ← blocks: 8.2, 11.15, 15.1
 
 > **🚀 MVP v0 COMPLETE (2026-06-10).** All 11 [MVP]-tagged tasks are `[x]`. The end-to-end smoke (`MvpSmokeTest` in `ems-it`) drives FIX NewOrderSingle → validator → staged → mock MarketAxess → fill → allocation → confirmation → TRACE-mock with a single trace ID and byte-identical replay. See [v1 scope](#what-v1-looks-like) for what's next.
 
@@ -328,6 +350,40 @@ byte-identical replay. Builds directly on 12.1–12.6, 13.5, 15.1.
 
 > **Phase 16 complete (2026-06-10).** Cross-asset post-trade coverage: 7 asset classes (US IG corp, treasury, US equity, preferred, listed fut/opt, FX spot, FX forward) flow end-to-end through allocation → STP → confirmation → reporting per their `AssetClassProfile`, each with a single trace ID and byte-identical replay (`CrossAssetSmokeTest`).
 
+## Phase 17 — Usage Documentation (v1)
+
+How to use the system — written for someone who didn't build it. Lives in `docs/`, kept current as
+the v1 build-out lands. An initial `docs/USER_GUIDE.md` covering the as-built system was written
+2026-06-10; these tasks extend and finalize it. (Named `USER_GUIDE` because `[[USAGE]]` is the
+vault how-to in `00_index/`.)
+
+- [ ] **17.1** User guide (`docs/USER_GUIDE.md`): build/run/test, dev-stack bring-up, submitting orders (FIX + API + bulk), order lifecycle walk-through, mock venue vs FIX simulator — extend the 2026-06-10 initial version to cover everything the v1 build-out added (sonnet) ← blocks: 15.2
+- [ ] **17.2** Operator guide (`docs/OPERATIONS.md`): config service, time/replay server, observability (dashboards/traces/logs), JMX introspection, drills, blue/green switchover (sonnet) ← blocks: 14.2, 14.5
+- [ ] **17.3** Developer guide refresh (`DEVELOPMENT.md` + `java/README.md`): module map, codegen pipeline, how to add an asset class / venue adapter / validator rule (sonnet) ← blocks: 17.1
+
+## Phase 18 — Trader Desktop & Buyer-Readiness (v1.1)
+
+Output of the 2026-06-10 buyer's-lens gap review ("would a head trader buy this?"). The spine
+(determinism, full audit, cross-asset breadth, replay) is genuinely differentiated — but a desk
+buys what it can see and the controls it must attest to. The trader-facing surface is described in
+the workflow vault (`20_workflows/common/order-manager.md`, `staging-via-ticket`,
+`staging-via-excel`) yet had **no build tasks**, and four architecture notes were designed but
+never planned ([[arch-tca]], [[arch-surveillance]], [[arch-borrow-service]],
+[[arch-notification-service]]) — closed below plus Phase 12 additions 12.12–12.16 and Phase 11
+additions 11.16–11.17. **Not in the current [[LOOP]] goal; queue as the next goal.**
+
+- [ ] **18.1** Trading blotter — live orders + routes + fills view per the [[order-manager]] workflow note, over the 8.10 WS stream (the buyer's first screen; ui/ today has only ops UIs) (sonnet) ← blocks: 8.10
+- [ ] **18.2** Order ticket + staging UI per `staging-via-ticket` — per-asset-class ticket layouts, stage/amend/route actions (sonnet) ← blocks: 18.1
+- [ ] **18.3** Basket / program trading — list load via 8.6, wave routing, aggregate monitoring (distinct from structurally-linked multi-leg packages 7.4) (sonnet) ← blocks: 7.5, 8.6, 18.1
+- [ ] **18.4** Firm-wide kill switch — firm/desk/venue-scoped mass-cancel + cancel-on-disconnect + new-order lockout; one audited action (opus — control path; a silent failure here is catastrophic) ← blocks: 7.2
+- [ ] **18.5** SEC 15c3-5 market-access pack — named mapping of controls (fat-finger 10.2, credit/capital limits 10.6, duplicate-order check, kill switch 18.4) + attestation evidence export (sonnet) ← blocks: 10.2, 10.6, 18.4
+- [ ] **18.6** Borrow / locate service per [[arch-borrow-service]] — Reg SHO short-sale gating wired into the validator/compliance path (sonnet) ← blocks: 10.1
+- [ ] **18.7** Intraday P&L — realized/unrealized off positions (10.7) + pricing (10.8), FX-converted to firm base currency (sonnet) ← blocks: 10.7, 10.8
+- [ ] **18.8** Notification service per [[arch-notification-service]] — fills/rejects/limit-breach alerts to desktop + email/mobile sinks (sonnet) ← blocks: 8.4
+- [ ] **18.9** Enterprise SSO — OIDC/SAML login + SCIM provisioning on the AAA layer (vendor due-diligence checklist item) (sonnet) ← blocks: 5.1
+- [ ] **18.10** Maker-checker (4-eyes) approvals on config / limit / restricted-list changes (sonnet) ← blocks: 3.7, 10.4
+- [ ] **18.11** Click-to-trade on streaming quotes (ESP) with slippage guard + last-look awareness (sonnet) ← blocks: 11.17, 18.1
+
 ## Done criteria for v0 (MVP)
 
 All **[MVP]**-tagged tasks marked `[x]` (the [MVP v0 critical path](#mvp-v0-critical-path) — **not** all of phases 0–14; the rest is post-MVP). Concretely:
@@ -344,5 +400,7 @@ All **[MVP]**-tagged tasks marked `[x]` (the [MVP v0 critical path](#mvp-v0-crit
 - All venue adapters in 11.x talking to UAT venue endpoints.
 - UAT-1 / UAT-2 blue/green deployments healthy.
 - Compliance + Risk + Best-Ex full feature parity.
+- Buyer-readiness: trader desktop + attestable controls per **Phase 18** (the 2026-06-10 gap
+  analysis), with TCA/CAT/drop-copy from 12.12–12.16.
 
 The plan beyond v1 is post-MVP. Don't pre-plan it.

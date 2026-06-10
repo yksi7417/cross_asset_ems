@@ -2,7 +2,7 @@
 
 A green-field institutional Execution Management System: every asset class through one platform — cash equity, fixed income, FX, rates, credit, commodities, crypto. Java + C++ on SBE/Aeron with full event sourcing.
 
-Design vault: [`00_index/HOME.md`](00_index/HOME.md) · Implementation plan: [`IMPL/PLAN.md`](IMPL/PLAN.md)
+Design vault: [`00_index/HOME.md`](00_index/HOME.md) · Implementation plan: [`IMPL/PLAN.md`](IMPL/PLAN.md) · User guide: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
 
 ---
 
