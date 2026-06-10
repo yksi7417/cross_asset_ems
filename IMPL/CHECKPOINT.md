@@ -8,16 +8,16 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 12.2 — STP pipeline orchestrator (MVP Track C). Per arch-stp-pipeline: ingest fill → allocation (12.1) → fan out to asset-class profile's downstream stages. `StageProfile` (corpBond/cashEquity), `StageHandler` SPI (12.3 confirmation + 12.6 TRACE plug in later; unregistered = NOT_REQUIRED), independent stages (one ANOMALY doesn't block siblings), `StpState` projection (allocation + per-stage + overall) from cross-stage events, `resumeStage()` re-run. Deterministic. `StpOrchestrator` + `InMemoryStpOrchestrator`. 6 tests green.
-- **Last commit (main):** `feat(12.2): STP pipeline orchestrator (MVP Track C)`
-- **Last commit sha (main):** `bc92f1c`
-- **Tasks merged/marked this session:** 8.1 `b3aa7ab`, 12.1 `31911bb`, 12.2 `bc92f1c` (Opus, 3-commit pacing stop). Prior MVP session: 8.9 `981c33d`, 11.1 `1d95436`, 11.2 `7bb2739`; 7.7 `9e90812`.
+- **Last completed task:** 12.3 — Confirmation/Affirmation service (MVP Track C). Pure `MatchEngine` (keyed fields exact + price/qty/accrued tolerance; corp bond ½ tick); `ConfirmationService` state machine (Submitted→Matched/Unmatched→Disputed→Matched/Voided; affirmation request→received/rejected); pluggable `ConfirmationNetwork` SPI + `MockConfirmationNetwork` (mock MarketAxess Post-Trade); `ConfirmationStageHandler` bridges into 12.2's STP as the CONFIRMATION stage (match→COMPLETE / mismatch→ANOMALY). Event-sourced, deterministic. 12 tests green.
+- **Last commit (main):** `feat(12.3): confirmation/affirmation service (MVP Track C)`
+- **Last commit sha (main):** `b218e63`
+- **Tasks merged/marked this session:** 8.1 `b3aa7ab`, 12.1 `31911bb`, 12.2 `bc92f1c`, 12.3 `b218e63` (Opus). Prior MVP session: 8.9 `981c33d`, 11.1 `1d95436`, 11.2 `7bb2739`; 7.7 `9e90812`.
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-10
-- **MVP v0 track:** 11 [MVP] tasks. Done: **8.9, 11.1, 11.2, 8.1, 12.1, 12.2**. Next buildable: **12.3** (confirmation/affirmation ← 12.2), **12.5** (reg reporting), **13.5** (distributed-trace verify ← 8.1+11.2). 15.1 waits on 12.3/12.6/13.5.
-- **Next task:** **12.3** Confirmation/Affirmation (← 12.2) — implement as an STP `StageHandler` for `CONFIRMATION`; then **12.5**→**12.6** (TRACE-mock, plugs in as `REGULATORY_REPORTING` handler); then **13.5** trace verify; **15.1** end-to-end smoke last.
-- **Total progress:** **80 of 144 tasks [x]** (55.6%). MVP v0: 6 of 11 done (8.9, 11.1, 11.2, 8.1, 12.1, 12.2).
+- **MVP v0 track:** 11 [MVP] tasks. Done: **8.9, 11.1, 11.2, 8.1, 12.1, 12.2, 12.3**. Next buildable: **12.5** (reg reporting), **13.5** (distributed-trace verify ← 8.1+11.2). 12.6 (TRACE-mock) ← 12.5. 15.1 waits on 12.6/13.5.
+- **Next task:** **12.5** Regulatory reporting → **12.6** TRACE-mock (plugs into STP as the `REGULATORY_REPORTING` handler); then **13.5** trace verify; **15.1** end-to-end smoke last.
+- **Total progress:** **81 of 144 tasks [x]** (56.3%). MVP v0: 7 of 11 done (8.9, 11.1, 11.2, 8.1, 12.1, 12.2, 12.3).
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
