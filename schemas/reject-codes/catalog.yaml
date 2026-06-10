@@ -38,6 +38,7 @@ reject_codes:
   - { code: EMS-PRM-1001, category: PRM, severity: error, title: "User missing tag", description: "User does not have permission tag #{tag}.", admin_hint: "Talk to tag admin {tag_admin}." }
   - { code: EMS-PRM-1002, category: PRM, severity: error, title: "Desk not enabled", description: "User has tag #{tag} but desk {desk} is not granted.", admin_hint: "Talk to desk admin {desk_admin}." }
   - { code: EMS-PRM-1003, category: PRM, severity: error, title: "Firm not enabled", description: "Firm {firm} is not granted tag #{tag}.", admin_hint: "Talk to firm admin {firm_admin}." }
+  - { code: EMS-PRM-1601, category: PRM, severity: error, title: "Cross-desk aggregator missing", description: "Cross-desk aggregation requires tag #cross-desk-aggregator." }
   - { code: EMS-PRM-2001, category: PRM, severity: error, title: "Counterparty not enabled", description: "Counterparty {cpty} not on the desk's enabled list." }
   - { code: EMS-PRM-3001, category: PRM, severity: error, title: "Override required", description: "Operation falls outside permission boundaries; tag #{override-tag} required to override." }
 
@@ -50,11 +51,25 @@ reject_codes:
   - { code: EMS-ORD-2502, category: ORD, severity: error, title: "Quote expired", description: "QuoteID expired; restage required." }
   - { code: EMS-ORD-3001, category: ORD, severity: error, title: "Order in terminal state", description: "Order is already Canceled/Rejected/Filled/Expired; cannot transition." }
   - { code: EMS-ORD-3002, category: ORD, severity: error, title: "Pending-amend in flight", description: "Cannot accept a second amend while an OrderCancelReplaceRequest is in Pending Replace." }
+  - { code: EMS-ORD-3003, category: ORD, severity: error, title: "Order not in required state", description: "Operation requires a different order/package state (e.g. multileg dispatch requires READY; unaggregate requires no fills)." }
   - { code: EMS-ORD-4001, category: ORD, severity: error, title: "Order not found", description: "OrderID references an unknown or purged staged order; may have been purged after session logout.", admin_hint: "Verify orderId and session ownership." }
+
+  # --- ORD — Multileg / Package (per arch-multileg) -----------------------
+  - { code: EMS-ORD-4401, category: ORD, severity: error, title: "Multileg legs heterogeneous", description: "Legs heterogeneous in a mode that requires homogeneity (e.g. ALL_OR_NONE legs naming multiple venues)." }
+  - { code: EMS-ORD-4402, category: ORD, severity: error, title: "Multileg package_id required", description: "package_id required for ALL_OR_NONE packages." }
+  - { code: EMS-ORD-4403, category: ORD, severity: error, title: "Multileg sequence_policy invalid", description: "sequence_policy requires SEQUENCED mode, a known policy, and a compatible kind (spot_first: SWAP/DELTA_HEDGE/CUSTOM)." }
+  - { code: EMS-ORD-4404, category: ORD, severity: error, title: "Multileg package malformed", description: "A multi-leg package requires at least 2 legs." }
+  - { code: EMS-ORD-4405, category: ORD, severity: error, title: "Leg not found", description: "LegID references an unknown leg on this package." }
+  - { code: EMS-ORD-4406, category: ORD, severity: error, title: "Leg not dispatched", description: "Leg has no route yet; dispatch the package first." }
+
+  # --- ORD — Aggregation (per arch-aggregation) ---------------------------
+  - { code: EMS-ORD-5001, category: ORD, severity: error, title: "Ineligible for aggregation", description: "Child order fails the aggregation eligibility predicate (instrument/side/TIF/state/availability); the failing predicate is named in the message." }
+  - { code: EMS-ORD-5002, category: ORD, severity: error, title: "Rounding policy required", description: "Aggregation allocation rule requires an explicit rounding policy." }
 
   # --- RTE — Route --------------------------------------------------------
   - { code: EMS-RTE-1001, category: RTE, severity: error, title: "Venue not enabled for instrument", description: "Selected venue does not list/route the requested instrument." }
   - { code: EMS-RTE-1002, category: RTE, severity: error, title: "Venue not enabled for desk", description: "Desk has no enablement record for this venue." }
+  - { code: EMS-RTE-1007, category: RTE, severity: error, title: "Route incompatible with aggregation", description: "Route/venue capabilities incompatible with the aggregation policy (e.g. venue cannot accept extend_aggregation size)." }
   - { code: EMS-RTE-2005, category: RTE, severity: error, title: "ClOrdID collision", description: "ClOrdID already used in this session within the dedup window." }
   - { code: EMS-RTE-3003, category: RTE, severity: warning, title: "Stale quote", description: "QuoteID timestamp older than staleness_threshold." }
   - { code: EMS-RTE-3008, category: RTE, severity: warning, title: "Replace throttled", description: "Cancel/Replace rate exceeds per-route cap; throttling." }

@@ -27,10 +27,10 @@ import java.util.Optional;
 public interface MultiLegOrderManager {
 
   /**
-   * Stages a multi-leg package. Structural checks (EMS-ORD-4001 package shape / venue homogeneity,
-   * EMS-ORD-4002 missing package_id, EMS-ORD-4003 invalid sequence policy, EMS-ORD-2001 leg qty)
-   * run first, then the validator pipeline per leg. Failures persist the package in REJECTED state;
-   * success leaves it READY.
+   * Stages a multi-leg package. Structural checks (EMS-ORD-4401 venue heterogeneity, EMS-ORD-4402
+   * missing package_id, EMS-ORD-4403 invalid sequence policy, EMS-ORD-4404 package shape,
+   * EMS-ORD-2001 leg qty) run first, then the validator pipeline per leg. Failures persist the
+   * package in REJECTED state; success leaves it READY.
    */
   MultiLegStageResult stage(MultiLegOrderRequest request);
 

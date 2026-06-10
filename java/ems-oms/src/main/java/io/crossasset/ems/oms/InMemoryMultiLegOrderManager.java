@@ -76,7 +76,7 @@ public final class InMemoryMultiLegOrderManager implements MultiLegOrderManager 
   private String @Nullable [] validatePackage(MultiLegOrderRequest request) {
     List<LegRequest> legs = request.legs();
     if (legs.size() < 2) {
-      return new String[] {"EMS-ORD-4001", "A multi-leg package requires at least 2 legs."};
+      return new String[] {"EMS-ORD-4404", "A multi-leg package requires at least 2 legs."};
     }
     for (LegRequest leg : legs) {
       if (leg.qty() <= 0) {
@@ -87,26 +87,26 @@ public final class InMemoryMultiLegOrderManager implements MultiLegOrderManager 
       long venues = legs.stream().map(LegRequest::venueMic).distinct().count();
       if (venues > 1) {
         return new String[] {
-          "EMS-ORD-4001", "ALL_OR_NONE legs must route to a single venue (heterogeneous legs)."
+          "EMS-ORD-4401", "ALL_OR_NONE legs must route to a single venue (heterogeneous legs)."
         };
       }
       if (request.packageId() == null) {
-        return new String[] {"EMS-ORD-4002", "package_id required for ALL_OR_NONE."};
+        return new String[] {"EMS-ORD-4402", "package_id required for ALL_OR_NONE."};
       }
     }
     String policy = request.sequencePolicy();
     if (policy != null) {
       if (request.executionMode() != ExecutionMode.SEQUENCED) {
         return new String[] {
-          "EMS-ORD-4003", "sequence_policy only valid with SEQUENCED execution mode."
+          "EMS-ORD-4403", "sequence_policy only valid with SEQUENCED execution mode."
         };
       }
       if (!KNOWN_POLICIES.contains(policy)) {
-        return new String[] {"EMS-ORD-4003", "Unknown sequence_policy: " + policy + "."};
+        return new String[] {"EMS-ORD-4403", "Unknown sequence_policy: " + policy + "."};
       }
       if ("spot_first".equals(policy) && !SPOT_FIRST_KINDS.contains(request.kind())) {
         return new String[] {
-          "EMS-ORD-4003", "sequence_policy spot_first invalid for kind " + request.kind() + "."
+          "EMS-ORD-4403", "sequence_policy spot_first invalid for kind " + request.kind() + "."
         };
       }
     }
@@ -130,7 +130,7 @@ public final class InMemoryMultiLegOrderManager implements MultiLegOrderManager 
     synchronized (rec) {
       if (rec.state != MultiLegFsmState.READY) {
         return new MultiLegEventResult.Rejected(
-            orderId, "EMS-ORD-5002", "Package " + orderId + " is not READY (" + rec.state + ").");
+            orderId, "EMS-ORD-3003", "Package " + orderId + " is not READY (" + rec.state + ").");
       }
       List<LegRec> toDispatch =
           rec.executionMode == ExecutionMode.SEQUENCED ? List.of(rec.legs.get(0)) : rec.legs;
@@ -160,7 +160,7 @@ public final class InMemoryMultiLegOrderManager implements MultiLegOrderManager 
       if (rec.state.isTerminal()) {
         return new MultiLegEventResult.Rejected(
             orderId,
-            "EMS-ORD-5002",
+            "EMS-ORD-3001",
             "Package " + orderId + " is in terminal state " + rec.state + ".");
       }
       applyParent(rec, MultiLegFsmEvent.CancelRequested, null);
@@ -263,11 +263,11 @@ public final class InMemoryMultiLegOrderManager implements MultiLegOrderManager 
       LegRec leg = rec.findLeg(legId);
       if (leg == null) {
         return new MultiLegEventResult.Rejected(
-            orderId, "EMS-ORD-5003", "Leg " + legId + " not found on " + orderId + ".");
+            orderId, "EMS-ORD-4405", "Leg " + legId + " not found on " + orderId + ".");
       }
       if (leg.routeId == null) {
         return new MultiLegEventResult.Rejected(
-            orderId, "EMS-ORD-5004", "Leg " + legId + " has not been dispatched.");
+            orderId, "EMS-ORD-4406", "Leg " + legId + " has not been dispatched.");
       }
       RouteEventResult rr = routeCall.apply(leg);
       if (rr instanceof RouteEventResult.Rejected rejected) {
@@ -420,7 +420,7 @@ public final class InMemoryMultiLegOrderManager implements MultiLegOrderManager 
 
   private static MultiLegEventResult.Rejected notFound(String orderId) {
     return new MultiLegEventResult.Rejected(
-        orderId, "EMS-ORD-5001", "Package " + orderId + " not found.");
+        orderId, "EMS-ORD-4001", "Package " + orderId + " not found.");
   }
 
   /** Mutable package state; all mutations run inside {@code synchronized (rec)}. */

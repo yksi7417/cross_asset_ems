@@ -92,7 +92,7 @@ events:
     description: All legs pass the EMS validator; package promoted to READY.
   - name: LegsValidationFailed
     fix_msg_type: "j"
-    description: One or more legs fail validation (EMS-ORD-4001 / EMS-ORD-4002 / EMS-ORD-4003).
+    description: One or more legs fail validation (EMS-ORD-4401 / EMS-ORD-4402 / EMS-ORD-4403 / EMS-ORD-4404).
 
   # --- Routing start ---
   - name: FirstLegDispatched

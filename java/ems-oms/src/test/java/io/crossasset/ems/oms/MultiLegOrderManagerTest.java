@@ -34,8 +34,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link InMemoryMultiLegOrderManager}. Covers package staging validation
- * (EMS-ORD-4001/4002/4003), per-mode dispatch, SEQUENCED leg gating, ALL_OR_NONE cascade cancel,
- * LEGS_INDEPENDENT partial outcomes, and package-level cancel. Per arch-multileg.md, task 7.4.
+ * (EMS-ORD-4401/4402/4403/4404), per-mode dispatch, SEQUENCED leg gating, ALL_OR_NONE cascade
+ * cancel, LEGS_INDEPENDENT partial outcomes, and package-level cancel. Per arch-multileg.md, task
+ * 7.4.
  */
 class MultiLegOrderManagerTest {
 
@@ -91,14 +92,14 @@ class MultiLegOrderManagerTest {
   }
 
   @Test
-  void stage_allOrNoneWithoutPackageId_rejected4002AndPersistedRejected() {
+  void stage_allOrNoneWithoutPackageId_rejected4402AndPersistedRejected() {
     MultiLegStageResult result = mlm.stage(swapRequest("req-1", null));
     MultiLegStageResult.Rejected rej = assertInstanceOf(MultiLegStageResult.Rejected.class, result);
-    assertEquals("EMS-ORD-4002", rej.rejectCode());
+    assertEquals("EMS-ORD-4402", rej.rejectCode());
   }
 
   @Test
-  void stage_allOrNoneHeterogeneousVenues_rejected4001() {
+  void stage_allOrNoneHeterogeneousVenues_rejected4401() {
     MultiLegOrderRequest request =
         new MultiLegOrderRequest(
             "req-1",
@@ -115,11 +116,11 @@ class MultiLegOrderManagerTest {
             TIF_DAY);
     MultiLegStageResult.Rejected rej =
         assertInstanceOf(MultiLegStageResult.Rejected.class, mlm.stage(request));
-    assertEquals("EMS-ORD-4001", rej.rejectCode());
+    assertEquals("EMS-ORD-4401", rej.rejectCode());
   }
 
   @Test
-  void stage_fewerThanTwoLegs_rejected4001() {
+  void stage_fewerThanTwoLegs_rejected4404() {
     MultiLegOrderRequest request =
         new MultiLegOrderRequest(
             "req-1",
@@ -134,7 +135,7 @@ class MultiLegOrderManagerTest {
             TIF_DAY);
     MultiLegStageResult.Rejected rej =
         assertInstanceOf(MultiLegStageResult.Rejected.class, mlm.stage(request));
-    assertEquals("EMS-ORD-4001", rej.rejectCode());
+    assertEquals("EMS-ORD-4404", rej.rejectCode());
   }
 
   @Test
@@ -159,7 +160,7 @@ class MultiLegOrderManagerTest {
   }
 
   @Test
-  void stage_sequencePolicyOnNonSequencedMode_rejected4003() {
+  void stage_sequencePolicyOnNonSequencedMode_rejected4403() {
     MultiLegOrderRequest request =
         new MultiLegOrderRequest(
             "req-1",
@@ -174,11 +175,11 @@ class MultiLegOrderManagerTest {
             TIF_DAY);
     MultiLegStageResult.Rejected rej =
         assertInstanceOf(MultiLegStageResult.Rejected.class, mlm.stage(request));
-    assertEquals("EMS-ORD-4003", rej.rejectCode());
+    assertEquals("EMS-ORD-4403", rej.rejectCode());
   }
 
   @Test
-  void stage_spotFirstPolicyOnSpreadKind_rejected4003() {
+  void stage_spotFirstPolicyOnSpreadKind_rejected4403() {
     MultiLegOrderRequest request =
         new MultiLegOrderRequest(
             "req-1",
@@ -193,7 +194,7 @@ class MultiLegOrderManagerTest {
             TIF_DAY);
     MultiLegStageResult.Rejected rej =
         assertInstanceOf(MultiLegStageResult.Rejected.class, mlm.stage(request));
-    assertEquals("EMS-ORD-4003", rej.rejectCode());
+    assertEquals("EMS-ORD-4403", rej.rejectCode());
   }
 
   @Test
@@ -243,19 +244,19 @@ class MultiLegOrderManagerTest {
   }
 
   @Test
-  void dispatch_whenNotReady_rejected5002() {
+  void dispatch_whenNotReady_rejected3003() {
     MultiLegOrder order = stagePackage(swapRequest("req-1", "PKG-1"));
     mlm.dispatch(order.orderId());
     MultiLegEventResult second = mlm.dispatch(order.orderId());
     MultiLegEventResult.Rejected rej = assertInstanceOf(MultiLegEventResult.Rejected.class, second);
-    assertEquals("EMS-ORD-5002", rej.rejectCode());
+    assertEquals("EMS-ORD-3003", rej.rejectCode());
   }
 
   @Test
-  void dispatch_unknownOrder_rejected5001() {
+  void dispatch_unknownOrder_rejected4001() {
     MultiLegEventResult.Rejected rej =
         assertInstanceOf(MultiLegEventResult.Rejected.class, mlm.dispatch("NOPE"));
-    assertEquals("EMS-ORD-5001", rej.rejectCode());
+    assertEquals("EMS-ORD-4001", rej.rejectCode());
   }
 
   // --- fills ---

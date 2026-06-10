@@ -8,7 +8,7 @@ package io.crossasset.ems.fsm.generated;
 public enum MultiLegFsmEvent {
   /** All legs pass the EMS validator; package promoted to READY. */
   LegsValidated,
-  /** One or more legs fail validation (EMS-ORD-4001 / EMS-ORD-4002 / EMS-ORD-4003). */
+  /** One or more legs fail validation (EMS-ORD-4401 / EMS-ORD-4402 / EMS-ORD-4403 / EMS-ORD-4404). */
   LegsValidationFailed,
   /** First leg has been sent to routing; execution is now in progress. */
   FirstLegDispatched,

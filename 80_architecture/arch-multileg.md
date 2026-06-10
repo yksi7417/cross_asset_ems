@@ -134,7 +134,10 @@ A FIX-staged multileg arrives as `NewOrderMultileg` (`35=AB`). All edits to the 
 
 ## Validator codes touched
 
-`EMS-ORD-4001` (legs heterogeneous in a mode that requires homogeneity), `EMS-ORD-4002` (package_id required but missing), `EMS-RTE-1006` (venue does not support multileg package), `EMS-ORD-4003` (sequence_policy invalid for kind).
+`EMS-ORD-4401` (legs heterogeneous in a mode that requires homogeneity), `EMS-ORD-4402` (package_id required but missing), `EMS-ORD-4403` (sequence_policy invalid for kind), `EMS-ORD-4404` (package malformed — fewer than 2 legs), `EMS-RTE-1006` (venue does not support multileg package).
+
+> Codes re-numbered 2026-06-10 into the 44xx multileg block — `EMS-ORD-4001` already means
+> "Order not found" in `schemas/reject-codes/catalog.yaml`, which is the source of truth.
 
 ## See also
 
