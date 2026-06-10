@@ -249,7 +249,7 @@ Block-with-override + position-aware. ~3-4 weeks.
 Outbound to the market. ~4-6 weeks.
 
 - [x] **[MVP] 11.1** Venue adapter framework per [[arch-venue-connectivity]] (sonnet) `(1d95436)`
-- [ ] **[MVP] 11.2** [[marketaxess]] FIX adapter — **v0: implement as in-process mock** (accepts routes, emits fills; no real wire) (gemma for boilerplate, sonnet for nuances) ← blocks: 11.1
+- [x] **[MVP] 11.2** [[marketaxess]] FIX adapter — **v0: in-process mock** (accepts routes, emits ack+fills; no real wire) (gemma for boilerplate, sonnet for nuances) ← blocks: 11.1 `(7bb2739)`
 - [ ] **11.3** [[tradeweb]] FIX adapter (gemma for boilerplate, sonnet)
 - [ ] **11.4** [[brokertec]] FIX adapter (gemma for boilerplate, sonnet)
 - [ ] **11.5** [[ebs]] FIX adapter (gemma for boilerplate, sonnet)
