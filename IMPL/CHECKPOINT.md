@@ -8,16 +8,16 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 8.9 — Resumable session channel (MVP track). Completed the `SequenceRecoveryService` skeleton: injectable clock, per-direction seq, fixed inbound dedup bug (gap/duplicate no longer corrupt the expected counter), gap-high-water tracking, outbound resend buffer (bounded + eviction), resume-from-seq, heartbeat liveness (OK/SEND_TEST_REQUEST/STALE). 22 tests; AAA + e2e integration still green.
-- **Last commit (main):** `feat(8.9): resumable session channel -- heartbeat, resend buffer, resume, dedup`
-- **Last commit sha (main):** `981c33d`
-- **Tasks merged/marked this session:** 7.7 `9e90812`, then API-first doc/plan (`a9b8fba`), MVP v0 plan (`a938411`), 8.9 `981c33d` (Opus session).
+- **Last completed task:** 11.1 — Venue adapter framework (MVP track). VenueAdapter/AbstractVenueAdapter (VenueRef, capabilities, state, shadow mode, submit/cancel/replace), VenueAdapterRegistry + capability-negotiated select() (Selected/Unsupported EMS-RTE-1003/NotFound EMS-RTE-5003), and RouteManagerVenueEventSink bridging venue events 1:1 onto the RouteManager API with anomaly-routing for late/duplicate messages. 11 tests. In ems-venue-connectivity module.
+- **Last commit (main):** `feat(11.1): venue adapter framework -- registry, capabilities, event sink bridge`
+- **Last commit sha (main):** `1d95436`
+- **Tasks merged/marked this session:** 8.9 `981c33d`, 11.1 `1d95436` (Opus MVP session). Earlier: 7.7 `9e90812`, API-first doc `a9b8fba`, MVP plan `a938411`.
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-10
-- **MVP v0 track:** scoped — 11 [MVP] tasks. Done: 8.9. Next buildable: **8.1** (FIX gateway, ← 8.9 now done), **11.1** (venue adapter framework), **12.1** (allocation), **12.5** (reg reporting). See PLAN.md "MVP v0 critical path".
-- **Next task:** **8.1** FIX gateway in (MVP, now unblocked by 8.9) — or parallel-start 11.1 / 12.1 / 12.5.
-- **Total progress:** **75 of 144 tasks [x]** (52.1%). Phase 7 partial (7.4–7.6 pending, deferred post-MVP); Phase 8 MVP subset started (8.9 [x]).
+- **MVP v0 track:** 11 [MVP] tasks. Done: **8.9, 11.1**. Next buildable: **11.2** (mock MarketAxess adapter, ← 11.1 now done), **8.1** (FIX gateway ← 8.9), **12.1** (allocation), **12.5** (reg reporting). See PLAN.md "MVP v0 critical path".
+- **Next task:** **11.2** mock venue adapter (completes Track B) — or 8.1 / 12.1 / 12.5.
+- **Total progress:** **76 of 144 tasks [x]** (52.8%). MVP v0: 2 of 11 done (8.9, 11.1).
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
