@@ -50,6 +50,7 @@ reject_codes:
   - { code: EMS-ORD-2502, category: ORD, severity: error, title: "Quote expired", description: "QuoteID expired; restage required." }
   - { code: EMS-ORD-3001, category: ORD, severity: error, title: "Order in terminal state", description: "Order is already Canceled/Rejected/Filled/Expired; cannot transition." }
   - { code: EMS-ORD-3002, category: ORD, severity: error, title: "Pending-amend in flight", description: "Cannot accept a second amend while an OrderCancelReplaceRequest is in Pending Replace." }
+  - { code: EMS-ORD-4001, category: ORD, severity: error, title: "Order not found", description: "OrderID references an unknown or purged staged order; may have been purged after session logout.", admin_hint: "Verify orderId and session ownership." }
 
   # --- RTE — Route --------------------------------------------------------
   - { code: EMS-RTE-1001, category: RTE, severity: error, title: "Venue not enabled for instrument", description: "Selected venue does not list/route the requested instrument." }
@@ -79,6 +80,6 @@ reject_codes:
 metadata:
   version: 1
   schema_url: "schemas/reject-codes/catalog.schema.yaml"   # planned in task 6.2
-  total_codes: 38
+  total_codes: 39
   categories: 7
   source_of_truth: "80_architecture/arch-validator.md + arch-configuration-service.md"
