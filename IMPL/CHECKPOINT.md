@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 7.1 — Staged Order Manager: InMemoryStagedOrderManager + sealed result types (StageResult/AmendResult/CancelResult/MarkReadyResult) backed by OrderFsmRunner + ValidatorPipeline. Pre-route amends are field edits; cancels fire CancelRequested then CancelAccepted atomically. 17 tests, JaCoCo pass. Added EMS-ORD-4001 to catalog.
-- **Last commit (main):** `feat(7.1): Staged Order Manager -- stage, amend, cancel, markReady`
-- **Last commit sha (main):** `8de5bab`
-- **Tasks merged/marked this session:** 6.2 done `b099d4a`, 6.3 done `b80b305`, 7.1 done `8de5bab`
+- **Last completed task:** 7.2 — Router Layer: InMemoryRouteManager + RouteManager interface backed by RouteFsmRunner. Full lifecycle PENDING->SENT->WORKING->fills/cancel/replace/terminal. Fill events propagate to parent order FSM via StagedOrderManager.applyOrderFsmEvent(). 26 tests. Added 5 EMS-RTE-* reject codes to catalog.
+- **Last commit (main):** `feat(7.2): Router Layer -- route lifecycle, fills, cancel, replace`
+- **Last commit sha (main):** `6b9163c`
+- **Tasks merged/marked this session:** 7.2 done `6b9163c`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
-- **Last updated:** 2026-06-09
-- **Next task:** **7.2** Router Layer (sonnet) — now unblocked by 7.1. Or **4.12/4.14/4.17** (Phase 4 remainder).
-- **Total progress:** **70 of 144 tasks [x]** (48.6%). Phase 7 started: 7.1 [x]; 7.2–7.8 pending.
+- **Last updated:** 2026-06-10
+- **Next task:** **7.3** Automation Layer (sonnet) — unblocked by 7.1 [x] + 7.2 [x]. Or **7.5/7.6/7.8** (all unblocked).
+- **Total progress:** **71 of 144 tasks [x]** (49.3%). Phase 7 started: 7.1–7.2 [x]; 7.3–7.8 pending.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -43,6 +43,7 @@ The loop appends a one-line entry per session.
 | 2026-06-09 | 2026-06-09 | phase goal: complete Phase 5 | 5 (5.1–5.5 all committed) | 5.1 `66a79c7`, 5.2 `4316e34`, 5.3 `2aa7528`, 5.4 `dac894d`, 5.5 `ff8d71c` | Phase 5 complete; next = 4.12/4.14/4.17 |
 | 2026-06-09 | 2026-06-09 | phase goal: complete Phase 6 | 4 (6.2 impl + annotate, 6.3 impl + annotate) | 6.2 `b099d4a`, 6.3 `b80b305` | Phase 6 partial (6.4 [~] locked); next = 4.12/4.14/4.17 or 7.1 |
 | 2026-06-09 | 2026-06-09 | phase goal: complete Phase 7 | 1 (7.1 staged order manager) | 7.1 `8de5bab` | Phase 7 started; next = 7.2 Router Layer |
+| 2026-06-10 | 2026-06-10 | phase goal: complete Phases 7/8/9 | 1 (7.2 router layer) | 7.2 `6b9163c` | Phase 7 continued; next = 7.3 Automation Layer |
 
 ## Phase progress
 
