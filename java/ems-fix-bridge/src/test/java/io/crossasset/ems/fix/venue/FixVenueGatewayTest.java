@@ -252,6 +252,72 @@ class FixVenueGatewayTest {
     assertThat(sink.events).containsExactly("replaceRejected:RTE-1:2");
   }
 
+  // ── Tag 9700 trace propagation (8.3) ─────────────────────────────────────────
+
+  @Test
+  void submit_traceAwareVenue_stampsTag9700() {
+    io.crossasset.ems.observability.trace.TracePropagator traces =
+        new io.crossasset.ems.observability.trace.TracePropagator();
+    List<String> tWire = new ArrayList<>();
+    FixVenueGateway aware = traceGateway(traces, true, tWire);
+    String traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+    traces.stamp("CL-T1", traceId);
+    aware.submit(new VenueRouteRequest("RTE-T1", "CL-T1", FIGI, 1, 100, null));
+    FixMessage nos = FixMessage.parse(tWire.get(tWire.size() - 1));
+    String tagValue = nos.get(io.crossasset.ems.fix.TraceparentTag.TAG);
+    assertThat(tagValue).isNotNull();
+    assertThat(io.crossasset.ems.fix.TraceparentTag.decodeTraceId(tagValue)).contains(traceId);
+  }
+
+  @Test
+  void submit_nonTraceAwareVenue_withholdsTagButKeepsRejoinMap() {
+    io.crossasset.ems.observability.trace.TracePropagator traces =
+        new io.crossasset.ems.observability.trace.TracePropagator();
+    List<String> tWire = new ArrayList<>();
+    FixVenueGateway blind = traceGateway(traces, false, tWire);
+    traces.stamp("CL-T2", "4bf92f3577b34da6a3ce929d0e0e4736");
+    blind.submit(new VenueRouteRequest("RTE-T2", "CL-T2", FIGI, 1, 100, null));
+    FixMessage nos = FixMessage.parse(tWire.get(tWire.size() - 1));
+    assertThat(nos.has(io.crossasset.ems.fix.TraceparentTag.TAG)).isFalse();
+    assertThat(traces.lookup("CL-T2")).isPresent();
+  }
+
+  @Test
+  void replaceAndCancel_aliasTraceToNewClOrdIds() {
+    io.crossasset.ems.observability.trace.TracePropagator traces =
+        new io.crossasset.ems.observability.trace.TracePropagator();
+    FixVenueGateway aware = traceGateway(traces, true, new ArrayList<>());
+    String traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+    traces.stamp("CL-T3", traceId);
+    aware.submit(new VenueRouteRequest("RTE-T3", "CL-T3", FIGI, 1, 100, null));
+    aware.replace("RTE-T3", "CL-T3-R1", 150, null);
+    assertThat(traces.lookup("CL-T3-R1")).contains(traceId);
+    aware.cancel("RTE-T3");
+    assertThat(traces.lookup("CL-T3.C1")).contains(traceId);
+  }
+
+  private FixVenueGateway traceGateway(
+      io.crossasset.ems.observability.trace.TracePropagator traces,
+      boolean traceAware,
+      List<String> targetWire) {
+    FixVenueGateway g =
+        new FixVenueGateway(
+            new VenueRef("venue-trace", "TRCV", Dialect.FIX),
+            EnumSet.of(Capability.SUPPORTS_MARKET, Capability.SUPPORTS_LIMIT),
+            sink,
+            false,
+            new SequenceRecoveryService(() -> 0L),
+            9_000L,
+            (sessionId, seq, rawFix) -> targetWire.add(rawFix),
+            "EMS",
+            "TRCV",
+            30,
+            traces,
+            traceAware);
+    g.connect(1);
+    return g;
+  }
+
   // ── Gaps ─────────────────────────────────────────────────────────────────────
 
   @Test

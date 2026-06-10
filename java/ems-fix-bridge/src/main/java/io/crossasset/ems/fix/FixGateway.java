@@ -64,6 +64,8 @@ public final class FixGateway {
   private final NewOrderSingleDecoder decoder = new NewOrderSingleDecoder();
   private final ExecutionReportEncoder execEncoder;
   private final BusinessMessageRejectEncoder rejectEncoder;
+  private final io.crossasset.ems.observability.trace.TracePropagator traces;
+  private final java.util.function.LongFunction<String> sessionTraceIdFallback;
 
   private final AtomicLong execIdSeq = new AtomicLong(1);
 
@@ -79,11 +81,37 @@ public final class FixGateway {
       OutboundSink sink,
       String senderCompId,
       String targetCompId) {
+    this(
+        oms,
+        sessions,
+        sink,
+        senderCompId,
+        targetCompId,
+        new io.crossasset.ems.observability.trace.TracePropagator(),
+        sessionId -> null);
+  }
+
+  /**
+   * Trace-aware constructor (task 8.3): inbound {@code 9700 TraceparentHex} is adopted as the
+   * order's trace; otherwise {@code sessionTraceIdFallback} supplies the trace minted at AAA
+   * session logon (5.4). Either way the trace is stamped into {@code traces} keyed by ClOrdID so
+   * every downstream hop rejoins the same chain.
+   */
+  public FixGateway(
+      StagedOrderManager oms,
+      SequenceRecoveryService sessions,
+      OutboundSink sink,
+      String senderCompId,
+      String targetCompId,
+      io.crossasset.ems.observability.trace.TracePropagator traces,
+      java.util.function.LongFunction<String> sessionTraceIdFallback) {
     this.oms = oms;
     this.sessions = sessions;
     this.sink = sink;
     this.execEncoder = new ExecutionReportEncoder(senderCompId, targetCompId);
     this.rejectEncoder = new BusinessMessageRejectEncoder(senderCompId, targetCompId);
+    this.traces = traces;
+    this.sessionTraceIdFallback = sessionTraceIdFallback;
   }
 
   private Object lockFor(long sessionId) {
@@ -153,6 +181,7 @@ public final class FixGateway {
       return;
     }
     OrderRequest request = ((DecodeResult.Ok) decoded).request();
+    stampTrace(sessionId, msg, request.clOrdId());
     StageResult result = oms.stage(request);
     if (result instanceof StageResult.Accepted accepted) {
       emitExecutionReport(sessionId, accepted.order());
@@ -160,6 +189,21 @@ public final class FixGateway {
       StageResult.Rejected rejected = (StageResult.Rejected) result;
       emitReject(
           sessionId, MT_NEW_ORDER_SINGLE, REJ_OTHER, rejected.rejectCode(), rejected.message());
+    }
+  }
+
+  /**
+   * Task 8.3 — adopt the client's {@code 9700 TraceparentHex} when present and well-formed;
+   * otherwise fall back to the session-logon trace (5.4). Stamped before staging so even rejected
+   * orders correlate.
+   */
+  private void stampTrace(long sessionId, FixMessage msg, String clOrdId) {
+    String traceId =
+        msg.getOptional(TraceparentTag.TAG)
+            .flatMap(TraceparentTag::decodeTraceId)
+            .orElseGet(() -> sessionTraceIdFallback.apply(sessionId));
+    if (traceId != null) {
+      traces.stamp(clOrdId, traceId);
     }
   }
 

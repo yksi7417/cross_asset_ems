@@ -57,6 +57,8 @@ public final class FixVenueGateway extends AbstractVenueAdapter {
   private final String senderCompId;
   private final String targetCompId;
   private final int heartBtIntSeconds;
+  private final io.crossasset.ems.observability.trace.TracePropagator traces;
+  private final boolean traceAware;
 
   /** ClOrdID (current or historical) → routeId. */
   private final ConcurrentHashMap<String, String> clOrdToRoute = new ConcurrentHashMap<>();
@@ -79,6 +81,40 @@ public final class FixVenueGateway extends AbstractVenueAdapter {
       String senderCompId,
       String targetCompId,
       int heartBtIntSeconds) {
+    this(
+        venueRef,
+        capabilities,
+        sink,
+        shadow,
+        sessions,
+        venueSessionId,
+        wire,
+        senderCompId,
+        targetCompId,
+        heartBtIntSeconds,
+        new io.crossasset.ems.observability.trace.TracePropagator(),
+        false);
+  }
+
+  /**
+   * Trace-aware constructor (task 8.3). When {@code traceAware} is true the venue is on the firm's
+   * trace allowlist and outbound {@code 35=D} carries {@code 9700 TraceparentHex}; otherwise the
+   * tag is withheld and trace continuity relies on the {@code traces} rejoin map (ClOrdID-keyed),
+   * which is maintained either way — including across cancel/replace ClOrdID transitions.
+   */
+  public FixVenueGateway(
+      VenueRef venueRef,
+      Set<Capability> capabilities,
+      VenueEventSink sink,
+      boolean shadow,
+      SequenceRecoveryService sessions,
+      long venueSessionId,
+      OutboundSink wire,
+      String senderCompId,
+      String targetCompId,
+      int heartBtIntSeconds,
+      io.crossasset.ems.observability.trace.TracePropagator traces,
+      boolean traceAware) {
     super(venueRef, capabilities, sink, shadow);
     this.sessions = sessions;
     this.venueSessionId = venueSessionId;
@@ -86,6 +122,8 @@ public final class FixVenueGateway extends AbstractVenueAdapter {
     this.senderCompId = senderCompId;
     this.targetCompId = targetCompId;
     this.heartBtIntSeconds = heartBtIntSeconds;
+    this.traces = traces;
+    this.traceAware = traceAware;
   }
 
   // ── Session ─────────────────────────────────────────────────────────────────
@@ -147,6 +185,17 @@ public final class FixVenueGateway extends AbstractVenueAdapter {
           } else {
             b.field(FixTags.ORD_TYPE, 2).field(FixTags.PRICE, request.price());
           }
+          if (traceAware) {
+            traces
+                .lookup(request.clOrdId())
+                .ifPresent(
+                    traceId ->
+                        b.field(
+                            io.crossasset.ems.fix.TraceparentTag.TAG,
+                            io.crossasset.ems.fix.TraceparentTag.encode(
+                                io.crossasset.ems.fix.TraceparentTag.traceparentFor(
+                                    traceId, request.clOrdId()))));
+          }
           return b.build();
         });
   }
@@ -162,6 +211,7 @@ public final class FixVenueGateway extends AbstractVenueAdapter {
     }
     String cancelClOrdId = current + ".C" + cancelSeq.getAndIncrement();
     clOrdToRoute.put(cancelClOrdId, routeId);
+    traces.alias(cancelClOrdId, current);
     emit(
         seq ->
             header(MT_CANCEL_REQUEST, seq)
@@ -180,6 +230,7 @@ public final class FixVenueGateway extends AbstractVenueAdapter {
       return;
     }
     clOrdToRoute.put(newClOrdId, routeId);
+    traces.alias(newClOrdId, current);
     emit(
         seq -> {
           FixMessage.Builder b =

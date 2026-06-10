@@ -369,4 +369,49 @@ class FixGatewayTest {
     gw.pollHeartbeat(SESSION);
     assertThat(sink.ofType("1")).hasSize(2); // one more, total two
   }
+
+  // ── Tag 9700 trace adoption + fallback (8.3) ──────────────────────────────────
+
+  private static final String CLIENT_TRACE = "4bf92f3577b34da6a3ce929d0e0e4736";
+  private static final String SESSION_TRACE = "aaaabbbbccccddddeeeeffff00001111";
+
+  private FixGateway traceGateway(
+      io.crossasset.ems.observability.trace.TracePropagator traces, RecordingSink sink) {
+    return new FixGateway(
+        new FakeOms(),
+        new SequenceRecoveryService(() -> 0L),
+        sink,
+        "EMS",
+        "CLIENT",
+        traces,
+        sessionId -> SESSION_TRACE);
+  }
+
+  @Test
+  void inboundTag9700_adoptsClientTrace() {
+    var traces = new io.crossasset.ems.observability.trace.TracePropagator();
+    FixGateway gw = traceGateway(traces, new RecordingSink());
+    gw.onLogon(SESSION, 1L);
+    String hex = TraceparentTag.encode(TraceparentTag.traceparentFor(CLIENT_TRACE, "CL-TRACED"));
+    gw.onInbound(SESSION, newOrderSingle(1, "CL-TRACED", "9700=" + hex));
+    assertThat(traces.lookup("CL-TRACED")).contains(CLIENT_TRACE);
+  }
+
+  @Test
+  void inboundWithoutTag9700_fallsBackToSessionTrace() {
+    var traces = new io.crossasset.ems.observability.trace.TracePropagator();
+    FixGateway gw = traceGateway(traces, new RecordingSink());
+    gw.onLogon(SESSION, 1L);
+    gw.onInbound(SESSION, newOrderSingle(1, "CL-PLAIN", null));
+    assertThat(traces.lookup("CL-PLAIN")).contains(SESSION_TRACE);
+  }
+
+  @Test
+  void inboundMalformedTag9700_fallsBackToSessionTrace() {
+    var traces = new io.crossasset.ems.observability.trace.TracePropagator();
+    FixGateway gw = traceGateway(traces, new RecordingSink());
+    gw.onLogon(SESSION, 1L);
+    gw.onInbound(SESSION, newOrderSingle(1, "CL-BADTRACE", "9700=nothex"));
+    assertThat(traces.lookup("CL-BADTRACE")).contains(SESSION_TRACE);
+  }
 }
