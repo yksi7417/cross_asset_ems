@@ -47,6 +47,7 @@ The loop appends a one-line entry per session.
 | 2026-06-10 | 2026-06-10 | phase goal: complete Phases 7/8/9 | 3 (7.2 router layer, 7.8 lifecycle e2e, 7.3 automation layer) | 7.2 `6b9163c`, 7.8 `bc1b34e`, 7.3 `0149917` | Phase 7 continued; next = 7.4/7.5 |
 | 2026-06-10 | 2026-06-10 | user-directed jump to 7.7 (opus tier) | 1 (7.7 Appendix D race tests + Route FSM fill-race transitions) | 7.7 `9e90812` | Phase 7 partial (7.4–7.6 pending); next = 7.4/7.5 |
 | 2026-06-10 | 2026-06-10 | MVP v0 scoping + first MVP task | 3 (api-first doc/plan `a9b8fba`, MVP plan `a938411`, 8.9 `981c33d`) | 8.9 done; MVP v0 track defined (11 tasks) | next = 8.1 / 11.1 / 12.1 / 12.5 (MVP, parallel) |
+| 2026-06-10 | 2026-06-10 | MVP v0 build (3-commit pacing trigger) | 3 (8.9 prior; 11.1 `1d95436`, 11.2 `7bb2739`) | 11.1, 11.2 — MVP Track B (venue) complete | next = 8.1 (Track A) or 12.1/12.5 (Track C) |
 
 ## Phase progress
 
