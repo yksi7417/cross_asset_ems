@@ -267,7 +267,7 @@ Outbound to the market. ~4-6 weeks.
 
 STP and reporting. ~3-4 weeks.
 
-- [ ] **[MVP] 12.1** Allocation service per [[arch-allocation-service]] (sonnet)
+- [x] **[MVP] 12.1** Allocation service per [[arch-allocation-service]] (sonnet) `(31911bb)`
 - [ ] **[MVP] 12.2** STP pipeline per [[arch-stp-pipeline]] (sonnet) ← blocks: 12.1
 - [ ] **[MVP] 12.3** Confirmation/Affirmation per [[arch-confirmation-affirmation]] (sonnet) ← blocks: 12.2
 - [ ] **12.4** [[markitserv]] integration (sonnet) ← blocks: 12.3
