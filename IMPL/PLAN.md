@@ -212,7 +212,7 @@ The order/route layers. ~3-4 weeks.
 - [x] **7.3** Automation Layer per [[arch-automation-layer]] (sonnet) ← blocks: 7.1, 7.2 (0149917)
 - [x] **7.4** Multi-leg / Package handling per [[arch-multileg]] (sonnet) ← blocks: 1.4, 7.2 `(535b37c)`
 - [~] **7.5** Aggregation service per [[arch-aggregation]] (sonnet) ← blocks: 7.1
-- [ ] **7.6** FX netting per [[arch-fx-netting]] (sonnet) ← blocks: 7.1
+- [~] **7.6** FX netting per [[arch-fx-netting]] (sonnet) ← blocks: 7.1
 - [x] **7.7** FIX Appendix D race-condition golden tests (opus — silent-race correctness) ← blocks: 7.2, 1.10 (9e90812)
 - [x] **7.8** Lifecycle chaining (cancel cascades) end-to-end test (sonnet) ← blocks: 1.9 (bc1b34e)
 
