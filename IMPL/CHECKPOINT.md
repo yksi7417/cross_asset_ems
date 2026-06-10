@@ -8,16 +8,17 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 13.5 — Distributed-trace verification (MVP Track D). `TracePropagator` (bridge's local clOrdID→trace-id rejoin map; re-attaches trace by ClOrdID so continuity survives venues stripping tag 9700; `alias()` carries trace across 35=G replace; W3C trace-id validation). `TraceVerifier`/`TraceVerification` (records (hop,traceId) per chain FIX_IN→VALIDATE→STAGE→ROUTE→VENUE_OUT; checks single distinct trace ID + full hop coverage; reports divergent/missing). Decoupled from SBE/AAA TraceContext. 5 tests green.
-- **Last commit (main):** `feat(13.5): distributed-trace verification (MVP Track D)`
-- **Last commit sha (main):** `6953c3c`
-- **Tasks merged/marked this session:** 8.1 `b3aa7ab`, 12.1 `31911bb`, 12.2 `bc92f1c`, 12.3 `b218e63`, 12.5 `51e1713`, 12.6 `39a9a88`, 13.5 `6953c3c` (Opus). Prior MVP session: 8.9 `981c33d`, 11.1 `1d95436`, 11.2 `7bb2739`; 7.7 `9e90812`.
+- **🚀 MVP v0 COMPLETE (2026-06-10).** All 11 [MVP]-tagged tasks `[x]`. Done criteria met: end-to-end smoke (`MvpSmokeTest`, ems-it) drives FIX NewOrderSingle (US IG corp) → validator → staged → mock MarketAxess venue → fill → allocation (60/40) → confirmation (matched) → TRACE-mock (acked), asserting a single trace ID across all 5 hops and byte-identical replay. One asset class wired end-to-end with full audit trail.
+- **Last completed task:** 15.1 — End-to-end MVP smoke + replay-determinism. `MvpSmokeTest` wires the full chain (8.1 FIX → 7.1 staged → 11.2 venue → 12.1 alloc → 12.2 STP → 12.3 confirm → 12.6 TRACE → 13.5 trace verify); replay is a pure-function double-run with identical canonical event log. 2 tests green.
+- **Last commit (main):** `feat(15.1): end-to-end MVP smoke + replay determinism (v0 done-criteria)`
+- **Last commit sha (main):** `26f29d8`
+- **Tasks merged/marked this session:** 8.1 `b3aa7ab`, 12.1 `31911bb`, 12.2 `bc92f1c`, 12.3 `b218e63`, 12.5 `51e1713`, 12.6 `39a9a88`, 13.5 `6953c3c`, 15.1 `26f29d8` (Opus). Prior MVP session: 8.9 `981c33d`, 11.1 `1d95436`, 11.2 `7bb2739`; 7.7 `9e90812`.
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-10
-- **MVP v0 track:** 11 [MVP] tasks. Done: **8.9, 11.1, 11.2, 8.1, 12.1, 12.2, 12.3, 12.5, 12.6, 13.5**. Only **15.1** remains — all its blockers (8.1, 11.2, 12.3, 12.6, 13.5) are now [x].
-- **Next task:** **15.1** End-to-end MVP smoke + replay-determinism: FIX NewOrderSingle (US IG corp) → validator → staged → mock venue → fill → allocation → confirmation → TRACE-mock, single trace ID + byte-identical replay. The final v0 gate. Likely lives in `ems-it`.
-- **Total progress:** **84 of 144 tasks [x]** (58.3%). MVP v0: 10 of 11 done; only 15.1 remains.
+- **MVP v0 track:** **11 of 11 [MVP] tasks [x]** — 8.9, 11.1, 11.2, 8.1, 12.1, 12.2, 12.3, 12.5, 12.6, 13.5, 15.1. ✅
+- **Next task:** v1 — three asset classes end-to-end (US IG corp ✓, US equity, USD IRS); real venue adapters (11.3+) to UAT; compliance/risk/best-ex parity. Per PLAN "What v1 looks like". Also worth promoting post-trade services off in-memory stubs and wiring the real router (7.2) into the smoke instead of a direct venue submit.
+- **Total progress:** **85 of 144 tasks [x]** (59.0%). MVP v0: **11 of 11 done — COMPLETE.**
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -49,6 +50,7 @@ The loop appends a one-line entry per session.
 | 2026-06-10 | 2026-06-10 | MVP v0 scoping + first MVP task | 3 (api-first doc/plan `a9b8fba`, MVP plan `a938411`, 8.9 `981c33d`) | 8.9 done; MVP v0 track defined (11 tasks) | next = 8.1 / 11.1 / 12.1 / 12.5 (MVP, parallel) |
 | 2026-06-10 | 2026-06-10 | MVP v0 build (3-commit pacing trigger) | 3 (8.9 prior; 11.1 `1d95436`, 11.2 `7bb2739`) | 11.1, 11.2 — MVP Track B (venue) complete | next = 8.1 (Track A) or 12.1/12.5 (Track C) |
 | 2026-06-10 | 2026-06-10 | MVP v0 build (Opus, user-directed local execution); 3-commit pacing stop | 3 (8.1 `b3aa7ab`, 12.1 `31911bb`, 12.2 `bc92f1c`) | 8.1 — client FIX edge (Track A); 12.1 — allocation service; 12.2 — STP pipeline orchestrator | next = 12.3 confirmation (← 12.2) / 12.5→12.6 / 13.5 trace verify |
+| 2026-06-10 | 2026-06-10 | MVP v0 completion run (Opus, /goal 10-commit cap) | 5 (12.3 `b218e63`, 12.5 `51e1713`, 12.6 `39a9a88`, 13.5 `6953c3c`, 15.1 `26f29d8`) | 12.3 confirmation, 12.5 reg reporting, 12.6 TRACE-mock, 13.5 trace verify, 15.1 end-to-end smoke — **MVP v0 COMPLETE** | next = v1 (US equity + USD IRS; real venues) |
 
 ## Phase progress
 
@@ -69,8 +71,9 @@ Updated when a phase completes.
 | 10 — Pre-Trade Auxiliaries | not started | |
 | 11 — Venue Connectivity | not started | |
 | 12 — Post-Trade | not started | |
-| 13 — Observability | not started | |
+| 13 — Observability | partial (13.1-13.3, 13.5 done; 13.4 [~], 13.6 pending) | |
 | 14 — Operations | not started | |
+| 15 — MVP Integration | complete | 2026-06-10 |
 
 ## Blocked tasks
 
