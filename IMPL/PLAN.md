@@ -287,7 +287,7 @@ Three pillars. ~1-2 weeks.
 - [x] **13.2** ELK / OpenSearch ingest pipeline (gemma) `(6c9601c)`
 - [x] **13.3** Prometheus exporters per service (gemma) `(6c9601c)`
 - [~] **13.4** Grafana dashboards: golden signals + per-asset latency (gemma for templates, sonnet for design) — scaffold at 9/9/6 panels; targets 24/12/12; needs sonnet follow-up pass
-- [ ] **[MVP] 13.5** Distributed-trace verification: end-to-end trace from FIX in → venue out, single trace ID through the whole chain (sonnet) ← blocks: 8.1, 11.2
+- [x] **[MVP] 13.5** Distributed-trace verification: end-to-end trace from FIX in → venue out, single trace ID through the whole chain (sonnet) ← blocks: 8.1, 11.2 `(6953c3c)`
 - [ ] **13.6** Sampling strategy (1-5% routine, 100% errors) (sonnet)
 
 ## Phase 14 — Operations
