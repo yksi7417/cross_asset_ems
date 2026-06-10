@@ -14,4 +14,7 @@ dependencies {
     testImplementation(project(":ems-oms"))
     testImplementation(project(":ems-validator"))
     testImplementation(project(":ems-fix-bridge"))
+    testImplementation(project(":ems-venue-connectivity"))
+    testImplementation(project(":ems-posttrade"))
+    testImplementation(project(":ems-observability"))
 }
