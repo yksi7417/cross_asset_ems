@@ -8,15 +8,16 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 7.7 — FIX Appendix D race-condition golden tests. Added 3 missing Route FSM fill-race transitions (PENDING_CANCEL+RouteFilled→FILLED, PENDING_CANCEL+RoutePartiallyFilled→self-loop promoting preCancelStatus, PENDING_REPLACE+RouteFilled→FILLED), mirroring the Order-FSM transitions from 1.10. FixAppendixDRaceTest: 11 golden tests asserting LeavesQty=Qty-CumQty invariant + both route/order end-states. Synced stale cpp/fsm/generated/order_fsm.hpp.
-- **Last commit (main):** `feat(7.7): FIX Appendix D race golden tests + Route FSM fill-race fix`
-- **Last commit sha (main):** `9e90812`
-- **Tasks merged/marked this session:** 7.7 done `9e90812` (Opus session). Prior session: 7.2 `6b9163c`, 7.8 `bc1b34e`, 7.3 `0149917`.
+- **Last completed task:** 8.9 — Resumable session channel (MVP track). Completed the `SequenceRecoveryService` skeleton: injectable clock, per-direction seq, fixed inbound dedup bug (gap/duplicate no longer corrupt the expected counter), gap-high-water tracking, outbound resend buffer (bounded + eviction), resume-from-seq, heartbeat liveness (OK/SEND_TEST_REQUEST/STALE). 22 tests; AAA + e2e integration still green.
+- **Last commit (main):** `feat(8.9): resumable session channel -- heartbeat, resend buffer, resume, dedup`
+- **Last commit sha (main):** `981c33d`
+- **Tasks merged/marked this session:** 7.7 `9e90812`, then API-first doc/plan (`a9b8fba`), MVP v0 plan (`a938411`), 8.9 `981c33d` (Opus session).
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-10
-- **Next task:** **7.4** Multi-leg/Package handling (sonnet) or **7.5** Aggregation service (sonnet) — both unblocked.
-- **Total progress:** **74 of 144 tasks [x]** (51.4%). Phase 7 partial: 7.1, 7.2, 7.3, 7.7, 7.8 [x]; 7.4–7.6 pending.
+- **MVP v0 track:** scoped — 11 [MVP] tasks. Done: 8.9. Next buildable: **8.1** (FIX gateway, ← 8.9 now done), **11.1** (venue adapter framework), **12.1** (allocation), **12.5** (reg reporting). See PLAN.md "MVP v0 critical path".
+- **Next task:** **8.1** FIX gateway in (MVP, now unblocked by 8.9) — or parallel-start 11.1 / 12.1 / 12.5.
+- **Total progress:** **75 of 144 tasks [x]** (52.1%). Phase 7 partial (7.4–7.6 pending, deferred post-MVP); Phase 8 MVP subset started (8.9 [x]).
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -45,6 +46,7 @@ The loop appends a one-line entry per session.
 | 2026-06-09 | 2026-06-09 | phase goal: complete Phase 7 | 1 (7.1 staged order manager) | 7.1 `8de5bab` | Phase 7 started; next = 7.2 Router Layer |
 | 2026-06-10 | 2026-06-10 | phase goal: complete Phases 7/8/9 | 3 (7.2 router layer, 7.8 lifecycle e2e, 7.3 automation layer) | 7.2 `6b9163c`, 7.8 `bc1b34e`, 7.3 `0149917` | Phase 7 continued; next = 7.4/7.5 |
 | 2026-06-10 | 2026-06-10 | user-directed jump to 7.7 (opus tier) | 1 (7.7 Appendix D race tests + Route FSM fill-race transitions) | 7.7 `9e90812` | Phase 7 partial (7.4–7.6 pending); next = 7.4/7.5 |
+| 2026-06-10 | 2026-06-10 | MVP v0 scoping + first MVP task | 3 (api-first doc/plan `a9b8fba`, MVP plan `a938411`, 8.9 `981c33d`) | 8.9 done; MVP v0 track defined (11 tasks) | next = 8.1 / 11.1 / 12.1 / 12.5 (MVP, parallel) |
 
 ## Phase progress
 
