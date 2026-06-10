@@ -20,19 +20,24 @@ The loop protocol is in [[LOOP]]. Current cursor + open WIP branches in [[CHECKP
 
 The active [[LOOP]] scope, executed entirely by Fable. In order:
 
-1. **Phase 7 remainder** — 7.4 multi-leg, 7.5 aggregation, 7.6 FX netting
-2. **Phase 8 remainder** — 8.2, 8.3, 8.4 → 8.5/8.6/8.7 → 8.8, 8.10, 8.11
-3. **Phase 9 (all)** — 9.1 → 9.2/9.3; 9.4; 9.5
-4. **Phase 10 (all)** — 10.1 → 10.2–10.5; 10.7 → 10.6; 10.8 → 10.9
-5. **FIX simulator track** — **11.15** venue-side FIX simulator → **15.2** FIX-wire end-to-end
+1. **Phase 7 remainder** — ✅ 7.4 multi-leg, 7.5 aggregation, 7.6 FX netting (complete 2026-06-10)
+2. **Phase 8 remainder** — 8.2 ✅, 8.3 ✅, 8.4 ✅ → 8.5/8.6/8.7 → 8.8, 8.10, 8.11
+3. **Phase 10** — 10.1 → 10.3–10.5; 10.7 → 10.6; 10.8 → 10.9. (**10.2 skipped**: its blocker 9.5
+   is deferred with Phase 9 — fat-finger lands when real-time analytics return.)
+4. **FIX simulator track** — **11.15** venue-side FIX simulator → **15.2** FIX-wire end-to-end
    smoke (the in-process mock venue 11.2 stays green alongside)
-6. **Phase 14 remainder** — 14.1 → 14.2; 14.5 → 14.6/14.7; 14.10
-7. **Phase 17 (docs)** — 17.1 user guide, 17.2 operator guide, 17.3 developer guide refresh
+5. **Phase 14 remainder** — 14.1 → 14.2; 14.5 → 14.6/14.7; 14.10
+6. **Phase 17 (docs)** — 17.1 user guide, 17.2 operator guide, 17.3 developer guide refresh
 
-Scope is frozen to the tasks that were `[ ]` in these phases on 2026-06-10 plus the three tracks
-named above. Later additions (11.16+, 12.12+, Phase 18) are **queued for the next goal**, not this
-one. Out of scope and unchanged: 4.12/4.14/4.17, 6.4 reconciliation, 11.3–11.14 real venue
-adapters, 12.4/12.7–12.11, 13.4/13.6.
+> **Scope change (2026-06-10, user decision): Phase 9 deferred.** The internal Market Data Quote
+> Server is not a priority. Market data reaches the trader desktop through the **pluggable feed
+> SPI (18.12)** backed by **Bloomberg Desktop/Server API (18.13)** for now; Phase 9 returns when
+> SOR/venue work demands an internal quote fabric.
+
+Scope is otherwise frozen to the tasks that were `[ ]` in these phases on 2026-06-10 plus the
+tracks named above. Later additions (11.16+, 12.12+, Phase 18) are **queued for the next goal**,
+not this one. Out of scope and unchanged: 4.12/4.14/4.17, 6.4 reconciliation, 11.3–11.14 real
+venue adapters, 12.4/12.7–12.11, 13.4/13.6.
 
 ---
 
@@ -224,7 +229,7 @@ External edges. ~2-3 weeks.
   - **8.9 consumer contracts** (from 8.9 review): (1) reconnect must call **both** `logon` (inbound gap reconcile) **and** `resumeOutbound` (outbound replay) — `logon` alone leaves the client missing server-sent messages; (2) if `resumeOutbound`'s first returned seq > requested `fromSeq`, the buffer evicted the hole → issue **RESET** (EMS-SES catastrophic mismatch), do not silently resume over the gap; (3) `checkLiveness` re-returns `SEND_TEST_REQUEST` every poll in the `[interval, 2·interval)` window — the heartbeat driver must send **one** TEST_REQUEST then wait, not poll-and-send.
 - [x] **8.2** FIX gateway out (outbound to venues) (sonnet) ← blocks: 8.1 `(7014bea)`
 - [x] **8.3** Tag 9700 (TraceparentHex) propagation and fallback (sonnet) ← blocks: 8.1, 5.4 `(6aca67e)`
-- [~] **8.4** API session surface — request/response + publish/subscribe operation API (Session/Service/Request/Subscription/Event) over the AAA-authenticated session channel; native client handshake. **Not REST-specific** — REST/WS is one edge binding (8.10). Per [[arch-api-first]] (sonnet) ← blocks: 7.1, 5.1, 8.9
+- [x] **8.4** API session surface — request/response + publish/subscribe operation API (Session/Service/Request/Subscription/Event) over the AAA-authenticated session channel; native client handshake. **Not REST-specific** — REST/WS is one edge binding (8.10). Per [[arch-api-first]] (sonnet) ← blocks: 7.1, 5.1, 8.9 `(f1777fd)`
 - [ ] **8.5** Batch operation semantics (all-or-nothing, partial) (sonnet) ← blocks: 8.4
 - [ ] **8.6** Excel/CSV bulk import per [[arch-bulk-io]] (gemma for parsers) ← blocks: 8.4
 - [ ] **8.7** Excel/CSV bulk export with templates (gemma) ← blocks: 8.4
@@ -236,6 +241,12 @@ External edges. ~2-3 weeks.
 ## Phase 9 — Market Data
 
 Inputs. ~2 weeks.
+
+> **⏸ DEFERRED (2026-06-10, user decision).** Not a priority yet. The trader desktop gets market
+> data via the pluggable feed SPI (**18.12**) with a Bloomberg Desktop/Server API adapter
+> (**18.13**) — quick to stand up against a terminal subscription. The internal quote server /
+> Aeron multicast fabric below resumes when SOR (11.11) or venue work needs it. Consequence:
+> **10.2** (fat-finger, ← 9.5) and **12.14** (TCA, ← 9.5) wait with it.
 
 - [ ] **9.1** Quote server per [[arch-quote-server]] (sonnet) ← blocks: 2.3
 - [ ] **9.2** Subscriber-visibility registry (sonnet) ← blocks: 9.1
@@ -372,8 +383,16 @@ never planned ([[arch-tca]], [[arch-surveillance]], [[arch-borrow-service]],
 [[arch-notification-service]]) — closed below plus Phase 12 additions 12.12–12.16 and Phase 11
 additions 11.16–11.17. **Not in the current [[LOOP]] goal; queue as the next goal.**
 
-- [ ] **18.1** Trading blotter — live orders + routes + fills view per the [[order-manager]] workflow note, over the 8.10 WS stream (the buyer's first screen; ui/ today has only ops UIs) (sonnet) ← blocks: 8.10
-- [ ] **18.2** Order ticket + staging UI per `staging-via-ticket` — per-asset-class ticket layouts, stage/amend/route actions (sonnet) ← blocks: 18.1
+> **Front-end decision (2026-06-10, user):** the trader desktop is built on **Perspective**
+> (<https://github.com/perspective-dev/perspective>) — the WebAssembly streaming-pivot data grid —
+> for high-rate, responsive updates of rapid market-data and blotter streams. Market data arrives
+> through a **pluggable feed SPI (18.12)**; the first implementation is **Bloomberg Desktop
+> API / Server API (18.13)** so a desk with a terminal subscription lights up immediately. The
+> internal quote server (Phase 9, deferred) becomes just another SPI implementation later.
+> Suggested order within this phase: 18.12 → 18.13 → 18.1 → 18.14 → the rest.
+
+- [ ] **18.1** Trading blotter — live orders + routes + fills in **Perspective** (WASM) tables fed by the 8.10 WS stream (Arrow/JSON row deltas, not full refreshes), per the [[order-manager]] workflow note (the buyer's first screen; ui/ today has only ops UIs) (sonnet) ← blocks: 8.10
+- [ ] **18.2** Order ticket + staging UI per `staging-via-ticket` — per-asset-class ticket layouts, stage/amend/route actions against the 8.4 API surface (sonnet) ← blocks: 18.1
 - [ ] **18.3** Basket / program trading — list load via 8.6, wave routing, aggregate monitoring (distinct from structurally-linked multi-leg packages 7.4) (sonnet) ← blocks: 7.5, 8.6, 18.1
 - [ ] **18.4** Firm-wide kill switch — firm/desk/venue-scoped mass-cancel + cancel-on-disconnect + new-order lockout; one audited action (opus — control path; a silent failure here is catastrophic) ← blocks: 7.2
 - [ ] **18.5** SEC 15c3-5 market-access pack — named mapping of controls (fat-finger 10.2, credit/capital limits 10.6, duplicate-order check, kill switch 18.4) + attestation evidence export (sonnet) ← blocks: 10.2, 10.6, 18.4
@@ -383,6 +402,9 @@ additions 11.16–11.17. **Not in the current [[LOOP]] goal; queue as the next g
 - [ ] **18.9** Enterprise SSO — OIDC/SAML login + SCIM provisioning on the AAA layer (vendor due-diligence checklist item) (sonnet) ← blocks: 5.1
 - [ ] **18.10** Maker-checker (4-eyes) approvals on config / limit / restricted-list changes (sonnet) ← blocks: 3.7, 10.4
 - [ ] **18.11** Click-to-trade on streaming quotes (ESP) with slippage guard + last-look awareness (sonnet) ← blocks: 11.17, 18.1
+- [ ] **18.12** Pluggable market-data feed SPI — `MarketDataFeed` interface (subscribe/unsubscribe by FIGI + field set, tick/quote callbacks, feed health), provider-agnostic so Bloomberg (18.13) now and the internal quote server (9.1) later are drop-in implementations; ticks bridge into Perspective via the 8.4 subscription topics (sonnet) ← blocks: 8.4
+- [ ] **18.13** Bloomberg market-data adapter — BLPAPI `//blp/mktdata` subscriptions via Desktop API (localhost:8194) or Server API per config, mapping security/fields to the 18.12 SPI; session resilience + entitlement failures surfaced as feed health; runtime requires the desk's Bloomberg terminal/SAPI subscription, CI uses a fake feed (sonnet) ← blocks: 18.12
+- [ ] **18.14** Market-data watchlist panel — Perspective grid streaming live ticks via 18.12 (sustained rapid-update path: row deltas into a Perspective table, no re-render), per-desk symbol lists (sonnet) ← blocks: 18.1, 18.12
 
 ## Done criteria for v0 (MVP)
 

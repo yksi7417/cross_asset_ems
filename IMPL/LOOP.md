@@ -18,12 +18,14 @@ Paste this as the goal of a Claude Code session (or as the prompt of `/loop`):
 
 ```text
 Read IMPL/PLAN.md and IMPL/CHECKPOINT.md. Goal: complete the v1 build-out scope — all tasks that
-remain [ ] in Phases 7, 8, 9, 10 and 14 as of 2026-06-10, plus 11.15 (FIX venue simulator), 15.2
-(FIX-wire end-to-end smoke) and Phase 17 (usage documentation). Execute every task yourself in this
-Claude Code session (Fable): no OpenCode, no model switching, no delegation to local models,
-subagents, or Paperclip; treat the (gemma)/(minimax)/(sonnet)/(opus) tags in PLAN.md as historical
-complexity hints, not routing. Work in order 7 → 8 → 9 → 10 → 11.15 → 15.2 → 14 → 17, at each step
-picking the next [ ] task whose "← blocks:" prerequisites are all [x]; skip [~] and [!] tasks.
+remain [ ] in Phases 7, 8, 10 and 14 as of 2026-06-10 (Phase 9 deferred per user decision
+2026-06-10: market data arrives via the Bloomberg-backed feed SPI in Phase 18; 10.2 waits with
+9.5), plus 11.15 (FIX venue simulator), 15.2 (FIX-wire end-to-end smoke) and Phase 17 (usage
+documentation). Execute every task yourself in this Claude Code session (Fable): no OpenCode, no
+model switching, no delegation to local models, subagents, or Paperclip; treat the
+(gemma)/(minimax)/(sonnet)/(opus) tags in PLAN.md as historical complexity hints, not routing.
+Work in order 7 → 8 → 10 → 11.15 → 15.2 → 14 → 17, at each step picking the next [ ] task whose
+"← blocks:" prerequisites are all [x]; skip [~] and [!] tasks.
 Per task: claim it (mark [~] in PLAN.md, commit "task: claim X.Y"); implement against the
 architecture notes the task references; write tests in the same commit; run the tests; commit
 "<type>(X.Y): <what>"; mark [x] (sha) in PLAN.md; advance IMPL/CHECKPOINT.md; push to origin main

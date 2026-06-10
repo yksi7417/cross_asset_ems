@@ -141,11 +141,13 @@ Podman specifics for the dev stack: [`docs/runbooks/podman.md`](runbooks/podman.
 ## 8. What's coming (and where to watch)
 
 The active build-out (executed continuously by the [[LOOP]] in `IMPL/LOOP.md`) adds, in order:
-OMS multi-leg/aggregation/FX-netting (7.x) → venue-facing FIX gateway, API surface, bulk I/O,
-REST/WS (8.x) → market data (9.x) → pre-trade compliance/risk/positions/pricing (10.x) → **FIX
-venue simulator + wire-level end-to-end smoke** (11.15/15.2) → ops resilience (14.x) → full docs
-(17.x). Progress cursor: [`IMPL/CHECKPOINT.md`](../IMPL/CHECKPOINT.md). After that, the trader
-desktop + buyer-readiness controls (Phase 18).
+OMS multi-leg/aggregation/FX-netting (7.x ✅) → venue-facing FIX gateway, API surface, bulk I/O,
+REST/WS (8.x) → pre-trade compliance/risk/positions/pricing (10.x) → **FIX venue simulator +
+wire-level end-to-end smoke** (11.15/15.2) → ops resilience (14.x) → full docs (17.x). Progress
+cursor: [`IMPL/CHECKPOINT.md`](../IMPL/CHECKPOINT.md). After that, the trader desktop on
+**Perspective** (WASM streaming grid) with a pluggable market-data feed (Bloomberg Desktop/Server
+API first) + buyer-readiness controls (Phase 18). The internal market-data quote server (Phase 9)
+is deferred until SOR/venue work needs it.
 
 ---
 

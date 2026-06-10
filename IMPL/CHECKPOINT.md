@@ -17,10 +17,11 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 - **WIP branch:** main
 - **Last updated:** 2026-06-10
 - **MVP v0 track:** **11 of 11 [MVP] tasks [x]** ✅. **Phase 16 (cross-asset): 3 of 3 [x]** ✅.
-- **Active goal (set 2026-06-10): v1 build-out, no delegation.** Complete the tasks that were `[ ]` in Phases 7, 8, 9, 10, 14, plus **11.15** FIX venue simulator → **15.2** FIX-wire end-to-end smoke, then **Phase 17** usage docs. Fable (Claude Code) executes every task directly — goal text in [[LOOP]]. Carry-over intent folded in: 15.2 should drive the **real router + AAA-backed validator** path (replace the smokes' direct venue submit / permissive validator) and pull post-trade services off in-memory stubs where the flow demands it.
-- **Next task:** **8.2** FIX gateway out (venue-facing) — first of the Phase 8 remainder.
-- **v1 build-out progress:** **Phase 7 COMPLETE (2026-06-10)** — 7.4 `535b37c` multi-leg manager (mode guards, SEQUENCED gating, AON cascade; 22 tests), 7.5 `e980553` aggregation (block parent + pro-rata/seq/avg-px allocation; 19 tests), 7.6 `898bbcb` FX netting (key bucketing, residual parent, progressive cross booking, net-to-zero; 17 tests). Catalog: multileg 44xx + aggregation 5xxx + netting 22xx blocks added (`80f7d51`-follow-up); multileg codes realigned to catalog.
-- **Total progress:** **95 of 174 tasks [x]** (54.6%). MVP v0 + Phase 16 cross-asset complete. (Corrected 2026-06-10: previous "88 of 144" was a stale count; 23 tasks added by the loop-rework + buyer-gap analysis: 11.15–11.17, 12.12–12.16, 15.2, 17.1–17.3, 18.1–18.11.)
+- **Active goal (set 2026-06-10, amended same day): v1 build-out, no delegation.** Complete the tasks that were `[ ]` in Phases 7 ✅, 8, 10, 14 — **Phase 9 deferred** (user decision: market data via the pluggable feed SPI 18.12 + Bloomberg adapter 18.13; 10.2 and 12.14 wait with 9.5) — plus **11.15** FIX venue simulator → **15.2** FIX-wire end-to-end smoke, then **Phase 17** usage docs. Fable (Claude Code) executes every task directly — goal text in [[LOOP]]. Carry-over intent folded in: 15.2 should drive the **real router + AAA-backed validator** path (replace the smokes' direct venue submit / permissive validator) and pull post-trade services off in-memory stubs where the flow demands it.
+- **Front-end decision (2026-06-10, user):** trader desktop on **Perspective** (WASM streaming-pivot grid, github.com/perspective-dev/perspective) for high-rate market-data/blotter updates; market data via the pluggable SPI (18.12) with Bloomberg Desktop/Server API (18.13) first.
+- **Next task:** **8.5** Batch operation semantics (← 8.4 `[x]`).
+- **v1 build-out progress:** **Phase 7 COMPLETE (2026-06-10)** — 7.4 `535b37c` multi-leg manager (22 tests), 7.5 `e980553` aggregation (19 tests), 7.6 `898bbcb` FX netting (17 tests); catalog 44xx/5xxx/22xx blocks added, multileg codes realigned. **Phase 8:** 8.2 `7014bea` venue-facing FIX gateway (19 tests), 8.3 `6aca67e` tag-9700 trace propagation (7 tests), 8.4 `f1777fd` API session surface (13 tests).
+- **Total progress:** **101 of 177 tasks [x]** (57.1%). MVP v0 + Phase 16 cross-asset + Phase 7 complete. (Count history: 95/174 after the 2026-06-10 loop-rework added 23 tasks; +3 more for the Perspective/Bloomberg desktop tasks 18.12–18.14; +6 done since: 7.4–7.6, 8.2–8.4.)
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -70,7 +71,7 @@ Updated when a phase completes.
 | 6 — Validator | partial (6.4 [~] locked; 6.1/6.2/6.3/6.5 done) | |
 | 7 — OMS Core | complete | 2026-06-10 |
 | 8 — FIX / API Bridge | partial (8.1, 8.9 done; 8.2-8.8/8.10-8.11 pending — in active goal) | |
-| 9 — Market Data | not started — in active goal | |
+| 9 — Market Data | **deferred** (2026-06-10 user decision; Bloomberg SPI 18.12/18.13 covers the desktop) | |
 | 10 — Pre-Trade Auxiliaries | not started — in active goal | |
 | 11 — Venue Connectivity | partial (11.1, 11.2 done; 11.15 in active goal; 11.3–11.14, 11.16–11.17 queued) | |
 | 12 — Post-Trade | partial (12.1–12.3, 12.5, 12.6 done; 12.4, 12.7–12.16 queued) | |
