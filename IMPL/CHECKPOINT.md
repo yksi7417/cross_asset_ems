@@ -8,16 +8,16 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 11.2 — In-process mock venue adapter (MVP track, completes Track B). MockVenueAdapter with FillBehavior (ACK_ONLY / ACK_THEN_FULL_FILL / ACK_THEN_PARTIAL_THEN_FULL / REJECT), deterministic ExecIDs, market-order fallback mark, shadow mode; `marketAxess()` factory (MIC MAXX, FIX, auto-full-fill). 10 tests over a recording sink.
-- **Last commit (main):** `feat(11.2): in-process mock venue adapter (mock MarketAxess)`
-- **Last commit sha (main):** `7bb2739`
-- **Tasks merged/marked this session:** 8.9 `981c33d`, 11.1 `1d95436`, 11.2 `7bb2739` (Opus MVP session). Earlier: 7.7 `9e90812`, API-first doc `a9b8fba`, MVP plan `a938411`.
+- **Last completed task:** 8.1 — Client-facing FIX gateway (MVP Track A). Hand-rolled deterministic SOH FIX codec (no QuickFIX/J engine); inbound NewOrderSingle (35=D) → `OrderRequest` → `StagedOrderManager.stage()`; outbound ExecutionReport (35=8) on accept, BusinessMessageReject (35=j) on malformed/validator-reject/staging-only-disallowed (35=F/G/unknown). Rides `SequenceRecoveryService` (8.9) and honors all 3 consumer contracts (reconnect=logon+resumeOutbound; RESET on evicted hole; one TestRequest per heartbeat window). Classes: FixTags, FixMessage(+Builder), DecodeResult, NewOrderSingleDecoder, ExecutionReportEncoder, BusinessMessageRejectEncoder, OutboundSink, FixGateway. 32 tests green.
+- **Last commit (main):** `feat(8.1): client-facing FIX gateway (MVP Track A)`
+- **Last commit sha (main):** `b3aa7ab`
+- **Tasks merged/marked this session:** 8.1 `b3aa7ab` (Opus). Prior MVP session: 8.9 `981c33d`, 11.1 `1d95436`, 11.2 `7bb2739`; 7.7 `9e90812`.
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-10
-- **MVP v0 track:** 11 [MVP] tasks. Done: **8.9, 11.1, 11.2** (Track B complete). Next buildable: **8.1** (FIX gateway ← 8.9), **12.1** (allocation), **12.5** (reg reporting). 13.5/15.1 wait on 8.1.
-- **Next task:** **8.1** FIX gateway (Track A — the big one) — or knock out Track C (12.1 → 12.2 → 12.3 ; 12.5 → 12.6) first.
-- **Total progress:** **77 of 144 tasks [x]** (53.5%). MVP v0: 3 of 11 done (8.9, 11.1, 11.2; Track B complete).
+- **MVP v0 track:** 11 [MVP] tasks. Done: **8.9, 11.1, 11.2, 8.1** (Tracks A-client-edge + B-venue complete). Next buildable: **12.1** (allocation), **12.5** (reg reporting); **13.5** (distributed-trace verify ← 8.1+11.2 now both done). 15.1 waits on 12.3/12.6/13.5.
+- **Next task:** Track C post-trade tail — **12.1** (allocation) → 12.2 → 12.3 ; **12.5** (reg reporting) → 12.6 — or **13.5** (trace verification, now unblocked).
+- **Total progress:** **78 of 144 tasks [x]** (54.2%). MVP v0: 4 of 11 done (8.9, 11.1, 11.2, 8.1).
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -48,6 +48,7 @@ The loop appends a one-line entry per session.
 | 2026-06-10 | 2026-06-10 | user-directed jump to 7.7 (opus tier) | 1 (7.7 Appendix D race tests + Route FSM fill-race transitions) | 7.7 `9e90812` | Phase 7 partial (7.4–7.6 pending); next = 7.4/7.5 |
 | 2026-06-10 | 2026-06-10 | MVP v0 scoping + first MVP task | 3 (api-first doc/plan `a9b8fba`, MVP plan `a938411`, 8.9 `981c33d`) | 8.9 done; MVP v0 track defined (11 tasks) | next = 8.1 / 11.1 / 12.1 / 12.5 (MVP, parallel) |
 | 2026-06-10 | 2026-06-10 | MVP v0 build (3-commit pacing trigger) | 3 (8.9 prior; 11.1 `1d95436`, 11.2 `7bb2739`) | 11.1, 11.2 — MVP Track B (venue) complete | next = 8.1 (Track A) or 12.1/12.5 (Track C) |
+| 2026-06-10 | 2026-06-10 | MVP v0 build (Opus, user-directed local execution) | 1 so far (8.1 `b3aa7ab`) | 8.1 — MVP Track A (client FIX edge) complete | next = 12.1/12.5 (Track C) or 13.5 (trace verify, now unblocked) |
 
 ## Phase progress
 
@@ -63,7 +64,7 @@ Updated when a phase completes.
 | 5 — Identity & Permissions | complete | 2026-06-09 |
 | 6 — Validator | partial (6.4 [~] locked; 6.1/6.2/6.3/6.5 done) | |
 | 7 — OMS Core | partial (7.1 done; 7.2–7.8 pending) | |
-| 8 — FIX / API Bridge | not started | |
+| 8 — FIX / API Bridge | partial (8.1, 8.9 done; 8.2-8.8/8.10-8.11 pending) | |
 | 9 — Market Data | not started | |
 | 10 — Pre-Trade Auxiliaries | not started | |
 | 11 — Venue Connectivity | not started | |
