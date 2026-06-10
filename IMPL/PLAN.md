@@ -164,7 +164,7 @@ Hard-reject path. ~1-2 weeks.
 
 - [x] **6.1** Reject code catalog (`EMS-<CAT>-<NNNN>`) per [[arch-validator]] (gemma) `(eaa7c8f)`
 - [x] **6.2** Layered evaluation pipeline (session → identity → ref → perm → ...) (sonnet) `(b099d4a)`
-- [ ] **6.3** Permission denial messages with admin-hint pointers (sonnet) ← blocks: 6.1, 5.3
+- [x] **6.3** Permission denial messages with admin-hint pointers (sonnet) ← blocks: 6.1, 5.3 `(b80b305)`
 - [~] **6.4** Per-asset-class validation rules (gemma first drafts, sonnet review)
 - [x] **6.5** Validator golden tests (one per code, full coverage) (gemma) ← blocks: 6.1
 

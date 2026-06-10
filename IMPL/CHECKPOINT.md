@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 5.5 — Session sequence recovery integrated into AAA logon: LogonCredentials gains declaredSeq, InMemoryAaaService wires SequenceRecoveryService, AaaService.checkIncoming() delegates gap/duplicate detection. 65 tests across Phase 5.
-- **Last commit (main):** `feat(5.5): Session sequence recovery integrated into AAA logon`
-- **Last commit sha (main):** `ff8d71c`
-- **Tasks merged/marked this session:** 5.1 done `66a79c7`, 5.2 done `4316e34`, 5.3 done `2aa7528`, 5.4 done `dac894d`, 5.5 done `ff8d71c`
+- **Last completed task:** 6.3 — Permission denial messages with admin-hint pointers: 11 golden tests asserting exact firm/desk/tag admin contact resolution for EMS-PRM-1001/1002/1003. 31 total tests across Phase 6 (6.2+6.3).
+- **Last commit (main):** `feat(6.3): permission denial messages with admin-hint pointers`
+- **Last commit sha (main):** `b80b305`
+- **Tasks merged/marked this session:** 6.2 done `b099d4a`, 6.3 done `b80b305`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-09
-- **Next task:** **4.12** (TbaMbsInstrument / SpecifiedPoolInstrument — fungibility handling), **4.14** (StructuredProductInstrument), or **4.17** (EventContractInstrument).
-- **Total progress:** **66 of 144 tasks [x]** (45.8%). Phase 5 all [x]: 5.1–5.5.
+- **Next task:** **4.12** (TbaMbsInstrument / SpecifiedPoolInstrument — fungibility handling), **4.14** (StructuredProductInstrument), or **4.17** (EventContractInstrument). Phase 6 complete except 6.4 [~] (locked, reject-code reconciliation needed).
+- **Total progress:** **69 of 144 tasks [x]** (47.9%). Phase 5 all [x]: 5.1–5.5. Phase 6 partial: 6.1 [x], 6.2 [x], 6.3 [x], 6.4 [~] locked, 6.5 [x].
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -41,6 +41,7 @@ The loop appends a one-line entry per session.
 | 2026-06-07 | 2026-06-07 | 3-commit pacing trigger + Phase 0 complete | 4 (docs+obs, claim 0.10, feat 0.10, annotate) | 0.10 done; Phase 0 all [x] | next = 1.7 (opus) or 1.10 (opus) |
 | 2026-06-07 | 2026-06-07 | context-resuming prior session | 3 (1.7b C++ inline FSMs + task annotation; 1.11 replay harness) | 1.7b `994d8fa`, 1.11 `32acdac` | next = 1.8 (gemma) or 1.10/1.12 |
 | 2026-06-09 | 2026-06-09 | phase goal: complete Phase 5 | 5 (5.1–5.5 all committed) | 5.1 `66a79c7`, 5.2 `4316e34`, 5.3 `2aa7528`, 5.4 `dac894d`, 5.5 `ff8d71c` | Phase 5 complete; next = 4.12/4.14/4.17 |
+| 2026-06-09 | 2026-06-09 | phase goal: complete Phase 6 | 4 (6.2 impl + annotate, 6.3 impl + annotate) | 6.2 `b099d4a`, 6.3 `b80b305` | Phase 6 partial (6.4 [~] locked); next = 4.12/4.14/4.17 or 7.1 |
 
 ## Phase progress
 
@@ -54,7 +55,7 @@ Updated when a phase completes.
 | 3 — Event Sourcing | complete | 2026-06-09 |
 | 4 — Reference Data | partial (4.12/4.14/4.17 pending) | |
 | 5 — Identity & Permissions | complete | 2026-06-09 |
-| 6 — Validator | not started | |
+| 6 — Validator | partial (6.4 [~] locked; 6.1/6.2/6.3/6.5 done) | |
 | 7 — OMS Core | not started | |
 | 8 — FIX / API Bridge | not started | |
 | 9 — Market Data | not started | |
