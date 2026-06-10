@@ -667,10 +667,11 @@ class RouteFsmGeneratedTest {
   }
 
   @Test
-  void test_no_trans_4_12_PENDING_REPLACE_AT_VENUE_RouteFilled() {
+  void test_trans_PENDING_REPLACE_AT_VENUE_RouteFilled_to_FILLED() {
     var ctx = minimalCtx();
     var result = RouteFsmRunner.transition(PENDING_REPLACE_AT_VENUE, RouteFilled, ctx, createRouteFilledPayload());
-    assertTrue(result.isNoTransition(), "Expected no transition for PENDING_REPLACE_AT_VENUE with RouteFilled");
+    assertFalse(result.isNoTransition(), "Expected transition from PENDING_REPLACE_AT_VENUE on RouteFilled");
+    assertEquals(FILLED, result.newState());
   }
 
   @Test
@@ -744,17 +745,19 @@ class RouteFsmGeneratedTest {
   }
 
   @Test
-  void test_no_trans_5_11_PENDING_CANCEL_AT_VENUE_RoutePartiallyFilled() {
+  void test_trans_PENDING_CANCEL_AT_VENUE_RoutePartiallyFilled_to_PENDING_CANCEL_AT_VENUE() {
     var ctx = minimalCtx();
     var result = RouteFsmRunner.transition(PENDING_CANCEL_AT_VENUE, RoutePartiallyFilled, ctx, createRoutePartiallyFilledPayload());
-    assertTrue(result.isNoTransition(), "Expected no transition for PENDING_CANCEL_AT_VENUE with RoutePartiallyFilled");
+    assertFalse(result.isNoTransition(), "Expected transition from PENDING_CANCEL_AT_VENUE on RoutePartiallyFilled");
+    assertEquals(PENDING_CANCEL_AT_VENUE, result.newState());
   }
 
   @Test
-  void test_no_trans_5_12_PENDING_CANCEL_AT_VENUE_RouteFilled() {
+  void test_trans_PENDING_CANCEL_AT_VENUE_RouteFilled_to_FILLED() {
     var ctx = minimalCtx();
     var result = RouteFsmRunner.transition(PENDING_CANCEL_AT_VENUE, RouteFilled, ctx, createRouteFilledPayload());
-    assertTrue(result.isNoTransition(), "Expected no transition for PENDING_CANCEL_AT_VENUE with RouteFilled");
+    assertFalse(result.isNoTransition(), "Expected transition from PENDING_CANCEL_AT_VENUE on RouteFilled");
+    assertEquals(FILLED, result.newState());
   }
 
   @Test

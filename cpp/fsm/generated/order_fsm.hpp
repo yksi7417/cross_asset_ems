@@ -58,8 +58,9 @@ struct OrderFsmContext {
   uint64_t leavesQty{};
   std::string account{};
   uint8_t tif{};
-  uint64_t traceId{};
-  std::string initialOrderId{};
+  std::string initialClOrdId{};
+  std::string chainId{};
+  uint32_t orderVersion{};
   std::optional<std::string> preCancelStatus{};
   std::optional<std::string> preReplaceStatus{};
 };
@@ -130,6 +131,7 @@ inline OrderFsmTransitionResult transition(
       [[maybe_unused]] const auto* p = static_cast<const OrderFsmPayloads::ReplaceRequestedPayload*>(rawPayload);
       auto newCtx = ctx;
       newCtx.preReplaceStatus = "0";
+      newCtx.orderVersion = (ctx.orderVersion + 1);
       return {OrderFsmState::PENDING_REPLACE, newCtx, false};
     }
     case OrderFsmEvent::CancelRequested: {
@@ -183,6 +185,13 @@ inline OrderFsmTransitionResult transition(
       newCtx.leavesQty = (ctx.leavesQty - p->lastQty);
       return {OrderFsmState::PARTIALLY_FILLED, newCtx, false};
     }
+    case OrderFsmEvent::FullFill: {
+      const auto* p = static_cast<const OrderFsmPayloads::FullFillPayload*>(rawPayload);
+      auto newCtx = ctx;
+      newCtx.cumQty = (ctx.cumQty + p->lastQty);
+      newCtx.leavesQty = static_cast<uint64_t>(0);
+      return {OrderFsmState::FILLED, newCtx, false};
+    }
     default:
       return {state, ctx, true};
     }
@@ -192,6 +201,7 @@ inline OrderFsmTransitionResult transition(
       [[maybe_unused]] const auto* p = static_cast<const OrderFsmPayloads::ReplaceRequestedPayload*>(rawPayload);
       auto newCtx = ctx;
       newCtx.preReplaceStatus = "5";
+      newCtx.orderVersion = (ctx.orderVersion + 1);
       return {OrderFsmState::PENDING_REPLACE, newCtx, false};
     }
     case OrderFsmEvent::CancelRequested: {
@@ -234,6 +244,20 @@ inline OrderFsmTransitionResult transition(
         return {OrderFsmState::PARTIALLY_FILLED, ctx, false};
       }
       return {state, ctx, true};
+    }
+    case OrderFsmEvent::PartialFill: {
+      const auto* p = static_cast<const OrderFsmPayloads::PartialFillPayload*>(rawPayload);
+      auto newCtx = ctx;
+      newCtx.cumQty = (ctx.cumQty + p->lastQty);
+      newCtx.leavesQty = (ctx.leavesQty - p->lastQty);
+      return {OrderFsmState::PARTIALLY_FILLED, newCtx, false};
+    }
+    case OrderFsmEvent::FullFill: {
+      const auto* p = static_cast<const OrderFsmPayloads::FullFillPayload*>(rawPayload);
+      auto newCtx = ctx;
+      newCtx.cumQty = (ctx.cumQty + p->lastQty);
+      newCtx.leavesQty = static_cast<uint64_t>(0);
+      return {OrderFsmState::FILLED, newCtx, false};
     }
     default:
       return {state, ctx, true};

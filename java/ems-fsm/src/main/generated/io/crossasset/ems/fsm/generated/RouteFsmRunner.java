@@ -152,6 +152,13 @@ public final class RouteFsmRunner {
             ctx.with(ctx.routeId(), ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.venueMic(), ctx.instrumentId(), ctx.side(), ctx.routeQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), (ctx.leavesQty() - payload.lastQty()), ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus()),
             List.of(new RouteFsmEffect.PublishEventLog("RoutePartiallyFilled"), new RouteFsmEffect.EmitEvent("OrderFsm", "PartialFill")));
         }
+        case RouteFilled -> {
+          var payload = (RouteFsmPayloads.RouteFilledPayload) rawPayload;
+          yield TransitionResult.of(
+            RouteFsmState.FILLED,
+            ctx.with(ctx.routeId(), ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.venueMic(), ctx.instrumentId(), ctx.side(), ctx.routeQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), 0L, ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus()),
+            List.of(new RouteFsmEffect.PublishEventLog("RouteFilled"), new RouteFsmEffect.EmitEvent("OrderFsm", "FullFill")));
+        }
         case RouteSuperseded -> {
           yield TransitionResult.of(
             RouteFsmState.SUPERSEDED,
@@ -188,6 +195,20 @@ public final class RouteFsmRunner {
               List.of(new RouteFsmEffect.PublishEventLog("RouteCancelRejected"), new RouteFsmEffect.EmitEvent("OrderFsm", "CancelRejected")));
           }
           yield TransitionResult.noTransition(state);
+        }
+        case RoutePartiallyFilled -> {
+          var payload = (RouteFsmPayloads.RoutePartiallyFilledPayload) rawPayload;
+          yield TransitionResult.of(
+            RouteFsmState.PENDING_CANCEL_AT_VENUE,
+            ctx.with(ctx.routeId(), ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.venueMic(), ctx.instrumentId(), ctx.side(), ctx.routeQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), (ctx.leavesQty() - payload.lastQty()), ctx.traceId(), ctx.initialOrderId(), "1"),
+            List.of(new RouteFsmEffect.PublishEventLog("RoutePartiallyFilled"), new RouteFsmEffect.EmitEvent("OrderFsm", "PartialFill")));
+        }
+        case RouteFilled -> {
+          var payload = (RouteFsmPayloads.RouteFilledPayload) rawPayload;
+          yield TransitionResult.of(
+            RouteFsmState.FILLED,
+            ctx.with(ctx.routeId(), ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.venueMic(), ctx.instrumentId(), ctx.side(), ctx.routeQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), 0L, ctx.traceId(), ctx.initialOrderId(), ctx.preCancelStatus()),
+            List.of(new RouteFsmEffect.PublishEventLog("RouteFilled"), new RouteFsmEffect.EmitEvent("OrderFsm", "FullFill")));
         }
         case RouteAnomaly -> {
           yield TransitionResult.of(

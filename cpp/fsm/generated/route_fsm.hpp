@@ -186,6 +186,13 @@ inline RouteFsmTransitionResult transition(
       newCtx.leavesQty = (ctx.leavesQty - p->lastQty);
       return {RouteFsmState::PARTIALLY_FILLED, newCtx, false};
     }
+    case RouteFsmEvent::RouteFilled: {
+      const auto* p = static_cast<const RouteFsmPayloads::RouteFilledPayload*>(rawPayload);
+      auto newCtx = ctx;
+      newCtx.cumQty = (ctx.cumQty + p->lastQty);
+      newCtx.leavesQty = static_cast<uint64_t>(0);
+      return {RouteFsmState::FILLED, newCtx, false};
+    }
     case RouteFsmEvent::RouteSuperseded:
       return {RouteFsmState::SUPERSEDED, ctx, false};
     case RouteFsmEvent::RouteAnomaly:
@@ -206,6 +213,21 @@ inline RouteFsmTransitionResult transition(
         return {RouteFsmState::PARTIALLY_FILLED, ctx, false};
       }
       return {state, ctx, true};
+    }
+    case RouteFsmEvent::RoutePartiallyFilled: {
+      const auto* p = static_cast<const RouteFsmPayloads::RoutePartiallyFilledPayload*>(rawPayload);
+      auto newCtx = ctx;
+      newCtx.cumQty = (ctx.cumQty + p->lastQty);
+      newCtx.leavesQty = (ctx.leavesQty - p->lastQty);
+      newCtx.preCancelStatus = "1";
+      return {RouteFsmState::PENDING_CANCEL_AT_VENUE, newCtx, false};
+    }
+    case RouteFsmEvent::RouteFilled: {
+      const auto* p = static_cast<const RouteFsmPayloads::RouteFilledPayload*>(rawPayload);
+      auto newCtx = ctx;
+      newCtx.cumQty = (ctx.cumQty + p->lastQty);
+      newCtx.leavesQty = static_cast<uint64_t>(0);
+      return {RouteFsmState::FILLED, newCtx, false};
     }
     case RouteFsmEvent::RouteAnomaly:
       return {RouteFsmState::ANOMALY, ctx, false};

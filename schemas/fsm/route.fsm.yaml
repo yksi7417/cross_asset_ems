@@ -383,6 +383,53 @@ transitions:
       - kind: emit_event
         args: { target_fsm: "OrderFsm", event: "FullFill" }
 
+  # ── Fill-vs-cancel/replace races (FIX Appendix D) ─────────────────────────
+  # A fill at prior params can print while a cancel or replace is in flight.
+  # The fill always wins; the venue's later 35=9 / replace-confirm is informational.
+
+  # D4: partial fill prints while a cancel is in flight. Self-loop so the eventual
+  # RouteCanceled/RouteCancelRejected response stays reachable; record the fill and
+  # promote pre_cancel_status to "1" so a later cancel-reject restores to PARTIALLY_FILLED.
+  - from: PENDING_CANCEL_AT_VENUE
+    event: RoutePartiallyFilled
+    to: PENDING_CANCEL_AT_VENUE
+    description: Fill at prior params while cancel in-flight; cancel still pending resolution.
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "context.leaves_qty - payload.last_qty", pre_cancel_status: "1" }
+      - kind: publish_event_log
+        args: { event: "RoutePartiallyFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "PartialFill" }
+
+  # D4/D5: full fill wins over an in-flight cancel — "too late to cancel". Route is
+  # terminal Filled; the venue's later 35=9 OrderCancelReject is informational.
+  - from: PENDING_CANCEL_AT_VENUE
+    event: RouteFilled
+    to: FILLED
+    description: Full fill wins over in-flight cancel; route terminal, cancel-reject informational.
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "0" }
+      - kind: publish_event_log
+        args: { event: "RouteFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "FullFill" }
+
+  # D7/D10: full fill at prior params completes the route while a replace is in flight.
+  # Fill wins; route is terminal Filled; the venue's later replace confirm/reject is moot.
+  - from: PENDING_REPLACE_AT_VENUE
+    event: RouteFilled
+    to: FILLED
+    description: Full fill wins over in-flight replace; route terminal, replace response moot.
+    effects:
+      - kind: update_context
+        args: { cum_qty: "context.cum_qty + payload.last_qty", leaves_qty: "0" }
+      - kind: publish_event_log
+        args: { event: "RouteFilled" }
+      - kind: emit_event
+        args: { target_fsm: "OrderFsm", event: "FullFill" }
+
   # ── Expiry ────────────────────────────────────────────────────────────────
   - from: WORKING
     event: RouteExpired
