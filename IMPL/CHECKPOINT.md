@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 7.8 — Lifecycle chaining e2e test: InMemoryRouteManager.cascadeOrderCancel() + LifecycleChainingTest covering full-fill, partial+full, cancel cascades, route rejection, multi-route aggregation, replace. Also fixed FullFill→PartialFill downgrade on order FSM when multi-route order isn't fully done.
-- **Last commit (main):** `feat(7.8): lifecycle chaining -- cancel cascades, multi-route fill aggregation`
-- **Last commit sha (main):** `bc1b34e`
-- **Tasks merged/marked this session:** 7.2 done `6b9163c`, 7.8 done `bc1b34e`
+- **Last completed task:** 7.3 — Automation Layer: AutomationEngine interface + InMemoryAutomationEngine, pure side-effect-free rule evaluation returning RuleFiringDecision (Fired|Skipped). Rules scoped FIRM/DESK/USER/TAG, priority-ordered, condition-predicate gated. Actions: RouteOrders|CancelRoute|SetPendingActionDone|MarkOrderReady. 16 tests all green.
+- **Last commit (main):** `feat(7.3): Automation Layer -- rule engine, bind/unbind/evaluate`
+- **Last commit sha (main):** `0149917`
+- **Tasks merged/marked this session:** 7.2 done `6b9163c`, 7.8 done `bc1b34e`, 7.3 done `0149917`
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-10
-- **Next task:** **7.3** Automation Layer (sonnet) — unblocked by 7.1 [x] + 7.2 [x]. Or **7.5/7.6** (all unblocked).
-- **Total progress:** **72 of 144 tasks [x]** (50.0%). Phase 7 partial: 7.1, 7.2, 7.8 [x]; 7.3–7.7 pending.
+- **Next task:** **7.4** Multi-leg/Package handling (sonnet) or **7.5** Aggregation service (sonnet) — both unblocked.
+- **Total progress:** **73 of 144 tasks [x]** (50.7%). Phase 7 partial: 7.1, 7.2, 7.3, 7.8 [x]; 7.4–7.7 pending.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -43,7 +43,7 @@ The loop appends a one-line entry per session.
 | 2026-06-09 | 2026-06-09 | phase goal: complete Phase 5 | 5 (5.1–5.5 all committed) | 5.1 `66a79c7`, 5.2 `4316e34`, 5.3 `2aa7528`, 5.4 `dac894d`, 5.5 `ff8d71c` | Phase 5 complete; next = 4.12/4.14/4.17 |
 | 2026-06-09 | 2026-06-09 | phase goal: complete Phase 6 | 4 (6.2 impl + annotate, 6.3 impl + annotate) | 6.2 `b099d4a`, 6.3 `b80b305` | Phase 6 partial (6.4 [~] locked); next = 4.12/4.14/4.17 or 7.1 |
 | 2026-06-09 | 2026-06-09 | phase goal: complete Phase 7 | 1 (7.1 staged order manager) | 7.1 `8de5bab` | Phase 7 started; next = 7.2 Router Layer |
-| 2026-06-10 | 2026-06-10 | phase goal: complete Phases 7/8/9 | 2 (7.2 router layer, 7.8 lifecycle e2e) | 7.2 `6b9163c`, 7.8 `bc1b34e` | Phase 7 continued; next = 7.3 Automation Layer |
+| 2026-06-10 | 2026-06-10 | phase goal: complete Phases 7/8/9 | 3 (7.2 router layer, 7.8 lifecycle e2e, 7.3 automation layer) | 7.2 `6b9163c`, 7.8 `bc1b34e`, 7.3 `0149917` | Phase 7 continued; next = 7.4/7.5 |
 
 ## Phase progress
 
