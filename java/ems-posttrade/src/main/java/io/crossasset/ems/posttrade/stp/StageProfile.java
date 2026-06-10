@@ -35,4 +35,54 @@ public record StageProfile(String assetClass, List<Stage> downstreamStages) {
     return new StageProfile(
         "CASH_EQUITY", List.of(Stage.SETTLEMENT_INSTRUCTION, Stage.BOOKS_AND_RECORDS));
   }
+
+  /** US equity: allocation → SI (DTC) → CAT reporting → B&R. */
+  public static StageProfile usEquity() {
+    return new StageProfile(
+        "US_EQUITY",
+        List.of(Stage.SETTLEMENT_INSTRUCTION, Stage.REGULATORY_REPORTING, Stage.BOOKS_AND_RECORDS));
+  }
+
+  /** Preferred shares: confirmed and reported like a hybrid — conf → SI → reporting → B&R. */
+  public static StageProfile preferred() {
+    return new StageProfile(
+        "PREFERRED",
+        List.of(
+            Stage.CONFIRMATION,
+            Stage.SETTLEMENT_INSTRUCTION,
+            Stage.REGULATORY_REPORTING,
+            Stage.BOOKS_AND_RECORDS));
+  }
+
+  /** Treasury: allocation → SI (FICC) → TRACE reporting → B&R. */
+  public static StageProfile treasury() {
+    return new StageProfile(
+        "TREASURY",
+        List.of(Stage.SETTLEMENT_INSTRUCTION, Stage.REGULATORY_REPORTING, Stage.BOOKS_AND_RECORDS));
+  }
+
+  /** Listed futures &amp; options: allocation → SI (clearing) → CFTC/CAT reporting → B&R. */
+  public static StageProfile listedDerivative() {
+    return new StageProfile(
+        "LISTED_FUT_OPT",
+        List.of(Stage.SETTLEMENT_INSTRUCTION, Stage.REGULATORY_REPORTING, Stage.BOOKS_AND_RECORDS));
+  }
+
+  /** FX spot: allocation → confirmation → SI (bilateral) → B&R (no transaction reporting). */
+  public static StageProfile fxSpot() {
+    return new StageProfile(
+        "FX_SPOT",
+        List.of(Stage.CONFIRMATION, Stage.SETTLEMENT_INSTRUCTION, Stage.BOOKS_AND_RECORDS));
+  }
+
+  /** FX forward: allocation → confirmation → SI → CFTC SDR reporting → B&R. */
+  public static StageProfile fxForward() {
+    return new StageProfile(
+        "FX_FORWARD",
+        List.of(
+            Stage.CONFIRMATION,
+            Stage.SETTLEMENT_INSTRUCTION,
+            Stage.REGULATORY_REPORTING,
+            Stage.BOOKS_AND_RECORDS));
+  }
 }

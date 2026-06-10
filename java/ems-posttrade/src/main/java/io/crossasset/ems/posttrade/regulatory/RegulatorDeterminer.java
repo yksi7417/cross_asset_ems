@@ -44,4 +44,24 @@ public final class RegulatorDeterminer {
             t -> "US".equals(t.jurisdiction()) && "CORP_BOND".equals(t.assetClass()),
             Regulator.TRACE);
   }
+
+  /**
+   * Cross-asset US matrix (Phase 16): maps each coverage label to its primary regulator —
+   * corp/treasury → TRACE, equity/preferred → FINRA CAT, listed fut/opt and FX forward → CFTC SDR.
+   * FX spot has no transaction-reporting obligation, so it matches no rule.
+   */
+  public static RegulatorDeterminer crossAssetUs() {
+    // Keyed on the Phase 16 Coverage label names (ReportableTrade.assetClass() == Coverage.name()).
+    return new RegulatorDeterminer()
+        .addRule(us("US_IG_CORP"), Regulator.TRACE)
+        .addRule(us("TREASURY"), Regulator.TRACE)
+        .addRule(us("US_EQUITY"), Regulator.FINRA_CAT)
+        .addRule(us("PREFERRED"), Regulator.FINRA_CAT)
+        .addRule(us("LISTED_FUT_OPT"), Regulator.CFTC_SDR)
+        .addRule(us("FX_FORWARD"), Regulator.CFTC_SDR);
+  }
+
+  private static java.util.function.Predicate<ReportableTrade> us(String coverage) {
+    return t -> "US".equals(t.jurisdiction()) && coverage.equals(t.assetClass());
+  }
 }

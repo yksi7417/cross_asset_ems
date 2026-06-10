@@ -20,4 +20,9 @@ public record MatchTolerance(long priceTolerance, long qtyTolerance, long accrue
   public static MatchTolerance corpBond(long halfTick, long accruedDelta) {
     return new MatchTolerance(halfTick, 0, accruedDelta);
   }
+
+  /** FX: rate within a configured number of pips; qty exact; no accrued. */
+  public static MatchTolerance fx(long pips) {
+    return new MatchTolerance(pips, 0, 0);
+  }
 }
