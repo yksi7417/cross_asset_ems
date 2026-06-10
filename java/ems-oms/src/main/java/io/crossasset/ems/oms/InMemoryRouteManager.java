@@ -222,6 +222,18 @@ public final class InMemoryRouteManager implements RouteManager {
     return result;
   }
 
+  @Override
+  public List<RouteEventResult> cascadeOrderCancel(String orderId) {
+    List<RouteEventResult> results = new ArrayList<>();
+    for (Route route : findRoutesForOrder(orderId)) {
+      if (!route.isTerminal()) {
+        results.add(
+            applyEvent(route.routeId(), RouteFsmEvent.RouteCancelRequested, null, null, null));
+      }
+    }
+    return results;
+  }
+
   private RouteEventResult applyEvent(
       String routeId,
       RouteFsmEvent event,
@@ -279,8 +291,11 @@ public final class InMemoryRouteManager implements RouteManager {
         payload = fillPayload;
       }
       case "FullFill" -> {
-        orderEvent = OrderFsmEvent.FullFill;
-        payload = fillPayload;
+        // A RouteFilled event means this route is done, but the order may still have
+        // remaining quantity on other open routes. Downgrade to PartialFill if the
+        // order's cumQty + this fill does not yet reach the order's total qty.
+        orderEvent = resolveOrderFillEvent(orderId, fillPayload);
+        payload = toOrderFillPayload(orderEvent, fillPayload);
       }
       case "OrderExpired" -> orderEvent = OrderFsmEvent.OrderExpired;
       case "ReplaceAccepted" -> orderEvent = OrderFsmEvent.ReplaceAccepted;
@@ -301,5 +316,23 @@ public final class InMemoryRouteManager implements RouteManager {
       }
     }
     som.applyOrderFsmEvent(orderId, orderEvent, payload);
+  }
+
+  private OrderFsmEvent resolveOrderFillEvent(String orderId, @Nullable Object fillPayload) {
+    if (!(fillPayload instanceof OrderFsmPayloads.FullFillPayload fp)) {
+      return OrderFsmEvent.FullFill;
+    }
+    return som.findOrder(orderId)
+        .filter(o -> o.fsmContext().cumQty() + fp.lastQty() >= o.fsmContext().orderQty())
+        .map(o -> OrderFsmEvent.FullFill)
+        .orElse(OrderFsmEvent.PartialFill);
+  }
+
+  private Object toOrderFillPayload(OrderFsmEvent event, @Nullable Object fillPayload) {
+    if (event == OrderFsmEvent.PartialFill
+        && fillPayload instanceof OrderFsmPayloads.FullFillPayload fp) {
+      return new OrderFsmPayloads.PartialFillPayload(fp.lastQty(), fp.lastPx(), fp.execId());
+    }
+    return fillPayload;
   }
 }

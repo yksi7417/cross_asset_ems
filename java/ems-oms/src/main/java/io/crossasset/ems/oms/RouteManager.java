@@ -102,4 +102,11 @@ public interface RouteManager {
 
   /** Returns all routes for the given orderId (including terminal routes). */
   List<Route> findRoutesForOrder(String orderId);
+
+  /**
+   * Fires RouteCancelRequested on every non-terminal route for the given order. Called by the
+   * orchestrator after an order-level cancel so that venue-side cancels are dispatched in lockstep.
+   * The returned list contains one result per route; callers should check for rejections.
+   */
+  List<RouteEventResult> cascadeOrderCancel(String orderId);
 }
