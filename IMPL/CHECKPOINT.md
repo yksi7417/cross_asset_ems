@@ -18,7 +18,8 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 - **Last updated:** 2026-06-10
 - **MVP v0 track:** **11 of 11 [MVP] tasks [x]** ✅. **Phase 16 (cross-asset): 3 of 3 [x]** ✅.
 - **Active goal (set 2026-06-10): v1 build-out, no delegation.** Complete the tasks that were `[ ]` in Phases 7, 8, 9, 10, 14, plus **11.15** FIX venue simulator → **15.2** FIX-wire end-to-end smoke, then **Phase 17** usage docs. Fable (Claude Code) executes every task directly — goal text in [[LOOP]]. Carry-over intent folded in: 15.2 should drive the **real router + AAA-backed validator** path (replace the smokes' direct venue submit / permissive validator) and pull post-trade services off in-memory stubs where the flow demands it.
-- **Next task:** **7.4** Multi-leg / Package handling (blockers 1.4, 7.2 are `[x]`).
+- **Next task:** **7.5** Aggregation service (← 7.1 `[x]`). Then 7.6 FX netting to close Phase 7.
+- **v1 build-out progress:** 7.4 `535b37c` (multi-leg manager: child-order legs on Route FSM, mode guards, SEQUENCED gating, AON cascade; 22 tests).
 - **Total progress:** **95 of 174 tasks [x]** (54.6%). MVP v0 + Phase 16 cross-asset complete. (Corrected 2026-06-10: previous "88 of 144" was a stale count; 23 tasks added by the loop-rework + buyer-gap analysis: 11.15–11.17, 12.12–12.16, 15.2, 17.1–17.3, 18.1–18.11.)
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 

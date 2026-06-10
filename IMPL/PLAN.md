@@ -210,7 +210,7 @@ The order/route layers. ~3-4 weeks.
 - [x] **7.1** Staged Order Manager per [[arch-order-staged]] (sonnet) ← blocks: 1.2, 4.19, 6.2 `(8de5bab)`
 - [x] **7.2** Router Layer per [[arch-router-layer]] (sonnet) ← blocks: 1.3, 7.1 (6b9163c)
 - [x] **7.3** Automation Layer per [[arch-automation-layer]] (sonnet) ← blocks: 7.1, 7.2 (0149917)
-- [~] **7.4** Multi-leg / Package handling per [[arch-multileg]] (sonnet) ← blocks: 1.4, 7.2
+- [x] **7.4** Multi-leg / Package handling per [[arch-multileg]] (sonnet) ← blocks: 1.4, 7.2 `(535b37c)`
 - [ ] **7.5** Aggregation service per [[arch-aggregation]] (sonnet) ← blocks: 7.1
 - [ ] **7.6** FX netting per [[arch-fx-netting]] (sonnet) ← blocks: 7.1
 - [x] **7.7** FIX Appendix D race-condition golden tests (opus — silent-race correctness) ← blocks: 7.2, 1.10 (9e90812)
