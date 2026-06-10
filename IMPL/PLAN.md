@@ -272,7 +272,7 @@ STP and reporting. ~3-4 weeks.
 - [x] **[MVP] 12.3** Confirmation/Affirmation per [[arch-confirmation-affirmation]] (sonnet) ← blocks: 12.2 `(b218e63)`
 - [ ] **12.4** [[markitserv]] integration (sonnet) ← blocks: 12.3
 - [x] **[MVP] 12.5** Regulatory reporting per [[arch-regulatory-reporting-service]] (sonnet) `(51e1713)`
-- [ ] **[MVP] 12.6** [[trace]] submission — **v0: mock submission** (sonnet) ← blocks: 12.5
+- [x] **[MVP] 12.6** [[trace]] submission — **v0: mock submission** (sonnet) ← blocks: 12.5 `(39a9a88)`
 - [ ] **12.7** [[msrb-rtrs]] submission (sonnet) ← blocks: 12.5
 - [ ] **12.8** [[cftc-sdr]] submission (sonnet) ← blocks: 12.5
 - [ ] **12.9** [[rts-22-27-28|RTS 22]] submission (sonnet) ← blocks: 12.5

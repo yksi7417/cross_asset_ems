@@ -8,16 +8,16 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 12.5 — Regulatory reporting service (MVP Track C). `RegulatorDeterminer` matrix (US corp bond→TRACE); `ReportingProfile` (required fields, deadline, retry, amendment protocol); required-field validation→`RegReportDeferred`; lifecycle Triggered→Built→Submitted→Acked/Nacked→Retrying→Failed; `amend()` void-and-replace; `RegulatorAdapter` SPI for 12.6 to plug TRACE-mock. Event-sourced, deterministic. `RegulatoryReportingService` + `InMemoryRegulatoryReportingService`. 6 tests green.
-- **Last commit (main):** `feat(12.5): regulatory reporting service (MVP Track C)`
-- **Last commit sha (main):** `51e1713`
-- **Tasks merged/marked this session:** 8.1 `b3aa7ab`, 12.1 `31911bb`, 12.2 `bc92f1c`, 12.3 `b218e63`, 12.5 `51e1713` (Opus). Prior MVP session: 8.9 `981c33d`, 11.1 `1d95436`, 11.2 `7bb2739`; 7.7 `9e90812`.
+- **Last completed task:** 12.6 — TRACE-mock submission (MVP Track C). `TraceMockAdapter` implements 12.5's `RegulatorAdapter` SPI (deterministic FIX-TRACE payload, mock ack, no wire; acking/rejecting variants); `RegulatoryStageHandler` bridges 12.5/12.6 into 12.2's STP as the REGULATORY_REPORTING stage (COMPLETE all-acked / ANOMALY failed-or-deferred / NOT_REQUIRED no-regulator). Completes the post-trade tail (allocation→confirmation→TRACE-mock). 6 tests green.
+- **Last commit (main):** `feat(12.6): TRACE-mock submission + STP regulatory stage (MVP Track C)`
+- **Last commit sha (main):** `39a9a88`
+- **Tasks merged/marked this session:** 8.1 `b3aa7ab`, 12.1 `31911bb`, 12.2 `bc92f1c`, 12.3 `b218e63`, 12.5 `51e1713`, 12.6 `39a9a88` (Opus). Prior MVP session: 8.9 `981c33d`, 11.1 `1d95436`, 11.2 `7bb2739`; 7.7 `9e90812`.
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-10
-- **MVP v0 track:** 11 [MVP] tasks. Done: **8.9, 11.1, 11.2, 8.1, 12.1, 12.2, 12.3, 12.5**. Next buildable: **12.6** (TRACE-mock ← 12.5), **13.5** (distributed-trace verify ← 8.1+11.2). 15.1 waits on 12.6/13.5.
-- **Next task:** **12.6** TRACE-mock submission (TRACE `RegulatorAdapter` + STP `REGULATORY_REPORTING` handler); then **13.5** trace verify; **15.1** end-to-end smoke last.
-- **Total progress:** **82 of 144 tasks [x]** (56.9%). MVP v0: 8 of 11 done (8.9, 11.1, 11.2, 8.1, 12.1, 12.2, 12.3, 12.5).
+- **MVP v0 track:** 11 [MVP] tasks. Done: **8.9, 11.1, 11.2, 8.1, 12.1, 12.2, 12.3, 12.5, 12.6**. Next buildable: **13.5** (distributed-trace verify ← 8.1+11.2). **15.1** (end-to-end smoke) ← 8.1, 11.2, 12.3, 12.6, 13.5 — only 13.5 remains before it.
+- **Next task:** **13.5** Distributed-trace verification (single trace ID FIX-in → venue-out); then **15.1** end-to-end MVP smoke + replay-determinism — the final v0 gate.
+- **Total progress:** **83 of 144 tasks [x]** (57.6%). MVP v0: 9 of 11 done; only 13.5 + 15.1 remain.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
