@@ -313,6 +313,19 @@ The v0 done-criteria, made executable. ~1 week.
 
 > **🚀 MVP v0 COMPLETE (2026-06-10).** All 11 [MVP]-tagged tasks are `[x]`. The end-to-end smoke (`MvpSmokeTest` in `ems-it`) drives FIX NewOrderSingle → validator → staged → mock MarketAxess → fill → allocation → confirmation → TRACE-mock with a single trace ID and byte-identical replay. See [v1 scope](#what-v1-looks-like) for what's next.
 
+## Phase 16 — Cross-asset coverage (v1)
+
+Enrich coverage beyond the single v0 corp-bond path: drive **US equity, preferred shares,
+treasury, listed futures & options, FX spot, and FX forward** end-to-end through the existing
+post-trade services. Each asset class gets a post-trade profile (STP stage set, confirmation
+tolerance, applicable regulators, allocation lot size) keyed on the canonical
+`InstrumentCore.AssetClass`, plus an end-to-end smoke proving it flows with a single trace ID and
+byte-identical replay. Builds directly on 12.1–12.6, 13.5, 15.1.
+
+- [x] **16.1** Cross-asset post-trade profile registry: per-`AssetClass` `StageProfile` + confirmation `MatchTolerance` + `RegulatorDeterminer.crossAssetUs()` (equity→CAT, treasury→TRACE, fut/opt→CFTC, FX-fwd→CFTC SDR, FX-spot→none) (sonnet) ← blocks: 12.2, 12.3, 12.5 `(e3dde05)`
+- [ ] **16.2** Asset-class allocation precision (lot sizing: equity/options whole units, FI $1k denomination, FX 10k min-notional) (sonnet) ← blocks: 12.1, 16.1
+- [ ] **16.3** Cross-asset end-to-end smoke: US equity, preferred, treasury, listed fut/opt, FX spot, FX forward each through allocation→STP→confirmation→reporting, asserting single trace ID + byte-identical replay (sonnet) ← blocks: 16.1, 16.2, 15.1
+
 ## Done criteria for v0 (MVP)
 
 All **[MVP]**-tagged tasks marked `[x]` (the [MVP v0 critical path](#mvp-v0-critical-path) — **not** all of phases 0–14; the rest is post-MVP). Concretely:
