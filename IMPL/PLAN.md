@@ -222,8 +222,8 @@ External edges. ~2-3 weeks.
 
 - [x] **[MVP] 8.1** FIX gateway (client-facing: inbound NewOrderSingle + outbound ExecutionReports to buy-side clients) per [[arch-fix-api-bridge]] — rides the same resumable session channel as the API surface (one session layer, both surfaces) (sonnet) ← blocks: 8.9 `(b3aa7ab)`
   - **8.9 consumer contracts** (from 8.9 review): (1) reconnect must call **both** `logon` (inbound gap reconcile) **and** `resumeOutbound` (outbound replay) — `logon` alone leaves the client missing server-sent messages; (2) if `resumeOutbound`'s first returned seq > requested `fromSeq`, the buffer evicted the hole → issue **RESET** (EMS-SES catastrophic mismatch), do not silently resume over the gap; (3) `checkLiveness` re-returns `SEND_TEST_REQUEST` every poll in the `[interval, 2·interval)` window — the heartbeat driver must send **one** TEST_REQUEST then wait, not poll-and-send.
-- [~] **8.2** FIX gateway out (outbound to venues) (sonnet) ← blocks: 8.1
-- [ ] **8.3** Tag 9700 (TraceparentHex) propagation and fallback (sonnet) ← blocks: 8.1, 5.4
+- [x] **8.2** FIX gateway out (outbound to venues) (sonnet) ← blocks: 8.1 `(7014bea)`
+- [~] **8.3** Tag 9700 (TraceparentHex) propagation and fallback (sonnet) ← blocks: 8.1, 5.4
 - [ ] **8.4** API session surface — request/response + publish/subscribe operation API (Session/Service/Request/Subscription/Event) over the AAA-authenticated session channel; native client handshake. **Not REST-specific** — REST/WS is one edge binding (8.10). Per [[arch-api-first]] (sonnet) ← blocks: 7.1, 5.1, 8.9
 - [ ] **8.5** Batch operation semantics (all-or-nothing, partial) (sonnet) ← blocks: 8.4
 - [ ] **8.6** Excel/CSV bulk import per [[arch-bulk-io]] (gemma for parsers) ← blocks: 8.4
