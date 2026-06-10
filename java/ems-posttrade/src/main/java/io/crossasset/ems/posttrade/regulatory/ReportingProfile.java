@@ -30,6 +30,21 @@ public record ReportingProfile(
   }
 
   /**
+   * A minimal profile for any regulator (Phase 16 cross-asset mocks): a small required-field set
+   * (side/qty/price), 3 retries, void-and-replace. Real per-regulator field sets are reference
+   * data.
+   */
+  public static ReportingProfile mock(Regulator regulator) {
+    return new ReportingProfile(
+        regulator,
+        "MOCK",
+        15 * 60 * 1000L,
+        List.of("side", "qty", "price"),
+        3,
+        AmendmentProtocol.VOID_AND_REPLACE);
+  }
+
+  /**
    * TRACE for IG corp bonds: FIX TRACE dialect, 15-minute deadline, void-and-replace amendments,
    * and the TRACE required-field set (per arch § Required-field validation).
    */
