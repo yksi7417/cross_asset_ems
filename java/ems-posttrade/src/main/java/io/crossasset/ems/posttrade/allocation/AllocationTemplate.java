@@ -21,23 +21,38 @@ public record AllocationTemplate(
     AllocationPolicy policy,
     RoundingPolicy rounding,
     List<AccountShare> shares,
-    boolean deferred) {
+    boolean deferred,
+    long lotSize) {
 
   public AllocationTemplate {
     Objects.requireNonNull(templateId, "templateId");
     Objects.requireNonNull(policy, "policy");
     Objects.requireNonNull(rounding, "rounding");
     shares = shares == null ? List.of() : List.copyOf(shares);
+    if (lotSize < 1) {
+      throw new IllegalArgumentException("lotSize must be >= 1");
+    }
   }
 
-  /** A concrete (non-deferred) template. */
+  /** A concrete (non-deferred) template with whole-unit (lotSize=1) allocation. */
   public static AllocationTemplate of(
       String templateId,
       long version,
       AllocationPolicy policy,
       RoundingPolicy rounding,
       List<AccountShare> shares) {
-    return new AllocationTemplate(templateId, version, policy, rounding, shares, false);
+    return new AllocationTemplate(templateId, version, policy, rounding, shares, false, 1L);
+  }
+
+  /** A concrete template with an asset-class lot size (e.g. 10000 for FX, 1000 for bonds). */
+  public static AllocationTemplate of(
+      String templateId,
+      long version,
+      AllocationPolicy policy,
+      RoundingPolicy rounding,
+      List<AccountShare> shares,
+      long lotSize) {
+    return new AllocationTemplate(templateId, version, policy, rounding, shares, false, lotSize);
   }
 
   /** A deferred (block-now-allocate-later) template with no shares yet. */
@@ -48,7 +63,8 @@ public record AllocationTemplate(
         AllocationPolicy.PRO_RATA,
         RoundingPolicy.DISTRIBUTE_RESIDUAL,
         List.of(),
-        true);
+        true,
+        1L);
   }
 
   /** Total of all account weights in basis points; should be 10000 for a well-formed template. */

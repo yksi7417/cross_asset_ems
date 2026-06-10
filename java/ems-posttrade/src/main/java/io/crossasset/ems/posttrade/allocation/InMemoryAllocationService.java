@@ -118,7 +118,8 @@ public final class InMemoryAllocationService implements AllocationService {
     }
 
     List<AllocationSplitter.Slice> slices =
-        AllocationSplitter.split(fill.qty(), template.shares(), template.rounding());
+        AllocationSplitter.split(
+            fill.qty(), template.shares(), template.rounding(), template.lotSize());
     List<AllocationApplied> applied = new ArrayList<>(slices.size());
     for (AllocationSplitter.Slice slice : slices) {
       AccountShare share = slice.share();

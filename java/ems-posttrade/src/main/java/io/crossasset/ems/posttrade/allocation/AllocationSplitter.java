@@ -24,6 +24,26 @@ final class AllocationSplitter {
   record Slice(AccountShare share, long qty) {}
 
   /**
+   * Lot-aware split: allocate in whole {@code lotSize} units (1 share/contract, $1000 bond face,
+   * 10k FX notional, …) per the asset-class profile. The fill is divided into {@code totalQty /
+   * lotSize} lots, split across the accounts, then scaled back to quantity; any odd-lot remainder
+   * ({@code totalQty % lotSize}) stays unallocated. A {@code lotSize <= 1} is the plain split.
+   */
+  static List<Slice> split(
+      long totalQty, List<AccountShare> shares, RoundingPolicy rounding, long lotSize) {
+    if (lotSize <= 1) {
+      return split(totalQty, shares, rounding);
+    }
+    long lots = totalQty / lotSize;
+    List<Slice> lotSlices = split(lots, shares, rounding);
+    List<Slice> scaled = new ArrayList<>(lotSlices.size());
+    for (Slice slice : lotSlices) {
+      scaled.add(new Slice(slice.share(), slice.qty() * lotSize));
+    }
+    return scaled;
+  }
+
+  /**
    * Split {@code totalQty} across {@code shares}. The returned slices are in the same order as the
    * input shares. Slices with zero quantity are retained (a zero allocation is still a decision).
    */
