@@ -20,6 +20,28 @@ The loop protocol is in [[LOOP]]. Current cursor + open WIP branches in [[CHECKP
 
 ---
 
+## MVP v0 critical path
+
+The minimal set to hit the [v0 done-criteria](#done-criteria-for-v0-mvp): a FIX order through
+validate → stage → route (**1 mock venue**) → fill → allocate → confirm → TRACE-mock, with a single
+trace ID end-to-end, replay-deterministic. The core (Phases 0–7) is already done; only the two edges
+(client-FIX, one mock venue) and the post-trade tail remain. Tasks on this path are tagged **[MVP]**
+inline below; everything else is post-MVP.
+
+Ordered, with parallel tracks (✅ = buildable now, blockers met):
+
+- **A — Client edge (FIX + session):** **8.9** ✅ → **8.1**
+- **B — One mock venue:** **11.1** ✅ → **11.2** (implement as in-process mock for v0)
+- **C — Post-trade tail:** **12.1** ✅ → **12.2** → **12.3** ; **12.5** ✅ → **12.6**
+- **D — Verification:** **13.5** (← A+B) → **15.1** (end-to-end smoke + 1-day replay slice)
+
+A/B/C run in parallel; D ties them together. **Deferred for v0** (per scoping decision 2026-06-09):
+8.2, 8.3, 8.4–8.8, 8.10–8.11; all of Phase 9 & 10; venues 11.3–11.14; 12.4, 12.7–12.11; 7.4–7.6;
+exotic instrument templates 4.12/4.14/4.17; and 6.4 per-asset bond rules (core validator suffices
+for the smoke order).
+
+---
+
 ## Open WIP branches (weaker-model drafts in flight)
 
 Four local branches hold draft work for the `[~]` tasks below. They predate the
@@ -185,7 +207,7 @@ The order/route layers. ~3-4 weeks.
 
 External edges. ~2-3 weeks.
 
-- [ ] **8.1** FIX gateway in (inbound from buy-side clients) per [[arch-fix-api-bridge]] — rides the same resumable session channel as the API surface (one session layer, both surfaces) (sonnet) ← blocks: 8.9
+- [ ] **[MVP] 8.1** FIX gateway (client-facing: inbound NewOrderSingle + outbound ExecutionReports to buy-side clients) per [[arch-fix-api-bridge]] — rides the same resumable session channel as the API surface (one session layer, both surfaces) (sonnet) ← blocks: 8.9
 - [ ] **8.2** FIX gateway out (outbound to venues) (sonnet) ← blocks: 8.1
 - [ ] **8.3** Tag 9700 (TraceparentHex) propagation and fallback (sonnet) ← blocks: 8.1, 5.4
 - [ ] **8.4** API session surface — request/response + publish/subscribe operation API (Session/Service/Request/Subscription/Event) over the AAA-authenticated session channel; native client handshake. **Not REST-specific** — REST/WS is one edge binding (8.10). Per [[arch-api-first]] (sonnet) ← blocks: 7.1, 5.1, 8.9
@@ -193,7 +215,7 @@ External edges. ~2-3 weeks.
 - [ ] **8.6** Excel/CSV bulk import per [[arch-bulk-io]] (gemma for parsers) ← blocks: 8.4
 - [ ] **8.7** Excel/CSV bulk export with templates (gemma) ← blocks: 8.4
 - [ ] **8.8** Idempotent re-import test (sonnet) ← blocks: 8.6
-- [ ] **8.9** Resumable session channel — heartbeat/TEST_REQUEST, outbound resend buffer, resume-from-seq, per-hop seq dedup; completes the `SequenceRecoveryService` skeleton per [[arch-sequence-recovery]] (sonnet) ← blocks: 5.1, 2.3
+- [ ] **[MVP] 8.9** Resumable session channel — heartbeat/TEST_REQUEST, outbound resend buffer, resume-from-seq, per-hop seq dedup; completes the `SequenceRecoveryService` skeleton per [[arch-sequence-recovery]] (sonnet) ← blocks: 5.1, 2.3
 - [ ] **8.10** REST/WebSocket edge binding for browser UI — maps HTTP/WS onto the API session surface; WS carries the resumable subscription stream (`Last-Event-ID`/seq resume) per [[arch-api-first]] (gemma for REST scaffold, sonnet for WS resume) ← blocks: 8.4
 - [ ] **8.11** Multi-surface consistent-view parity test — same operation via FIX / native API / REST-WS yields byte-identical events + identical projection; anchored to the [[arch-fix-api-bridge]] mixed-client rule (sonnet) ← blocks: 8.1, 8.4, 8.10
 
@@ -225,8 +247,8 @@ Block-with-override + position-aware. ~3-4 weeks.
 
 Outbound to the market. ~4-6 weeks.
 
-- [ ] **11.1** Venue adapter framework per [[arch-venue-connectivity]] (sonnet)
-- [ ] **11.2** [[marketaxess]] FIX adapter (gemma for boilerplate, sonnet for nuances)
+- [ ] **[MVP] 11.1** Venue adapter framework per [[arch-venue-connectivity]] (sonnet)
+- [ ] **[MVP] 11.2** [[marketaxess]] FIX adapter — **v0: implement as in-process mock** (accepts routes, emits fills; no real wire) (gemma for boilerplate, sonnet for nuances) ← blocks: 11.1
 - [ ] **11.3** [[tradeweb]] FIX adapter (gemma for boilerplate, sonnet)
 - [ ] **11.4** [[brokertec]] FIX adapter (gemma for boilerplate, sonnet)
 - [ ] **11.5** [[ebs]] FIX adapter (gemma for boilerplate, sonnet)
@@ -244,12 +266,12 @@ Outbound to the market. ~4-6 weeks.
 
 STP and reporting. ~3-4 weeks.
 
-- [ ] **12.1** Allocation service per [[arch-allocation-service]] (sonnet)
-- [ ] **12.2** STP pipeline per [[arch-stp-pipeline]] (sonnet) ← blocks: 12.1
-- [ ] **12.3** Confirmation/Affirmation per [[arch-confirmation-affirmation]] (sonnet) ← blocks: 12.2
+- [ ] **[MVP] 12.1** Allocation service per [[arch-allocation-service]] (sonnet)
+- [ ] **[MVP] 12.2** STP pipeline per [[arch-stp-pipeline]] (sonnet) ← blocks: 12.1
+- [ ] **[MVP] 12.3** Confirmation/Affirmation per [[arch-confirmation-affirmation]] (sonnet) ← blocks: 12.2
 - [ ] **12.4** [[markitserv]] integration (sonnet) ← blocks: 12.3
-- [ ] **12.5** Regulatory reporting per [[arch-regulatory-reporting-service]] (sonnet)
-- [ ] **12.6** [[trace]] submission (sonnet) ← blocks: 12.5
+- [ ] **[MVP] 12.5** Regulatory reporting per [[arch-regulatory-reporting-service]] (sonnet)
+- [ ] **[MVP] 12.6** [[trace]] submission — **v0: mock submission** (sonnet) ← blocks: 12.5
 - [ ] **12.7** [[msrb-rtrs]] submission (sonnet) ← blocks: 12.5
 - [ ] **12.8** [[cftc-sdr]] submission (sonnet) ← blocks: 12.5
 - [ ] **12.9** [[rts-22-27-28|RTS 22]] submission (sonnet) ← blocks: 12.5
@@ -264,7 +286,7 @@ Three pillars. ~1-2 weeks.
 - [x] **13.2** ELK / OpenSearch ingest pipeline (gemma) `(6c9601c)`
 - [x] **13.3** Prometheus exporters per service (gemma) `(6c9601c)`
 - [~] **13.4** Grafana dashboards: golden signals + per-asset latency (gemma for templates, sonnet for design) — scaffold at 9/9/6 panels; targets 24/12/12; needs sonnet follow-up pass
-- [ ] **13.5** Distributed-trace verification: end-to-end trace from FIX in → venue out (sonnet)
+- [ ] **[MVP] 13.5** Distributed-trace verification: end-to-end trace from FIX in → venue out, single trace ID through the whole chain (sonnet) ← blocks: 8.1, 11.2
 - [ ] **13.6** Sampling strategy (1-5% routine, 100% errors) (sonnet)
 
 ## Phase 14 — Operations
@@ -282,9 +304,15 @@ Resilience + tooling. ~2-3 weeks.
 - [x] **14.9** Monthly cold-start drill scripted (gemma) `(91ccfd7)`
 - [ ] **14.10** Quarterly cross-region failover drill scripted (sonnet)
 
+## Phase 15 — MVP Integration
+
+The v0 done-criteria, made executable. ~1 week.
+
+- [ ] **[MVP] 15.1** End-to-end MVP smoke test + replay-determinism on a 1-day mock log slice: FIX NewOrderSingle (US IG corp) → validator → staged → routed via mock venue → fill ack → allocation → confirmation → TRACE-mock, asserting a single trace ID through the whole chain and byte-identical replay (sonnet) ← blocks: 8.1, 11.2, 12.3, 12.6, 13.5
+
 ## Done criteria for v0 (MVP)
 
-All phases 0-14 marked `[x]`. Plus:
+All **[MVP]**-tagged tasks marked `[x]` (the [MVP v0 critical path](#mvp-v0-critical-path) — **not** all of phases 0–14; the rest is post-MVP). Concretely:
 
 - End-to-end smoke: a FIX inbound NewOrderSingle → validator → staged → routed via venue adapter (mock) → fill ack → allocation → confirmation → TRACE-mock submission. Single trace ID through the whole chain.
 
