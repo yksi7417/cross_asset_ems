@@ -8,16 +8,16 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Last completed task:** 12.1 — Allocation service (MVP Track C). Per-fill engine per arch-allocation-service: `AllocationSplitter` (pure basis-point floor + deterministic residual distribution: DISTRIBUTE_RESIDUAL/ROUND_HALF_UP largest-remainder, LARGEST_SHARE_FIRST, ROUND_DOWN drops); pre-allocation validation → `AllocationAnomaly`; deferred/back-allocate workflow; bust/correct reversal. Event-sourced (`AllocationRequested/Applied/Deferred/Reversed/Anomaly`). Template version pinned for replay. `AllocationService` + `InMemoryAllocationService`. 13 tests green. Multi-PB FIX dispatch + 2-level aggregation deferred (post-MVP).
-- **Last commit (main):** `feat(12.1): allocation service (MVP Track C)`
-- **Last commit sha (main):** `31911bb`
-- **Tasks merged/marked this session:** 8.1 `b3aa7ab`, 12.1 `31911bb` (Opus). Prior MVP session: 8.9 `981c33d`, 11.1 `1d95436`, 11.2 `7bb2739`; 7.7 `9e90812`.
+- **Last completed task:** 12.2 — STP pipeline orchestrator (MVP Track C). Per arch-stp-pipeline: ingest fill → allocation (12.1) → fan out to asset-class profile's downstream stages. `StageProfile` (corpBond/cashEquity), `StageHandler` SPI (12.3 confirmation + 12.6 TRACE plug in later; unregistered = NOT_REQUIRED), independent stages (one ANOMALY doesn't block siblings), `StpState` projection (allocation + per-stage + overall) from cross-stage events, `resumeStage()` re-run. Deterministic. `StpOrchestrator` + `InMemoryStpOrchestrator`. 6 tests green.
+- **Last commit (main):** `feat(12.2): STP pipeline orchestrator (MVP Track C)`
+- **Last commit sha (main):** `bc92f1c`
+- **Tasks merged/marked this session:** 8.1 `b3aa7ab`, 12.1 `31911bb`, 12.2 `bc92f1c` (Opus, 3-commit pacing stop). Prior MVP session: 8.9 `981c33d`, 11.1 `1d95436`, 11.2 `7bb2739`; 7.7 `9e90812`.
 - **In-progress task:** _(none)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-10
-- **MVP v0 track:** 11 [MVP] tasks. Done: **8.9, 11.1, 11.2, 8.1, 12.1**. Next buildable: **12.2** (STP pipeline ← 12.1), **12.5** (reg reporting), **13.5** (distributed-trace verify ← 8.1+11.2). 15.1 waits on 12.3/12.6/13.5.
-- **Next task:** **12.2** STP pipeline (← 12.1) → 12.3 confirmation/affirmation; and **12.5** reg reporting → 12.6 TRACE-mock; **13.5** trace verification (unblocked).
-- **Total progress:** **79 of 144 tasks [x]** (54.9%). MVP v0: 5 of 11 done (8.9, 11.1, 11.2, 8.1, 12.1).
+- **MVP v0 track:** 11 [MVP] tasks. Done: **8.9, 11.1, 11.2, 8.1, 12.1, 12.2**. Next buildable: **12.3** (confirmation/affirmation ← 12.2), **12.5** (reg reporting), **13.5** (distributed-trace verify ← 8.1+11.2). 15.1 waits on 12.3/12.6/13.5.
+- **Next task:** **12.3** Confirmation/Affirmation (← 12.2) — implement as an STP `StageHandler` for `CONFIRMATION`; then **12.5**→**12.6** (TRACE-mock, plugs in as `REGULATORY_REPORTING` handler); then **13.5** trace verify; **15.1** end-to-end smoke last.
+- **Total progress:** **80 of 144 tasks [x]** (55.6%). MVP v0: 6 of 11 done (8.9, 11.1, 11.2, 8.1, 12.1, 12.2).
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -48,7 +48,7 @@ The loop appends a one-line entry per session.
 | 2026-06-10 | 2026-06-10 | user-directed jump to 7.7 (opus tier) | 1 (7.7 Appendix D race tests + Route FSM fill-race transitions) | 7.7 `9e90812` | Phase 7 partial (7.4–7.6 pending); next = 7.4/7.5 |
 | 2026-06-10 | 2026-06-10 | MVP v0 scoping + first MVP task | 3 (api-first doc/plan `a9b8fba`, MVP plan `a938411`, 8.9 `981c33d`) | 8.9 done; MVP v0 track defined (11 tasks) | next = 8.1 / 11.1 / 12.1 / 12.5 (MVP, parallel) |
 | 2026-06-10 | 2026-06-10 | MVP v0 build (3-commit pacing trigger) | 3 (8.9 prior; 11.1 `1d95436`, 11.2 `7bb2739`) | 11.1, 11.2 — MVP Track B (venue) complete | next = 8.1 (Track A) or 12.1/12.5 (Track C) |
-| 2026-06-10 | 2026-06-10 | MVP v0 build (Opus, user-directed local execution) | 2 so far (8.1 `b3aa7ab`, 12.1 `31911bb`) | 8.1 — MVP Track A (client FIX edge); 12.1 — allocation service (Track C head) | next = 12.2 (STP ← 12.1) / 12.5 (reg reporting) / 13.5 (trace verify) |
+| 2026-06-10 | 2026-06-10 | MVP v0 build (Opus, user-directed local execution); 3-commit pacing stop | 3 (8.1 `b3aa7ab`, 12.1 `31911bb`, 12.2 `bc92f1c`) | 8.1 — client FIX edge (Track A); 12.1 — allocation service; 12.2 — STP pipeline orchestrator | next = 12.3 confirmation (← 12.2) / 12.5→12.6 / 13.5 trace verify |
 
 ## Phase progress
 
