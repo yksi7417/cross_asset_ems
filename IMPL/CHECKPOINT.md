@@ -19,11 +19,11 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 - **MVP v0 track:** **11 of 11 [MVP] tasks [x]** ✅. **Phase 16 (cross-asset): 3 of 3 [x]** ✅.
 - **Active goal (set 2026-06-10, amended same day): v1 build-out, no delegation.** Complete the tasks that were `[ ]` in Phases 7 ✅, 8, 10, 14 — **Phase 9 deferred** (user decision: market data via the pluggable feed SPI 18.12 + Bloomberg adapter 18.13; 10.2 and 12.14 wait with 9.5) — plus **11.15** FIX venue simulator → **15.2** FIX-wire end-to-end smoke, then **Phase 17** usage docs. Fable (Claude Code) executes every task directly — goal text in [[LOOP]]. Carry-over intent folded in: 15.2 should drive the **real router + AAA-backed validator** path (replace the smokes' direct venue submit / permissive validator) and pull post-trade services off in-memory stubs where the flow demands it.
 - **Front-end decision (2026-06-10, user):** trader desktop on **Perspective** (WASM streaming-pivot grid, github.com/perspective-dev/perspective) for high-rate market-data/blotter updates; market data via the pluggable SPI (18.12) with Bloomberg Desktop/Server API (18.13) first.
-- **Next task:** **11.15** FIX venue simulator → 15.2 FIX-wire smoke → Phase 14 remainder → Phase 17 docs.
-- **Phase 10 in-scope COMPLETE (2026-06-10 ~22:50 EDT):** 10.1 compliance gate, 10.3 machine-gun, 10.4 lists, 10.5 override mechanics, 10.7 positions (WAC fold + busts), 10.6 risk engine (notional caps), 10.8 pricing fallback chain, 10.9 pre-trade analytics SPI. 10.2 fat-finger deferred with 9.5 (needs reference price feed); its building blocks (pricing fallback, compliance gate) are in place.
-- **Resume chain:** 22:15 EDT fired (this run); 05:30 2026-06-11 one-shot still scheduled in-session for whatever this run leaves unfinished.
+- **🏁 v1 BUILD-OUT GOAL COMPLETE (2026-06-11 ~00:30 EDT).** Every in-scope task is `[x]`: Phase 7 (multi-leg, aggregation, FX netting), Phase 8 (venue FIX gateway, tag-9700 traces, API surface, batch semantics, bulk I/O, REST edge, surface parity), Phase 10 in-scope (compliance gate + machine-gun + lists + overrides + positions + risk + pricing + analytics; 10.2 deferred with 9.5), **11.15** FIX venue simulator, **15.2** FIX-wire end-to-end smoke (real AAA validator + real router + real FIX session + tag-9700 on the wire + byte-identical replay), Phase 14 (introspection, admin console, blue/green switchover, cluster lease, fenced credentials, region-failover drill), Phase 17 (user guide, operator guide, developer guide). Full suite green at goal close.
+- **Next goal (not started):** **Phase 18 — trader desktop & buyer-readiness** on Perspective (WASM) with the market-data SPI (18.12) + Bloomberg adapter (18.13) first, then blotter/ticket/watchlist, kill switch, 15c3-5 pack, etc.; plus queued 11.16–11.17 and 12.12–12.16. Other open threads: 6.4 reconciliation, 13.4 dashboards, 4.12/4.14/4.17 exotic templates, Phase 9 when SOR needs it.
+- **Resume chain:** goal complete — the 05:30 one-shot cancelled (nothing left in scope).
 - **v1 build-out progress:** **Phase 7 COMPLETE (2026-06-10)** — 7.4 `535b37c` multi-leg (22 tests), 7.5 `e980553` aggregation (19 tests), 7.6 `898bbcb` FX netting (17 tests); catalog 44xx/5xxx/22xx blocks. **Phase 8 COMPLETE (2026-06-10)** — 8.2 `7014bea` venue FIX gateway (19), 8.3 `6aca67e` tag-9700 traces (7), 8.4 `f1777fd` API surface (13), 8.5 `7220f45` batch semantics (4), 8.6 `41e74b4` CSV import (9), 8.7 export templates (6), 8.8 idempotent re-import + ClOrdID dedup EMS-ORD-2510 (3), 8.10 REST edge binding (5), 8.11 surface parity (2).
-- **Total progress:** **101 of 177 tasks [x]** (57.1%). MVP v0 + Phase 16 cross-asset + Phase 7 complete. (Count history: 95/174 after the 2026-06-10 loop-rework added 23 tasks; +3 more for the Perspective/Bloomberg desktop tasks 18.12–18.14; +6 done since: 7.4–7.6, 8.2–8.4.)
+- **Total progress:** **126 of 177 tasks [x]** (71.2%). MVP v0, Phase 16, and the entire v1 build-out goal complete.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -58,6 +58,7 @@ The loop appends a one-line entry per session.
 | 2026-06-10 | 2026-06-10 | MVP v0 completion run (Opus, /goal 10-commit cap) | 5 (12.3 `b218e63`, 12.5 `51e1713`, 12.6 `39a9a88`, 13.5 `6953c3c`, 15.1 `26f29d8`) | 12.3 confirmation, 12.5 reg reporting, 12.6 TRACE-mock, 13.5 trace verify, 15.1 end-to-end smoke — **MVP v0 COMPLETE** | next = v1 (US equity + USD IRS; real venues) |
 | 2026-06-10 | 2026-06-10 | planning: loop rework + buyer's-lens gap analysis (Fable; no build tasks) | 1 (docs) | LOOP.md rewritten — no delegation, continuous run; goal reset to v1 build-out (Phases 7/8/9/10/14 + 11.15/15.2 + 17); PLAN +23 tasks (11.15–11.17, 12.12–12.16, 15.2, 17.1–17.3, 18.1–18.11); DELEGATION suspended; initial docs/USER_GUIDE.md | next = 7.4 |
 | 2026-06-10 | 2026-06-10 20:20 EDT | v1 build-out run (Fable, continuous); paused on user token budget, resume 22:15 EDT | ~25 (11 feat + claims/marks) | **Phase 7 complete** (7.4 multi-leg, 7.5 aggregation, 7.6 netting), **Phase 8 complete** (8.2 venue FIX gw, 8.3 tag-9700, 8.4 API surface, 8.5 batch, 8.6 import, 8.7 export, 8.8 idempotent re-import, 8.10 REST edge, 8.11 parity), 10.1 compliance gate, 10.3 machine-gun; catalog 44xx/22xx/5xxx/2510; mid-run rescope: Phase 9 deferred, Perspective+Bloomberg SPI (18.12–18.14) | next = 10.4 |
+| 2026-06-10 22:15 | 2026-06-11 ~00:30 EDT | scheduled resume (22:15 one-shot); ran to GOAL COMPLETE | ~30 (15 feat + claims/marks/docs) | **Phase 10 in-scope** (10.4 lists, 10.5 overrides, 10.7 positions, 10.6 risk, 10.8 pricing, 10.9 analytics), **11.15** FIX simulator, **15.2** FIX-wire smoke, **Phase 14** (14.1 introspection, 14.2 admin console, 14.5 switchover, 14.6 lease, 14.7 fenced creds, 14.10 region drill), **Phase 17** (17.1/17.2/17.3 docs) — **v1 BUILD-OUT GOAL COMPLETE**; 05:30 resume cancelled | next goal = Phase 18 (Perspective desktop + Bloomberg SPI) |
 
 ## Phase progress
 
@@ -76,13 +77,13 @@ Updated when a phase completes.
 | 8 — FIX / API Bridge | complete | 2026-06-10 |
 | 9 — Market Data | **deferred** (2026-06-10 user decision; Bloomberg SPI 18.12/18.13 covers the desktop) | |
 | 10 — Pre-Trade Auxiliaries | in-scope complete (10.2 deferred w/ 9.5) | 2026-06-10 |
-| 11 — Venue Connectivity | partial (11.1, 11.2 done; 11.15 in active goal; 11.3–11.14, 11.16–11.17 queued) | |
+| 11 — Venue Connectivity | partial (11.1, 11.2, 11.15 done; 11.3–11.14, 11.16–11.17 queued) | |
 | 12 — Post-Trade | partial (12.1–12.3, 12.5, 12.6 done; 12.4, 12.7–12.16 queued) | |
 | 13 — Observability | partial (13.1-13.3, 13.5 done; 13.4 [~], 13.6 pending) | |
 | 14 — Operations | complete | 2026-06-10 |
-| 15 — MVP Integration | partial (15.1 done 2026-06-10; 15.2 FIX-wire smoke in active goal) | |
+| 15 — MVP Integration | complete | 2026-06-11 |
 | 16 — Cross-asset coverage | complete | 2026-06-10 |
-| 17 — Usage Documentation | not started — in active goal (final leg) | |
+| 17 — Usage Documentation | complete | 2026-06-11 |
 | 18 — Trader Desktop & Buyer-Readiness | not started — queued as next goal | |
 
 ## Blocked tasks
