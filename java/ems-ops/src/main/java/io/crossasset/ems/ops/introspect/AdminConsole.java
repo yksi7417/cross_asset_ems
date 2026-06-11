@@ -123,7 +123,8 @@ public final class AdminConsole {
     }
   }
 
-  private @org.jspecify.annotations.Nullable String deny(AdminRequest request, long now) {
+  /** Returns the denial reason, or null when the request is granted. */
+  private String deny(AdminRequest request, long now) {
     if (!targets.containsKey(request.componentId())) {
       return "Unknown component: " + request.componentId() + ".";
     }
