@@ -94,6 +94,61 @@ export class ApiClient {
     const response = await fetch(`/api/v1/instruments/${encodeURIComponent(figi)}`);
     return response.ok ? ((await response.json()) as Instrument) : null;
   }
+
+  /** Basket list-load (18.3): the CSV import consumes one session sequence. */
+  async createBasket(name: string, csv: string): Promise<{ accepted: number; rejected: number }> {
+    const response = await fetch("/api/v1/baskets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-EMS-Session": String(this.sessionId) },
+      body: JSON.stringify({
+        name,
+        uploadId: `bk-${this.sessionId}-${this.requestN++}`,
+        sessionSeq: this.seq++,
+        csv,
+      }),
+    });
+    const body = (await response.json()) as {
+      accepted?: number;
+      rejected?: number;
+      error?: string;
+      fileError?: string;
+    };
+    if (!response.ok) {
+      throw new Error(body.fileError ?? body.error ?? `basket load failed (${response.status})`);
+    }
+    return { accepted: body.accepted ?? 0, rejected: body.rejected ?? 0 };
+  }
+
+  async listBaskets(): Promise<{ basketId: string; name: string }[]> {
+    const response = await fetch("/api/v1/baskets", {
+      headers: { "X-EMS-Session": String(this.sessionId) },
+    });
+    if (!response.ok) {
+      return [];
+    }
+    return ((await response.json()) as { baskets: { basketId: string; name: string }[] }).baskets;
+  }
+
+  async wave(
+    basketId: string,
+    fractionBp: number,
+    venueMic: string,
+  ): Promise<{ wave: number; lines: { orderId: string; ok: boolean; detail: string }[] }> {
+    const response = await fetch(`/api/v1/baskets/${encodeURIComponent(basketId)}/wave`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-EMS-Session": String(this.sessionId) },
+      body: JSON.stringify({ fractionBp, venueMic }),
+    });
+    const body = (await response.json()) as {
+      wave?: number;
+      lines?: { orderId: string; ok: boolean; detail: string }[];
+      error?: string;
+    };
+    if (!response.ok || body.wave === undefined) {
+      throw new Error(body.error ?? `wave failed (${response.status})`);
+    }
+    return { wave: body.wave, lines: body.lines ?? [] };
+  }
 }
 
 function el<T extends HTMLElement>(id: string): T {
@@ -255,6 +310,67 @@ export function initTicket(
 
   el<HTMLButtonElement>("tk-cancel").addEventListener("click", () => {
     void act("CANCEL", () => api.operation("cancel_orders", [{ orderId: orderSelect.value }]));
+  });
+
+  // ── Basket / program (18.3) ──────────────────────────────────────────────────
+
+  const basketResult = el<HTMLElement>("bk-result");
+  const basketSelect = el<HTMLSelectElement>("bk-select");
+
+  function setBasketResult(message: string, ok: boolean): void {
+    basketResult.textContent = message;
+    basketResult.className = ok ? "ok" : "err";
+  }
+
+  async function refreshBaskets(): Promise<void> {
+    const selected = basketSelect.value;
+    const list = await api.listBaskets();
+    basketSelect.replaceChildren(
+      new Option("— select basket —", ""),
+      ...list.map((b) => new Option(`${b.basketId} · ${b.name}`, b.basketId)),
+    );
+    basketSelect.value = selected;
+  }
+  setInterval(() => void refreshBaskets(), 2_000);
+
+  el<HTMLButtonElement>("bk-load").addEventListener("click", () => {
+    void (async () => {
+      const file = el<HTMLInputElement>("bk-file").files?.[0];
+      const name = el<HTMLInputElement>("bk-name").value.trim();
+      if (!file || !name) {
+        setBasketResult("name and CSV file are required", false);
+        return;
+      }
+      try {
+        const result = await api.createBasket(name, await file.text());
+        setBasketResult(`loaded: ${result.accepted} accepted, ${result.rejected} rejected`, true);
+        await refreshBaskets();
+      } catch (cause) {
+        setBasketResult((cause as Error).message, false);
+      }
+    })();
+  });
+
+  el<HTMLButtonElement>("bk-wave").addEventListener("click", () => {
+    void (async () => {
+      const basketId = basketSelect.value;
+      const pct = Number(el<HTMLInputElement>("bk-wave-pct").value);
+      if (!basketId || !(pct > 0 && pct <= 100)) {
+        setBasketResult("select a basket and a wave % in (0, 100]", false);
+        return;
+      }
+      try {
+        const result = await api.wave(basketId, Math.round(pct * 100), venueSelect.value);
+        const bad = result.lines.filter((l) => !l.ok);
+        setBasketResult(
+          `wave ${result.wave} routed (${result.lines.length - bad.length}/${result.lines.length} ok)` +
+            (bad.length ? ` — first issue: ${bad[0].detail}` : ""),
+          bad.length === 0,
+        );
+      } catch (cause) {
+        setBasketResult((cause as Error).message, false);
+      }
+    })();
   });
 
   el<HTMLButtonElement>("tk-route").addEventListener("click", () => {

@@ -11,11 +11,13 @@ import io.crossasset.ems.aaa.LogonCredentials;
 import io.crossasset.ems.aaa.LogonOutcome;
 import io.crossasset.ems.api.ApiSurface;
 import io.crossasset.ems.api.SubscriptionRegistry;
+import io.crossasset.ems.api.basket.BasketService;
 import io.crossasset.ems.api.blotter.BlotterPublisher;
 import io.crossasset.ems.api.blotter.BlotterRouteManager;
 import io.crossasset.ems.api.blotter.BlotterStagedOrderManager;
 import io.crossasset.ems.api.md.DeskWatchlist;
 import io.crossasset.ems.api.md.MarketDataTopicBridge;
+import io.crossasset.ems.bulk.BulkOrderImporter;
 import io.crossasset.ems.instrument.AssetClass;
 import io.crossasset.ems.instrument.CurrencyCode;
 import io.crossasset.ems.instrument.Fungibility;
@@ -100,8 +102,11 @@ public final class TraderDesktopEdgeMain {
 
     ApiSurface api =
         new ApiSurface(aaa, som, routes, subscriptions, (sid, subId, event) -> {}, pipeline);
+    BasketService baskets =
+        new BasketService(som, routes, new BulkOrderImporter(api), subscriptions);
     RestHttpServer rest =
-        new RestHttpServer(new RestEdgeBinding(aaa, api, subscriptions, secMaster), restPort);
+        new RestHttpServer(
+            new RestEdgeBinding(aaa, api, subscriptions, secMaster, baskets), restPort);
     rest.start();
     WsEventStreamServer ws = new WsEventStreamServer(aaa, subscriptions, wsPort);
     ws.start();

@@ -74,6 +74,18 @@ const FILLS_SCHEMA = {
   ts: "datetime",
 } as const;
 
+const BASKETS_SCHEMA = {
+  basketId: "string",
+  name: "string",
+  orders: "integer",
+  qty: "float",
+  cumQty: "float",
+  leavesQty: "float",
+  pct: "float",
+  filled: "integer",
+  waves: "integer",
+} as const;
+
 const WATCHLIST_SCHEMA = {
   figi: "string",
   bid: "float",
@@ -108,6 +120,10 @@ function routeRow(row: WireRow): WireRow {
 
 function fillRow(row: WireRow): WireRow {
   return { ...row, ...common(row), lastPx: px(row.lastPx) };
+}
+
+function basketRow(row: WireRow): WireRow {
+  return { ...row, pct: (row.pctFilledBp as number) / 100 };
 }
 
 // ── Wiring ─────────────────────────────────────────────────────────────────────
@@ -265,6 +281,14 @@ async function start(session: Logon): Promise<void> {
       table: await schemaTable(worker, FILLS_SCHEMA, "execId"),
       transform: fillRow,
       sort: [["ts", "desc"]],
+    },
+    {
+      topic: "blotter.baskets",
+      chip: "chip-fills", // baskets ride the same edge; no dedicated chip
+      viewer: "baskets-viewer",
+      table: await schemaTable(worker, BASKETS_SCHEMA, "basketId"),
+      transform: basketRow,
+      sort: [["basketId", "asc"]],
     },
   ];
 

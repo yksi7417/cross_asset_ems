@@ -21,6 +21,7 @@ import io.crossasset.ems.api.ApiSurface;
 import io.crossasset.ems.api.BatchOptions;
 import io.crossasset.ems.api.ItemResult;
 import io.crossasset.ems.api.SubscriptionRegistry;
+import io.crossasset.ems.api.basket.BasketService;
 import io.crossasset.ems.instrument.InstrumentVersioned;
 import io.crossasset.ems.instrument.SecurityMasterService;
 import java.util.ArrayList;
@@ -53,9 +54,10 @@ public final class RestEdgeBinding {
   private final ApiSurface api;
   private final SubscriptionRegistry subscriptions;
   private final @org.jspecify.annotations.Nullable SecurityMasterService secMaster;
+  private final @org.jspecify.annotations.Nullable BasketService baskets;
 
   public RestEdgeBinding(AaaService aaa, ApiSurface api, SubscriptionRegistry subscriptions) {
-    this(aaa, api, subscriptions, null);
+    this(aaa, api, subscriptions, null, null);
   }
 
   /**
@@ -66,10 +68,21 @@ public final class RestEdgeBinding {
       ApiSurface api,
       SubscriptionRegistry subscriptions,
       @org.jspecify.annotations.Nullable SecurityMasterService secMaster) {
+    this(aaa, api, subscriptions, secMaster, null);
+  }
+
+  /** With a basket service, the {@code /api/v1/baskets} routes serve program trading (18.3). */
+  public RestEdgeBinding(
+      AaaService aaa,
+      ApiSurface api,
+      SubscriptionRegistry subscriptions,
+      @org.jspecify.annotations.Nullable SecurityMasterService secMaster,
+      @org.jspecify.annotations.Nullable BasketService baskets) {
     this.aaa = Objects.requireNonNull(aaa, "aaa");
     this.api = Objects.requireNonNull(api, "api");
     this.subscriptions = Objects.requireNonNull(subscriptions, "subscriptions");
     this.secMaster = secMaster;
+    this.baskets = baskets;
   }
 
   /**
@@ -91,6 +104,9 @@ public final class RestEdgeBinding {
       }
       if ("GET".equals(method) && path.startsWith("/api/v1/instruments/")) {
         return instrument(path.substring("/api/v1/instruments/".length()));
+      }
+      if (path.startsWith("/api/v1/baskets")) {
+        return basketsRoute(method, path, headers, body);
       }
       if ("POST".equals(method) && path.startsWith("/api/v1/")) {
         return operation(path.substring("/api/v1/".length()), headers, body);
@@ -163,6 +179,102 @@ public final class RestEdgeBinding {
     out.put("currency", instrument.core().currency().name());
     out.put("settlement", instrument.core().settlementConvention().name());
     return new HttpResult(200, out.toString());
+  }
+
+  /**
+   * Basket routes (18.3): {@code GET /api/v1/baskets} lists; {@code POST /api/v1/baskets} creates
+   * from CSV ({name, sessionSeq, csv}) or staged orders ({name, orderIds}); {@code POST
+   * /api/v1/baskets/{id}/wave} routes a wave ({fractionBp, venueMic}). Session-gated; wave slices
+   * flow through the same RouteManager as single-order tickets.
+   */
+  private HttpResult basketsRoute(
+      String method, String path, Map<String, String> headers, String body) throws Exception {
+    if (baskets == null) {
+      return error(404, "Basket service not configured on this edge.");
+    }
+    long sessionId = requireSession(headers);
+    if ("GET".equals(method) && "/api/v1/baskets".equals(path)) {
+      ObjectNode out = mapper.createObjectNode();
+      ArrayNode array = out.putArray("baskets");
+      for (BasketService.Basket basket : baskets.list()) {
+        ObjectNode node = array.addObject();
+        node.put("basketId", basket.basketId());
+        node.put("name", basket.name());
+        node.put("orders", basket.orderIds().size());
+        node.put("waves", basket.waves());
+      }
+      return new HttpResult(200, out.toString());
+    }
+    if ("POST".equals(method) && "/api/v1/baskets".equals(path)) {
+      JsonNode json = mapper.readTree(body);
+      String name = requireText(json, "name");
+      if (json.hasNonNull("csv")) {
+        var result =
+            baskets.createFromCsv(
+                name,
+                requireText(json, "uploadId"),
+                sessionId,
+                json.path("sessionSeq").asLong(0),
+                json.path("csv").asText());
+        ObjectNode out = mapper.createObjectNode();
+        out.put("uploadId", result.uploadId());
+        out.put("fileError", result.fileError());
+        out.put("accepted", result.accepted());
+        out.put("rejected", result.rejected());
+        return new HttpResult(result.fileError() == null ? 200 : 400, out.toString());
+      }
+      List<String> orderIds = new ArrayList<>();
+      for (JsonNode id : json.path("orderIds")) {
+        orderIds.add(id.asText());
+      }
+      try {
+        BasketService.Basket basket = baskets.createFromOrders(name, orderIds);
+        ObjectNode out = mapper.createObjectNode();
+        out.put("basketId", basket.basketId());
+        return new HttpResult(200, out.toString());
+      } catch (IllegalArgumentException e) {
+        return error(400, e.getMessage());
+      }
+    }
+    if ("POST".equals(method) && path.endsWith("/wave")) {
+      String basketId =
+          path.substring("/api/v1/baskets/".length(), path.length() - "/wave".length());
+      JsonNode json = mapper.readTree(body);
+      try {
+        BasketService.WaveResult result =
+            baskets.waveRoute(
+                basketId,
+                json.path("fractionBp").asInt(0),
+                requireText(json, "venueMic"),
+                sessionId);
+        ObjectNode out = mapper.createObjectNode();
+        out.put("basketId", result.basketId());
+        out.put("wave", result.wave());
+        ArrayNode lines = out.putArray("lines");
+        for (BasketService.WaveLine line : result.lines()) {
+          ObjectNode node = lines.addObject();
+          node.put("orderId", line.orderId());
+          node.put("ok", line.ok());
+          node.put("detail", line.detail());
+        }
+        return new HttpResult(200, out.toString());
+      } catch (IllegalArgumentException e) {
+        return error(400, e.getMessage());
+      }
+    }
+    return error(404, "Unknown basket route: " + method + " " + path);
+  }
+
+  private long requireSession(Map<String, String> headers) {
+    String sessionHeader = headers.get("x-ems-session");
+    if (sessionHeader == null) {
+      throw new BadRequest("Header X-EMS-Session is required.");
+    }
+    long sessionId = Long.parseLong(sessionHeader);
+    if (aaa.sessionInfo(sessionId).isEmpty()) {
+      throw new BadRequest("Session not found or expired.");
+    }
+    return sessionId;
   }
 
   private HttpResult operation(String opName, Map<String, String> headers, String body)

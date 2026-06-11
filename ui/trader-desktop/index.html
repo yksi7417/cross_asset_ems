@@ -192,8 +192,24 @@
         color: var(--accent);
       }
       #tk-feedback.err,
-      #tk-result.err {
+      #tk-result.err,
+      #bk-result.err {
         color: var(--down);
+      }
+      #tk-feedback.ok,
+      #tk-result.ok,
+      #bk-result.ok {
+        color: var(--accent);
+      }
+      #bk-result {
+        font-size: 11px;
+        margin: 0;
+        min-height: 14px;
+        word-break: break-word;
+      }
+      #ticket input[type="file"] {
+        padding: 3px;
+        font-size: 10px;
       }
       .panel {
         display: flex;
@@ -362,6 +378,29 @@
                 </div>
               </div>
               <p id="tk-result"></p>
+              <div class="tk-sep">BASKET / PROGRAM</div>
+              <div class="tk-grid">
+                <div>
+                  <label>BASKET NAME</label>
+                  <input id="bk-name" placeholder="tech-rebalance" autocomplete="off" />
+                </div>
+                <div>
+                  <label>LIST (CSV)</label>
+                  <input id="bk-file" type="file" accept=".csv,text/csv" />
+                </div>
+              </div>
+              <button id="bk-load">LOAD BASKET</button>
+              <select id="bk-select"></select>
+              <div class="tk-grid">
+                <div>
+                  <label>WAVE %</label>
+                  <input id="bk-wave-pct" type="number" min="1" max="100" value="25" />
+                </div>
+                <div class="tk-actions">
+                  <button id="bk-wave" class="primary">ROUTE WAVE</button>
+                </div>
+              </div>
+              <p id="bk-result"></p>
             </div>
           </section>
           <section class="panel" id="watchlist-panel">
@@ -382,6 +421,10 @@
             <section class="panel">
               <h2>FILLS</h2>
               <perspective-viewer id="fills-viewer"></perspective-viewer>
+            </section>
+            <section class="panel">
+              <h2>BASKETS</h2>
+              <perspective-viewer id="baskets-viewer"></perspective-viewer>
             </section>
           </div>
         </div>
