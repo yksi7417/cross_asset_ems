@@ -327,10 +327,10 @@ Three pillars. ~1-2 weeks.
 Resilience + tooling. ~2-3 weeks.
 
 - [x] **14.1** JMX introspection per [[arch-jmx-introspection]] (sonnet) `(f2ffe6d)`
-- [~] **14.2** Privileged event injection (security-gated) (sonnet) ← blocks: 14.1
+- [x] **14.2** Privileged event injection (security-gated) (sonnet) ← blocks: 14.1 `(024c5ac)`
 - [x] **14.3** Time/Replay server UI (gemma for scaffold, sonnet for design) `(6b3e666)`
 - [x] **14.4** Configuration service UI (gemma for scaffold) `(6b3e666)`
-- [ ] **14.5** Blue/green switchover protocol per [[arch-deployment]] (sonnet)
+- [~] **14.5** Blue/green switchover protocol per [[arch-deployment]] (sonnet)
 - [ ] **14.6** Cluster-of-clusters active lease (sonnet) ← blocks: 14.5
 - [ ] **14.7** Fence-token venue credential rotation (sonnet) ← blocks: 14.5
 - [x] **14.8** Weekly leader-kill drill scripted (gemma) `(91ccfd7)`
