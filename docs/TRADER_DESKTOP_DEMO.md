@@ -17,7 +17,7 @@ Two processes, one command:
 | Half | What it is | Port |
 |---|---|---|
 | **Demo edge** (`TraderDesktopEdgeMain`, Java) | The real stack in one JVM: AAA-backed validator, kill-switch-guarded OMS, blotter projection, market-data SPI with a simulated feed, EURUSD ESP dealer, baskets, notifications, intraday P&L — plus a scripted demo bot that stages/routes/fills orders continuously so every panel moves on its own | REST `:8484`, WS `:8485` |
-| **Desktop** (`ui/trader-desktop`, Perspective WASM) | The trader UI on the Vite dev server, proxying `/api` and `/ws` to the edge — the browser sees one origin, exactly like production behind a gateway | `:5173` |
+| **Desktop** (`ui/trader-desktop`, Perspective WASM) | The trader UI — built assets served by Vite preview, proxying `/api` and `/ws` to the edge so the browser sees one origin, exactly like production behind a gateway | `:5173` |
 
 **Real vs simulated.** The order path (validator → staged orders → routes → fills → blotter
 projection), the kill switch, baskets, notifications, approvals, P&L math, and every stream are
@@ -42,9 +42,13 @@ actually serves, and prints the banner. Then:
 Ctrl-C in the script's terminal stops everything. To run the halves by hand instead:
 
 ```bash
-./gradlew :ems-fix-bridge:runTraderEdge          # terminal 1
-cd ui/trader-desktop && npm install && npm run dev   # terminal 2
+./gradlew :ems-fix-bridge:runTraderEdge                            # terminal 1
+cd ui/trader-desktop && npm install && npm run build && npm run preview   # terminal 2 (built assets)
+# (npm run dev also works, with hot reload, for hacking on the UI itself)
 ```
+
+> Prefer watching first? A recorded run + frame-by-frame tour: [`../DEMO.md`](../DEMO.md). Re-record
+> with `node ui/trader-desktop/demo/record-demo.mjs` while the stack is up (Playwright Chromium).
 
 ## 3. How the UI and backend interact
 
@@ -234,6 +238,7 @@ epoch micros on blotter rows, millis on md/esp).
 | Edge slow to start first time | cold Gradle compile; the script waits up to 60s — watch the printed edge log |
 | `Spotless JVM-local cache is stale` on unrelated gradle/git work | `rm -rf .gradle/configuration-cache` (known spotless issue #987) |
 | Scripted WS clients can't connect to `127.0.0.1:5173` | Vite may bind IPv6 — use `localhost` (the browser handles this itself) |
+| Desktop loads but grids never populate | Perspective's WASM must be explicitly booted (`init_server`/`init_client` with `?url` assets in `src/main.ts`) — if you fork the boot code, keep that block; without it `perspective.worker()` waits forever |
 | Logon fails | token is exactly `trader-token`; check the edge log for the banner |
 | Grids empty after edge restart | expected — in-memory demo world resets; refresh the tab and log on again |
 

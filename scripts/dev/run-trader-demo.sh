@@ -75,16 +75,17 @@ for i in $(seq 1 60); do
 done
 echo "   edge is up."
 
-echo "── Starting desktop dev server (:$UI_PORT)…  log: $UI_LOG"
-(cd ui/trader-desktop && npm run dev -- --port "$UI_PORT" --strictPort >"$UI_LOG" 2>&1) &
+echo "── Building + serving the desktop (:$UI_PORT)…  log: $UI_LOG"
+(cd ui/trader-desktop && npm run build >"$UI_LOG" 2>&1 \
+    && npm run preview -- --port "$UI_PORT" --strictPort >>"$UI_LOG" 2>&1) &
 UI_PID=$!
 
-for i in $(seq 1 30); do
+for i in $(seq 1 60); do
     if curl -sf "localhost:$UI_PORT/" >/dev/null 2>&1; then
         break
     fi
     kill -0 "$UI_PID" 2>/dev/null || { tail -20 "$UI_LOG"; die "UI dev server exited early — see $UI_LOG"; }
-    [ "$i" = 30 ] && { tail -20 "$UI_LOG"; die "UI not serving after 30s — see $UI_LOG"; }
+    [ "$i" = 60 ] && { tail -20 "$UI_LOG"; die "UI not serving after 60s — see $UI_LOG"; }
     sleep 1
 done
 echo "   desktop is up."

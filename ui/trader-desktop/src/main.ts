@@ -8,11 +8,21 @@
 // full refresh — per the order-manager workflow note.
 
 import perspective, { type Client, type Table } from "@finos/perspective";
-import "@finos/perspective-viewer";
+import perspectiveViewer from "@finos/perspective-viewer";
 import "@finos/perspective-viewer-datagrid";
 import "@finos/perspective-viewer/dist/css/themes.css";
+// Perspective 3.x under a bundler needs explicit WASM boot: the engine (server) and the
+// viewer (client) load their modules from emitted assets — without this, worker() waits
+// forever for WASM the bundle never shipped.
+import SERVER_WASM_URL from "@finos/perspective/dist/wasm/perspective-server.wasm?url";
+import VIEWER_WASM_URL from "@finos/perspective-viewer/dist/wasm/perspective-viewer.wasm?url";
 import { ResumableStream, type StreamStatus } from "./stream";
 import { ApiClient, initTicket, type WorkingOrder } from "./ticket";
+
+const perspectiveReady = Promise.all([
+  perspective.init_server(fetch(SERVER_WASM_URL)),
+  perspectiveViewer.init_client(fetch(VIEWER_WASM_URL)),
+]);
 
 type Schema = Record<string, "string" | "float" | "integer" | "datetime" | "boolean">;
 
@@ -470,6 +480,7 @@ function startEsp(session: Logon): void {
 }
 
 async function start(session: Logon): Promise<void> {
+  await perspectiveReady;
   const worker = await perspective.worker();
   await startWatchlist(session, worker);
   const apiClient = new ApiClient(session.sessionId);
