@@ -78,6 +78,16 @@ try {
   await pause(page, 1500);
   await shot(page, "04-routed.png");
 
+  // ── 2b. Linked blotter (18.17): order click filters routes; route click reveals fills ──
+  await page.locator("#orders-viewer regular-table tbody tr td").first().click();
+  await pause(page, 1200);
+  await page.locator("#routes-viewer regular-table tbody tr td").first().click();
+  await pause(page, 1500);
+  await shot(page, "04b-linked-fills.png");
+  await page.click("#fills-linkchip"); // unlink fills again
+  await page.click("#routes-linkchip"); // and routes
+  await pause(page, 600);
+
   // ── 3. Basket: load the sample CSV, route a 25% wave ───────────────────────
   await page.fill("#bk-name", "demo-program");
   await page.setInputFiles("#bk-file", join(here, "sample-basket.csv"));

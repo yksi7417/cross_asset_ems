@@ -18,6 +18,8 @@ import SERVER_WASM_URL from "@finos/perspective/dist/wasm/perspective-server.was
 import VIEWER_WASM_URL from "@finos/perspective-viewer/dist/wasm/perspective-viewer.wasm?url";
 import { ResumableStream, type StreamStatus } from "./stream";
 import { ApiClient, initTicket, type WorkingOrder } from "./ticket";
+import { nameOf, nameOfSync, withName } from "./instruments";
+import { attachGridInteractions } from "./grid-actions";
 
 const perspectiveReady = Promise.all([
   perspective.init_server(fetch(SERVER_WASM_URL)),
@@ -43,6 +45,7 @@ const SIDES: Record<number, string> = { 1: "BUY", 2: "SELL", 5: "SELL SHORT" };
 
 const ORDERS_SCHEMA = {
   orderId: "string",
+  name: "string",
   clOrdId: "string",
   figi: "string",
   side: "string",
@@ -59,6 +62,7 @@ const ORDERS_SCHEMA = {
 
 const ROUTES_SCHEMA = {
   routeId: "string",
+  name: "string",
   orderId: "string",
   clOrdId: "string",
   venueMic: "string",
@@ -74,6 +78,7 @@ const ROUTES_SCHEMA = {
 
 const FILLS_SCHEMA = {
   execId: "string",
+  name: "string",
   routeId: "string",
   orderId: "string",
   venueMic: "string",
@@ -100,6 +105,7 @@ const PNL_SCHEMA = {
   key: "string",
   account: "string",
   figi: "string",
+  name: "string",
   ccy: "string",
   netQty: "float",
   avgCost: "float",
@@ -112,6 +118,7 @@ const PNL_SCHEMA = {
 
 const WATCHLIST_SCHEMA = {
   figi: "string",
+  name: "string",
   bid: "float",
   ask: "float",
   last: "float",
@@ -200,6 +207,23 @@ interface Blotter {
   table: Table;
   transform: (row: WireRow) => WireRow;
   sort: [string, "desc" | "asc"][];
+  /** Default visible columns — name-led; FIGI stays available via the settings panel. */
+  columns?: string[];
+}
+
+type ViewerEl = HTMLElement & {
+  load(table: Table): Promise<void>;
+  restore(config: object): Promise<void>;
+};
+
+/** Per-viewer base config so link filters can be applied/cleared without losing layout. */
+const viewerBase = new Map<string, { viewer: ViewerEl; config: Record<string, unknown> }>();
+
+async function applyFilter(viewerId: string, filter: unknown[][]): Promise<void> {
+  const base = viewerBase.get(viewerId);
+  if (base) {
+    await base.viewer.restore({ ...base.config, filter });
+  }
 }
 
 /**
@@ -219,7 +243,12 @@ async function startWatchlist(session: Logon, worker: Client): Promise<void> {
     restore(config: object): Promise<void>;
   };
   await viewer.load(table);
-  await viewer.restore({ plugin: "Datagrid", theme: "Pro Dark", sort: [["figi", "asc"]] });
+  await viewer.restore({
+    plugin: "Datagrid",
+    theme: "Pro Dark",
+    sort: [["name", "asc"]],
+    columns: ["name", "bid", "ask", "last", "volume", "ts"],
+  });
   document.getElementById("watchlist-title")!.textContent =
     `WATCHLIST — ${session.desk.toUpperCase()}`;
 
@@ -234,7 +263,7 @@ async function startWatchlist(session: Logon, worker: Client): Promise<void> {
       if (event.type === "WatchRow" && !watched.has(figi)) {
         watched.add(figi);
         images.set(figi, { figi });
-        void table.update([{ figi }]);
+        void nameOf(figi).then((name) => table.update([{ figi, name }]));
       } else if (event.type === "WatchRemoved" && watched.has(figi)) {
         watched.delete(figi);
         images.delete(figi);
@@ -256,6 +285,7 @@ async function startWatchlist(session: Logon, worker: Client): Promise<void> {
       const image = {
         ...images.get(event.refId),
         figi: event.refId,
+        name: nameOfSync(event.refId),
         bid: px(tick.bid) ?? undefined,
         ask: px(tick.ask) ?? undefined,
         last: px(tick.last) ?? undefined,
@@ -283,6 +313,133 @@ function trackWorkingOrder(row: WireRow): void {
       state,
     });
   }
+}
+
+/** Tiny toast for grid-action feedback (auto-fades). */
+function toast(message: string, ok: boolean): void {
+  const el = document.getElementById("toast")!;
+  el.textContent = message;
+  el.className = ok ? "ok" : "err";
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 4_000);
+}
+
+let sharedApi: ApiClient | null = null;
+function apiFor(session: Logon): ApiClient {
+  sharedApi ??= new ApiClient(session.sessionId);
+  return sharedApi;
+}
+
+/**
+ * Linked blotter + context menus (18.17 #3/#4/#5). Single click on an order filters ROUTES to
+ * that order (toggleable via the LINK checkbox); single click on a route reveals its FILLS
+ * (hidden otherwise — fill volume is the render cost). Ctrl+click multi-selects; right-click
+ * opens the action menu for the selection (batch ready/route/cancel, aggregate into a basket,
+ * route cancels).
+ */
+function wireBlotterLinking(api: ApiClient): void {
+  const linkToggle = document.getElementById("link-toggle") as HTMLInputElement;
+  const routesChip = document.getElementById("routes-linkchip")!;
+  const fillsChip = document.getElementById("fills-linkchip")!;
+
+  function clearRoutesLink(): void {
+    routesChip.textContent = "";
+    routesChip.classList.add("hidden");
+    void applyFilter("routes-viewer", []);
+    clearFillsLink();
+  }
+  function clearFillsLink(): void {
+    fillsChip.textContent = "";
+    fillsChip.classList.add("hidden");
+    void applyFilter("fills-viewer", [["routeId", "==", "∅"]]);
+  }
+  routesChip.addEventListener("click", clearRoutesLink);
+  fillsChip.addEventListener("click", clearFillsLink);
+
+  const batch = (verb: string, op: string, items: object[]) =>
+    api
+      .operation(op, items)
+      .then((results) => {
+        const ok = results.filter((r) => r.status === "ACCEPTED").length;
+        toast(`${verb}: ${ok}/${results.length} accepted`, ok === results.length);
+      })
+      .catch((e: Error) => toast(`${verb} failed: ${e.message}`, false));
+
+  attachGridInteractions("orders-viewer", {
+    keyField: "orderId",
+    chip: document.getElementById("orders-selchip")!,
+    onPrimary: (row) => {
+      if (!linkToggle.checked) {
+        return;
+      }
+      const orderId = row.orderId as string;
+      routesChip.textContent = `⛓ ${row.name ?? orderId} ✕`;
+      routesChip.classList.remove("hidden");
+      void applyFilter("routes-viewer", [["orderId", "==", orderId]]);
+      clearFillsLink();
+    },
+    actions: [
+      {
+        label: (n) => `Mark ready (${n})`,
+        run: (rows) =>
+          batch("READY", "mark_ready", rows.map((r) => ({ orderId: r.orderId }))),
+      },
+      {
+        label: (n) => `Route remaining to ${(document.getElementById("tk-venue") as HTMLSelectElement).value} (${n})`,
+        run: (rows) =>
+          batch(
+            "ROUTE",
+            "route_orders",
+            rows
+              .filter((r) => (r.leavesQty as number) > 0)
+              .map((r) => ({
+                orderId: r.orderId,
+                venueMic: (document.getElementById("tk-venue") as HTMLSelectElement).value,
+                qty: r.leavesQty,
+              })),
+          ),
+      },
+      {
+        label: (n) => `Cancel (${n})`,
+        run: (rows) =>
+          batch("CANCEL", "cancel_orders", rows.map((r) => ({ orderId: r.orderId }))),
+      },
+      {
+        label: (n) => `Aggregate ${n} into a basket…`,
+        run: (rows) => {
+          const name = prompt("Basket name:", "from-selection");
+          if (!name) {
+            return;
+          }
+          return api
+            .createBasketFromOrders(name, rows.map((r) => r.orderId as string))
+            .then((basketId) => toast(`Basket ${basketId} created (${rows.length} orders)`, true))
+            .catch((e: Error) => toast(`Basket failed: ${e.message}`, false));
+        },
+      },
+    ],
+  });
+
+  attachGridInteractions("routes-viewer", {
+    keyField: "routeId",
+    chip: document.getElementById("routes-selchip")!,
+    onPrimary: (row) => {
+      if (!linkToggle.checked) {
+        return;
+      }
+      const routeId = row.routeId as string;
+      fillsChip.textContent = `⛓ ${routeId} ✕`;
+      fillsChip.classList.remove("hidden");
+      void applyFilter("fills-viewer", [["routeId", "==", routeId]]);
+    },
+    actions: [
+      {
+        label: (n) => `Cancel route (${n})`,
+        run: (rows) =>
+          batch("CANCEL ROUTE", "cancel_routes", rows.map((r) => ({ routeId: r.routeId }))),
+      },
+    ],
+  });
 }
 
 /** Kill switch UI (18.4): engage from the header, banner + release while any scope is engaged. */
@@ -404,6 +561,9 @@ function startEsp(session: Logon): void {
     const pair = document.createElement("div");
     pair.className = "esp-pair";
     pair.textContent = figi;
+    void nameOf(figi).then((name) => {
+      pair.textContent = name;
+    });
     const sellButton = document.createElement("button");
     sellButton.className = "esp-sell";
     sellButton.innerHTML = `<span class="esp-label">SELL (BID)</span><span class="esp-px">—</span>`;
@@ -483,7 +643,7 @@ async function start(session: Logon): Promise<void> {
   await perspectiveReady;
   const worker = await perspective.worker();
   await startWatchlist(session, worker);
-  const apiClient = new ApiClient(session.sessionId);
+  const apiClient = apiFor(session);
   startKillSwitch(session, apiClient);
   startNotifications(session);
   startEsp(session);
@@ -497,6 +657,7 @@ async function start(session: Logon): Promise<void> {
       table: await schemaTable(worker, ORDERS_SCHEMA, "orderId"),
       transform: orderRow,
       sort: [["ts", "desc"]],
+      columns: ["name", "side", "qty", "px", "cumQty", "leavesQty", "state", "subState", "account", "orderId", "ts"],
     },
     {
       topic: "blotter.routes",
@@ -505,6 +666,7 @@ async function start(session: Logon): Promise<void> {
       table: await schemaTable(worker, ROUTES_SCHEMA, "routeId"),
       transform: routeRow,
       sort: [["ts", "desc"]],
+      columns: ["name", "venueMic", "side", "qty", "px", "cumQty", "leavesQty", "state", "routeId", "orderId", "ts"],
     },
     {
       topic: "blotter.fills",
@@ -513,6 +675,7 @@ async function start(session: Logon): Promise<void> {
       table: await schemaTable(worker, FILLS_SCHEMA, "execId"),
       transform: fillRow,
       sort: [["ts", "desc"]],
+      columns: ["name", "venueMic", "side", "lastQty", "lastPx", "ts"],
     },
     {
       topic: "blotter.baskets",
@@ -529,16 +692,23 @@ async function start(session: Logon): Promise<void> {
       table: await schemaTable(worker, PNL_SCHEMA, "key"),
       transform: pnlRow,
       sort: [["account", "asc"]],
+      columns: ["account", "name", "netQty", "avgCost", "markPx", "realized", "unrealized", "total"],
     },
   ];
 
   for (const blotter of blotters) {
-    const viewer = document.getElementById(blotter.viewer) as HTMLElement & {
-      load(table: Table): Promise<void>;
-      restore(config: object): Promise<void>;
-    };
+    const viewer = document.getElementById(blotter.viewer) as ViewerEl;
     await viewer.load(blotter.table);
-    await viewer.restore({ plugin: "Datagrid", theme: "Pro Dark", sort: blotter.sort });
+    const config: Record<string, unknown> = {
+      plugin: "Datagrid",
+      theme: "Pro Dark",
+      sort: blotter.sort,
+      ...(blotter.columns ? { columns: blotter.columns } : {}),
+      // Fills stay empty until a route is selected (18.17 #4): fill volume is the render cost.
+      ...(blotter.topic === "blotter.fills" ? { filter: [["routeId", "==", "∅"]] } : {}),
+    };
+    viewerBase.set(blotter.viewer, { viewer, config });
+    await viewer.restore(config);
 
     const stream = new ResumableStream(
       blotter.topic,
@@ -552,12 +722,19 @@ async function start(session: Logon): Promise<void> {
           trackWorkingOrder(wire);
         }
         const row = blotter.transform(wire);
-        void blotter.table.update([row]);
+        if (typeof row.figi === "string") {
+          // Resolve the security name (cached after first sight), then write the row.
+          void withName(row).then((named) => blotter.table.update([named]));
+        } else {
+          void blotter.table.update([row]);
+        }
       },
       (status) => setChip(blotter.chip, status),
     );
     stream.connect();
   }
+
+  wireBlotterLinking(apiFor(session));
 }
 
 // ── Logon overlay ──────────────────────────────────────────────────────────────

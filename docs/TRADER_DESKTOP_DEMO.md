@@ -115,9 +115,22 @@ see is a replayed projection, not a snapshot endpoint.
 Left column: **ORDER TICKET**, **CLICK TO TRADE**, **WATCHLIST**, **NOTIFICATIONS**. Right:
 **ORDER BLOTTER** on top; **ROUTES / FILLS / BASKETS / INTRADAY P&L** below. The demo bot stages,
 routes and drip-fills orders continuously — rows appear, `cumQty`/`leavesQty` count up, states walk
-`NEW → ROUTING → PARTIALLY_FILLED → FILLED`. Every panel is a Perspective viewer: drag a column
-header into "Group By", sort, filter — it keeps updating live while pivoted (that is the point of
-Perspective).
+`NEW → ROUTING → PARTIALLY_FILLED → FILLED`. Rows show the **security name** everywhere (resolved
+from the security master and cached); the FIGI is demoted to an optional column.
+
+Every panel is a Perspective viewer: **click a column header to sort**, and open the **settings
+panel** (the ⚙/columns icon in each panel's top-left toolbar) for per-column *Group By / Split By /
+Sort / Filter* — the grid keeps updating live while pivoted (that is the point of Perspective).
+
+**Linked blotter (the LINK toggle in the ORDER BLOTTER header, on by default):** click an order →
+ROUTES filters to that order (a ⛓ chip shows the link; click it to clear). Click a route → FILLS
+reveals that route's fills. **Fills are hidden until a route is selected** — fill volume is the
+render cost on a busy desk, so nothing paints until you ask.
+
+**Row actions:** click selects a row, **ctrl/cmd+click multi-selects** (the header shows
+"N selected"), and **right-click opens the action menu** for the selection — Mark ready, Route
+remaining to the ticket's venue, Cancel, and *Aggregate N into a basket…* on orders; Cancel route
+on routes. Results land as a toast, and the rows update through the stream like any other action.
 
 ### 4.3 Watchlist
 

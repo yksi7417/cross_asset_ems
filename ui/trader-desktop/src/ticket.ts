@@ -8,6 +8,8 @@
 // PREVIEW_VALIDATE dry-runs the same layered validator the stage path enforces — and every action
 // (stage / amend / cancel / mark-ready / route) is a batch envelope POST to /api/v1/{operation}.
 
+import { nameOfSync } from "./instruments";
+
 /** Fixed-point price scale used across the EMS (4 implied decimals). */
 const PRICE_SCALE = 10_000;
 
@@ -52,7 +54,7 @@ interface Instrument {
   settlement: string;
 }
 
-interface ItemResult {
+export interface ItemResult {
   status: "ACCEPTED" | "REJECTED" | "DEFERRED";
   refId: string | null;
   errorCode: string | null;
@@ -117,6 +119,20 @@ export class ApiClient {
       throw new Error(body.fileError ?? body.error ?? `basket load failed (${response.status})`);
     }
     return { accepted: body.accepted ?? 0, rejected: body.rejected ?? 0 };
+  }
+
+  /** Aggregate already-staged orders into a basket (context-menu path, 18.17). */
+  async createBasketFromOrders(name: string, orderIds: string[]): Promise<string> {
+    const response = await fetch("/api/v1/baskets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-EMS-Session": String(this.sessionId) },
+      body: JSON.stringify({ name, orderIds }),
+    });
+    const body = (await response.json()) as { basketId?: string; error?: string };
+    if (!response.ok || !body.basketId) {
+      throw new Error(body.error ?? `basket create failed (${response.status})`);
+    }
+    return body.basketId;
   }
 
   async listBaskets(): Promise<{ basketId: string; name: string }[]> {
@@ -277,7 +293,7 @@ export function initTicket(
     orderSelect.replaceChildren(
       new Option("— select working order —", ""),
       ...workingOrders().map(
-        (o) => new Option(`${o.orderId} · ${o.figi} · ${o.state}`, o.orderId),
+        (o) => new Option(`${nameOfSync(o.figi)} · ${o.state} · ${o.orderId}`, o.orderId),
       ),
     );
     orderSelect.value = selected;

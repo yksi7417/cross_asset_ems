@@ -1,6 +1,6 @@
 # Demo — Trader Desktop, End to End
 
-A 26-second recording of the system operating itself: logon, live blotter, an order worked
+A 30-second recording of the system operating itself: logon, live blotter, an order worked
 through the ticket, a basket wave, an ESP click-to-trade, and a firm-wide kill drill — all against
 the real backend (validator, kill-switch-guarded OMS, streams), recorded headless with Playwright.
 
@@ -51,6 +51,16 @@ Typing a FIGI fires `GET /api/v1/instruments/{figi}` (asset class drives the fie
 through the blotter streams — REST in, WebSocket out.
 
 ![Routed](docs/demo/04-routed.png)
+
+### 4b. Linked blotter, fills on demand
+
+Click an order and ROUTES filters to it (the ⛓ chip clears the link); click a route and FILLS
+reveals just that route's executions — fills stay hidden otherwise, because fill volume is the
+render cost on a busy desk. Ctrl+click multi-selects rows; right-click opens the action menu
+(ready / route / cancel / aggregate-into-basket). Security names lead every grid; the FIGI is an
+optional column via each panel's settings (⚙) — which also gives per-column group/sort/filter.
+
+![Linked blotter](docs/demo/04b-linked-fills.png)
 
 ### 5. Basket wave
 
