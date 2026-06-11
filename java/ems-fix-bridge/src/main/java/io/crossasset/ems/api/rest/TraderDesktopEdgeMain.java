@@ -21,6 +21,8 @@ import io.crossasset.ems.api.control.KillSwitchService;
 import io.crossasset.ems.api.control.KillSwitchState;
 import io.crossasset.ems.api.md.DeskWatchlist;
 import io.crossasset.ems.api.md.MarketDataTopicBridge;
+import io.crossasset.ems.api.notify.DesktopSink;
+import io.crossasset.ems.api.notify.NotificationService;
 import io.crossasset.ems.bulk.BulkOrderImporter;
 import io.crossasset.ems.instrument.AssetClass;
 import io.crossasset.ems.instrument.CurrencyCode;
@@ -120,9 +122,102 @@ public final class TraderDesktopEdgeMain {
         new ApiSurface(aaa, som, routes, subscriptions, (sid, subId, event) -> {}, pipeline);
     BasketService baskets =
         new BasketService(som, routes, new BulkOrderImporter(api), subscriptions);
+    // ── Notifications (18.8): fills/rejects/kill alerts to desktop + email/sms ──
+    NotificationService notifications = new NotificationService();
+    notifications.registerSink(new DesktopSink(subscriptions));
+    notifications.registerSink(loggingSink(NotificationService.Channel.EMAIL));
+    notifications.registerSink(loggingSink(NotificationService.Channel.SMS));
+    notifications.registerRule(
+        new NotificationService.Rule(
+            "fills-to-desk",
+            "blotter",
+            NotificationService.Kind.INFO,
+            NotificationService.Severity.INFO,
+            "fill",
+            "desk-1",
+            Set.of(NotificationService.Channel.DESKTOP),
+            false,
+            0,
+            10_000L,
+            List.of()));
+    notifications.registerRule(
+        new NotificationService.Rule(
+            "rejects-to-supervisor",
+            "blotter",
+            NotificationService.Kind.ALERT,
+            NotificationService.Severity.HIGH,
+            null,
+            "desk-1",
+            Set.of(NotificationService.Channel.DESKTOP, NotificationService.Channel.EMAIL),
+            true,
+            15 * 60_000L,
+            0,
+            List.of()));
+    notifications.registerRule(
+        new NotificationService.Rule(
+            "kill-critical",
+            "control",
+            null,
+            NotificationService.Severity.CRITICAL,
+            null,
+            "desk-1",
+            Set.of(
+                NotificationService.Channel.DESKTOP,
+                NotificationService.Channel.EMAIL,
+                NotificationService.Channel.SMS),
+            true,
+            5 * 60_000L,
+            0,
+            List.of()));
+    // Bridge blotter/control streams into the queue.
+    subscriptions.subscribe(
+        0L,
+        "blotter.fills",
+        Long.MAX_VALUE,
+        (sid, sub, event) ->
+            notifications.publish(
+                "blotter",
+                NotificationService.Kind.INFO,
+                NotificationService.Severity.INFO,
+                "fill",
+                event.payload(),
+                List.of(event.refId()),
+                System.currentTimeMillis()));
+    subscriptions.subscribe(
+        0L,
+        "blotter.routes",
+        Long.MAX_VALUE,
+        (sid, sub, event) -> {
+          if (event.payload().contains("\"state\":\"REJECTED\"")) {
+            notifications.publish(
+                "blotter",
+                NotificationService.Kind.ALERT,
+                NotificationService.Severity.HIGH,
+                "route-rejected",
+                event.payload(),
+                List.of(event.refId()),
+                System.currentTimeMillis());
+          }
+        });
+    subscriptions.subscribe(
+        0L,
+        KillSwitchService.TOPIC_KILL,
+        Long.MAX_VALUE,
+        (sid, sub, event) ->
+            notifications.publish(
+                "control",
+                NotificationService.Kind.ALERT,
+                NotificationService.Severity.CRITICAL,
+                "kill-" + event.type(),
+                event.payload(),
+                List.of(event.refId()),
+                System.currentTimeMillis()));
+
     RestHttpServer rest =
         new RestHttpServer(
-            new RestEdgeBinding(aaa, api, subscriptions, secMaster, baskets, killSwitch), restPort);
+            new RestEdgeBinding(
+                aaa, api, subscriptions, secMaster, baskets, killSwitch, notifications),
+            restPort);
     rest.start();
     WsEventStreamServer ws = new WsEventStreamServer(aaa, subscriptions, wsPort);
     ws.start();
@@ -302,6 +397,29 @@ public final class TraderDesktopEdgeMain {
       }
       Thread.sleep(400);
     }
+  }
+
+  /** Demo email/SMS channel: prints to stdout (real adapters are deployment config). */
+  private static NotificationService.NotificationSink loggingSink(
+      NotificationService.Channel channel) {
+    return new NotificationService.NotificationSink() {
+      @Override
+      public NotificationService.Channel channel() {
+        return channel;
+      }
+
+      @Override
+      public boolean deliver(NotificationService.Notification notification, String audience) {
+        System.out.printf(
+            "[%s] %s %s -> %s: %s%n",
+            channel,
+            notification.severity(),
+            notification.subject(),
+            audience,
+            notification.notificationId());
+        return true;
+      }
+    };
   }
 
   private static InstrumentCore equity(String figi, String name) {

@@ -332,11 +332,55 @@ function startKillSwitch(session: Logon, api: ApiClient): void {
   });
 }
 
+/** Notifications panel (18.8): the desk queue from notify.{desk}, with ack-required actions. */
+function startNotifications(session: Logon): void {
+  const list = document.getElementById("notify-list")!;
+  new ResumableStream(
+    `notify.${session.desk}`,
+    session.sessionId,
+    (event) => {
+      const row = JSON.parse(event.payload) as Record<string, unknown>;
+      const item = document.createElement("li");
+      item.className = `sev-${row.severity as string}`;
+      const meta = document.createElement("span");
+      meta.className = "nt-meta";
+      meta.textContent = `${row.severity} ${row.subject}${(row.count as number) > 1 ? ` ×${row.count}` : ""}`;
+      const body = document.createElement("span");
+      body.className = "nt-body";
+      body.textContent = row.body as string;
+      body.title = row.body as string;
+      item.append(meta, body);
+      if (row.ackRequired) {
+        const ackButton = document.createElement("button");
+        ackButton.textContent = "ACK";
+        ackButton.addEventListener("click", () => {
+          void fetch(`/api/v1/notifications/${row.notificationId as string}/ack`, {
+            method: "POST",
+            headers: { "X-EMS-Session": String(session.sessionId) },
+          }).then((r) => {
+            if (r.ok) {
+              item.classList.add("acked");
+              ackButton.remove();
+            }
+          });
+        });
+        item.append(ackButton);
+      }
+      list.prepend(item);
+      while (list.children.length > 100) {
+        list.lastChild?.remove();
+      }
+    },
+    () => {},
+  ).connect();
+}
+
 async function start(session: Logon): Promise<void> {
   const worker = await perspective.worker();
   await startWatchlist(session, worker);
   const apiClient = new ApiClient(session.sessionId);
   startKillSwitch(session, apiClient);
+  startNotifications(session);
   initTicket(apiClient, () => [...liveOrders.values()], () => [...watchedSet]);
   const sessionId = session.sessionId;
   const blotters: Blotter[] = [

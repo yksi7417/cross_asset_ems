@@ -24,6 +24,7 @@ import io.crossasset.ems.api.SubscriptionRegistry;
 import io.crossasset.ems.api.basket.BasketService;
 import io.crossasset.ems.api.control.KillSwitchService;
 import io.crossasset.ems.api.control.KillSwitchState;
+import io.crossasset.ems.api.notify.NotificationService;
 import io.crossasset.ems.instrument.InstrumentVersioned;
 import io.crossasset.ems.instrument.SecurityMasterService;
 import java.util.ArrayList;
@@ -58,6 +59,7 @@ public final class RestEdgeBinding {
   private final @org.jspecify.annotations.Nullable SecurityMasterService secMaster;
   private final @org.jspecify.annotations.Nullable BasketService baskets;
   private final @org.jspecify.annotations.Nullable KillSwitchService killSwitch;
+  private final @org.jspecify.annotations.Nullable NotificationService notifications;
 
   public RestEdgeBinding(AaaService aaa, ApiSurface api, SubscriptionRegistry subscriptions) {
     this(aaa, api, subscriptions, null, null);
@@ -92,12 +94,25 @@ public final class RestEdgeBinding {
       @org.jspecify.annotations.Nullable SecurityMasterService secMaster,
       @org.jspecify.annotations.Nullable BasketService baskets,
       @org.jspecify.annotations.Nullable KillSwitchService killSwitch) {
+    this(aaa, api, subscriptions, secMaster, baskets, killSwitch, null);
+  }
+
+  /** With a notification service, {@code POST /api/v1/notifications/{id}/ack} works (18.8). */
+  public RestEdgeBinding(
+      AaaService aaa,
+      ApiSurface api,
+      SubscriptionRegistry subscriptions,
+      @org.jspecify.annotations.Nullable SecurityMasterService secMaster,
+      @org.jspecify.annotations.Nullable BasketService baskets,
+      @org.jspecify.annotations.Nullable KillSwitchService killSwitch,
+      @org.jspecify.annotations.Nullable NotificationService notifications) {
     this.aaa = Objects.requireNonNull(aaa, "aaa");
     this.api = Objects.requireNonNull(api, "api");
     this.subscriptions = Objects.requireNonNull(subscriptions, "subscriptions");
     this.secMaster = secMaster;
     this.baskets = baskets;
     this.killSwitch = killSwitch;
+    this.notifications = notifications;
   }
 
   /**
@@ -125,6 +140,11 @@ public final class RestEdgeBinding {
       }
       if (path.startsWith("/api/v1/kill")) {
         return killRoute(method, path, headers, body);
+      }
+      if ("POST".equals(method)
+          && path.startsWith("/api/v1/notifications/")
+          && path.endsWith("/ack")) {
+        return ackNotification(path, headers);
       }
       if ("POST".equals(method) && path.startsWith("/api/v1/")) {
         return operation(path.substring("/api/v1/".length()), headers, body);
@@ -338,6 +358,21 @@ public final class RestEdgeBinding {
       return new HttpResult(200, out.toString());
     }
     return error(404, "Unknown kill route: " + method + " " + path);
+  }
+
+  /** Acknowledge a notification (18.8); the acker is the session identity. */
+  private HttpResult ackNotification(String path, Map<String, String> headers) {
+    if (notifications == null) {
+      return error(404, "Notification service not configured on this edge.");
+    }
+    long sessionId = requireSession(headers);
+    String id = path.substring("/api/v1/notifications/".length(), path.length() - "/ack".length());
+    String by =
+        aaa.sessionInfo(sessionId).map(s -> s.identity().userId()).orElse("session-" + sessionId);
+    boolean acked = notifications.ack(id, by, System.currentTimeMillis());
+    ObjectNode out = mapper.createObjectNode();
+    out.put("acked", acked);
+    return new HttpResult(acked ? 200 : 409, out.toString());
   }
 
   private long requireSession(Map<String, String> headers) {

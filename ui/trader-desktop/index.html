@@ -107,7 +107,62 @@
         min-width: 0;
       }
       #watchlist-panel {
+        flex: 3;
+      }
+      #notify-panel {
+        flex: 2;
+      }
+      #notify-list {
+        list-style: none;
+        margin: 0;
+        padding: 4px 8px;
+        overflow-y: auto;
         flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 11px;
+      }
+      #notify-list li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 8px;
+        background: var(--bg);
+        border-left: 3px solid var(--muted);
+        border-radius: 3px;
+      }
+      #notify-list li.sev-HIGH,
+      #notify-list li.sev-CRITICAL {
+        border-left-color: var(--down);
+      }
+      #notify-list li.sev-MEDIUM {
+        border-left-color: var(--warn);
+      }
+      #notify-list li .nt-body {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--text);
+      }
+      #notify-list li .nt-meta {
+        color: var(--muted);
+        font-size: 10px;
+        white-space: nowrap;
+      }
+      #notify-list li button {
+        background: var(--edge);
+        color: var(--text);
+        border: none;
+        border-radius: 3px;
+        padding: 3px 8px;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+      }
+      #notify-list li.acked {
+        opacity: 0.45;
       }
       /* Ticket form */
       #ticket {
@@ -445,6 +500,10 @@
           <section class="panel" id="watchlist-panel">
             <h2 id="watchlist-title">WATCHLIST</h2>
             <perspective-viewer id="watchlist-viewer"></perspective-viewer>
+          </section>
+          <section class="panel" id="notify-panel">
+            <h2>NOTIFICATIONS</h2>
+            <ul id="notify-list"></ul>
           </section>
         </div>
         <div id="right-col">
