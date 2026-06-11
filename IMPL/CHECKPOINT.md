@@ -8,15 +8,15 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 
 ## Current cursor
 
-- **Active goal (set 2026-06-11): Phase 18 — trader desktop & buyer-readiness.** Order: 18.12 → 18.13 → 18.1 → 18.14 → 18.2 → 18.3 → 18.4 → 18.6 → 18.7 → 18.8 → 18.9 → 18.10 → 18.5 → 11.17 → 18.11 (11.17 pulled in as 18.11's blocker per the queued next-goal definition; 18.5 late because its 10.2 input is deferred — pack will carry fat-finger as a deferred control or go `[!]`). Fable executes every task directly, no delegation; LOOP protocol per IMPL/LOOP.md.
-- **Last completed task:** 18.11 — Click-to-trade `(d8ced96)` (11.17 `db832b5` ESP core landed first). REST /api/v1/esp/click; desktop ESP tiles; slippage guard rejects locally, last-look accept-rate on fills. Live-verified.
-- **In-progress task:** _(none — next: 18.5 15c3-5 pack, the final Phase 18 task)_
+- **🏁 PHASE 18 GOAL COMPLETE (2026-06-11).** All 14 Phase 18 tasks + 11.17 are `[x]`. Trader desktop (Perspective WASM): blotter, watchlist, ticket w/ server-side preview, baskets, P&L, notifications, ESP click-to-trade, kill banner — all on cursor-resumable WS streams over the 8.4 topics. Controls: kill switch (audited mass-cancel + lockout), Reg SHO borrow/locate in the compliance gate, maker-checker, SSO/SCIM, 15c3-5 attestation pack (fat-finger carried DEFERRED w/ 10.2). Full suite at goal close: **1,753 tests, 0 failures**.
+- **Last completed task:** 18.5 — 15c3-5 pack `(e702bb7)`. MarketAccessPack + EmsMarketAccessControls.standard: 6 named controls w/ rule cites + live evidence suppliers (kill journal, limits amendments, Reg SHO attestation); fat-finger DEFERRED w/ rationale + compensating controls; deferred counted in summary. 4 tests.
+- **In-progress task:** _(none — goal complete)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-11
-- **Phase 18 progress:** 18.12 `068cbee`, 18.13 `8253d2f`, 18.1 `fefdc9a`, 18.14 `715c3d7`, 18.2 `bfdddba`, 18.3 `3554682`, 18.4 `6aa282c`, 18.6 `9c3e89f`, 18.7 `f007a19`, 18.8 `4a2e5e5`, 18.9 `b217889`, 18.10 `05e11e4`, 11.17 `db832b5`, 18.11 `d8ced96`. Remaining: 18.5 only.
+- **Phase 18 progress:** COMPLETE — 18.12 `068cbee`, 18.13 `8253d2f`, 18.1 `fefdc9a`, 18.14 `715c3d7`, 18.2 `bfdddba`, 18.3 `3554682`, 18.4 `6aa282c`, 18.6 `9c3e89f`, 18.7 `f007a19`, 18.8 `4a2e5e5`, 18.9 `b217889`, 18.10 `05e11e4`, 11.17 `db832b5`, 18.11 `d8ced96`, 18.5 `e702bb7`.
 - **Front-end decision (2026-06-10, user):** trader desktop on **Perspective** (WASM streaming-pivot grid, github.com/perspective-dev/perspective) for high-rate market-data/blotter updates; market data via the pluggable SPI (18.12) with Bloomberg Desktop/Server API (18.13) first.
 - **🏁 Prior goals:** MVP v0 ✅ (2026-06-10, `MvpSmokeTest` corp-bond end-to-end, single trace + replay) · Phase 16 cross-asset ✅ (7 asset classes, `CrossAssetSmokeTest`) · **v1 BUILD-OUT ✅ (2026-06-11 ~00:30 EDT)** — Phases 7/8/10-in-scope/14/17 + 11.15 + 15.2 all `[x]`, full suite green at goal close. Details in the session log + git history.
-- **Total progress:** **140 of 177 tasks [x]** (79.1%). MVP v0, Phase 16, v1 build-out complete; Phase 18 underway.
+- **Total progress:** **141 of 177 tasks [x]** (79.7%). Phase 18 + 11.17 complete. MVP v0, Phase 16, v1 build-out complete; Phase 18 underway.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
@@ -51,6 +51,7 @@ The loop appends a one-line entry per session.
 | 2026-06-10 | 2026-06-10 | MVP v0 completion run (Opus, /goal 10-commit cap) | 5 (12.3 `b218e63`, 12.5 `51e1713`, 12.6 `39a9a88`, 13.5 `6953c3c`, 15.1 `26f29d8`) | 12.3 confirmation, 12.5 reg reporting, 12.6 TRACE-mock, 13.5 trace verify, 15.1 end-to-end smoke — **MVP v0 COMPLETE** | next = v1 (US equity + USD IRS; real venues) |
 | 2026-06-10 | 2026-06-10 | planning: loop rework + buyer's-lens gap analysis (Fable; no build tasks) | 1 (docs) | LOOP.md rewritten — no delegation, continuous run; goal reset to v1 build-out (Phases 7/8/9/10/14 + 11.15/15.2 + 17); PLAN +23 tasks (11.15–11.17, 12.12–12.16, 15.2, 17.1–17.3, 18.1–18.11); DELEGATION suspended; initial docs/USER_GUIDE.md | next = 7.4 |
 | 2026-06-10 | 2026-06-10 20:20 EDT | v1 build-out run (Fable, continuous); paused on user token budget, resume 22:15 EDT | ~25 (11 feat + claims/marks) | **Phase 7 complete** (7.4 multi-leg, 7.5 aggregation, 7.6 netting), **Phase 8 complete** (8.2 venue FIX gw, 8.3 tag-9700, 8.4 API surface, 8.5 batch, 8.6 import, 8.7 export, 8.8 idempotent re-import, 8.10 REST edge, 8.11 parity), 10.1 compliance gate, 10.3 machine-gun; catalog 44xx/22xx/5xxx/2510; mid-run rescope: Phase 9 deferred, Perspective+Bloomberg SPI (18.12–18.14) | next = 10.4 |
+| 2026-06-11 | 2026-06-11 | user: "go start building phase 18" (Fable, continuous) | ~31 (15 feat + claims/marks) | **PHASE 18 COMPLETE** + 11.17: 18.12 md SPI, 18.13 Bloomberg adapter, 18.1 Perspective blotter + WS edge + demo edge, 18.14 watchlist, 18.2 ticket + preview_validate, 18.3 baskets/waves, 18.4 kill switch (+96xx codes), 18.6 borrow/locate Reg SHO, 18.7 intraday P&L, 18.8 notifications, 18.9 SSO/SCIM, 18.10 maker-checker, 11.17 ESP, 18.11 click-to-trade, 18.5 15c3-5 pack; ui/trader-desktop (Vite+TS+Perspective 3.8); suite 1,753/0 at close | next goal = 12.12–12.16 (CAT, commissions, surveillance, drop-copy) or 11.16/6.4/13.4 |
 | 2026-06-10 22:15 | 2026-06-11 ~00:30 EDT | scheduled resume (22:15 one-shot); ran to GOAL COMPLETE | ~30 (15 feat + claims/marks/docs) | **Phase 10 in-scope** (10.4 lists, 10.5 overrides, 10.7 positions, 10.6 risk, 10.8 pricing, 10.9 analytics), **11.15** FIX simulator, **15.2** FIX-wire smoke, **Phase 14** (14.1 introspection, 14.2 admin console, 14.5 switchover, 14.6 lease, 14.7 fenced creds, 14.10 region drill), **Phase 17** (17.1/17.2/17.3 docs) — **v1 BUILD-OUT GOAL COMPLETE**; 05:30 resume cancelled | next goal = Phase 18 (Perspective desktop + Bloomberg SPI) |
 
 ## Phase progress
@@ -77,7 +78,7 @@ Updated when a phase completes.
 | 15 — MVP Integration | complete | 2026-06-11 |
 | 16 — Cross-asset coverage | complete | 2026-06-10 |
 | 17 — Usage Documentation | complete | 2026-06-11 |
-| 18 — Trader Desktop & Buyer-Readiness | not started — queued as next goal | |
+| 18 — Trader Desktop & Buyer-Readiness | complete | 2026-06-11 |
 
 ## Blocked tasks
 
