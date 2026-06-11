@@ -235,8 +235,8 @@ External edges. ~2-3 weeks.
 - [x] **8.7** Excel/CSV bulk export with templates (gemma) ← blocks: 8.4 `(903589b)`
 - [x] **8.8** Idempotent re-import test (sonnet) ← blocks: 8.6 `(6cc135a)`
 - [x] **[MVP] 8.9** Resumable session channel — heartbeat/TEST_REQUEST, outbound resend buffer, resume-from-seq, per-hop seq dedup; completes the `SequenceRecoveryService` skeleton per [[arch-sequence-recovery]] (sonnet) ← blocks: 5.1, 2.3 (981c33d)
-- [ ] **8.10** REST/WebSocket edge binding for browser UI — maps HTTP/WS onto the API session surface; WS carries the resumable subscription stream (`Last-Event-ID`/seq resume) per [[arch-api-first]] (gemma for REST scaffold, sonnet for WS resume) ← blocks: 8.4
-- [ ] **8.11** Multi-surface consistent-view parity test — same operation via FIX / native API / REST-WS yields byte-identical events + identical projection; anchored to the [[arch-fix-api-bridge]] mixed-client rule (sonnet) ← blocks: 8.1, 8.4, 8.10
+- [x] **8.10** REST/WebSocket edge binding for browser UI — maps HTTP/WS onto the API session surface; WS carries the resumable subscription stream (`Last-Event-ID`/seq resume) per [[arch-api-first]] (gemma for REST scaffold, sonnet for WS resume) ← blocks: 8.4 `(d6e42f3)`
+- [~] **8.11** Multi-surface consistent-view parity test — same operation via FIX / native API / REST-WS yields byte-identical events + identical projection; anchored to the [[arch-fix-api-bridge]] mixed-client rule (sonnet) ← blocks: 8.1, 8.4, 8.10
 
 ## Phase 9 — Market Data
 
