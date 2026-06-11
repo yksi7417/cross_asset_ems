@@ -331,8 +331,8 @@ Resilience + tooling. ~2-3 weeks.
 - [x] **14.3** Time/Replay server UI (gemma for scaffold, sonnet for design) `(6b3e666)`
 - [x] **14.4** Configuration service UI (gemma for scaffold) `(6b3e666)`
 - [x] **14.5** Blue/green switchover protocol per [[arch-deployment]] (sonnet) `(874130c)`
-- [~] **14.6** Cluster-of-clusters active lease (sonnet) ← blocks: 14.5
-- [ ] **14.7** Fence-token venue credential rotation (sonnet) ← blocks: 14.5
+- [x] **14.6** Cluster-of-clusters active lease (sonnet) ← blocks: 14.5 `(b159a50)`
+- [~] **14.7** Fence-token venue credential rotation (sonnet) ← blocks: 14.5
 - [x] **14.8** Weekly leader-kill drill scripted (gemma) `(91ccfd7)`
 - [x] **14.9** Monthly cold-start drill scripted (gemma) `(91ccfd7)`
 - [ ] **14.10** Quarterly cross-region failover drill scripted (sonnet)
