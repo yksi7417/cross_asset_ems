@@ -113,6 +113,11 @@ public final class BlotterRouteManager implements RouteManager {
   }
 
   @Override
+  public List<Route> activeRoutes() {
+    return delegate.activeRoutes();
+  }
+
+  @Override
   public List<RouteEventResult> cascadeOrderCancel(String orderId) {
     List<RouteEventResult> results = delegate.cascadeOrderCancel(orderId);
     for (RouteEventResult result : results) {

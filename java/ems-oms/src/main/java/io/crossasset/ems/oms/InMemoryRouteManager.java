@@ -212,6 +212,17 @@ public final class InMemoryRouteManager implements RouteManager {
   }
 
   @Override
+  public List<Route> activeRoutes() {
+    List<Route> active = new ArrayList<>();
+    for (Route route : routes.values()) {
+      if (!route.isTerminal()) {
+        active.add(route);
+      }
+    }
+    return active;
+  }
+
+  @Override
   public List<Route> findRoutesForOrder(String orderId) {
     List<Route> result = new ArrayList<>();
     for (Route r : routes.values()) {

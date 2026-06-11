@@ -5,6 +5,7 @@
 package io.crossasset.ems.oms;
 
 import io.crossasset.ems.fsm.generated.OrderFsmEvent;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -50,6 +51,13 @@ public interface StagedOrderManager {
 
   /** Returns the order if it exists, empty otherwise. */
   Optional<StagedOrder> findOrder(String orderId);
+
+  /**
+   * Every non-terminal order (task 18.4). The kill switch's mass-cancel enumerates from the
+   * authoritative store — never from a projection — because missing an order here is a silent
+   * failure on the control path.
+   */
+  List<StagedOrder> activeOrders();
 
   /**
    * Applies a raw FSM event directly to the order (used by the router layer to propagate fills and

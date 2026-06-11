@@ -248,14 +248,69 @@ function trackWorkingOrder(row: WireRow): void {
   }
 }
 
+/** Kill switch UI (18.4): engage from the header, banner + release while any scope is engaged. */
+function startKillSwitch(session: Logon, api: ApiClient): void {
+  const banner = document.getElementById("kill-banner")!;
+  const bannerText = document.getElementById("kill-banner-text")!;
+  const engaged = new Map<string, string>(); // scope -> reason/by summary
+
+  function render(): void {
+    if (engaged.size === 0) {
+      banner.classList.add("hidden");
+      return;
+    }
+    bannerText.textContent = `KILL ENGAGED — ${[...engaged.entries()]
+      .map(([scope, detail]) => `${scope} (${detail})`)
+      .join(" · ")}`;
+    banner.classList.remove("hidden");
+  }
+
+  new ResumableStream(
+    "control.kill",
+    session.sessionId,
+    (event) => {
+      const payload = JSON.parse(event.payload) as Record<string, unknown>;
+      const scope = `${payload.scopeKind}:${payload.scopeValue}`;
+      if (event.type === "KillEngage" || event.type === "KillDisconnect") {
+        if (event.type === "KillEngage") {
+          engaged.set(scope, `${payload.reason} — ${payload.by}`);
+        }
+      } else if (event.type === "KillRelease") {
+        engaged.delete(scope);
+      }
+      render();
+    },
+    () => {},
+  ).connect();
+
+  document.getElementById("kill-btn")!.addEventListener("click", () => {
+    const reason = prompt(`ENGAGE FIRM-WIDE KILL for ${session.firm}?\nReason (required):`);
+    if (!reason) {
+      return;
+    }
+    api
+      .kill("kill", "FIRM", session.firm, reason)
+      .then((r) => alert(`Kill engaged. ${r.targets} targets, ${r.failures} failures.`))
+      .catch((e: Error) => alert(e.message));
+  });
+
+  document.getElementById("kill-release")!.addEventListener("click", () => {
+    const reason = prompt("Release reason (required):");
+    if (!reason) {
+      return;
+    }
+    api
+      .kill("kill/release", "FIRM", session.firm, reason)
+      .catch((e: Error) => alert(e.message));
+  });
+}
+
 async function start(session: Logon): Promise<void> {
   const worker = await perspective.worker();
   await startWatchlist(session, worker);
-  initTicket(
-    new ApiClient(session.sessionId),
-    () => [...liveOrders.values()],
-    () => [...watchedSet],
-  );
+  const apiClient = new ApiClient(session.sessionId);
+  startKillSwitch(session, apiClient);
+  initTicket(apiClient, () => [...liveOrders.values()], () => [...watchedSet]);
   const sessionId = session.sessionId;
   const blotters: Blotter[] = [
     {

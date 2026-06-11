@@ -22,6 +22,8 @@ import io.crossasset.ems.api.BatchOptions;
 import io.crossasset.ems.api.ItemResult;
 import io.crossasset.ems.api.SubscriptionRegistry;
 import io.crossasset.ems.api.basket.BasketService;
+import io.crossasset.ems.api.control.KillSwitchService;
+import io.crossasset.ems.api.control.KillSwitchState;
 import io.crossasset.ems.instrument.InstrumentVersioned;
 import io.crossasset.ems.instrument.SecurityMasterService;
 import java.util.ArrayList;
@@ -55,6 +57,7 @@ public final class RestEdgeBinding {
   private final SubscriptionRegistry subscriptions;
   private final @org.jspecify.annotations.Nullable SecurityMasterService secMaster;
   private final @org.jspecify.annotations.Nullable BasketService baskets;
+  private final @org.jspecify.annotations.Nullable KillSwitchService killSwitch;
 
   public RestEdgeBinding(AaaService aaa, ApiSurface api, SubscriptionRegistry subscriptions) {
     this(aaa, api, subscriptions, null, null);
@@ -78,11 +81,23 @@ public final class RestEdgeBinding {
       SubscriptionRegistry subscriptions,
       @org.jspecify.annotations.Nullable SecurityMasterService secMaster,
       @org.jspecify.annotations.Nullable BasketService baskets) {
+    this(aaa, api, subscriptions, secMaster, baskets, null);
+  }
+
+  /** With a kill-switch service, the {@code /api/v1/kill} routes serve the control path (18.4). */
+  public RestEdgeBinding(
+      AaaService aaa,
+      ApiSurface api,
+      SubscriptionRegistry subscriptions,
+      @org.jspecify.annotations.Nullable SecurityMasterService secMaster,
+      @org.jspecify.annotations.Nullable BasketService baskets,
+      @org.jspecify.annotations.Nullable KillSwitchService killSwitch) {
     this.aaa = Objects.requireNonNull(aaa, "aaa");
     this.api = Objects.requireNonNull(api, "api");
     this.subscriptions = Objects.requireNonNull(subscriptions, "subscriptions");
     this.secMaster = secMaster;
     this.baskets = baskets;
+    this.killSwitch = killSwitch;
   }
 
   /**
@@ -107,6 +122,9 @@ public final class RestEdgeBinding {
       }
       if (path.startsWith("/api/v1/baskets")) {
         return basketsRoute(method, path, headers, body);
+      }
+      if (path.startsWith("/api/v1/kill")) {
+        return killRoute(method, path, headers, body);
       }
       if ("POST".equals(method) && path.startsWith("/api/v1/")) {
         return operation(path.substring("/api/v1/".length()), headers, body);
@@ -263,6 +281,63 @@ public final class RestEdgeBinding {
       }
     }
     return error(404, "Unknown basket route: " + method + " " + path);
+  }
+
+  /**
+   * Kill-switch routes (18.4): {@code GET /api/v1/kill} status; {@code POST /api/v1/kill} engages
+   * ({kind, value, reason}); {@code POST /api/v1/kill/release} releases. Authorization (the
+   * #kill-switch tag) is enforced by the service; the audit (who/scope/reason/outcomes) is the
+   * response body.
+   */
+  private HttpResult killRoute(String method, String path, Map<String, String> headers, String body)
+      throws Exception {
+    if (killSwitch == null) {
+      return error(404, "Kill switch not configured on this edge.");
+    }
+    long sessionId = requireSession(headers);
+    if ("GET".equals(method) && "/api/v1/kill".equals(path)) {
+      ObjectNode out = mapper.createObjectNode();
+      ArrayNode engaged = out.putArray("engaged");
+      for (KillSwitchState.Scope scope : killSwitch.engaged()) {
+        ObjectNode node = engaged.addObject();
+        node.put("kind", scope.kind().name());
+        node.put("value", scope.value());
+      }
+      return new HttpResult(200, out.toString());
+    }
+    if ("POST".equals(method)
+        && ("/api/v1/kill".equals(path) || "/api/v1/kill/release".equals(path))) {
+      JsonNode json = mapper.readTree(body);
+      KillSwitchState.Scope scope =
+          new KillSwitchState.Scope(
+              KillSwitchState.Kind.valueOf(requireText(json, "kind")), requireText(json, "value"));
+      String reason = requireText(json, "reason");
+      KillSwitchService.KillResult result =
+          path.endsWith("/release")
+              ? killSwitch.release(scope, sessionId, reason)
+              : killSwitch.engage(scope, sessionId, reason);
+      if (result instanceof KillSwitchService.KillResult.Rejected rejected) {
+        ObjectNode out = mapper.createObjectNode();
+        out.put("error", rejected.code() + ": " + rejected.message());
+        return new HttpResult(403, out.toString());
+      }
+      KillSwitchService.KillAudit audit = ((KillSwitchService.KillResult.Done) result).audit();
+      ObjectNode out = mapper.createObjectNode();
+      out.put("action", audit.action());
+      out.put("by", audit.by());
+      out.put("targets", audit.outcomes().size());
+      out.put("failures", audit.failures());
+      ArrayNode outcomes = out.putArray("outcomes");
+      for (KillSwitchService.TargetOutcome outcome : audit.outcomes()) {
+        ObjectNode node = outcomes.addObject();
+        node.put("targetId", outcome.targetId());
+        node.put("action", outcome.action());
+        node.put("ok", outcome.ok());
+        node.put("detail", outcome.detail());
+      }
+      return new HttpResult(200, out.toString());
+    }
+    return error(404, "Unknown kill route: " + method + " " + path);
   }
 
   private long requireSession(Map<String, String> headers) {

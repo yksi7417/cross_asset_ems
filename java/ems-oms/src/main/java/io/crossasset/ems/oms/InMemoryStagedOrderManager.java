@@ -12,7 +12,9 @@ import io.crossasset.ems.fsm.generated.TransitionResult;
 import io.crossasset.ems.validator.ValidationRequest;
 import io.crossasset.ems.validator.ValidationResult;
 import io.crossasset.ems.validator.ValidatorPipeline;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -266,6 +268,17 @@ public final class InMemoryStagedOrderManager implements StagedOrderManager {
               remaining,
               order.stagedAtMicros());
         });
+  }
+
+  @Override
+  public List<StagedOrder> activeOrders() {
+    List<StagedOrder> active = new ArrayList<>();
+    for (StagedOrder order : orders.values()) {
+      if (!order.isTerminal()) {
+        active.add(order);
+      }
+    }
+    return active;
   }
 
   @Override

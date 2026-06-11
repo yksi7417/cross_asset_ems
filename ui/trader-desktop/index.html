@@ -303,6 +303,40 @@
       .hidden {
         display: none !important;
       }
+      #kill-btn {
+        background: #4a2326;
+        color: #e8a9a6;
+        border: 1px solid #6b3035;
+        border-radius: 3px;
+        padding: 4px 14px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        cursor: pointer;
+      }
+      #kill-banner {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #3d1518;
+        border: 1px solid var(--down);
+        border-radius: 4px;
+        color: #f0b6b3;
+        padding: 8px 14px;
+        font-size: 12px;
+        letter-spacing: 0.06em;
+      }
+      #kill-banner button {
+        background: var(--down);
+        color: #2a0a0c;
+        font-weight: 700;
+        border: none;
+        border-radius: 3px;
+        padding: 5px 12px;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+        margin-left: auto;
+      }
     </style>
   </head>
   <body>
@@ -321,11 +355,16 @@
         <h1>CROSS-ASSET EMS</h1>
         <span class="desk" id="session-label">—</span>
         <span class="spacer"></span>
+        <button id="kill-btn" title="Firm-wide kill switch">KILL</button>
         <span class="chip" id="chip-md"><i></i>MARKET DATA</span>
         <span class="chip" id="chip-orders"><i></i>ORDERS</span>
         <span class="chip" id="chip-routes"><i></i>ROUTES</span>
         <span class="chip" id="chip-fills"><i></i>FILLS</span>
       </header>
+      <div id="kill-banner" class="hidden">
+        <span id="kill-banner-text"></span>
+        <button id="kill-release">RELEASE</button>
+      </div>
       <main>
         <div id="left-col">
           <section class="panel" id="ticket-panel">

@@ -80,6 +80,11 @@ public final class BlotterStagedOrderManager implements StagedOrderManager {
   }
 
   @Override
+  public java.util.List<StagedOrder> activeOrders() {
+    return delegate.activeOrders();
+  }
+
+  @Override
   public Optional<StagedOrder> applyOrderFsmEvent(
       String orderId, OrderFsmEvent event, Object payload) {
     Optional<StagedOrder> result = delegate.applyOrderFsmEvent(orderId, event, payload);

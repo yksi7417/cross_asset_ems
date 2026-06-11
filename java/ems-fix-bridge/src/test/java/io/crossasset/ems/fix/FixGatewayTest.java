@@ -126,6 +126,11 @@ class FixGatewayTest {
     }
 
     @Override
+    public java.util.List<StagedOrder> activeOrders() {
+      return java.util.List.of();
+    }
+
+    @Override
     public Optional<StagedOrder> applyOrderFsmEvent(
         String orderId, OrderFsmEvent event, Object payload) {
       return Optional.empty();

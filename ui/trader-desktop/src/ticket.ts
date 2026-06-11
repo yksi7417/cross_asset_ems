@@ -129,6 +129,29 @@ export class ApiClient {
     return ((await response.json()) as { baskets: { basketId: string; name: string }[] }).baskets;
   }
 
+  /** Kill switch (18.4): engage/release; the audit summary is the response. */
+  async kill(
+    path: "kill" | "kill/release",
+    kind: string,
+    value: string,
+    reason: string,
+  ): Promise<{ targets: number; failures: number }> {
+    const response = await fetch(`/api/v1/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-EMS-Session": String(this.sessionId) },
+      body: JSON.stringify({ kind, value, reason }),
+    });
+    const body = (await response.json()) as {
+      targets?: number;
+      failures?: number;
+      error?: string;
+    };
+    if (!response.ok) {
+      throw new Error(body.error ?? `${path} failed (${response.status})`);
+    }
+    return { targets: body.targets ?? 0, failures: body.failures ?? 0 };
+  }
+
   async wave(
     basketId: string,
     fractionBp: number,

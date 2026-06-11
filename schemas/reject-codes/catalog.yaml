@@ -94,6 +94,12 @@ reject_codes:
   - { code: EMS-AUT-2010, category: AUT, severity: error, title: "Already approved", description: "Second approver lost the race; first approval already took effect." }
   - { code: EMS-AUT-3001, category: AUT, severity: error, title: "Rule references unknown target", description: "Rule action references an order/route ID that no longer exists." }
 
+  # --- Kill switch (task 18.4, control path) ------------------------------
+  - { code: EMS-ORD-9601, category: ORD, severity: error, title: "Kill switch engaged — order entry locked", description: "A kill switch covering this firm/desk is engaged; staging and mark-ready are locked out until release. Cancels remain allowed." }
+  - { code: EMS-RTE-9601, category: RTE, severity: error, title: "Kill switch engaged — routing locked", description: "A kill switch covering this firm/desk/venue is engaged; new routes are locked out until release. Route cancels remain allowed." }
+  - { code: EMS-AUT-9601, category: AUT, severity: error, title: "Kill switch permission required", description: "Engaging or releasing a kill switch requires the #kill-switch tag.", admin_hint: "Request the #kill-switch tag from the desk supervisor." }
+  - { code: EMS-AUT-9602, category: AUT, severity: error, title: "Kill scope state conflict", description: "Engage of an already-engaged scope, or release of a scope that is not engaged." }
+
   # --- CFG — Configuration (per arch-configuration-service) --------------
   - { code: EMS-CFG-1001, category: CFG, severity: error, title: "Unknown config key", description: "Configuration key not registered in the schema." }
   - { code: EMS-CFG-1002, category: CFG, severity: error, title: "Type mismatch", description: "Proposed value type does not match the schema-registered type." }
@@ -109,6 +115,6 @@ reject_codes:
 metadata:
   version: 1
   schema_url: "schemas/reject-codes/catalog.schema.yaml"   # planned in task 6.2
-  total_codes: 44
+  total_codes: 48
   categories: 7
   source_of_truth: "80_architecture/arch-validator.md + arch-configuration-service.md"

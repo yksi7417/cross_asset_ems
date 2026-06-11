@@ -103,6 +103,9 @@ public interface RouteManager {
   /** Returns all routes for the given orderId (including terminal routes). */
   List<Route> findRoutesForOrder(String orderId);
 
+  /** Every non-terminal route (task 18.4) — the kill switch's venue-scope mass-cancel source. */
+  List<Route> activeRoutes();
+
   /**
    * Fires RouteCancelRequested on every non-terminal route for the given order. Called by the
    * orchestrator after an order-level cancel so that venue-side cancels are dispatched in lockstep.

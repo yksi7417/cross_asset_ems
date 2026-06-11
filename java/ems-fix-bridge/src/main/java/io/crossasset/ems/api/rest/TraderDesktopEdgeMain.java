@@ -15,6 +15,10 @@ import io.crossasset.ems.api.basket.BasketService;
 import io.crossasset.ems.api.blotter.BlotterPublisher;
 import io.crossasset.ems.api.blotter.BlotterRouteManager;
 import io.crossasset.ems.api.blotter.BlotterStagedOrderManager;
+import io.crossasset.ems.api.control.KillSwitchOrderGuard;
+import io.crossasset.ems.api.control.KillSwitchRouteGuard;
+import io.crossasset.ems.api.control.KillSwitchService;
+import io.crossasset.ems.api.control.KillSwitchState;
 import io.crossasset.ems.api.md.DeskWatchlist;
 import io.crossasset.ems.api.md.MarketDataTopicBridge;
 import io.crossasset.ems.bulk.BulkOrderImporter;
@@ -78,7 +82,8 @@ public final class TraderDesktopEdgeMain {
 
     // ── The real stack ──────────────────────────────────────────────────────────
     InMemoryAaaService aaa = new InMemoryAaaService(new InMemoryAaaEventLog());
-    aaa.registerCredential("trader-token", "firm-demo", "desk-1", "trader-1", Set.of());
+    aaa.registerCredential(
+        "trader-token", "firm-demo", "desk-1", "trader-1", Set.of("#kill-switch"));
     aaa.registerCredential("demo-bot", "firm-demo", "desk-1", "demo-bot", Set.of());
 
     InMemorySecurityMasterService secMaster = new InMemorySecurityMasterService();
@@ -96,9 +101,17 @@ public final class TraderDesktopEdgeMain {
     BlotterPublisher blotter =
         new BlotterPublisher(subscriptions, () -> System.currentTimeMillis() * 1_000);
     LayeredValidatorPipeline pipeline = new LayeredValidatorPipeline(aaa, secMaster, null);
-    BlotterStagedOrderManager som =
+    BlotterStagedOrderManager blotterSom =
         new BlotterStagedOrderManager(new InMemoryStagedOrderManager(pipeline), blotter);
-    BlotterRouteManager routes = new BlotterRouteManager(new InMemoryRouteManager(som), blotter);
+    BlotterRouteManager blotterRoutes =
+        new BlotterRouteManager(new InMemoryRouteManager(blotterSom), blotter);
+    // Kill-switch guards are outermost (18.4): every surface constructs against them.
+    KillSwitchState killState = new KillSwitchState();
+    KillSwitchOrderGuard som = new KillSwitchOrderGuard(blotterSom, killState, aaa);
+    KillSwitchRouteGuard routes = new KillSwitchRouteGuard(blotterRoutes, killState, aaa, som);
+    KillSwitchService killSwitch =
+        new KillSwitchService(
+            aaa, som, routes, killState, subscriptions, System::currentTimeMillis);
 
     ApiSurface api =
         new ApiSurface(aaa, som, routes, subscriptions, (sid, subId, event) -> {}, pipeline);
@@ -106,7 +119,7 @@ public final class TraderDesktopEdgeMain {
         new BasketService(som, routes, new BulkOrderImporter(api), subscriptions);
     RestHttpServer rest =
         new RestHttpServer(
-            new RestEdgeBinding(aaa, api, subscriptions, secMaster, baskets), restPort);
+            new RestEdgeBinding(aaa, api, subscriptions, secMaster, baskets, killSwitch), restPort);
     rest.start();
     WsEventStreamServer ws = new WsEventStreamServer(aaa, subscriptions, wsPort);
     ws.start();
@@ -137,8 +150,8 @@ public final class TraderDesktopEdgeMain {
   /** A scripted trading session: staged orders, routes, dripped fills, ticking quotes. */
   private static void runDemoScript(
       InMemoryAaaService aaa,
-      BlotterStagedOrderManager som,
-      BlotterRouteManager routes,
+      io.crossasset.ems.oms.StagedOrderManager som,
+      io.crossasset.ems.oms.RouteManager routes,
       SimulatedFeed feed)
       throws InterruptedException {
     LogonOutcome logon = aaa.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "demo-bot"));
