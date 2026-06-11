@@ -9,14 +9,14 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 ## Current cursor
 
 - **Active goal (set 2026-06-11): Phase 18 — trader desktop & buyer-readiness.** Order: 18.12 → 18.13 → 18.1 → 18.14 → 18.2 → 18.3 → 18.4 → 18.6 → 18.7 → 18.8 → 18.9 → 18.10 → 18.5 → 11.17 → 18.11 (11.17 pulled in as 18.11's blocker per the queued next-goal definition; 18.5 late because its 10.2 input is deferred — pack will carry fat-finger as a deferred control or go `[!]`). Fable executes every task directly, no delegation; LOOP protocol per IMPL/LOOP.md.
-- **Last completed task:** 18.13 — Bloomberg adapter `(8253d2f)`. `BloombergFeed` (session FSM, parked-resubscribe on reconnect, FIGI→/bbgid/, mnemonic map, fixed-point scaling, entitlement→sub error + DEGRADED health) over a `BlpapiDriver` seam; `ReflectiveBlpapiDriver` binds the desk's licensed blpapi jar at runtime (hermetic build preserved); desk smoke `:ems-market-data:runBloombergFeed`. 13 tests.
-- **In-progress task:** _(none — next: 18.1 trading blotter on Perspective)_
+- **Last completed task:** 18.1 — Trading blotter `(fefdc9a)`. Server: `BlotterPublisher` + decorator managers publish keyed row deltas on blotter.orders/routes/fills; `WsEventStreamServer` (RFC 6455, cursor resume, AAA-gated) completes the 8.10 edge; `TraderDesktopEdgeMain` demo edge (`:ems-fix-bridge:runTraderEdge`, REST 8484/WS 8485) verified live. Desktop: ui/trader-desktop (Vite+TS+Perspective 3.8 WASM), indexed tables fed by ResumableStream per topic, npm build verified. 13 tests.
+- **In-progress task:** _(none — next: 18.14 market-data watchlist panel)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-11
-- **Phase 18 progress:** 18.12 `068cbee`, 18.13 `8253d2f`. Remaining: 18.1, 18.14, 18.2–18.11 (+11.17 for 18.11).
+- **Phase 18 progress:** 18.12 `068cbee`, 18.13 `8253d2f`, 18.1 `fefdc9a`. Remaining: 18.14, 18.2–18.11 (+11.17 for 18.11).
 - **Front-end decision (2026-06-10, user):** trader desktop on **Perspective** (WASM streaming-pivot grid, github.com/perspective-dev/perspective) for high-rate market-data/blotter updates; market data via the pluggable SPI (18.12) with Bloomberg Desktop/Server API (18.13) first.
 - **🏁 Prior goals:** MVP v0 ✅ (2026-06-10, `MvpSmokeTest` corp-bond end-to-end, single trace + replay) · Phase 16 cross-asset ✅ (7 asset classes, `CrossAssetSmokeTest`) · **v1 BUILD-OUT ✅ (2026-06-11 ~00:30 EDT)** — Phases 7/8/10-in-scope/14/17 + 11.15 + 15.2 all `[x]`, full suite green at goal close. Details in the session log + git history.
-- **Total progress:** **128 of 177 tasks [x]** (72.3%). MVP v0, Phase 16, v1 build-out complete; Phase 18 underway.
+- **Total progress:** **129 of 177 tasks [x]** (72.9%). MVP v0, Phase 16, v1 build-out complete; Phase 18 underway.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
