@@ -15,6 +15,7 @@ dependencies {
     api(project(":ems-observability"))
     api(project(":ems-aaa"))
     implementation(project(":ems-validator"))
+    implementation(project(":ems-pretrade"))
     implementation(libs.quickfixj.core)
     implementation(libs.jackson.databind)
 }

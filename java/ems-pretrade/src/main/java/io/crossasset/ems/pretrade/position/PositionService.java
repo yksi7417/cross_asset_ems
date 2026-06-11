@@ -102,6 +102,23 @@ public final class PositionService {
     }
   }
 
+  /**
+   * Every traded book of an account — including flat ones (task 18.7: a closed-out name still
+   * carries the day's realized P&L). Ordered by instrument.
+   */
+  public List<Position> tradedPositionsForAccount(String account) {
+    List<Position> out = new ArrayList<>();
+    for (Book book : books.values()) {
+      synchronized (book) {
+        if (book.position.account().equals(account)) {
+          out.add(book.position);
+        }
+      }
+    }
+    out.sort(java.util.Comparator.comparing(Position::figi));
+    return out;
+  }
+
   /** All non-flat positions of an account, ordered by instrument. */
   public List<Position> positionsForAccount(String account) {
     List<Position> out = new ArrayList<>();

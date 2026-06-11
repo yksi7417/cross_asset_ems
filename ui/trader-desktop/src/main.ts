@@ -86,6 +86,20 @@ const BASKETS_SCHEMA = {
   waves: "integer",
 } as const;
 
+const PNL_SCHEMA = {
+  key: "string",
+  account: "string",
+  figi: "string",
+  ccy: "string",
+  netQty: "float",
+  avgCost: "float",
+  markPx: "float",
+  markSource: "string",
+  realized: "float",
+  unrealized: "float",
+  total: "float",
+} as const;
+
 const WATCHLIST_SCHEMA = {
   figi: "string",
   bid: "float",
@@ -124,6 +138,19 @@ function fillRow(row: WireRow): WireRow {
 
 function basketRow(row: WireRow): WireRow {
   return { ...row, pct: (row.pctFilledBp as number) / 100 };
+}
+
+function pnlRow(row: WireRow): WireRow {
+  const realized = px(row.realized) ?? 0;
+  const unrealized = px(row.unrealized);
+  return {
+    ...row,
+    avgCost: px(row.avgCost),
+    markPx: px(row.markPx),
+    realized,
+    unrealized,
+    total: realized + (unrealized ?? 0),
+  };
 }
 
 // ── Wiring ─────────────────────────────────────────────────────────────────────
@@ -344,6 +371,14 @@ async function start(session: Logon): Promise<void> {
       table: await schemaTable(worker, BASKETS_SCHEMA, "basketId"),
       transform: basketRow,
       sort: [["basketId", "asc"]],
+    },
+    {
+      topic: "blotter.pnl",
+      chip: "chip-fills",
+      viewer: "pnl-viewer",
+      table: await schemaTable(worker, PNL_SCHEMA, "key"),
+      transform: pnlRow,
+      sort: [["account", "asc"]],
     },
   ];
 

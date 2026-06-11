@@ -41,6 +41,9 @@ import io.crossasset.ems.oms.OrderRequest;
 import io.crossasset.ems.oms.RouteRequest;
 import io.crossasset.ems.oms.RouteResult;
 import io.crossasset.ems.oms.StageResult;
+import io.crossasset.ems.pretrade.pnl.PnlService;
+import io.crossasset.ems.pretrade.position.PositionService;
+import io.crossasset.ems.pretrade.pricing.PricingService;
 import io.crossasset.ems.validator.LayeredValidatorPipeline;
 import java.util.List;
 import java.util.Map;
@@ -140,11 +143,64 @@ public final class TraderDesktopEdgeMain {
     }
     feed.start();
 
+    // ── Intraday P&L (18.7): fills feed positions, md ticks feed marks ─────────
+    PositionService positionService = new PositionService();
+    PricingService pricingService = new PricingService();
+    PnlService pnlService = new PnlService(positionService, pricingService, figi -> "USD", "USD");
+    com.fasterxml.jackson.databind.ObjectMapper pnlMapper =
+        new com.fasterxml.jackson.databind.ObjectMapper();
+    Thread.ofVirtual()
+        .name("pnl-publisher")
+        .start(
+            () -> {
+              var policy = PricingService.FallbackPolicy.conservative(10_000L, 60_000L);
+              while (true) {
+                try {
+                  Thread.sleep(2_000);
+                  var report =
+                      pnlService.snapshot(
+                          List.of("ACC-DEMO", "ACC-PROG", "ACC-UI"),
+                          policy,
+                          System.currentTimeMillis());
+                  for (var row : report.rows()) {
+                    var node = pnlMapper.createObjectNode();
+                    node.put("key", row.account() + "|" + row.figi());
+                    node.put("account", row.account());
+                    node.put("figi", row.figi());
+                    node.put("ccy", row.currency());
+                    node.put("netQty", row.netQty());
+                    node.put("avgCost", row.avgCost());
+                    if (row.markPx() != null) {
+                      node.put("markPx", row.markPx());
+                    }
+                    node.put("markSource", row.markSource());
+                    node.put("realized", row.realizedLocal());
+                    if (row.unrealizedLocal() != null) {
+                      node.put("unrealized", row.unrealizedLocal());
+                    }
+                    subscriptions.publish(
+                        "blotter.pnl", "PnlRow", node.get("key").asText(), node.toString());
+                  }
+                  var total = pnlMapper.createObjectNode();
+                  total.put("key", "TOTAL");
+                  total.put("account", "TOTAL (" + report.baseCurrency() + ")");
+                  total.put("figi", "");
+                  total.put("ccy", report.baseCurrency());
+                  total.put("realized", report.totalRealizedBase());
+                  total.put("unrealized", report.totalUnrealizedBase());
+                  total.put("markSource", report.unmarked() + " unmarked");
+                  subscriptions.publish("blotter.pnl", "PnlRow", "TOTAL", total.toString());
+                } catch (InterruptedException e) {
+                  return;
+                }
+              }
+            });
+
     System.out.println("REST edge      : http://localhost:" + rest.port() + "/api/v1");
     System.out.println("WS stream      : ws://localhost:" + ws.port() + "/ws/events");
     System.out.println("Desktop logon  : token \"trader-token\"");
 
-    runDemoScript(aaa, som, routes, feed);
+    runDemoScript(aaa, som, routes, feed, positionService, pricingService);
   }
 
   /** A scripted trading session: staged orders, routes, dripped fills, ticking quotes. */
@@ -152,7 +208,9 @@ public final class TraderDesktopEdgeMain {
       InMemoryAaaService aaa,
       io.crossasset.ems.oms.StagedOrderManager som,
       io.crossasset.ems.oms.RouteManager routes,
-      SimulatedFeed feed)
+      SimulatedFeed feed,
+      PositionService positionService,
+      PricingService pricingService)
       throws InterruptedException {
     LogonOutcome logon = aaa.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "demo-bot"));
     long session = ((LogonOutcome.Accepted) logon).session().sessionId();
@@ -180,6 +238,7 @@ public final class TraderDesktopEdgeMain {
                 MdField.VOLUME,
                 volume),
             System.currentTimeMillis());
+        pricingService.recordLive(inst.figi(), lastPx[i], System.currentTimeMillis());
       }
 
       // Every few cycles: a new order through stage → ready → route → ack → fills.
@@ -227,6 +286,15 @@ public final class TraderDesktopEdgeMain {
               } else {
                 routes.partialFill(routeId, fillQty, lastPx[i], execId);
               }
+              positionService.applyFill(
+                  new PositionService.Fill(
+                      execId,
+                      "ACC-DEMO",
+                      inst.figi(),
+                      side == 1 ? 1 : 2,
+                      fillQty,
+                      lastPx[i],
+                      orderSeq * 1_000L + execSeq));
               Thread.sleep(150);
             }
           }
