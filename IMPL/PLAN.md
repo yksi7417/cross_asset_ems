@@ -265,8 +265,8 @@ Block-with-override + position-aware. ~3-4 weeks.
 - [x] **10.5** Override mechanics (tag-gated, time-bound) (sonnet) ← blocks: 10.1, 5.3 `(3dd4020)`
 - [x] **10.6** Risk engine per [[arch-risk-engine]] (sonnet) ← blocks: 10.7 `(05c2c0b)`
 - [x] **10.7** Position service per [[arch-position-service]] (sonnet) ← blocks: 3.4 `(29e5ce1)`
-- [~] **10.8** Pricing service per [[arch-pricing-service]] (sonnet) ← blocks: 4.19
-- [ ] **10.9** Pre-trade analytics (pluggable models) per [[arch-pretrade-analytics]] (sonnet) ← blocks: 10.8
+- [x] **10.8** Pricing service per [[arch-pricing-service]] (sonnet) ← blocks: 4.19 `(8dc51fe)`
+- [~] **10.9** Pre-trade analytics (pluggable models) per [[arch-pretrade-analytics]] (sonnet) ← blocks: 10.8
 
 ## Phase 11 — Venue Connectivity
 
