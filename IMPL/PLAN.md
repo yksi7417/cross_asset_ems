@@ -391,7 +391,7 @@ additions 11.16–11.17. **Not in the current [[LOOP]] goal; queue as the next g
 > internal quote server (Phase 9, deferred) becomes just another SPI implementation later.
 > Suggested order within this phase: 18.12 → 18.13 → 18.1 → 18.14 → the rest.
 
-- [ ] **18.1** Trading blotter — live orders + routes + fills in **Perspective** (WASM) tables fed by the 8.10 WS stream (Arrow/JSON row deltas, not full refreshes), per the [[order-manager]] workflow note (the buyer's first screen; ui/ today has only ops UIs) (sonnet) ← blocks: 8.10
+- [~] **18.1** Trading blotter — live orders + routes + fills in **Perspective** (WASM) tables fed by the 8.10 WS stream (Arrow/JSON row deltas, not full refreshes), per the [[order-manager]] workflow note (the buyer's first screen; ui/ today has only ops UIs) (sonnet) ← blocks: 8.10
 - [ ] **18.2** Order ticket + staging UI per `staging-via-ticket` — per-asset-class ticket layouts, stage/amend/route actions against the 8.4 API surface (sonnet) ← blocks: 18.1
 - [ ] **18.3** Basket / program trading — list load via 8.6, wave routing, aggregate monitoring (distinct from structurally-linked multi-leg packages 7.4) (sonnet) ← blocks: 7.5, 8.6, 18.1
 - [ ] **18.4** Firm-wide kill switch — firm/desk/venue-scoped mass-cancel + cancel-on-disconnect + new-order lockout; one audited action (opus — control path; a silent failure here is catastrophic) ← blocks: 7.2
