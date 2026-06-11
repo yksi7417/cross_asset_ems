@@ -7,6 +7,10 @@ post-MVP state (MVP v0 + Phase 16 cross-asset coverage complete); extended by Ph
 > Not to be confused with `00_index/USAGE.md`, which explains how to use the Obsidian design
 > vault. This document is about the running software.
 
+> **Want to see it instead of read about it?** `./scripts/dev/run-trader-demo.sh` spins up the
+> trader desktop against a live demo edge; the guided walkthrough is
+> [`TRADER_DESKTOP_DEMO.md`](TRADER_DESKTOP_DEMO.md).
+
 ---
 
 ## 1. What this system is

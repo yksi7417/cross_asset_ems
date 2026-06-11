@@ -26,6 +26,17 @@ from topic seq 1 (the blotter is a projection per the order-manager workflow not
 
 ## Run it
 
+One command from the repo root (starts both halves, waits for health, prints the banner):
+
+```bash
+./scripts/dev/run-trader-demo.sh    # http://localhost:5173 — logon token: trader-token
+```
+
+**The guided walkthrough — every panel, every backend call — is
+[`docs/TRADER_DESKTOP_DEMO.md`](../../docs/TRADER_DESKTOP_DEMO.md).**
+
+Or by hand:
+
 ```bash
 # 1. The demo edge (REST :8484, WS :8485, scripted order flow + simulated quotes)
 ./gradlew :ems-fix-bridge:runTraderEdge
