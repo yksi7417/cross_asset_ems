@@ -1,100 +1,78 @@
 # Cross-Asset EMS
 
-A green-field institutional Execution Management System: every asset class through one platform — cash equity, fixed income, FX, rates, credit, commodities, crypto. Java + C++ on SBE/Aeron with full event sourcing.
+A green-field institutional Execution Management System: every asset class through one platform —
+cash equity, fixed income, FX, rates, credit, commodities, crypto. Java + C++ on SBE/Aeron with
+full event sourcing, a single distributed trace ID through every order, and **byte-identical
+replay** of any log slice. Phase 18 adds the trader-facing desktop: a Perspective (WASM) blotter,
+ticket, baskets, click-to-trade, and the attestable controls a desk buys.
 
-**Demo: [`DEMO.md`](DEMO.md)** (video + guided tour of the trader desktop) · Design vault: [`00_index/HOME.md`](00_index/HOME.md) · Implementation plan: [`IMPL/PLAN.md`](IMPL/PLAN.md) · User guide: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
+**Demo: [`DEMO.md`](DEMO.md)** (26-second video + frame-by-frame tour) ·
+Walkthrough: [`docs/TRADER_DESKTOP_DEMO.md`](docs/TRADER_DESKTOP_DEMO.md) ·
+Plan: [`IMPL/PLAN.md`](IMPL/PLAN.md) · Design vault: [`00_index/HOME.md`](00_index/HOME.md)
 
 ---
 
-## Quick start (Fedora · Podman)
+## 5-minute quick start: run the demo
 
-### 1. Install prerequisites
-
-```bash
-sudo dnf install podman podman-docker podman-compose git python3 python3-pip
-pip3 install --user pytest pyyaml jsonschema
-# CMake + GCC are only needed if you build the C++ modules locally
-sudo dnf install cmake ninja-build gcc-c++
-# Java 21 is handled automatically by bootstrap.sh below
-```
-
-### 2. Clone and bootstrap
+What you'll get: the real backend (AAA-backed validator, kill-switch-guarded OMS, streaming
+blotter projection, simulated market data, an ESP dealer) plus the trader desktop, with a
+scripted trading session making every panel move.
 
 ```bash
+# 1. Prerequisites: Java 21 (installed for you) and Node.js with npm
 git clone git@github.com:yksi7417/cross_asset_ems.git
 cd cross_asset_ems
-./scripts/dev/bootstrap.sh       # installs Java 21 (Gradle wrapper is committed)
-./scripts/dev/install-hooks.sh   # Conventional Commits + secret guard
+./scripts/dev/bootstrap.sh        # installs Java 21 if missing; Gradle wrapper is committed
+
+# 2. One command — starts the backend edge and the desktop, waits for both
+./scripts/dev/run-trader-demo.sh             # add --host to reach it from other machines
 ```
 
-### 3. Start the dev stack
+Then open **<http://localhost:5173>** and log on with token **`trader-token`**. Work an order
+through the ticket, load the sample basket and route a wave, click-trade the EURUSD stream, and
+fire the kill-switch drill — the guided tour is
+[`docs/TRADER_DESKTOP_DEMO.md`](docs/TRADER_DESKTOP_DEMO.md), and
+[`DEMO.md`](DEMO.md) shows the recorded run if you'd rather watch first. Ctrl-C stops everything.
 
-```bash
-# One-time kernel setting required by OpenSearch
-sudo sysctl -w vm.max_map_count=262144
-
-docker compose -f infra/docker-compose/compose.dev.yaml pull
-./scripts/dev/start-dev-stack.sh
-```
-
-If you use **Tailscale**, run once to make the stack reachable from your tailnet:
-
-```bash
-sudo firewall-cmd --zone=trusted --add-interface=tailscale0 --permanent
-sudo firewall-cmd --reload
-```
-
-### 4. Verify
-
-```bash
-./gradlew assemble                                                    # Java build
-python3 -m pytest tools/fsm-validator/test_lifecycle_chaining.py -v  # FSM tests
-./scripts/dev/run-otel-toy.sh                                         # end-to-end OTel trace
-```
-
-`run-otel-toy.sh` emits all three OpenTelemetry signals through the collector.
-Each lands in a different backend:
-
-| Signal | What the toy emits | Flows to | View it |
-|---|---|---|---|
-| **Traces** | `ems-toy-root` + 3 stage spans | collector → **Jaeger** | <http://localhost:16686> → service `ems-otel-toy` |
-| **Logs** | 1 INFO record per stage (trace-correlated) | collector → **OpenSearch** | <http://localhost:5601> → index pattern `ems-logs*` |
-| **Metrics** | counter `ems.toy.stages.processed` | collector → **Prometheus** → **Grafana** | <http://localhost:9091> → query `ems_toy_stages_processed_total`; or the provisioned **OTel Pipeline Overview** dashboard at <http://localhost:3000/d/ems-otel-overview> |
-
-Or validate the whole stack (liveness + wiring + all three signals) in one shot:
-
-```bash
-./scripts/dev/check-dev-stack.sh            # 16 checks; exit 0 = all healthy
-./scripts/dev/check-dev-stack.sh --no-trace # skip the Gradle telemetry emit (faster)
-```
-
-### Endpoints (once the stack is up)
-
-| Service | URL |
-|---|---|
-| Grafana | <http://localhost:3000> |
-| Jaeger | <http://localhost:16686> |
-| OpenSearch Dashboards | <http://localhost:5601> |
-| Prometheus | <http://localhost:9091> |
-| OpenSearch API | <http://localhost:9200> |
-| Postgres | `postgres://ems:ems_dev@localhost:5432/ems` |
-| OTel HTTP | <http://localhost:4318> |
-| OTel gRPC | `localhost:4317` |
+Contributing? Also run `./scripts/dev/install-hooks.sh` (Conventional Commits + secret guard).
 
 ---
 
-## Current status
+## Verify the build, layer by layer
 
-Codebase is at task **0.8 of ~150** in the [implementation plan](IMPL/PLAN.md).
+The full diagnostic ladder — toolchain → build → FSM definitions → unit suites (~1,750 tests) →
+Aeron transport smoke → observability stack + OTel toy → FIX-wire smoke → cross-asset
+end-to-end smokes → the live demo — lives in **[`docs/DIAGNOSTICS.md`](docs/DIAGNOSTICS.md)**,
+with one command per layer and what healthy looks like. The two you'll use most:
+
+```bash
+./gradlew assemble    # everything compiles (-Werror, spotless)
+./gradlew allTests    # every module's tests
+```
+
+The containerized observability stack (Jaeger/Prometheus/Grafana/OpenSearch) and its OTel toy
+are optional for app work and documented in the same file — the demo does not need them.
+
+---
+
+## Current status (2026-06-11)
+
+**143 of 179 plan tasks complete (≈80%).** MVP v0, Phase 16 cross-asset coverage, the v1
+build-out, and Phase 18 (trader desktop & buyer-readiness) are all done; the full suite was green
+at goal close.
 
 | Area | State |
 |---|---|
 | Design vault — 80+ architecture notes, asset/venue/regulatory catalogs | ✅ |
-| 14-phase implementation plan, ~150 tasks | ✅ |
-| Monorepo — 15 Java modules + 15 C++ modules, layering enforced | ✅ |
-| CI, Docker Compose dev stack, OTel pipeline (traces + logs + metrics verified) | ✅ |
-| FSM definitions + lifecycle chaining tests | ✅ |
-| Core services (FSM, transport, OMS, validator, venue connectivity …) | 🚧 phases 1–12 |
+| Core spine: FSMs, Aeron/SBE transport, event sourcing, reference data, AAA, validator | ✅ |
+| OMS: staged orders, router, automation, multi-leg, aggregation, FX netting | ✅ |
+| Edges: client + venue FIX gateways, typed API surface, REST/WS binding, bulk CSV I/O, FIX venue simulator | ✅ |
+| Pre-trade: compliance gate, lists/overrides, rate limiter, positions, risk, pricing, analytics, borrow/locate (Reg SHO) | ✅ |
+| Post-trade (MVP scope): allocation, STP, confirmation, regulatory reporting, TRACE-mock | ✅ |
+| End-to-end proof: 7 asset classes, single trace ID, byte-identical replay; FIX-wire smoke | ✅ |
+| Ops: introspection, admin console, blue/green switchover, cluster lease, failover drills | ✅ |
+| **Trader desktop**: Perspective blotter/watchlist/ticket/baskets/P&L/notifications, ESP click-to-trade, kill switch, maker-checker, SSO/SCIM, 15c3-5 attestation pack, runnable demo + video | ✅ |
+| Next: CAT submission, commissions, TCA, surveillance, drop-copy (12.12–12.16); real venue adapters (11.3–11.14); internal market-data fabric (Phase 9, deferred) | 🚧 |
 
 ---
 
@@ -102,15 +80,20 @@ Codebase is at task **0.8 of ~150** in the [implementation plan](IMPL/PLAN.md).
 
 | | |
 |---|---|
+| **[DEMO.md](DEMO.md)** | The recorded demo — video + frame-by-frame tour |
+| **[docs/TRADER_DESKTOP_DEMO.md](docs/TRADER_DESKTOP_DEMO.md)** | Guided walkthrough — spin-up, UI↔backend interaction, operating every panel |
+| **[docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md)** | Verify each layer of the build (incl. the OTel toy + dev stack) |
+| **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)** | The whole running system — FIX edges, replay, smokes, APIs |
+| **[docs/OPERATIONS.md](docs/OPERATIONS.md)** | Operator guide — deploys, drills, runbooks |
 | **[SETUP.md](SETUP.md)** | Full setup — all platforms (macOS, dev container, Obsidian, Tailscale) |
 | **[DEVELOPMENT.md](DEVELOPMENT.md)** | Build commands, project structure, coding rules, CI overview |
-| **[CONTRIBUTING.md](CONTRIBUTING.md)** | How to contribute — task workflow, `/goal` loop, commit conventions |
+| **[CONTRIBUTING.md](CONTRIBUTING.md)** | How to contribute — task workflow, the build loop, commit conventions |
 | **[KNOWLEDGE_BASE.md](KNOWLEDGE_BASE.md)** | Design knowledge base — architecture, asset classes, venues, regulatory |
 | **[00_index/HOME.md](00_index/HOME.md)** | Design vault entry point — navigate the architecture spine |
-| **[IMPL/PLAN.md](IMPL/PLAN.md)** | Implementation task queue — pick the next `[ ]` task |
+| **[IMPL/PLAN.md](IMPL/PLAN.md)** | Implementation task queue + current goal |
 
 ---
 
 ## Licence
 
-Apache 2.0 (pending task 0.10).
+Apache 2.0.
