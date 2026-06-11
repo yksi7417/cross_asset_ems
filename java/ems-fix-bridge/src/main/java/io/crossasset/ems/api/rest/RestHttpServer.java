@@ -29,6 +29,7 @@ public final class RestHttpServer {
     this.binding = Objects.requireNonNull(binding, "binding");
     this.server = HttpServer.create(new InetSocketAddress(port), 0);
     server.createContext("/api/", this::dispatch);
+    server.createContext("/scim/", this::dispatch);
   }
 
   public void start() {

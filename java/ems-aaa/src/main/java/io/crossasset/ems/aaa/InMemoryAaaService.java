@@ -69,6 +69,11 @@ public final class InMemoryAaaService implements AaaService {
             Set.copyOf(Objects.requireNonNull(tags, "tags"))));
   }
 
+  /** Remove a credential (SCIM deprovisioning, 18.9). Existing sessions end via logout. */
+  public void removeCredential(String token) {
+    credentialStore.remove(Objects.requireNonNull(token, "token"));
+  }
+
   @Override
   public LogonOutcome logon(LogonCredentials credentials) {
     long nowMicros = System.currentTimeMillis() * 1_000L;

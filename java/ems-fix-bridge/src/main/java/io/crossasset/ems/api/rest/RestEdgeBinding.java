@@ -25,6 +25,7 @@ import io.crossasset.ems.api.basket.BasketService;
 import io.crossasset.ems.api.control.KillSwitchService;
 import io.crossasset.ems.api.control.KillSwitchState;
 import io.crossasset.ems.api.notify.NotificationService;
+import io.crossasset.ems.api.sso.SsoService;
 import io.crossasset.ems.instrument.InstrumentVersioned;
 import io.crossasset.ems.instrument.SecurityMasterService;
 import java.util.ArrayList;
@@ -60,6 +61,8 @@ public final class RestEdgeBinding {
   private final @org.jspecify.annotations.Nullable BasketService baskets;
   private final @org.jspecify.annotations.Nullable KillSwitchService killSwitch;
   private final @org.jspecify.annotations.Nullable NotificationService notifications;
+  private final @org.jspecify.annotations.Nullable SsoService sso;
+  private final @org.jspecify.annotations.Nullable String scimBearerToken;
 
   public RestEdgeBinding(AaaService aaa, ApiSurface api, SubscriptionRegistry subscriptions) {
     this(aaa, api, subscriptions, null, null);
@@ -106,6 +109,20 @@ public final class RestEdgeBinding {
       @org.jspecify.annotations.Nullable BasketService baskets,
       @org.jspecify.annotations.Nullable KillSwitchService killSwitch,
       @org.jspecify.annotations.Nullable NotificationService notifications) {
+    this(aaa, api, subscriptions, secMaster, baskets, killSwitch, notifications, null, null);
+  }
+
+  /** With an SSO service, OIDC logon ({@code /api/v1/sso/oidc}) + SCIM provisioning work (18.9). */
+  public RestEdgeBinding(
+      AaaService aaa,
+      ApiSurface api,
+      SubscriptionRegistry subscriptions,
+      @org.jspecify.annotations.Nullable SecurityMasterService secMaster,
+      @org.jspecify.annotations.Nullable BasketService baskets,
+      @org.jspecify.annotations.Nullable KillSwitchService killSwitch,
+      @org.jspecify.annotations.Nullable NotificationService notifications,
+      @org.jspecify.annotations.Nullable SsoService sso,
+      @org.jspecify.annotations.Nullable String scimBearerToken) {
     this.aaa = Objects.requireNonNull(aaa, "aaa");
     this.api = Objects.requireNonNull(api, "api");
     this.subscriptions = Objects.requireNonNull(subscriptions, "subscriptions");
@@ -113,6 +130,8 @@ public final class RestEdgeBinding {
     this.baskets = baskets;
     this.killSwitch = killSwitch;
     this.notifications = notifications;
+    this.sso = sso;
+    this.scimBearerToken = scimBearerToken;
   }
 
   /**
@@ -145,6 +164,12 @@ public final class RestEdgeBinding {
           && path.startsWith("/api/v1/notifications/")
           && path.endsWith("/ack")) {
         return ackNotification(path, headers);
+      }
+      if ("POST".equals(method) && "/api/v1/sso/oidc".equals(path)) {
+        return oidcLogon(body);
+      }
+      if (path.startsWith("/scim/v2/Users")) {
+        return scimRoute(method, path, headers, body);
       }
       if ("POST".equals(method) && path.startsWith("/api/v1/")) {
         return operation(path.substring("/api/v1/".length()), headers, body);
@@ -373,6 +398,94 @@ public final class RestEdgeBinding {
     ObjectNode out = mapper.createObjectNode();
     out.put("acked", acked);
     return new HttpResult(acked ? 200 : 409, out.toString());
+  }
+
+  /** OIDC logon (18.9): the IdP's ID token in, an AAA session out — same shape as /logon. */
+  private HttpResult oidcLogon(String body) throws Exception {
+    if (sso == null) {
+      return error(404, "SSO not configured on this edge.");
+    }
+    JsonNode json = mapper.readTree(body);
+    SsoService.SsoLogon outcome =
+        sso.logonWithIdToken(requireText(json, "idToken"), System.currentTimeMillis());
+    if (outcome instanceof SsoService.SsoLogon.Rejected rejected) {
+      ObjectNode out = mapper.createObjectNode();
+      out.put("error", rejected.reason());
+      return new HttpResult(401, out.toString());
+    }
+    SsoService.SsoLogon.Accepted accepted = (SsoService.SsoLogon.Accepted) outcome;
+    ObjectNode out = mapper.createObjectNode();
+    out.put("sessionId", accepted.sessionId());
+    out.put("firm", accepted.firm());
+    out.put("desk", accepted.desk());
+    out.put("user", accepted.user());
+    return new HttpResult(200, out.toString());
+  }
+
+  /** SCIM 2.0 Users subset (18.9), gated by the provisioning bearer token. */
+  private HttpResult scimRoute(String method, String path, Map<String, String> headers, String body)
+      throws Exception {
+    if (sso == null || scimBearerToken == null) {
+      return error(404, "SCIM not configured on this edge.");
+    }
+    String authorization = headers.getOrDefault("authorization", "");
+    if (!authorization.equals("Bearer " + scimBearerToken)) {
+      return error(401, "SCIM requires the provisioning bearer token.");
+    }
+    if ("POST".equals(method) && "/scim/v2/Users".equals(path)) {
+      JsonNode json = mapper.readTree(body);
+      java.util.Set<String> groups = new java.util.LinkedHashSet<>();
+      for (JsonNode group : json.path("groups")) {
+        groups.add(group.asText());
+      }
+      SsoService.ScimUser user =
+          sso.provision(
+              new SsoService.ScimUser(
+                  requireText(json, "userName"),
+                  json.path("displayName").asText(""),
+                  requireText(json, "firm"),
+                  requireText(json, "desk"),
+                  groups,
+                  json.path("active").asBoolean(true)));
+      return new HttpResult(201, renderScimUser(user));
+    }
+    if ("GET".equals(method) && "/scim/v2/Users".equals(path)) {
+      ObjectNode out = mapper.createObjectNode();
+      ArrayNode resources = out.putArray("Resources");
+      for (SsoService.ScimUser user : sso.listUsers()) {
+        resources.add(mapper.readTree(renderScimUser(user)));
+      }
+      out.put("totalResults", sso.listUsers().size());
+      return new HttpResult(200, out.toString());
+    }
+    String userName =
+        path.length() > "/scim/v2/Users/".length()
+            ? path.substring("/scim/v2/Users/".length())
+            : "";
+    if ("GET".equals(method) && !userName.isEmpty()) {
+      return sso.findUser(userName)
+          .map(user -> new HttpResult(200, renderScimUser(user)))
+          .orElseGet(() -> error(404, "Unknown user: " + userName));
+    }
+    if (("PATCH".equals(method) || "DELETE".equals(method)) && !userName.isEmpty()) {
+      boolean deactivated = sso.deactivate(userName);
+      return deactivated
+          ? new HttpResult(200, "{\"active\":false}")
+          : error(404, "Unknown user: " + userName);
+    }
+    return error(404, "Unknown SCIM route: " + method + " " + path);
+  }
+
+  private String renderScimUser(SsoService.ScimUser user) {
+    ObjectNode out = mapper.createObjectNode();
+    out.put("userName", user.userName());
+    out.put("displayName", user.displayName());
+    out.put("firm", user.firm());
+    out.put("desk", user.desk());
+    ArrayNode groups = out.putArray("groups");
+    user.groups().forEach(groups::add);
+    out.put("active", user.active());
+    return out.toString();
   }
 
   private long requireSession(Map<String, String> headers) {
