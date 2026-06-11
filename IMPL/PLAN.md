@@ -403,7 +403,7 @@ additions 11.16–11.17. **Not in the current [[LOOP]] goal; queue as the next g
 - [ ] **18.10** Maker-checker (4-eyes) approvals on config / limit / restricted-list changes (sonnet) ← blocks: 3.7, 10.4
 - [ ] **18.11** Click-to-trade on streaming quotes (ESP) with slippage guard + last-look awareness (sonnet) ← blocks: 11.17, 18.1
 - [x] **18.12** Pluggable market-data feed SPI — `MarketDataFeed` interface (subscribe/unsubscribe by FIGI + field set, tick/quote callbacks, feed health), provider-agnostic so Bloomberg (18.13) now and the internal quote server (9.1) later are drop-in implementations; ticks bridge into Perspective via the 8.4 subscription topics (sonnet) ← blocks: 8.4 `(068cbee)`
-- [ ] **18.13** Bloomberg market-data adapter — BLPAPI `//blp/mktdata` subscriptions via Desktop API (localhost:8194) or Server API per config, mapping security/fields to the 18.12 SPI; session resilience + entitlement failures surfaced as feed health; runtime requires the desk's Bloomberg terminal/SAPI subscription, CI uses a fake feed (sonnet) ← blocks: 18.12
+- [~] **18.13** Bloomberg market-data adapter — BLPAPI `//blp/mktdata` subscriptions via Desktop API (localhost:8194) or Server API per config, mapping security/fields to the 18.12 SPI; session resilience + entitlement failures surfaced as feed health; runtime requires the desk's Bloomberg terminal/SAPI subscription, CI uses a fake feed (sonnet) ← blocks: 18.12
 - [ ] **18.14** Market-data watchlist panel — Perspective grid streaming live ticks via 18.12 (sustained rapid-update path: row deltas into a Perspective table, no re-render), per-desk symbol lists (sonnet) ← blocks: 18.1, 18.12
 
 ## Done criteria for v0 (MVP)
