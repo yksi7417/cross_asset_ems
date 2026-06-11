@@ -368,8 +368,8 @@ the v1 build-out lands. An initial `docs/USER_GUIDE.md` covering the as-built sy
 2026-06-10; these tasks extend and finalize it. (Named `USER_GUIDE` because `[[USAGE]]` is the
 vault how-to in `00_index/`.)
 
-- [~] **17.1** User guide (`docs/USER_GUIDE.md`): build/run/test, dev-stack bring-up, submitting orders (FIX + API + bulk), order lifecycle walk-through, mock venue vs FIX simulator — extend the 2026-06-10 initial version to cover everything the v1 build-out added (sonnet) ← blocks: 15.2
-- [ ] **17.2** Operator guide (`docs/OPERATIONS.md`): config service, time/replay server, observability (dashboards/traces/logs), JMX introspection, drills, blue/green switchover (sonnet) ← blocks: 14.2, 14.5
+- [x] **17.1** User guide (`docs/USER_GUIDE.md`): build/run/test, dev-stack bring-up, submitting orders (FIX + API + bulk), order lifecycle walk-through, mock venue vs FIX simulator — extend the 2026-06-10 initial version to cover everything the v1 build-out added (sonnet) ← blocks: 15.2 `(52557d8)`
+- [~] **17.2** Operator guide (`docs/OPERATIONS.md`): config service, time/replay server, observability (dashboards/traces/logs), JMX introspection, drills, blue/green switchover (sonnet) ← blocks: 14.2, 14.5
 - [ ] **17.3** Developer guide refresh (`DEVELOPMENT.md` + `java/README.md`): module map, codegen pipeline, how to add an asset class / venue adapter / validator rule (sonnet) ← blocks: 17.1
 
 ## Phase 18 — Trader Desktop & Buyer-Readiness (v1.1)
