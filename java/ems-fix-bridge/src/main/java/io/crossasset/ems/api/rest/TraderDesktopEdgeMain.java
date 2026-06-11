@@ -1,0 +1,239 @@
+/*
+ * Copyright (c) 2026 Cross-Asset EMS Contributors.
+ * Licensed under the Apache License, Version 2.0.
+ */
+package io.crossasset.ems.api.rest;
+
+import io.crossasset.ems.aaa.CredentialKind;
+import io.crossasset.ems.aaa.InMemoryAaaEventLog;
+import io.crossasset.ems.aaa.InMemoryAaaService;
+import io.crossasset.ems.aaa.LogonCredentials;
+import io.crossasset.ems.aaa.LogonOutcome;
+import io.crossasset.ems.api.ApiSurface;
+import io.crossasset.ems.api.SubscriptionRegistry;
+import io.crossasset.ems.api.blotter.BlotterPublisher;
+import io.crossasset.ems.api.blotter.BlotterRouteManager;
+import io.crossasset.ems.api.blotter.BlotterStagedOrderManager;
+import io.crossasset.ems.api.md.MarketDataTopicBridge;
+import io.crossasset.ems.instrument.AssetClass;
+import io.crossasset.ems.instrument.CurrencyCode;
+import io.crossasset.ems.instrument.Fungibility;
+import io.crossasset.ems.instrument.InMemorySecurityMasterService;
+import io.crossasset.ems.instrument.InstrumentCore;
+import io.crossasset.ems.instrument.InstrumentType;
+import io.crossasset.ems.instrument.InstrumentVersioned;
+import io.crossasset.ems.instrument.LifecycleStatus;
+import io.crossasset.ems.instrument.SecurityMasterEvent;
+import io.crossasset.ems.instrument.SecurityMasterSnapshot;
+import io.crossasset.ems.instrument.SettlementConvention;
+import io.crossasset.ems.md.MdField;
+import io.crossasset.ems.md.SimulatedFeed;
+import io.crossasset.ems.oms.InMemoryRouteManager;
+import io.crossasset.ems.oms.InMemoryStagedOrderManager;
+import io.crossasset.ems.oms.OrderRequest;
+import io.crossasset.ems.oms.RouteRequest;
+import io.crossasset.ems.oms.RouteResult;
+import io.crossasset.ems.oms.StageResult;
+import io.crossasset.ems.validator.LayeredValidatorPipeline;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+
+/**
+ * Demo/dev edge for the trader desktop (task 18.1): wires the real stack — AAA-backed validator,
+ * blotter-decorated OMS, API surface, REST edge (orders/actions), WebSocket stream
+ * (blotter/market-data topics), simulated market-data feed — and runs a scripted trading session so
+ * the Perspective blotter streams live rows immediately.
+ *
+ * <pre>
+ *   ./gradlew :ems-fix-bridge:runTraderEdge          # REST :8484, WS :8485
+ *   cd ui/trader-desktop && npm install && npm run dev   # desktop on :5173, logon token "trader-token"
+ * </pre>
+ *
+ * Not a production deployment — the production path binds the same components over the cluster
+ * transport per arch-deployment.
+ */
+public final class TraderDesktopEdgeMain {
+
+  private record Inst(String figi, String name, long basePx) {}
+
+  private static final List<Inst> INSTRUMENTS =
+      List.of(
+          new Inst("BBG000B9XRY4", "Apple Inc", 182_4500L),
+          new Inst("BBG000BPH459", "Microsoft Corp", 415_1200L),
+          new Inst("BBG000BMHYD1", "JPMorgan Chase", 198_3300L),
+          new Inst("BBG000BLNNH6", "IBM Corp", 168_7700L));
+
+  private static final List<String> VENUES = List.of("XNAS", "XNYS", "ARCX");
+
+  private TraderDesktopEdgeMain() {}
+
+  public static void main(String[] args) throws Exception {
+    int restPort = args.length > 0 ? Integer.parseInt(args[0]) : 8484;
+    int wsPort = args.length > 1 ? Integer.parseInt(args[1]) : 8485;
+
+    // ── The real stack ──────────────────────────────────────────────────────────
+    InMemoryAaaService aaa = new InMemoryAaaService(new InMemoryAaaEventLog());
+    aaa.registerCredential("trader-token", "firm-demo", "desk-1", "trader-1", Set.of());
+    aaa.registerCredential("demo-bot", "firm-demo", "desk-1", "demo-bot", Set.of());
+
+    InMemorySecurityMasterService secMaster = new InMemorySecurityMasterService();
+    SecurityMasterSnapshot snapshot = SecurityMasterSnapshot.EMPTY;
+    long version = 1;
+    for (Inst inst : INSTRUMENTS) {
+      snapshot =
+          snapshot.apply(
+              new SecurityMasterEvent.InstrumentCreated(
+                  new InstrumentVersioned(equity(inst.figi(), inst.name()), null), version++));
+    }
+    secMaster.publish(snapshot);
+
+    SubscriptionRegistry subscriptions = new SubscriptionRegistry();
+    BlotterPublisher blotter =
+        new BlotterPublisher(subscriptions, () -> System.currentTimeMillis() * 1_000);
+    BlotterStagedOrderManager som =
+        new BlotterStagedOrderManager(
+            new InMemoryStagedOrderManager(new LayeredValidatorPipeline(aaa, secMaster, null)),
+            blotter);
+    BlotterRouteManager routes = new BlotterRouteManager(new InMemoryRouteManager(som), blotter);
+
+    ApiSurface api = new ApiSurface(aaa, som, routes, subscriptions, (sid, subId, event) -> {});
+    RestHttpServer rest =
+        new RestHttpServer(new RestEdgeBinding(aaa, api, subscriptions), restPort);
+    rest.start();
+    WsEventStreamServer ws = new WsEventStreamServer(aaa, subscriptions, wsPort);
+    ws.start();
+
+    // ── Simulated market data over the 18.12 SPI → md topics ───────────────────
+    SimulatedFeed feed = new SimulatedFeed("sim");
+    MarketDataTopicBridge mdBridge = new MarketDataTopicBridge(subscriptions);
+    mdBridge.attachHealth(feed);
+    for (Inst inst : INSTRUMENTS) {
+      mdBridge.attach(
+          feed, inst.figi(), Set.of(MdField.BID, MdField.ASK, MdField.LAST, MdField.VOLUME));
+    }
+    feed.start();
+
+    System.out.println("REST edge      : http://localhost:" + rest.port() + "/api/v1");
+    System.out.println("WS stream      : ws://localhost:" + ws.port() + "/ws/events");
+    System.out.println("Desktop logon  : token \"trader-token\"");
+
+    runDemoScript(aaa, som, routes, feed);
+  }
+
+  /** A scripted trading session: staged orders, routes, dripped fills, ticking quotes. */
+  private static void runDemoScript(
+      InMemoryAaaService aaa,
+      BlotterStagedOrderManager som,
+      BlotterRouteManager routes,
+      SimulatedFeed feed)
+      throws InterruptedException {
+    LogonOutcome logon = aaa.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "demo-bot"));
+    long session = ((LogonOutcome.Accepted) logon).session().sessionId();
+    Random random = new Random();
+    long[] lastPx = INSTRUMENTS.stream().mapToLong(Inst::basePx).toArray();
+    long volume = 0;
+    int orderSeq = 0;
+
+    while (true) {
+      // Quotes tick every cycle (random walk, ±5 bps).
+      for (int i = 0; i < INSTRUMENTS.size(); i++) {
+        Inst inst = INSTRUMENTS.get(i);
+        lastPx[i] += Math.round(lastPx[i] * (random.nextDouble() - 0.5) * 0.001);
+        long spread = Math.max(100, lastPx[i] / 2_000);
+        volume += random.nextInt(900) + 100;
+        feed.emit(
+            inst.figi(),
+            Map.of(
+                MdField.BID,
+                lastPx[i] - spread,
+                MdField.ASK,
+                lastPx[i] + spread,
+                MdField.LAST,
+                lastPx[i],
+                MdField.VOLUME,
+                volume),
+            System.currentTimeMillis());
+      }
+
+      // Every few cycles: a new order through stage → ready → route → ack → fills.
+      if (orderSeq < 999 && random.nextInt(4) == 0) {
+        orderSeq++;
+        int i = random.nextInt(INSTRUMENTS.size());
+        Inst inst = INSTRUMENTS.get(i);
+        long qty = (random.nextInt(20) + 1) * 100L;
+        int side = random.nextInt(2) + 1;
+        StageResult staged =
+            som.stage(
+                new OrderRequest(
+                    "demo-" + orderSeq,
+                    session,
+                    "CL-" + orderSeq,
+                    inst.figi(),
+                    side,
+                    qty,
+                    lastPx[i],
+                    "ACC-DEMO",
+                    0));
+        if (staged instanceof StageResult.Accepted accepted) {
+          String orderId = accepted.order().orderId();
+          som.markReady(orderId, session);
+          RouteResult routed =
+              routes.route(
+                  new RouteRequest(
+                      "RCL-" + orderSeq,
+                      orderId,
+                      VENUES.get(random.nextInt(VENUES.size())),
+                      qty,
+                      lastPx[i],
+                      null));
+          if (routed instanceof RouteResult.Routed r) {
+            String routeId = r.route().routeId();
+            routes.acknowledgeRoute(routeId);
+            long remaining = qty;
+            int execSeq = 0;
+            while (remaining > 0 && random.nextInt(3) > 0) {
+              long fillQty = Math.min(remaining, (random.nextInt(5) + 1) * 100L);
+              remaining -= fillQty;
+              String execId = "EXEC-" + orderSeq + "-" + ++execSeq;
+              if (remaining == 0) {
+                routes.fullFill(routeId, fillQty, lastPx[i], execId);
+              } else {
+                routes.partialFill(routeId, fillQty, lastPx[i], execId);
+              }
+              Thread.sleep(150);
+            }
+          }
+        }
+      }
+      Thread.sleep(400);
+    }
+  }
+
+  private static InstrumentCore equity(String figi, String name) {
+    return new InstrumentCore(
+        figi,
+        "IID-" + figi,
+        null,
+        null,
+        AssetClass.EQUITY,
+        InstrumentType.COMMON_STOCK,
+        name,
+        name,
+        null,
+        CurrencyCode.USD,
+        "US",
+        null,
+        Fungibility.FUNGIBLE,
+        SettlementConvention.T_PLUS_2,
+        0,
+        LifecycleStatus.ACTIVE,
+        1_000_000L,
+        Long.MAX_VALUE,
+        1L,
+        null,
+        1_000_000L,
+        1_000_000L);
+  }
+}

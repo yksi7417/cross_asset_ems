@@ -19,6 +19,15 @@ dependencies {
     implementation(libs.jackson.databind)
 }
 
+// Trader-desktop demo edge (task 18.1): REST :8484 + WS :8485 + scripted flow.
+//   ./gradlew :ems-fix-bridge:runTraderEdge
+tasks.register<JavaExec>("runTraderEdge") {
+    group = "application"
+    description = "Run the trader-desktop demo edge (REST 8484, WS 8485, scripted order flow)"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("io.crossasset.ems.api.rest.TraderDesktopEdgeMain")
+}
+
 // Standalone FIX venue simulator (task 11.15) for manual conformance runs:
 //   ./gradlew :ems-fix-bridge:runFixSimulator -PsimPort=9876
 tasks.register<JavaExec>("runFixSimulator") {

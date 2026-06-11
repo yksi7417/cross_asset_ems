@@ -66,3 +66,7 @@ logs/
 
 # local secrets
 open-router.key
+
+# Node / UI builds
+node_modules/
+ui/*/dist/

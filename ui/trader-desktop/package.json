@@ -1,0 +1,21 @@
+{
+  "name": "ems-trader-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-Asset EMS trader desktop — Perspective (WASM) blotter streaming row deltas over the WS edge (task 18.1)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@finos/perspective": "^3.8.0",
+    "@finos/perspective-viewer": "^3.8.0",
+    "@finos/perspective-viewer-datagrid": "^3.8.0"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
+  }
+}
