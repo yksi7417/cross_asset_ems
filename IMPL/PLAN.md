@@ -286,7 +286,7 @@ Outbound to the market. ~4-6 weeks.
 - [ ] **11.12** Algo wheel selection strategies (sonnet) ← blocks: 11.11
 - [ ] **11.13** RFQ orchestration per [[arch-rfq]] (sonnet) ← blocks: 11.1
 - [ ] **11.14** RFQ-to-3 enforcement for [[mat|MAT]] swaps (sonnet) ← blocks: 11.13
-- [~] **11.15** FIX venue simulator — venue-side FIX acceptor for end-to-end wire tests (sits alongside the in-process mock 11.2, which stays): session layer (Logon/Heartbeat/TestRequest/SequenceReset + ResendRequest recovery), NewOrderSingle/Cancel/Replace handling with Appendix-D-correct pending states, configurable execution model (ack → partial/full fills, rejects, busts), runs in-process for `ems-it` and standalone via Gradle (sonnet) ← blocks: 11.1
+- [x] **11.15** FIX venue simulator — venue-side FIX acceptor for end-to-end wire tests (sits alongside the in-process mock 11.2, which stays): session layer (Logon/Heartbeat/TestRequest/SequenceReset + ResendRequest recovery), NewOrderSingle/Cancel/Replace handling with Appendix-D-correct pending states, configurable execution model (ack → partial/full fills, rejects, busts), runs in-process for `ems-it` and standalone via Gradle (sonnet) ← blocks: 11.1 `(04adb49)`
 - [ ] **11.16** Broker algo support: FIX `StrategyParameters` / FIXatdl ingestion + algo ticket metadata so broker algos are routable with custom parameters (sonnet) ← blocks: 11.1
 - [ ] **11.17** FX ESP streaming executable quotes + last-look handling (complements RFQ; needed for click-to-trade) (sonnet) ← blocks: 9.1, 11.1
 
@@ -342,7 +342,7 @@ Resilience + tooling. ~2-3 weeks.
 The v0 done-criteria, made executable. ~1 week.
 
 - [x] **[MVP] 15.1** End-to-end MVP smoke test + replay-determinism on a 1-day mock log slice: FIX NewOrderSingle (US IG corp) → validator → staged → routed via mock venue → fill ack → allocation → confirmation → TRACE-mock, asserting a single trace ID through the whole chain and byte-identical replay (sonnet) ← blocks: 8.1, 11.2, 12.3, 12.6, 13.5 `(26f29d8)`
-- [ ] **15.2** FIX-wire end-to-end smoke — client FIX NewOrderSingle → validator → staged → routed → venue-facing FIX gateway (8.2) over a **real FIX session** to the venue simulator (11.15) → ack/fills back → allocation → confirmation → TRACE-mock; single trace ID + byte-identical replay; the 11.2 in-process-mock path stays green alongside (sonnet) ← blocks: 8.2, 11.15, 15.1
+- [~] **15.2** FIX-wire end-to-end smoke — client FIX NewOrderSingle → validator → staged → routed → venue-facing FIX gateway (8.2) over a **real FIX session** to the venue simulator (11.15) → ack/fills back → allocation → confirmation → TRACE-mock; single trace ID + byte-identical replay; the 11.2 in-process-mock path stays green alongside (sonnet) ← blocks: 8.2, 11.15, 15.1
 
 > **🚀 MVP v0 COMPLETE (2026-06-10).** All 11 [MVP]-tagged tasks are `[x]`. The end-to-end smoke (`MvpSmokeTest` in `ems-it`) drives FIX NewOrderSingle → validator → staged → mock MarketAxess → fill → allocation → confirmation → TRACE-mock with a single trace ID and byte-identical replay. See [v1 scope](#what-v1-looks-like) for what's next.
 
