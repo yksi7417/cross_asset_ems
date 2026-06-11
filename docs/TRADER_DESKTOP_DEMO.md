@@ -39,6 +39,12 @@ actually serves, and prints the banner. Then:
 1. Open **http://localhost:5173**
 2. Log on with token **`trader-token`**
 
+To reach the UI from another machine (e.g. you're SSH'd into a server), run the launcher with
+`--host` — it binds the UI on all interfaces and prints the LAN URLs. Only port 5173 needs to be
+reachable: the UI proxies `/api` and `/ws` to the edge server-side, so 8484/8485 stay private.
+(Demo credentials only — don't expose it on untrusted networks. Over SSH, a port forward works
+with no exposure at all: `ssh -L 5173:localhost:5173 <server>`.)
+
 Ctrl-C in the script's terminal stops everything. To run the halves by hand instead:
 
 ```bash

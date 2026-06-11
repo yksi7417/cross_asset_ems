@@ -11,7 +11,10 @@
 #      which proxies /api and /ws to the edge (one origin, no CORS).
 #
 # Usage:
-#   ./scripts/dev/run-trader-demo.sh           # run; Ctrl-C stops both halves
+#   ./scripts/dev/run-trader-demo.sh           # localhost only; Ctrl-C stops both halves
+#   ./scripts/dev/run-trader-demo.sh --host    # also expose the UI on all interfaces
+#                                              # (LAN browsers use http://<this-host>:5173;
+#                                              #  the edge stays unexposed — the UI proxies it)
 #
 # Then open  http://localhost:5173  and log on with token  trader-token .
 # The guided walkthrough lives in docs/TRADER_DESKTOP_DEMO.md.
@@ -25,6 +28,11 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 REST_PORT=8484
 WS_PORT=8485
 UI_PORT=5173
+
+HOST_ARGS=()
+if [ "${1:-}" = "--host" ]; then
+    HOST_ARGS=(--host 0.0.0.0)
+fi
 
 # ── preflight ────────────────────────────────────────────────────────────────
 
@@ -77,7 +85,7 @@ echo "   edge is up."
 
 echo "── Building + serving the desktop (:$UI_PORT)…  log: $UI_LOG"
 (cd ui/trader-desktop && npm run build >"$UI_LOG" 2>&1 \
-    && npm run preview -- --port "$UI_PORT" --strictPort >>"$UI_LOG" 2>&1) &
+    && npm run preview -- --port "$UI_PORT" --strictPort "${HOST_ARGS[@]}" >>"$UI_LOG" 2>&1) &
 UI_PID=$!
 
 for i in $(seq 1 60); do
@@ -106,5 +114,12 @@ cat <<BANNER
   └──────────────────────────────────────────────────────────────┘
 
 BANNER
+
+if [ ${#HOST_ARGS[@]} -gt 0 ]; then
+    echo "  UI exposed on all interfaces — reachable from other machines at:"
+    hostname -I 2>/dev/null | tr ' ' '\n' | grep -v '^$' | sed "s|^|    http://|;s|\$|:$UI_PORT|"
+    echo "  (demo credentials only; do not expose on untrusted networks)"
+    echo
+fi
 
 wait "$UI_PID"
