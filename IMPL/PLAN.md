@@ -261,8 +261,8 @@ Block-with-override + position-aware. ~3-4 weeks.
 - [x] **10.1** Compliance service per [[arch-compliance]] (sonnet) `(668a978)`
 - [ ] **10.2** Fat-finger check (netted-vs-unnetted) (sonnet) ← blocks: 10.1, 9.5
 - [x] **10.3** Machine-gun rate limiter (sonnet) ← blocks: 10.1 `(fb4db51)`
-- [~] **10.4** Allow / restricted / watch list service (sonnet) ← blocks: 10.1
-- [ ] **10.5** Override mechanics (tag-gated, time-bound) (sonnet) ← blocks: 10.1, 5.3
+- [x] **10.4** Allow / restricted / watch list service (sonnet) ← blocks: 10.1 `(ea6f860)`
+- [~] **10.5** Override mechanics (tag-gated, time-bound) (sonnet) ← blocks: 10.1, 5.3
 - [ ] **10.6** Risk engine per [[arch-risk-engine]] (sonnet) ← blocks: 10.7
 - [ ] **10.7** Position service per [[arch-position-service]] (sonnet) ← blocks: 3.4
 - [ ] **10.8** Pricing service per [[arch-pricing-service]] (sonnet) ← blocks: 4.19
