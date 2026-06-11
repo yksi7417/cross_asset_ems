@@ -9,14 +9,14 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 ## Current cursor
 
 - **🏁 PHASE 18 GOAL COMPLETE (2026-06-11).** All 14 Phase 18 tasks + 11.17 are `[x]`. Trader desktop (Perspective WASM): blotter, watchlist, ticket w/ server-side preview, baskets, P&L, notifications, ESP click-to-trade, kill banner — all on cursor-resumable WS streams over the 8.4 topics. Controls: kill switch (audited mass-cancel + lockout), Reg SHO borrow/locate in the compliance gate, maker-checker, SSO/SCIM, 15c3-5 attestation pack (fat-finger carried DEFERRED w/ 10.2). Full suite at goal close: **1,753 tests, 0 failures**.
-- **Last completed task:** 18.15 — Runnable demo `(effd6cc)` (post-goal addendum, user request 2026-06-11). scripts/dev/run-trader-demo.sh one-command launcher (edge + desktop, health-gated, Ctrl-C cleanup); docs/TRADER_DESKTOP_DEMO.md guided walkthrough (interaction model, 10-min operator tour, UI→backend reference, curl variant); sample basket CSV. Verified live through the Vite proxy incl. WS 101 + frames, full ticket/basket/ESP/kill/ack flows.
-- **In-progress task:** _(none — goal complete + 18.15 demo addendum done)_
+- **Last completed task:** 18.16 — Demo video + DEMO.md `(bd58d34)`. Playwright-recorded 26s mp4 + 8 frames in docs/demo/, reproducible recorder (ui/trader-desktop/demo/record-demo.mjs), root DEMO.md linked from README. Browser-driving the demo exposed and fixed two real desktop bugs: Perspective 3.x explicit WASM boot (init_server/init_client + ?url assets — worker() hung forever in ANY browser without it) and chroma-js CJS interop in dev mode; launcher now serves built assets via vite preview. Headless-verified: all chips LIVE, full walkthrough operable.
+- **In-progress task:** _(none — goal complete + 18.15/18.16 demo addenda done)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-11
 - **Phase 18 progress:** COMPLETE — 18.12 `068cbee`, 18.13 `8253d2f`, 18.1 `fefdc9a`, 18.14 `715c3d7`, 18.2 `bfdddba`, 18.3 `3554682`, 18.4 `6aa282c`, 18.6 `9c3e89f`, 18.7 `f007a19`, 18.8 `4a2e5e5`, 18.9 `b217889`, 18.10 `05e11e4`, 11.17 `db832b5`, 18.11 `d8ced96`, 18.5 `e702bb7`, 18.15 `effd6cc` (demo addendum).
 - **Front-end decision (2026-06-10, user):** trader desktop on **Perspective** (WASM streaming-pivot grid, github.com/perspective-dev/perspective) for high-rate market-data/blotter updates; market data via the pluggable SPI (18.12) with Bloomberg Desktop/Server API (18.13) first.
 - **🏁 Prior goals:** MVP v0 ✅ (2026-06-10, `MvpSmokeTest` corp-bond end-to-end, single trace + replay) · Phase 16 cross-asset ✅ (7 asset classes, `CrossAssetSmokeTest`) · **v1 BUILD-OUT ✅ (2026-06-11 ~00:30 EDT)** — Phases 7/8/10-in-scope/14/17 + 11.15 + 15.2 all `[x]`, full suite green at goal close. Details in the session log + git history.
-- **Total progress:** **142 of 178 tasks [x]** (79.8%). Phase 18 (incl. 18.15 demo addendum) + 11.17 complete. MVP v0, Phase 16, v1 build-out complete; Phase 18 underway.
+- **Total progress:** **143 of 179 tasks [x]** (79.9%). Phase 18 (incl. 18.15/18.16 demo addenda) + 11.17 complete. MVP v0, Phase 16, v1 build-out complete; Phase 18 underway.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
