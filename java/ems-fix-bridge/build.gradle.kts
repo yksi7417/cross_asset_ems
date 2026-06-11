@@ -10,6 +10,7 @@ plugins {
 dependencies {
     api(project(":ems-core"))
     api(project(":ems-oms"))
+    api(project(":ems-market-data"))
     api(project(":ems-venue-connectivity"))
     api(project(":ems-observability"))
     api(project(":ems-aaa"))
