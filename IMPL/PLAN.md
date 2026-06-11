@@ -335,7 +335,7 @@ Resilience + tooling. ~2-3 weeks.
 - [x] **14.7** Fence-token venue credential rotation (sonnet) ← blocks: 14.5 `(809b31d)`
 - [x] **14.8** Weekly leader-kill drill scripted (gemma) `(91ccfd7)`
 - [x] **14.9** Monthly cold-start drill scripted (gemma) `(91ccfd7)`
-- [~] **14.10** Quarterly cross-region failover drill scripted (sonnet)
+- [x] **14.10** Quarterly cross-region failover drill scripted (sonnet) `(fe3bbc8)`
 
 ## Phase 15 — MVP Integration
 
@@ -368,7 +368,7 @@ the v1 build-out lands. An initial `docs/USER_GUIDE.md` covering the as-built sy
 2026-06-10; these tasks extend and finalize it. (Named `USER_GUIDE` because `[[USAGE]]` is the
 vault how-to in `00_index/`.)
 
-- [ ] **17.1** User guide (`docs/USER_GUIDE.md`): build/run/test, dev-stack bring-up, submitting orders (FIX + API + bulk), order lifecycle walk-through, mock venue vs FIX simulator — extend the 2026-06-10 initial version to cover everything the v1 build-out added (sonnet) ← blocks: 15.2
+- [~] **17.1** User guide (`docs/USER_GUIDE.md`): build/run/test, dev-stack bring-up, submitting orders (FIX + API + bulk), order lifecycle walk-through, mock venue vs FIX simulator — extend the 2026-06-10 initial version to cover everything the v1 build-out added (sonnet) ← blocks: 15.2
 - [ ] **17.2** Operator guide (`docs/OPERATIONS.md`): config service, time/replay server, observability (dashboards/traces/logs), JMX introspection, drills, blue/green switchover (sonnet) ← blocks: 14.2, 14.5
 - [ ] **17.3** Developer guide refresh (`DEVELOPMENT.md` + `java/README.md`): module map, codegen pipeline, how to add an asset class / venue adapter / validator rule (sonnet) ← blocks: 17.1
 

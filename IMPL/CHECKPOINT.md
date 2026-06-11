@@ -79,7 +79,7 @@ Updated when a phase completes.
 | 11 — Venue Connectivity | partial (11.1, 11.2 done; 11.15 in active goal; 11.3–11.14, 11.16–11.17 queued) | |
 | 12 — Post-Trade | partial (12.1–12.3, 12.5, 12.6 done; 12.4, 12.7–12.16 queued) | |
 | 13 — Observability | partial (13.1-13.3, 13.5 done; 13.4 [~], 13.6 pending) | |
-| 14 — Operations | partial (14.3, 14.4, 14.8, 14.9 done; rest in active goal) | |
+| 14 — Operations | complete | 2026-06-10 |
 | 15 — MVP Integration | partial (15.1 done 2026-06-10; 15.2 FIX-wire smoke in active goal) | |
 | 16 — Cross-asset coverage | complete | 2026-06-10 |
 | 17 — Usage Documentation | not started — in active goal (final leg) | |
