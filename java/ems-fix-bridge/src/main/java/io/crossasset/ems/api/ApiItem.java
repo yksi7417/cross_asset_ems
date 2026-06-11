@@ -13,6 +13,12 @@ import org.jspecify.annotations.Nullable;
  */
 public sealed interface ApiItem {
 
+  /**
+   * Item for {@link ApiOperation#PREVIEW_VALIDATE} (18.2): dry-run the validator over a partial
+   * ticket envelope. Accepted refId = figi; rejected refId names the offending field.
+   */
+  record PreviewOrder(String figi) implements ApiItem {}
+
   /** Item for {@link ApiOperation#STAGE_ORDERS}. */
   record StageOrder(
       String clOrdId,

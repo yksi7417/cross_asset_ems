@@ -10,6 +10,8 @@ package io.crossasset.ems.api;
  * § Operation categories; automation/reference-data/admin categories join as their layers land.
  */
 public enum ApiOperation {
+  /** Validator dry-run for ticket preview (18.2): no state change, no events. */
+  PREVIEW_VALIDATE,
   STAGE_ORDERS,
   AMEND_ORDERS,
   CANCEL_ORDERS,

@@ -89,9 +89,111 @@
       main {
         flex: 1;
         display: flex;
+        gap: 6px;
+        min-height: 0;
+      }
+      #left-col {
+        width: 330px;
+        display: flex;
         flex-direction: column;
         gap: 6px;
         min-height: 0;
+      }
+      #right-col {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+      }
+      #watchlist-panel {
+        flex: 1;
+      }
+      /* Ticket form */
+      #ticket {
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        overflow-y: auto;
+      }
+      #ticket label,
+      .tk-sep {
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+      }
+      .tk-sep {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--edge);
+      }
+      #ticket input,
+      #ticket select {
+        background: var(--bg);
+        border: 1px solid var(--edge);
+        border-radius: 3px;
+        color: var(--text);
+        padding: 6px 8px;
+        font-family: inherit;
+        font-size: 12px;
+        width: 100%;
+      }
+      .tk-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .tk-inst {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--accent);
+        min-height: 14px;
+      }
+      .tk-inst #tk-hint {
+        color: var(--muted);
+      }
+      .tk-actions {
+        display: flex;
+        gap: 6px;
+        align-items: end;
+      }
+      #ticket button {
+        background: var(--edge);
+        color: var(--text);
+        border: none;
+        border-radius: 3px;
+        padding: 7px 10px;
+        letter-spacing: 0.08em;
+        font-size: 11px;
+        cursor: pointer;
+        flex: 1;
+      }
+      #ticket button.primary {
+        background: var(--accent);
+        color: #06281d;
+        font-weight: 600;
+      }
+      #ticket button.danger {
+        background: #4a2326;
+        color: #e8a9a6;
+      }
+      #tk-feedback,
+      #tk-result {
+        font-size: 11px;
+        margin: 0;
+        min-height: 14px;
+        word-break: break-word;
+      }
+      #tk-feedback.ok,
+      #tk-result.ok {
+        color: var(--accent);
+      }
+      #tk-feedback.err,
+      #tk-result.err {
+        color: var(--down);
       }
       .panel {
         display: flex;
@@ -115,17 +217,8 @@
         flex: 1;
         min-height: 0;
       }
-      #upper {
-        flex: 11;
-        display: flex;
-        gap: 6px;
-        min-height: 0;
-      }
-      #watchlist-panel {
-        flex: 2;
-      }
       #orders-panel {
-        flex: 3;
+        flex: 11;
       }
       #lower {
         flex: 9;
@@ -218,25 +311,79 @@
         <span class="chip" id="chip-fills"><i></i>FILLS</span>
       </header>
       <main>
-        <div id="upper">
+        <div id="left-col">
+          <section class="panel" id="ticket-panel">
+            <h2>ORDER TICKET</h2>
+            <div id="ticket">
+              <label>FIGI</label>
+              <input id="tk-figi" list="tk-figi-list" placeholder="BBG…" autocomplete="off" />
+              <datalist id="tk-figi-list"></datalist>
+              <div class="tk-inst"><span id="tk-name">—</span><span id="tk-hint"></span></div>
+              <div class="tk-grid">
+                <div>
+                  <label>SIDE</label>
+                  <select id="tk-side">
+                    <option value="1">BUY</option>
+                    <option value="2">SELL</option>
+                    <option value="5">SELL SHORT</option>
+                  </select>
+                </div>
+                <div>
+                  <label id="tk-tif-label">TIF</label>
+                  <select id="tk-tif"></select>
+                </div>
+                <div>
+                  <label id="tk-qty-label">QUANTITY</label>
+                  <input id="tk-qty" type="number" min="1" step="100" value="100" />
+                </div>
+                <div>
+                  <label id="tk-px-label">PRICE (BLANK = MARKET)</label>
+                  <input id="tk-px" type="number" min="0" step="0.0001" />
+                </div>
+              </div>
+              <label>ACCOUNT</label>
+              <input id="tk-account" value="ACC-DEMO" autocomplete="off" />
+              <p id="tk-feedback"></p>
+              <button id="tk-stage" class="primary">STAGE</button>
+              <div class="tk-sep">WORKING ORDER ACTIONS</div>
+              <select id="tk-order"></select>
+              <div class="tk-grid">
+                <div>
+                  <label>VENUE</label>
+                  <select id="tk-venue"></select>
+                </div>
+                <div class="tk-actions">
+                  <button id="tk-ready">READY</button>
+                  <button id="tk-route">ROUTE</button>
+                </div>
+                <div class="tk-actions">
+                  <button id="tk-amend">AMEND</button>
+                  <button id="tk-cancel" class="danger">CANCEL</button>
+                </div>
+              </div>
+              <p id="tk-result"></p>
+            </div>
+          </section>
           <section class="panel" id="watchlist-panel">
             <h2 id="watchlist-title">WATCHLIST</h2>
             <perspective-viewer id="watchlist-viewer"></perspective-viewer>
           </section>
+        </div>
+        <div id="right-col">
           <section class="panel" id="orders-panel">
             <h2>ORDER BLOTTER</h2>
             <perspective-viewer id="orders-viewer"></perspective-viewer>
           </section>
-        </div>
-        <div id="lower">
-          <section class="panel">
-            <h2>ROUTES</h2>
-            <perspective-viewer id="routes-viewer"></perspective-viewer>
-          </section>
-          <section class="panel">
-            <h2>FILLS</h2>
-            <perspective-viewer id="fills-viewer"></perspective-viewer>
-          </section>
+          <div id="lower">
+            <section class="panel">
+              <h2>ROUTES</h2>
+              <perspective-viewer id="routes-viewer"></perspective-viewer>
+            </section>
+            <section class="panel">
+              <h2>FILLS</h2>
+              <perspective-viewer id="fills-viewer"></perspective-viewer>
+            </section>
+          </div>
         </div>
       </main>
     </div>

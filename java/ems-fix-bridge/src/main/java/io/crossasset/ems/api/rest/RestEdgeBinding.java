@@ -21,6 +21,8 @@ import io.crossasset.ems.api.ApiSurface;
 import io.crossasset.ems.api.BatchOptions;
 import io.crossasset.ems.api.ItemResult;
 import io.crossasset.ems.api.SubscriptionRegistry;
+import io.crossasset.ems.instrument.InstrumentVersioned;
+import io.crossasset.ems.instrument.SecurityMasterService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -50,11 +52,24 @@ public final class RestEdgeBinding {
   private final AaaService aaa;
   private final ApiSurface api;
   private final SubscriptionRegistry subscriptions;
+  private final @org.jspecify.annotations.Nullable SecurityMasterService secMaster;
 
   public RestEdgeBinding(AaaService aaa, ApiSurface api, SubscriptionRegistry subscriptions) {
+    this(aaa, api, subscriptions, null);
+  }
+
+  /**
+   * With a security master, {@code GET /api/v1/instruments/{figi}} serves ticket lookups (18.2).
+   */
+  public RestEdgeBinding(
+      AaaService aaa,
+      ApiSurface api,
+      SubscriptionRegistry subscriptions,
+      @org.jspecify.annotations.Nullable SecurityMasterService secMaster) {
     this.aaa = Objects.requireNonNull(aaa, "aaa");
     this.api = Objects.requireNonNull(api, "api");
     this.subscriptions = Objects.requireNonNull(subscriptions, "subscriptions");
+    this.secMaster = secMaster;
   }
 
   /**
@@ -73,6 +88,9 @@ public final class RestEdgeBinding {
       }
       if ("GET".equals(method) && "/api/v1/events".equals(path)) {
         return events(query);
+      }
+      if ("GET".equals(method) && path.startsWith("/api/v1/instruments/")) {
+        return instrument(path.substring("/api/v1/instruments/".length()));
       }
       if ("POST".equals(method) && path.startsWith("/api/v1/")) {
         return operation(path.substring("/api/v1/".length()), headers, body);
@@ -127,6 +145,26 @@ public final class RestEdgeBinding {
     return new HttpResult(200, out.toString());
   }
 
+  /** Instrument reference lookup for the ticket (18.2): asset class drives the field layout. */
+  private HttpResult instrument(String figi) {
+    if (secMaster == null) {
+      return error(404, "Instrument lookup not configured on this edge.");
+    }
+    var found = secMaster.currentSnapshot().lookup(figi);
+    if (found.isEmpty()) {
+      return error(404, "Unknown instrument: " + figi);
+    }
+    InstrumentVersioned instrument = found.get();
+    ObjectNode out = mapper.createObjectNode();
+    out.put("figi", instrument.core().figi());
+    out.put("name", instrument.core().displayName());
+    out.put("assetClass", instrument.core().assetClass().name());
+    out.put("type", instrument.core().instrumentType().name());
+    out.put("currency", instrument.core().currency().name());
+    out.put("settlement", instrument.core().settlementConvention().name());
+    return new HttpResult(200, out.toString());
+  }
+
   private HttpResult operation(String opName, Map<String, String> headers, String body)
       throws Exception {
     ApiOperation operation;
@@ -163,6 +201,7 @@ public final class RestEdgeBinding {
 
   private ApiItem toItem(ApiOperation operation, JsonNode n) {
     return switch (operation) {
+      case PREVIEW_VALIDATE -> new ApiItem.PreviewOrder(requireText(n, "figi"));
       case STAGE_ORDERS ->
           new ApiItem.StageOrder(
               requireText(n, "clOrdId"),

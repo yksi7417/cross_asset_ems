@@ -93,15 +93,15 @@ public final class TraderDesktopEdgeMain {
     SubscriptionRegistry subscriptions = new SubscriptionRegistry();
     BlotterPublisher blotter =
         new BlotterPublisher(subscriptions, () -> System.currentTimeMillis() * 1_000);
+    LayeredValidatorPipeline pipeline = new LayeredValidatorPipeline(aaa, secMaster, null);
     BlotterStagedOrderManager som =
-        new BlotterStagedOrderManager(
-            new InMemoryStagedOrderManager(new LayeredValidatorPipeline(aaa, secMaster, null)),
-            blotter);
+        new BlotterStagedOrderManager(new InMemoryStagedOrderManager(pipeline), blotter);
     BlotterRouteManager routes = new BlotterRouteManager(new InMemoryRouteManager(som), blotter);
 
-    ApiSurface api = new ApiSurface(aaa, som, routes, subscriptions, (sid, subId, event) -> {});
+    ApiSurface api =
+        new ApiSurface(aaa, som, routes, subscriptions, (sid, subId, event) -> {}, pipeline);
     RestHttpServer rest =
-        new RestHttpServer(new RestEdgeBinding(aaa, api, subscriptions), restPort);
+        new RestHttpServer(new RestEdgeBinding(aaa, api, subscriptions, secMaster), restPort);
     rest.start();
     WsEventStreamServer ws = new WsEventStreamServer(aaa, subscriptions, wsPort);
     ws.start();

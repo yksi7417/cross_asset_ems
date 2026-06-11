@@ -16,9 +16,13 @@ import io.crossasset.ems.oms.RouteRequest;
 import io.crossasset.ems.oms.RouteResult;
 import io.crossasset.ems.oms.StageResult;
 import io.crossasset.ems.oms.StagedOrderManager;
+import io.crossasset.ems.validator.ValidationRequest;
+import io.crossasset.ems.validator.ValidationResult;
+import io.crossasset.ems.validator.ValidatorPipeline;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The API session surface (task 8.4): one typed operation set over the AAA-authenticated, sequenced
@@ -42,6 +46,7 @@ public final class ApiSurface {
   private final RouteManager routeManager;
   private final SubscriptionRegistry subscriptions;
   private final ApiEventSink eventSink;
+  private final @Nullable ValidatorPipeline previewPipeline;
   private final ConcurrentHashMap<String, ApiResponse> idempotencyCache = new ConcurrentHashMap<>();
 
   /** Blotter topic carrying every order event. */
@@ -53,11 +58,26 @@ public final class ApiSurface {
       RouteManager routeManager,
       SubscriptionRegistry subscriptions,
       ApiEventSink eventSink) {
+    this(aaa, som, routeManager, subscriptions, eventSink, null);
+  }
+
+  /**
+   * With a validator pipeline, PREVIEW_VALIDATE (18.2) dry-runs the same layered rules the stage
+   * path enforces — the ticket's per-field feedback is server-authoritative, never client-local.
+   */
+  public ApiSurface(
+      AaaService aaa,
+      StagedOrderManager som,
+      RouteManager routeManager,
+      SubscriptionRegistry subscriptions,
+      ApiEventSink eventSink,
+      @Nullable ValidatorPipeline previewPipeline) {
     this.aaa = aaa;
     this.som = som;
     this.routeManager = routeManager;
     this.subscriptions = subscriptions;
     this.eventSink = eventSink;
+    this.previewPipeline = previewPipeline;
   }
 
   /** Execute one batch request. Never throws on bad input — every failure is an ItemResult. */
@@ -134,6 +154,10 @@ public final class ApiSurface {
 
   private ItemResult executeItem(ApiRequest request, ApiItem item) {
     return switch (request.operation()) {
+      case PREVIEW_VALIDATE ->
+          item instanceof ApiItem.PreviewOrder preview
+              ? previewValidate(request, preview)
+              : itemMismatch(request, item);
       case STAGE_ORDERS ->
           item instanceof ApiItem.StageOrder stage
               ? stageOrder(request, stage)
@@ -167,6 +191,33 @@ public final class ApiSurface {
               ? unsubscribe(unsub)
               : itemMismatch(request, item);
     };
+  }
+
+  /**
+   * Validator dry-run (18.2): the exact ValidationRequest the stage path would issue, with no state
+   * change and no events. Accepted refId = figi; rejected refId = the offending field (when the
+   * validator names one) and the admin hint rides in the message.
+   */
+  private ItemResult previewValidate(ApiRequest request, ApiItem.PreviewOrder item) {
+    if (previewPipeline == null) {
+      return ItemResult.rejected(
+          "EMS-CFG-7001", "Preview validation is not configured on this surface.");
+    }
+    ValidationResult result =
+        previewPipeline.validate(
+            new ValidationRequest(
+                request.requestId() + ":preview", request.sessionId(), null, item.figi()));
+    if (result instanceof ValidationResult.Reject reject) {
+      String message =
+          reject.adminHint() == null
+              ? reject.message()
+              : reject.message() + " Contact: " + reject.adminHint();
+      ItemResult rejected = ItemResult.rejected(reject.code(), message);
+      return reject.field() == null
+          ? rejected
+          : new ItemResult(ItemResult.Status.REJECTED, reject.field(), reject.code(), message);
+    }
+    return ItemResult.accepted(item.figi());
   }
 
   private ItemResult stageOrder(ApiRequest request, ApiItem.StageOrder item) {

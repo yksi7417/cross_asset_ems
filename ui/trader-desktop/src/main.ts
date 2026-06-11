@@ -12,6 +12,7 @@ import "@finos/perspective-viewer";
 import "@finos/perspective-viewer-datagrid";
 import "@finos/perspective-viewer/dist/css/themes.css";
 import { ResumableStream, type StreamStatus } from "./stream";
+import { ApiClient, initTicket, type WorkingOrder } from "./ticket";
 
 type Schema = Record<string, "string" | "float" | "integer" | "datetime" | "boolean">;
 
@@ -154,6 +155,10 @@ interface Blotter {
  * filtered to that set. Perspective indexed updates replace the whole row, so partial ticks merge
  * into a per-figi last-value image before table.update — sustained rapid updates, no re-render.
  */
+const watchedSet = new Set<string>();
+const liveOrders = new Map<string, WorkingOrder>();
+const TERMINAL_STATES = new Set(["FILLED", "CANCELED", "REJECTED", "EXPIRED", "DONE_FOR_DAY"]);
+
 async function startWatchlist(session: Logon, worker: Client): Promise<void> {
   const table = await schemaTable(worker, WATCHLIST_SCHEMA, "figi");
   const viewer = document.getElementById("watchlist-viewer") as HTMLElement & {
@@ -165,7 +170,7 @@ async function startWatchlist(session: Logon, worker: Client): Promise<void> {
   document.getElementById("watchlist-title")!.textContent =
     `WATCHLIST — ${session.desk.toUpperCase()}`;
 
-  const watched = new Set<string>();
+  const watched = watchedSet;
   const images = new Map<string, WireRow>();
 
   const watchStream = new ResumableStream(
@@ -212,9 +217,29 @@ async function startWatchlist(session: Logon, worker: Client): Promise<void> {
   mdStream.connect();
 }
 
+function trackWorkingOrder(row: WireRow): void {
+  const orderId = row.orderId as string;
+  const state = row.state as string;
+  if (TERMINAL_STATES.has(state)) {
+    liveOrders.delete(orderId);
+  } else {
+    liveOrders.set(orderId, {
+      orderId,
+      clOrdId: row.clOrdId as string,
+      figi: row.figi as string,
+      state,
+    });
+  }
+}
+
 async function start(session: Logon): Promise<void> {
   const worker = await perspective.worker();
   await startWatchlist(session, worker);
+  initTicket(
+    new ApiClient(session.sessionId),
+    () => [...liveOrders.values()],
+    () => [...watchedSet],
+  );
   const sessionId = session.sessionId;
   const blotters: Blotter[] = [
     {
@@ -258,7 +283,11 @@ async function start(session: Logon): Promise<void> {
         if (!event.type.endsWith("Row")) {
           return; // projection rows only (e.g. skip future control events)
         }
-        const row = blotter.transform(JSON.parse(event.payload) as WireRow);
+        const wire = JSON.parse(event.payload) as WireRow;
+        if (blotter.topic === "blotter.orders") {
+          trackWorkingOrder(wire);
+        }
+        const row = blotter.transform(wire);
         void blotter.table.update([row]);
       },
       (status) => setChip(blotter.chip, status),

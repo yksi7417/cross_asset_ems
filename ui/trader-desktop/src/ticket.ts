@@ -1,0 +1,272 @@
+/*
+ * Copyright (c) 2026 Cross-Asset EMS Contributors.
+ * Licensed under the Apache License, Version 2.0.
+ */
+
+// Order ticket (task 18.2, per the staging-via-ticket workflow note): an asset-class-aware form
+// that is a thin client over the 8.4 API surface. Field feedback is server-authoritative —
+// PREVIEW_VALIDATE dry-runs the same layered validator the stage path enforces — and every action
+// (stage / amend / cancel / mark-ready / route) is a batch envelope POST to /api/v1/{operation}.
+
+/** Fixed-point price scale used across the EMS (4 implied decimals). */
+const PRICE_SCALE = 10_000;
+
+const VENUES = ["XNAS", "XNYS", "ARCX"];
+
+const TIFS: [string, number][] = [
+  ["DAY", 0],
+  ["GTC", 1],
+  ["IOC", 3],
+  ["FOK", 4],
+];
+
+/** Per-asset-class ticket layout: labels and contextual hint line. */
+const LAYOUTS: Record<string, { qty: string; px: string; hint: (i: Instrument) => string }> = {
+  EQUITY: {
+    qty: "QTY (SHARES)",
+    px: "LIMIT PX (BLANK = MARKET)",
+    hint: (i) => `${i.currency} · settle ${i.settlement.replaceAll("_", "")}`,
+  },
+  FIXED_INCOME: {
+    qty: "NOTIONAL (FACE)",
+    px: "CLEAN PRICE",
+    hint: (i) => `${i.currency} · settle ${i.settlement.replaceAll("_", "")}`,
+  },
+  FX: {
+    qty: "BASE NOTIONAL",
+    px: "ALL-IN RATE",
+    hint: (i) => `${i.currency} · value date per ${i.settlement.replaceAll("_", "")}`,
+  },
+  DEFAULT: {
+    qty: "QUANTITY",
+    px: "PRICE (BLANK = MARKET)",
+    hint: (i) => `${i.assetClass} · ${i.currency}`,
+  },
+};
+
+interface Instrument {
+  figi: string;
+  name: string;
+  assetClass: string;
+  currency: string;
+  settlement: string;
+}
+
+interface ItemResult {
+  status: "ACCEPTED" | "REJECTED" | "DEFERRED";
+  refId: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+}
+
+export interface WorkingOrder {
+  orderId: string;
+  clOrdId: string;
+  figi: string;
+  state: string;
+}
+
+/** Session-sequenced operation client over the REST edge (one instance per logon). */
+export class ApiClient {
+  private seq = 1;
+  private requestN = 1;
+
+  constructor(private readonly sessionId: number) {}
+
+  async operation(operation: string, items: object[]): Promise<ItemResult[]> {
+    const response = await fetch(`/api/v1/${operation}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-EMS-Session": String(this.sessionId) },
+      body: JSON.stringify({
+        requestId: `ui-${this.sessionId}-${this.requestN++}`,
+        sessionSeq: this.seq++,
+        items,
+      }),
+    });
+    const body = (await response.json()) as { results?: ItemResult[]; error?: string };
+    if (!response.ok || !body.results) {
+      throw new Error(body.error ?? `${operation} failed (${response.status})`);
+    }
+    return body.results;
+  }
+
+  async instrument(figi: string): Promise<Instrument | null> {
+    const response = await fetch(`/api/v1/instruments/${encodeURIComponent(figi)}`);
+    return response.ok ? ((await response.json()) as Instrument) : null;
+  }
+}
+
+function el<T extends HTMLElement>(id: string): T {
+  return document.getElementById(id) as T;
+}
+
+function debounced<A extends unknown[]>(ms: number, fn: (...args: A) => void): (...args: A) => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return (...args: A) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+export function initTicket(
+  api: ApiClient,
+  workingOrders: () => WorkingOrder[],
+  watchedFigis: () => string[],
+): void {
+  const figiInput = el<HTMLInputElement>("tk-figi");
+  const figiList = el<HTMLDataListElement>("tk-figi-list");
+  const nameLabel = el<HTMLElement>("tk-name");
+  const hintLabel = el<HTMLElement>("tk-hint");
+  const qtyLabel = el<HTMLElement>("tk-qty-label");
+  const pxLabel = el<HTMLElement>("tk-px-label");
+  const sideSelect = el<HTMLSelectElement>("tk-side");
+  const qtyInput = el<HTMLInputElement>("tk-qty");
+  const pxInput = el<HTMLInputElement>("tk-px");
+  const tifSelect = el<HTMLSelectElement>("tk-tif");
+  const accountInput = el<HTMLInputElement>("tk-account");
+  const feedback = el<HTMLElement>("tk-feedback");
+  const result = el<HTMLElement>("tk-result");
+  const orderSelect = el<HTMLSelectElement>("tk-order");
+  const venueSelect = el<HTMLSelectElement>("tk-venue");
+
+  for (const [label, value] of TIFS) {
+    tifSelect.add(new Option(label, String(value)));
+  }
+  for (const venue of VENUES) {
+    venueSelect.add(new Option(venue, venue));
+  }
+
+  let clOrdN = 1;
+
+  function setFeedback(message: string, ok: boolean): void {
+    feedback.textContent = message;
+    feedback.className = ok ? "ok" : "err";
+  }
+
+  function setResult(message: string, ok: boolean): void {
+    result.textContent = message;
+    result.className = ok ? "ok" : "err";
+  }
+
+  function renderResult(verb: string, results: ItemResult[]): void {
+    const r = results[0];
+    if (r.status === "ACCEPTED") {
+      setResult(`${verb} OK — ${r.refId}`, true);
+    } else {
+      setResult(`${r.errorCode}: ${r.errorMessage}`, false);
+    }
+  }
+
+  // ── Instrument resolution + server-side preview (live as the FIGI changes) ───
+
+  const refresh = debounced(300, () => {
+    void (async () => {
+      const figi = figiInput.value.trim();
+      figiList.replaceChildren(
+        ...watchedFigis().map((f) => new Option(f)),
+      );
+      if (figi.length < 12) {
+        nameLabel.textContent = "—";
+        setFeedback("", true);
+        return;
+      }
+      const instrument = await api.instrument(figi);
+      const layout = instrument
+        ? (LAYOUTS[instrument.assetClass] ?? LAYOUTS.DEFAULT)
+        : LAYOUTS.DEFAULT;
+      nameLabel.textContent = instrument ? instrument.name : "unknown instrument";
+      hintLabel.textContent = instrument ? layout.hint(instrument) : "";
+      qtyLabel.textContent = layout.qty;
+      pxLabel.textContent = layout.px;
+      try {
+        const results = await api.operation("preview_validate", [{ figi }]);
+        const r = results[0];
+        setFeedback(
+          r.status === "ACCEPTED" ? "validator: pass" : `${r.errorCode}: ${r.errorMessage}`,
+          r.status === "ACCEPTED",
+        );
+      } catch (cause) {
+        setFeedback((cause as Error).message, false);
+      }
+    })();
+  });
+  figiInput.addEventListener("input", refresh);
+
+  // ── Working-orders dropdown (fed from the live blotter stream) ───────────────
+
+  function refreshOrders(): void {
+    const selected = orderSelect.value;
+    orderSelect.replaceChildren(
+      new Option("— select working order —", ""),
+      ...workingOrders().map(
+        (o) => new Option(`${o.orderId} · ${o.figi} · ${o.state}`, o.orderId),
+      ),
+    );
+    orderSelect.value = selected;
+  }
+  setInterval(refreshOrders, 1_000);
+
+  // ── Actions ──────────────────────────────────────────────────────────────────
+
+  function pxFixedPoint(): number | undefined {
+    const raw = pxInput.value.trim();
+    return raw === "" ? undefined : Math.round(Number(raw) * PRICE_SCALE);
+  }
+
+  async function act(verb: string, run: () => Promise<ItemResult[]>): Promise<void> {
+    try {
+      renderResult(verb, await run());
+    } catch (cause) {
+      setResult((cause as Error).message, false);
+    }
+  }
+
+  el<HTMLButtonElement>("tk-stage").addEventListener("click", () => {
+    void act("STAGE", () =>
+      api.operation("stage_orders", [
+        {
+          clOrdId: `TKT-${Date.now()}-${clOrdN++}`,
+          figi: figiInput.value.trim(),
+          side: Number(sideSelect.value),
+          qty: Number(qtyInput.value),
+          price: pxFixedPoint(),
+          account: accountInput.value.trim(),
+          tif: Number(tifSelect.value),
+        },
+      ]),
+    );
+  });
+
+  el<HTMLButtonElement>("tk-amend").addEventListener("click", () => {
+    void act("AMEND", () =>
+      api.operation("amend_orders", [
+        {
+          orderId: orderSelect.value,
+          qty: qtyInput.value ? Number(qtyInput.value) : undefined,
+          price: pxFixedPoint(),
+        },
+      ]),
+    );
+  });
+
+  el<HTMLButtonElement>("tk-ready").addEventListener("click", () => {
+    void act("READY", () => api.operation("mark_ready", [{ orderId: orderSelect.value }]));
+  });
+
+  el<HTMLButtonElement>("tk-cancel").addEventListener("click", () => {
+    void act("CANCEL", () => api.operation("cancel_orders", [{ orderId: orderSelect.value }]));
+  });
+
+  el<HTMLButtonElement>("tk-route").addEventListener("click", () => {
+    void act("ROUTE", () =>
+      api.operation("route_orders", [
+        {
+          orderId: orderSelect.value,
+          venueMic: venueSelect.value,
+          qty: Number(qtyInput.value),
+          price: pxFixedPoint(),
+        },
+      ]),
+    );
+  });
+}
