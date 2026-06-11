@@ -9,14 +9,14 @@ State cursor for the [[LOOP]]. Updated automatically by the agent at the end of 
 ## Current cursor
 
 - **Active goal (set 2026-06-11): Phase 18 — trader desktop & buyer-readiness.** Order: 18.12 → 18.13 → 18.1 → 18.14 → 18.2 → 18.3 → 18.4 → 18.6 → 18.7 → 18.8 → 18.9 → 18.10 → 18.5 → 11.17 → 18.11 (11.17 pulled in as 18.11's blocker per the queued next-goal definition; 18.5 late because its 10.2 input is deferred — pack will carry fat-finger as a deferred control or go `[!]`). Fable executes every task directly, no delegation; LOOP protocol per IMPL/LOOP.md.
-- **Last completed task:** 18.7 — Intraday P&L `(f007a19)`. PnlService: realized (tradedPositionsForAccount incl. flat books) + unrealized via 10.8 chain w/ provenance, FX to base, unmarked/unconverted counted; blotter.pnl stream + desktop grid. 6 tests.
-- **In-progress task:** _(none — next: 18.8 notification service)_
+- **Last completed task:** 18.8 — Notifications `(4a2e5e5)`. Rule-routed queue + sink SPI (DesktopSink on notify.{audience}), ack + multi-step escalation + throttle-collapse + full audit; REST ack; desktop queue panel. 8 tests.
+- **In-progress task:** _(none — next: 18.9 enterprise SSO)_
 - **WIP branch:** main
 - **Last updated:** 2026-06-11
-- **Phase 18 progress:** 18.12 `068cbee`, 18.13 `8253d2f`, 18.1 `fefdc9a`, 18.14 `715c3d7`, 18.2 `bfdddba`, 18.3 `3554682`, 18.4 `6aa282c`, 18.6 `9c3e89f`, 18.7 `f007a19`. Remaining: 18.5, 18.8–18.11 (+11.17 for 18.11).
+- **Phase 18 progress:** 18.12 `068cbee`, 18.13 `8253d2f`, 18.1 `fefdc9a`, 18.14 `715c3d7`, 18.2 `bfdddba`, 18.3 `3554682`, 18.4 `6aa282c`, 18.6 `9c3e89f`, 18.7 `f007a19`, 18.8 `4a2e5e5`. Remaining: 18.5, 18.9–18.11 (+11.17 for 18.11).
 - **Front-end decision (2026-06-10, user):** trader desktop on **Perspective** (WASM streaming-pivot grid, github.com/perspective-dev/perspective) for high-rate market-data/blotter updates; market data via the pluggable SPI (18.12) with Bloomberg Desktop/Server API (18.13) first.
 - **🏁 Prior goals:** MVP v0 ✅ (2026-06-10, `MvpSmokeTest` corp-bond end-to-end, single trace + replay) · Phase 16 cross-asset ✅ (7 asset classes, `CrossAssetSmokeTest`) · **v1 BUILD-OUT ✅ (2026-06-11 ~00:30 EDT)** — Phases 7/8/10-in-scope/14/17 + 11.15 + 15.2 all `[x]`, full suite green at goal close. Details in the session log + git history.
-- **Total progress:** **135 of 177 tasks [x]** (76.3%). MVP v0, Phase 16, v1 build-out complete; Phase 18 underway.
+- **Total progress:** **136 of 177 tasks [x]** (76.8%). MVP v0, Phase 16, v1 build-out complete; Phase 18 underway.
 - **Hold-pending-rework branches:** 4.11 (InstrumentCore byte mismatch), 6.4 (reject codes need catalog extension — field-format codes don't exist in catalog; design decision required before marking done), 13.4 (dashboards at 9/9/6 panels vs 24/12/12 targets), 11.2-11.10 (abandoned WIP branch — empty files, reset to `[ ]`).
 
 ## Open WIP branches
