@@ -29,4 +29,12 @@ public enum MdField {
   public String jsonKey() {
     return name().toLowerCase(Locale.ROOT);
   }
+
+  /** Price-kind fields carry fixed-point values; size-kind fields carry raw counts. */
+  public boolean isPrice() {
+    return switch (this) {
+      case BID, ASK, LAST, OPEN, HIGH, LOW, PREV_CLOSE -> true;
+      case BID_SIZE, ASK_SIZE, LAST_SIZE, VOLUME -> false;
+    };
+  }
 }
