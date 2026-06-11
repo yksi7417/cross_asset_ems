@@ -400,7 +400,7 @@ additions 11.16–11.17. **Not in the current [[LOOP]] goal; queue as the next g
 - [x] **18.7** Intraday P&L — realized/unrealized off positions (10.7) + pricing (10.8), FX-converted to firm base currency (sonnet) ← blocks: 10.7, 10.8 `(f007a19)`
 - [x] **18.8** Notification service per [[arch-notification-service]] — fills/rejects/limit-breach alerts to desktop + email/mobile sinks (sonnet) ← blocks: 8.4 `(4a2e5e5)`
 - [x] **18.9** Enterprise SSO — OIDC/SAML login + SCIM provisioning on the AAA layer (vendor due-diligence checklist item) (sonnet) ← blocks: 5.1 `(b217889)`
-- [ ] **18.10** Maker-checker (4-eyes) approvals on config / limit / restricted-list changes (sonnet) ← blocks: 3.7, 10.4
+- [~] **18.10** Maker-checker (4-eyes) approvals on config / limit / restricted-list changes (sonnet) ← blocks: 3.7, 10.4
 - [ ] **18.11** Click-to-trade on streaming quotes (ESP) with slippage guard + last-look awareness (sonnet) ← blocks: 11.17, 18.1
 - [x] **18.12** Pluggable market-data feed SPI — `MarketDataFeed` interface (subscribe/unsubscribe by FIGI + field set, tick/quote callbacks, feed health), provider-agnostic so Bloomberg (18.13) now and the internal quote server (9.1) later are drop-in implementations; ticks bridge into Perspective via the 8.4 subscription topics (sonnet) ← blocks: 8.4 `(068cbee)`
 - [x] **18.13** Bloomberg market-data adapter — BLPAPI `//blp/mktdata` subscriptions via Desktop API (localhost:8194) or Server API per config, mapping security/fields to the 18.12 SPI; session resilience + entitlement failures surfaced as feed health; runtime requires the desk's Bloomberg terminal/SAPI subscription, CI uses a fake feed (sonnet) ← blocks: 18.12 `(8253d2f)`
