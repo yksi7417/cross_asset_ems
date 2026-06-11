@@ -326,7 +326,7 @@ Three pillars. ~1-2 weeks.
 
 Resilience + tooling. ~2-3 weeks.
 
-- [ ] **14.1** JMX introspection per [[arch-jmx-introspection]] (sonnet)
+- [~] **14.1** JMX introspection per [[arch-jmx-introspection]] (sonnet)
 - [ ] **14.2** Privileged event injection (security-gated) (sonnet) ← blocks: 14.1
 - [x] **14.3** Time/Replay server UI (gemma for scaffold, sonnet for design) `(6b3e666)`
 - [x] **14.4** Configuration service UI (gemma for scaffold) `(6b3e666)`
@@ -342,7 +342,7 @@ Resilience + tooling. ~2-3 weeks.
 The v0 done-criteria, made executable. ~1 week.
 
 - [x] **[MVP] 15.1** End-to-end MVP smoke test + replay-determinism on a 1-day mock log slice: FIX NewOrderSingle (US IG corp) → validator → staged → routed via mock venue → fill ack → allocation → confirmation → TRACE-mock, asserting a single trace ID through the whole chain and byte-identical replay (sonnet) ← blocks: 8.1, 11.2, 12.3, 12.6, 13.5 `(26f29d8)`
-- [~] **15.2** FIX-wire end-to-end smoke — client FIX NewOrderSingle → validator → staged → routed → venue-facing FIX gateway (8.2) over a **real FIX session** to the venue simulator (11.15) → ack/fills back → allocation → confirmation → TRACE-mock; single trace ID + byte-identical replay; the 11.2 in-process-mock path stays green alongside (sonnet) ← blocks: 8.2, 11.15, 15.1
+- [x] **15.2** FIX-wire end-to-end smoke — client FIX NewOrderSingle → validator → staged → routed → venue-facing FIX gateway (8.2) over a **real FIX session** to the venue simulator (11.15) → ack/fills back → allocation → confirmation → TRACE-mock; single trace ID + byte-identical replay; the 11.2 in-process-mock path stays green alongside (sonnet) ← blocks: 8.2, 11.15, 15.1 `(1d59f81)`
 
 > **🚀 MVP v0 COMPLETE (2026-06-10).** All 11 [MVP]-tagged tasks are `[x]`. The end-to-end smoke (`MvpSmokeTest` in `ems-it`) drives FIX NewOrderSingle → validator → staged → mock MarketAxess → fill → allocation → confirmation → TRACE-mock with a single trace ID and byte-identical replay. See [v1 scope](#what-v1-looks-like) for what's next.
 
