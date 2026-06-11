@@ -104,10 +104,13 @@ class RestHttpServerTest {
 
   @Test
   void logon_stage_fetchEvents_resumeCursor() throws Exception {
-    // 1. Logon over the wire.
+    // 1. Logon over the wire. The response carries the identity the desktop scopes by (18.14).
     JsonNode logon = postJson("/api/v1/logon", null, "{\"token\":\"tok-ui\"}");
     long sessionId = logon.path("sessionId").asLong();
     assertThat(sessionId).isPositive();
+    assertThat(logon.path("firm").asText()).isEqualTo("firm-a");
+    assertThat(logon.path("desk").asText()).isEqualTo("desk-1");
+    assertThat(logon.path("user").asText()).isEqualTo("trader-ui");
 
     // 2. Stage a batch of two through REST.
     String stageBody =

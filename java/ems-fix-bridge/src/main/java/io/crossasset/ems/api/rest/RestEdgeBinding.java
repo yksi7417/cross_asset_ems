@@ -96,8 +96,12 @@ public final class RestEdgeBinding {
       out.put("error", rejected.rejectCode() + ": " + rejected.message());
       return new HttpResult(401, out.toString());
     }
+    var session = ((LogonOutcome.Accepted) outcome).session();
     ObjectNode out = mapper.createObjectNode();
-    out.put("sessionId", ((LogonOutcome.Accepted) outcome).session().sessionId());
+    out.put("sessionId", session.sessionId());
+    out.put("firm", session.identity().firmId());
+    out.put("desk", session.identity().deskId());
+    out.put("user", session.identity().userId());
     return new HttpResult(200, out.toString());
   }
 

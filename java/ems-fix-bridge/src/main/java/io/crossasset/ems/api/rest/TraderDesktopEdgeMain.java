@@ -14,6 +14,7 @@ import io.crossasset.ems.api.SubscriptionRegistry;
 import io.crossasset.ems.api.blotter.BlotterPublisher;
 import io.crossasset.ems.api.blotter.BlotterRouteManager;
 import io.crossasset.ems.api.blotter.BlotterStagedOrderManager;
+import io.crossasset.ems.api.md.DeskWatchlist;
 import io.crossasset.ems.api.md.MarketDataTopicBridge;
 import io.crossasset.ems.instrument.AssetClass;
 import io.crossasset.ems.instrument.CurrencyCode;
@@ -109,9 +110,15 @@ public final class TraderDesktopEdgeMain {
     SimulatedFeed feed = new SimulatedFeed("sim");
     MarketDataTopicBridge mdBridge = new MarketDataTopicBridge(subscriptions);
     mdBridge.attachHealth(feed);
+    // Desk watchlist (18.14): seeding attaches each symbol to the bridge.
+    DeskWatchlist watchlist =
+        new DeskWatchlist(
+            subscriptions,
+            mdBridge,
+            feed,
+            Set.of(MdField.BID, MdField.ASK, MdField.LAST, MdField.VOLUME));
     for (Inst inst : INSTRUMENTS) {
-      mdBridge.attach(
-          feed, inst.figi(), Set.of(MdField.BID, MdField.ASK, MdField.LAST, MdField.VOLUME));
+      watchlist.add("desk-1", inst.figi());
     }
     feed.start();
 

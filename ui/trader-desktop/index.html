@@ -115,8 +115,17 @@
         flex: 1;
         min-height: 0;
       }
-      #orders-panel {
+      #upper {
         flex: 11;
+        display: flex;
+        gap: 6px;
+        min-height: 0;
+      }
+      #watchlist-panel {
+        flex: 2;
+      }
+      #orders-panel {
+        flex: 3;
       }
       #lower {
         flex: 9;
@@ -203,15 +212,22 @@
         <h1>CROSS-ASSET EMS</h1>
         <span class="desk" id="session-label">—</span>
         <span class="spacer"></span>
+        <span class="chip" id="chip-md"><i></i>MARKET DATA</span>
         <span class="chip" id="chip-orders"><i></i>ORDERS</span>
         <span class="chip" id="chip-routes"><i></i>ROUTES</span>
         <span class="chip" id="chip-fills"><i></i>FILLS</span>
       </header>
       <main>
-        <section class="panel" id="orders-panel">
-          <h2>ORDER BLOTTER</h2>
-          <perspective-viewer id="orders-viewer"></perspective-viewer>
-        </section>
+        <div id="upper">
+          <section class="panel" id="watchlist-panel">
+            <h2 id="watchlist-title">WATCHLIST</h2>
+            <perspective-viewer id="watchlist-viewer"></perspective-viewer>
+          </section>
+          <section class="panel" id="orders-panel">
+            <h2>ORDER BLOTTER</h2>
+            <perspective-viewer id="orders-viewer"></perspective-viewer>
+          </section>
+        </div>
         <div id="lower">
           <section class="panel">
             <h2>ROUTES</h2>

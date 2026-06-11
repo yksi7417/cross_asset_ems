@@ -73,6 +73,15 @@ const FILLS_SCHEMA = {
   ts: "datetime",
 } as const;
 
+const WATCHLIST_SCHEMA = {
+  figi: "string",
+  bid: "float",
+  ask: "float",
+  last: "float",
+  volume: "float",
+  ts: "datetime",
+} as const;
+
 // ── Row transforms: wire JSON → grid row ───────────────────────────────────────
 
 type WireRow = Record<string, unknown>;
@@ -110,17 +119,24 @@ function setChip(id: string, status: StreamStatus): void {
   else chip.classList.add("down");
 }
 
-async function logon(token: string): Promise<number> {
+interface Logon {
+  sessionId: number;
+  firm: string;
+  desk: string;
+  user: string;
+}
+
+async function logon(token: string): Promise<Logon> {
   const response = await fetch("/api/v1/logon", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),
   });
-  const body = (await response.json()) as { sessionId?: number; error?: string };
+  const body = (await response.json()) as Partial<Logon> & { error?: string };
   if (!response.ok || body.sessionId === undefined) {
     throw new Error(body.error ?? `logon failed (${response.status})`);
   }
-  return body.sessionId;
+  return body as Logon;
 }
 
 interface Blotter {
@@ -132,8 +148,74 @@ interface Blotter {
   sort: [string, "desc" | "asc"][];
 }
 
-async function start(sessionId: number): Promise<void> {
+/**
+ * Watchlist panel (task 18.14): the desk's symbol set streams on watchlist.{desk}
+ * (WatchRow/WatchRemoved deltas rebuild it from seq 1); ticks stream on the md firehose and are
+ * filtered to that set. Perspective indexed updates replace the whole row, so partial ticks merge
+ * into a per-figi last-value image before table.update — sustained rapid updates, no re-render.
+ */
+async function startWatchlist(session: Logon, worker: Client): Promise<void> {
+  const table = await schemaTable(worker, WATCHLIST_SCHEMA, "figi");
+  const viewer = document.getElementById("watchlist-viewer") as HTMLElement & {
+    load(table: Table): Promise<void>;
+    restore(config: object): Promise<void>;
+  };
+  await viewer.load(table);
+  await viewer.restore({ plugin: "Datagrid", theme: "Pro Dark", sort: [["figi", "asc"]] });
+  document.getElementById("watchlist-title")!.textContent =
+    `WATCHLIST — ${session.desk.toUpperCase()}`;
+
+  const watched = new Set<string>();
+  const images = new Map<string, WireRow>();
+
+  const watchStream = new ResumableStream(
+    `watchlist.${session.desk}`,
+    session.sessionId,
+    (event) => {
+      const figi = event.refId;
+      if (event.type === "WatchRow" && !watched.has(figi)) {
+        watched.add(figi);
+        images.set(figi, { figi });
+        void table.update([{ figi }]);
+      } else if (event.type === "WatchRemoved" && watched.has(figi)) {
+        watched.delete(figi);
+        images.delete(figi);
+        void table.remove([figi]);
+      }
+    },
+    () => {},
+  );
+  watchStream.connect();
+
+  const mdStream = new ResumableStream(
+    "md",
+    session.sessionId,
+    (event) => {
+      if (event.type !== "MdTick" || !watched.has(event.refId)) {
+        return;
+      }
+      const tick = JSON.parse(event.payload) as WireRow;
+      const image = {
+        ...images.get(event.refId),
+        figi: event.refId,
+        bid: px(tick.bid) ?? undefined,
+        ask: px(tick.ask) ?? undefined,
+        last: px(tick.last) ?? undefined,
+        volume: typeof tick.volume === "number" ? tick.volume : undefined,
+        ts: new Date(tick.ts as number), // md timestamps are epoch millis
+      };
+      images.set(event.refId, image);
+      void table.update([image]);
+    },
+    (status) => setChip("chip-md", status),
+  );
+  mdStream.connect();
+}
+
+async function start(session: Logon): Promise<void> {
   const worker = await perspective.worker();
+  await startWatchlist(session, worker);
+  const sessionId = session.sessionId;
   const blotters: Blotter[] = [
     {
       topic: "blotter.orders",
@@ -194,11 +276,12 @@ form.addEventListener("submit", (event) => {
   const error = document.getElementById("logon-error")!;
   error.textContent = "";
   logon(token)
-    .then((sessionId) => {
+    .then((session) => {
       document.getElementById("logon")!.classList.add("hidden");
       document.getElementById("app")!.classList.remove("hidden");
-      document.getElementById("session-label")!.textContent = `SESSION ${sessionId}`;
-      return start(sessionId);
+      document.getElementById("session-label")!.textContent =
+        `${session.user} @ ${session.firm}/${session.desk} · SESSION ${session.sessionId}`;
+      return start(session);
     })
     .catch((cause: Error) => {
       error.textContent = cause.message;
