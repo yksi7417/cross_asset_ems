@@ -267,6 +267,72 @@ class ApiSurfaceTest {
     assertThat(cancel.summary().ok()).isEqualTo(1);
   }
 
+  // ── Batch semantics (8.5) ───────────────────────────────────────────────────
+
+  @Test
+  void onErrorStop_defersItemsAfterFirstRejection() {
+    ApiItem bad = new ApiItem.StageOrder("CL-BAD", "BBG000UNKNOWN", 1, 100, null, "acc-1", 0);
+    ApiResponse response =
+        api.execute(
+            new ApiRequest(
+                "req-stop",
+                sessionId,
+                seq++,
+                ApiOperation.STAGE_ORDERS,
+                List.of(stageItem("CL-S1"), bad, stageItem("CL-S2")),
+                new BatchOptions(true, BatchOptions.OnError.STOP)));
+    assertThat(response.results().get(0).status()).isEqualTo(ItemResult.Status.ACCEPTED);
+    assertThat(response.results().get(1).status()).isEqualTo(ItemResult.Status.REJECTED);
+    assertThat(response.results().get(2).status()).isEqualTo(ItemResult.Status.DEFERRED);
+    assertThat(response.summary().deferred()).isEqualTo(1);
+  }
+
+  @Test
+  void allOrNothing_anyRejection_voidsAppliedItems() {
+    ApiItem bad = new ApiItem.StageOrder("CL-BAD", "BBG000UNKNOWN", 1, 100, null, "acc-1", 0);
+    ApiResponse response =
+        api.execute(
+            new ApiRequest(
+                "req-aon",
+                sessionId,
+                seq++,
+                ApiOperation.STAGE_ORDERS,
+                List.of(stageItem("CL-A1"), bad),
+                new BatchOptions(false, BatchOptions.OnError.CONTINUE)));
+    assertThat(response.summary().ok()).isZero();
+    assertThat(response.results().get(0).status()).isEqualTo(ItemResult.Status.REJECTED);
+    assertThat(response.results().get(0).errorMessage()).contains("Voided");
+  }
+
+  @Test
+  void allOrNothing_allAccepted_appliesNormally() {
+    ApiResponse response =
+        api.execute(
+            new ApiRequest(
+                "req-aon-ok",
+                sessionId,
+                seq++,
+                ApiOperation.STAGE_ORDERS,
+                List.of(stageItem("CL-A2"), stageItem("CL-A3")),
+                new BatchOptions(false, BatchOptions.OnError.CONTINUE)));
+    assertThat(response.summary().ok()).isEqualTo(2);
+  }
+
+  @Test
+  void allOrNothing_unsupportedOperation_rejectsWholeRequest() {
+    ApiResponse response =
+        api.execute(
+            new ApiRequest(
+                "req-aon-bad",
+                sessionId,
+                seq++,
+                ApiOperation.CANCEL_ORDERS,
+                List.of(new ApiItem.CancelOrder("EMS-ORD-1")),
+                new BatchOptions(false, BatchOptions.OnError.CONTINUE)));
+    assertThat(response.results().get(0).status()).isEqualTo(ItemResult.Status.REJECTED);
+    assertThat(response.results().get(0).errorMessage()).contains("all-or-nothing");
+  }
+
   // ── Pub/sub ─────────────────────────────────────────────────────────────────
 
   @Test

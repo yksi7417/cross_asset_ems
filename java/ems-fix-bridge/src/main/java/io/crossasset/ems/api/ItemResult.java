@@ -30,4 +30,9 @@ public record ItemResult(
   public static ItemResult rejected(String code, String message) {
     return new ItemResult(Status.REJECTED, null, code, message);
   }
+
+  /** Not attempted (e.g. a prior item rejected under {@code on_error=STOP}). */
+  public static ItemResult deferred(String message) {
+    return new ItemResult(Status.DEFERRED, null, null, message);
+  }
 }

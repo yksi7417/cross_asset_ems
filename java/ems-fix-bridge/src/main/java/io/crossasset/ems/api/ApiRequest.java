@@ -18,10 +18,22 @@ public record ApiRequest(
     long sessionId,
     long sessionSeq,
     ApiOperation operation,
-    List<ApiItem> items) {
+    List<ApiItem> items,
+    BatchOptions options) {
   public ApiRequest {
     Objects.requireNonNull(requestId, "requestId");
     Objects.requireNonNull(operation, "operation");
     items = List.copyOf(Objects.requireNonNull(items, "items"));
+    options = options == null ? BatchOptions.DEFAULT : options;
+  }
+
+  /** Convenience constructor with default batch options (partial ok, continue on error). */
+  public ApiRequest(
+      String requestId,
+      long sessionId,
+      long sessionSeq,
+      ApiOperation operation,
+      List<ApiItem> items) {
+    this(requestId, sessionId, sessionSeq, operation, items, BatchOptions.DEFAULT);
   }
 }

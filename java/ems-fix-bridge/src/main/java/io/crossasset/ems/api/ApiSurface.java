@@ -73,14 +73,63 @@ public final class ApiSurface {
     if (seqIssue.isPresent()) {
       return reject(request, "EMS-SES-2001", "Sequence not accepted: " + seqIssue.get());
     }
+    if (!request.options().partialOk() && request.operation() != ApiOperation.STAGE_ORDERS) {
+      return reject(
+          request,
+          "EMS-ORD-3003",
+          "all-or-nothing (partial_ok=false) is only supported for STAGE_ORDERS; "
+              + request.operation()
+              + " has no compensating action.");
+    }
 
     List<ItemResult> results = new ArrayList<>(request.items().size());
+    boolean stopped = false;
     for (ApiItem item : request.items()) {
-      results.add(executeItem(request, item));
+      if (stopped) {
+        results.add(ItemResult.deferred("Not attempted: prior item rejected (on_error=STOP)."));
+        continue;
+      }
+      ItemResult result = executeItem(request, item);
+      results.add(result);
+      if (result.status() == ItemResult.Status.REJECTED
+          && request.options().onError() == BatchOptions.OnError.STOP) {
+        stopped = true;
+      }
     }
+
+    if (!request.options().partialOk()) {
+      compensateIfAnyRejected(request, results);
+    }
+
     ApiResponse response = ApiResponse.of(request.requestId(), results);
     idempotencyCache.put(request.requestId(), response);
     return response;
+  }
+
+  /**
+   * All-or-nothing (task 8.5): when any item of a STAGE_ORDERS batch rejected, cancel the orders
+   * that were staged and re-mark their results REJECTED, so the batch leaves no partial state
+   * behind. The cancels publish OrderCanceled so subscription streams stay truthful.
+   */
+  private void compensateIfAnyRejected(ApiRequest request, List<ItemResult> results) {
+    boolean anyRejected = results.stream().anyMatch(r -> r.status() != ItemResult.Status.ACCEPTED);
+    if (!anyRejected) {
+      return;
+    }
+    for (int i = 0; i < results.size(); i++) {
+      ItemResult result = results.get(i);
+      if (result.status() == ItemResult.Status.ACCEPTED && result.refId() != null) {
+        som.cancel(result.refId(), request.sessionId());
+        publishOrderEvent("OrderCanceled", result.refId());
+        results.set(
+            i,
+            ItemResult.rejected(
+                "EMS-ORD-3003",
+                "Voided: all-or-nothing batch failed; staged order "
+                    + result.refId()
+                    + " canceled."));
+      }
+    }
   }
 
   private ItemResult executeItem(ApiRequest request, ApiItem item) {
