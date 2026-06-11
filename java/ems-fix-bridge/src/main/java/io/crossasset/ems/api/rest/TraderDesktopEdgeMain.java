@@ -47,6 +47,8 @@ import io.crossasset.ems.pretrade.pnl.PnlService;
 import io.crossasset.ems.pretrade.position.PositionService;
 import io.crossasset.ems.pretrade.pricing.PricingService;
 import io.crossasset.ems.validator.LayeredValidatorPipeline;
+import io.crossasset.ems.venue.esp.EspClickService;
+import io.crossasset.ems.venue.esp.MockEspVenue;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -213,10 +215,66 @@ public final class TraderDesktopEdgeMain {
                 List.of(event.refId()),
                 System.currentTimeMillis()));
 
+    // ── Click-to-trade (18.11): EURUSD ESP stream from a mock dealer ────────────
+    String eurusd = "BBG0013HJJ31";
+    MockEspVenue espVenue = new MockEspVenue("LMAX", 3, 35L);
+    EspClickService esp = new EspClickService();
+    esp.attach(eurusd, espVenue);
+    com.fasterxml.jackson.databind.ObjectMapper espMapper =
+        new com.fasterxml.jackson.databind.ObjectMapper();
+    espVenue.subscribe(
+        eurusd,
+        quote -> {
+          var node = espMapper.createObjectNode();
+          node.put("figi", quote.figi());
+          node.put("venueMic", quote.venueMic());
+          node.put("quoteId", quote.quoteId());
+          node.put("bidPx", quote.bidPx());
+          node.put("askPx", quote.askPx());
+          node.put("bidQty", quote.bidQty());
+          node.put("askQty", quote.askQty());
+          node.put("ts", quote.quotedAtMillis());
+          node.put("ttl", quote.ttlMillis());
+          String payload = node.toString();
+          subscriptions.publish("esp", "EspQuoteRow", quote.figi(), payload);
+        });
+    Thread.ofVirtual()
+        .name("esp-pump")
+        .start(
+            () -> {
+              Random espRandom = new Random();
+              long mid = 1_0850L;
+              while (true) {
+                try {
+                  mid += Math.round((espRandom.nextDouble() - 0.5) * 4);
+                  espVenue.post(
+                      eurusd,
+                      mid - 2,
+                      5_000_000,
+                      mid + 2,
+                      5_000_000,
+                      System.currentTimeMillis(),
+                      2_000L);
+                  Thread.sleep(400);
+                } catch (InterruptedException e) {
+                  return;
+                }
+              }
+            });
+
     RestHttpServer rest =
         new RestHttpServer(
             new RestEdgeBinding(
-                aaa, api, subscriptions, secMaster, baskets, killSwitch, notifications),
+                aaa,
+                api,
+                subscriptions,
+                secMaster,
+                baskets,
+                killSwitch,
+                notifications,
+                null,
+                null,
+                esp),
             restPort);
     rest.start();
     WsEventStreamServer ws = new WsEventStreamServer(aaa, subscriptions, wsPort);

@@ -109,6 +109,82 @@
       #watchlist-panel {
         flex: 3;
       }
+      #esp-panel {
+        flex: 0 0 auto;
+      }
+      #esp-tiles {
+        padding: 8px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .esp-tile {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .esp-tile .esp-pair {
+        grid-column: span 2;
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 0.1em;
+      }
+      .esp-tile button {
+        border: 1px solid var(--edge);
+        border-radius: 4px;
+        background: var(--bg);
+        color: var(--text);
+        padding: 8px 6px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+      }
+      .esp-tile button .esp-label {
+        font-size: 9px;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+      }
+      .esp-tile button .esp-px {
+        font-size: 15px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .esp-tile button.esp-sell:hover {
+        border-color: var(--down);
+      }
+      .esp-tile button.esp-buy:hover {
+        border-color: var(--accent);
+      }
+      .esp-tile .esp-controls {
+        grid-column: span 2;
+        display: flex;
+        gap: 6px;
+      }
+      .esp-tile .esp-controls input {
+        flex: 1;
+        background: var(--bg);
+        border: 1px solid var(--edge);
+        border-radius: 3px;
+        color: var(--text);
+        padding: 4px 6px;
+        font-size: 11px;
+      }
+      .esp-tile .esp-result {
+        grid-column: span 2;
+        font-size: 10px;
+        min-height: 13px;
+        word-break: break-word;
+      }
+      .esp-tile .esp-result.ok {
+        color: var(--accent);
+      }
+      .esp-tile .esp-result.err {
+        color: var(--down);
+      }
       #notify-panel {
         flex: 2;
       }
@@ -496,6 +572,10 @@
               </div>
               <p id="bk-result"></p>
             </div>
+          </section>
+          <section class="panel" id="esp-panel">
+            <h2>CLICK TO TRADE — ESP</h2>
+            <div id="esp-tiles"></div>
           </section>
           <section class="panel" id="watchlist-panel">
             <h2 id="watchlist-title">WATCHLIST</h2>

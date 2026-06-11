@@ -375,12 +375,107 @@ function startNotifications(session: Logon): void {
   ).connect();
 }
 
+/**
+ * Click-to-trade tiles (18.11): executable quotes stream on the esp topic; clicking BUY/SELL posts
+ * the on-screen price as expectedPx with the tile's slippage guard — the server rejects locally if
+ * the stream moved, and the dealer's last look answers otherwise.
+ */
+function startEsp(session: Logon): void {
+  const tiles = document.getElementById("esp-tiles")!;
+  const tileByFigi = new Map<string, { bid: HTMLElement; ask: HTMLElement; qty: HTMLInputElement; guard: HTMLInputElement; result: HTMLElement; px: { bid: number; ask: number } }>();
+
+  function ensureTile(figi: string): NonNullable<ReturnType<typeof tileByFigi.get>> {
+    let tile = tileByFigi.get(figi);
+    if (tile) {
+      return tile;
+    }
+    const root = document.createElement("div");
+    root.className = "esp-tile";
+    const pair = document.createElement("div");
+    pair.className = "esp-pair";
+    pair.textContent = figi;
+    const sellButton = document.createElement("button");
+    sellButton.className = "esp-sell";
+    sellButton.innerHTML = `<span class="esp-label">SELL (BID)</span><span class="esp-px">—</span>`;
+    const buyButton = document.createElement("button");
+    buyButton.className = "esp-buy";
+    buyButton.innerHTML = `<span class="esp-label">BUY (ASK)</span><span class="esp-px">—</span>`;
+    const controls = document.createElement("div");
+    controls.className = "esp-controls";
+    const qty = document.createElement("input");
+    qty.type = "number";
+    qty.value = "1000000";
+    qty.title = "Quantity";
+    const guard = document.createElement("input");
+    guard.type = "number";
+    guard.value = "5";
+    guard.title = "Max slippage (bp)";
+    controls.append(qty, guard);
+    const result = document.createElement("div");
+    result.className = "esp-result";
+    root.append(pair, sellButton, buyButton, controls, result);
+    tiles.append(root);
+    tile = {
+      bid: sellButton.querySelector(".esp-px")!,
+      ask: buyButton.querySelector(".esp-px")!,
+      qty,
+      guard,
+      result,
+      px: { bid: 0, ask: 0 },
+    };
+    tileByFigi.set(figi, tile);
+
+    const click = (side: number, expected: () => number) => {
+      void fetch("/api/v1/esp/click", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-EMS-Session": String(session.sessionId) },
+        body: JSON.stringify({
+          figi,
+          side,
+          qty: Number(tile!.qty.value),
+          expectedPx: expected(),
+          maxSlippageBp: Number(tile!.guard.value),
+        }),
+      })
+        .then((r) => r.json())
+        .then((body: Record<string, unknown>) => {
+          const ok = body.status === "FILLED";
+          tile!.result.className = `esp-result ${ok ? "ok" : "err"}`;
+          tile!.result.textContent = ok
+            ? `FILLED ${body.qty} @ ${(body.px as number) / PRICE_SCALE} on ${body.venueMic} (accept ${(body.venueAcceptRateBp as number) / 100}%)`
+            : `${body.reason}: ${body.detail}`;
+        });
+    };
+    sellButton.addEventListener("click", () => click(2, () => tile!.px.bid));
+    buyButton.addEventListener("click", () => click(1, () => tile!.px.ask));
+    return tile;
+  }
+
+  new ResumableStream(
+    "esp",
+    session.sessionId,
+    (event) => {
+      if (event.type !== "EspQuoteRow") {
+        return;
+      }
+      const quote = JSON.parse(event.payload) as Record<string, unknown>;
+      const tile = ensureTile(event.refId);
+      tile.px.bid = quote.bidPx as number;
+      tile.px.ask = quote.askPx as number;
+      tile.bid.textContent = ((quote.bidPx as number) / PRICE_SCALE).toFixed(4);
+      tile.ask.textContent = ((quote.askPx as number) / PRICE_SCALE).toFixed(4);
+    },
+    () => {},
+  ).connect();
+}
+
 async function start(session: Logon): Promise<void> {
   const worker = await perspective.worker();
   await startWatchlist(session, worker);
   const apiClient = new ApiClient(session.sessionId);
   startKillSwitch(session, apiClient);
   startNotifications(session);
+  startEsp(session);
   initTicket(apiClient, () => [...liveOrders.values()], () => [...watchedSet]);
   const sessionId = session.sessionId;
   const blotters: Blotter[] = [

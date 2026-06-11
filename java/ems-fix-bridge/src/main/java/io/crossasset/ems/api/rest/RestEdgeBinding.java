@@ -28,6 +28,7 @@ import io.crossasset.ems.api.notify.NotificationService;
 import io.crossasset.ems.api.sso.SsoService;
 import io.crossasset.ems.instrument.InstrumentVersioned;
 import io.crossasset.ems.instrument.SecurityMasterService;
+import io.crossasset.ems.venue.esp.EspClickService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -63,6 +64,7 @@ public final class RestEdgeBinding {
   private final @org.jspecify.annotations.Nullable NotificationService notifications;
   private final @org.jspecify.annotations.Nullable SsoService sso;
   private final @org.jspecify.annotations.Nullable String scimBearerToken;
+  private final @org.jspecify.annotations.Nullable EspClickService esp;
 
   public RestEdgeBinding(AaaService aaa, ApiSurface api, SubscriptionRegistry subscriptions) {
     this(aaa, api, subscriptions, null, null);
@@ -123,6 +125,31 @@ public final class RestEdgeBinding {
       @org.jspecify.annotations.Nullable NotificationService notifications,
       @org.jspecify.annotations.Nullable SsoService sso,
       @org.jspecify.annotations.Nullable String scimBearerToken) {
+    this(
+        aaa,
+        api,
+        subscriptions,
+        secMaster,
+        baskets,
+        killSwitch,
+        notifications,
+        sso,
+        scimBearerToken,
+        null);
+  }
+
+  /** With an ESP click service, {@code POST /api/v1/esp/click} serves click-to-trade (18.11). */
+  public RestEdgeBinding(
+      AaaService aaa,
+      ApiSurface api,
+      SubscriptionRegistry subscriptions,
+      @org.jspecify.annotations.Nullable SecurityMasterService secMaster,
+      @org.jspecify.annotations.Nullable BasketService baskets,
+      @org.jspecify.annotations.Nullable KillSwitchService killSwitch,
+      @org.jspecify.annotations.Nullable NotificationService notifications,
+      @org.jspecify.annotations.Nullable SsoService sso,
+      @org.jspecify.annotations.Nullable String scimBearerToken,
+      @org.jspecify.annotations.Nullable EspClickService esp) {
     this.aaa = Objects.requireNonNull(aaa, "aaa");
     this.api = Objects.requireNonNull(api, "api");
     this.subscriptions = Objects.requireNonNull(subscriptions, "subscriptions");
@@ -132,6 +159,7 @@ public final class RestEdgeBinding {
     this.notifications = notifications;
     this.sso = sso;
     this.scimBearerToken = scimBearerToken;
+    this.esp = esp;
   }
 
   /**
@@ -167,6 +195,9 @@ public final class RestEdgeBinding {
       }
       if ("POST".equals(method) && "/api/v1/sso/oidc".equals(path)) {
         return oidcLogon(body);
+      }
+      if ("POST".equals(method) && "/api/v1/esp/click".equals(path)) {
+        return espClick(headers, body);
       }
       if (path.startsWith("/scim/v2/Users")) {
         return scimRoute(method, path, headers, body);
@@ -486,6 +517,40 @@ public final class RestEdgeBinding {
     user.groups().forEach(groups::add);
     out.put("active", user.active());
     return out.toString();
+  }
+
+  /** Click-to-trade (18.11): slippage-guarded, last-look-aware ESP execution. */
+  private HttpResult espClick(Map<String, String> headers, String body) throws Exception {
+    if (esp == null) {
+      return error(404, "ESP click service not configured on this edge.");
+    }
+    long sessionId = requireSession(headers);
+    JsonNode json = mapper.readTree(body);
+    EspClickService.ClickResult result =
+        esp.click(
+            new EspClickService.ClickRequest(
+                requireText(json, "figi"),
+                json.path("side").asInt(),
+                json.path("qty").asLong(),
+                json.path("expectedPx").asLong(),
+                json.path("maxSlippageBp").asLong(5),
+                sessionId),
+            System.currentTimeMillis());
+    ObjectNode out = mapper.createObjectNode();
+    if (result instanceof EspClickService.ClickResult.Filled filled) {
+      out.put("status", "FILLED");
+      out.put("venueMic", filled.venueMic());
+      out.put("px", filled.px());
+      out.put("qty", filled.qty());
+      var stats = esp.lastLookStats(filled.venueMic());
+      out.put("venueAcceptRateBp", stats.acceptRateBp());
+      return new HttpResult(200, out.toString());
+    }
+    EspClickService.ClickResult.Rejected rejected = (EspClickService.ClickResult.Rejected) result;
+    out.put("status", "REJECTED");
+    out.put("reason", rejected.reason());
+    out.put("detail", rejected.detail());
+    return new HttpResult(200, out.toString());
   }
 
   private long requireSession(Map<String, String> headers) {
