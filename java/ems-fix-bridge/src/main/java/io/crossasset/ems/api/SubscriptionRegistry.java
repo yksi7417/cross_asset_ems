@@ -83,6 +83,28 @@ public final class SubscriptionRegistry {
     return subs.remove(subscriptionId) != null;
   }
 
+  /**
+   * Cursor read without subscribing (task 8.10): buffered events of a topic with {@code seq >=
+   * fromSeq}, capped at {@code max}. The REST edge binding's resumable stream — the browser holds
+   * the cursor (Last-Event-ID semantics) and the server holds no per-client state.
+   */
+  public List<ApiEvent> fetch(String topic, long fromSeq, int max) {
+    Topic t = topics.get(topic);
+    if (t == null) {
+      return List.of();
+    }
+    synchronized (t) {
+      List<ApiEvent> out = new ArrayList<>();
+      for (ApiEvent event : t.buffer.tailMap(fromSeq, true).values()) {
+        if (out.size() >= max) {
+          break;
+        }
+        out.add(event);
+      }
+      return out;
+    }
+  }
+
   /** Live subscriptions per session (diagnostics). */
   public Map<String, String> subscriptionsForSession(long sessionId) {
     Map<String, String> out = new ConcurrentHashMap<>();
