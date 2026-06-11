@@ -12,13 +12,13 @@ Module structure mirrors the architectural layers documented in [`docs/`](../doc
 | `ems-aaa` | Authentication / Authorization / Accounting | Identity + sessions + traces. |
 | `ems-validator` | Hard-reject layer | Standardized reject codes. |
 | `ems-oms` | Staged Order Manager + Router + Automation | OMS core. |
-| `ems-fix-bridge` | FIX gateway in/out + API surface | Edge translation. |
+| `ems-fix-bridge` | Both FIX edges + API surface + REST + bulk I/O + FIX simulator | Client gateway (`fix`), venue gateway (`fix.venue`), simulator (`fix.sim`), typed API (`api`), REST binding (`api.rest`), CSV import/export (`bulk`). |
 | `ems-market-data` | Quote server + IOI + real-time analytics | Input streams. |
 | `ems-pretrade` | Compliance + Risk + Position + Pricing + Pre-trade analytics | Block-with-override and position-aware. |
 | `ems-venue-connectivity` | Venue adapters + SOR + RFQ orchestration | Outbound to market. |
 | `ems-posttrade` | Allocation + STP + Confirmation + Reg reporting + Best-ex | Settlement pipeline. |
 | `ems-observability` | OTel + ELK + metrics integrations | Three-pillar observability. |
-| `ems-ops` | JMX introspection + Time/Replay UI + Config UI | Ops surface. |
+| `ems-ops` | Introspection + admin console + blue/green deploy + Time/Replay + Config backends | Read surface + security-gated write surface (`ops.introspect`); switchover protocol, cluster lease, fenced credentials (`ops.deploy`). |
 | `ems-bench` | JMH performance benchmarks | Hot-path verification. |
 | `ems-it` | Integration tests (in-process Aeron + SBE mocks) | Component-level. |
 

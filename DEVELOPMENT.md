@@ -319,6 +319,26 @@ Workflows under `.github/workflows/`:
 - Pyramid: ~5,000 unit + 500 component + 50 BDD per `arch-ddd-tdd`.
 - Replay determinism is verified on every release via golden-replay diff.
 
+## Extension points — how to add the common things
+
+The system grows along a few well-worn seams (refreshed 2026-06-11, task 17.3). Each row names
+the contract to implement, where it registers, and the test to copy as a template.
+
+| Adding… | Implement / edit | Register / wire | Template test |
+|---|---|---|---|
+| **An asset class** | SBE instrument template under `schemas/sbe/` + `InstrumentType` entry (`ems-core`) | `AssetClassProfile` (stage set, match tolerance, regulators, lot sizing) in `ems-posttrade`; publish via `SecurityMasterSnapshot` | `CrossAssetSmokeTest` — add a `Coverage` row |
+| **A venue adapter** | extend `AbstractVenueAdapter` (`ems-venue-connectivity`) translating submit/cancel/replace to the venue dialect; surface events via `VenueEventSink` | `InMemoryVenueAdapterRegistry`; wire fills through `RouteManagerVenueEventSink` | `FixVenueGatewayTest` (wire dialect) or `MockVenueAdapterTest` (in-process); rehearse against `runFixSimulator` |
+| **A validator rule** | layer in `LayeredValidatorPipeline` (`ems-validator`) returning a catalog code | reject codes **must** exist in `schemas/reject-codes/catalog.yaml` — extend the catalog first, never invent codes inline (the 6.4 lesson) | `LayeredValidatorPipelineTest` |
+| **A compliance check** | implement `ComplianceCheck` (`ems-pretrade`): empty = allow, `Finding(BLOCK/WARN, rationale, overridePath)` | constructor-inject into `ComplianceGate`'s check list | `MachineGunCheckTest` / `ListCheckTest` |
+| **A pricing model** | implement `PricingService.PricingModel` (modelId, version, price) | `pricing.registerModel(figi, model)`; resolves on the INDICATIVE chain step | `PricingServiceTest` |
+| **A pre-trade analytics model** | implement `PreTradeAnalytics.PreTradeModel` (asset-class-scoped, echo inputs for replay) | `analytics.register(model)` | `PreTradeAnalyticsTest` |
+| **An API operation** | `ApiOperation` enum + `ApiItem` record + dispatch arm in `ApiSurface` (`ems-fix-bridge`) | REST mapping in `RestEdgeBinding.toItem` | `ApiSurfaceTest` + `RestHttpServerTest` |
+| **An injection target (ops)** | implement `AdminConsole.InjectionTarget` next to the component's `Introspectable` | `console.register(target)` — tag/rationale/rate gates apply automatically | `AdminConsoleTest` |
+
+Codegen: FSM changes start in `schemas/fsm/*.fsm.yaml`, then `python3 tools/codegen/fsm_codegen.py`
+regenerates `ems-fsm` Java (and C++ headers) — never hand-edit generated files; SBE schema changes
+regenerate via `./scripts/dev/regen-schemas.sh`.
+
 ## Where each part of the design lives in code
 
 | Architecture note | Java module | C++ module |
