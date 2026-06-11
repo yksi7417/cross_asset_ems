@@ -397,7 +397,7 @@ additions 11.16–11.17. **Not in the current [[LOOP]] goal; queue as the next g
 - [x] **18.4** Firm-wide kill switch — firm/desk/venue-scoped mass-cancel + cancel-on-disconnect + new-order lockout; one audited action (opus — control path; a silent failure here is catastrophic) ← blocks: 7.2 `(6aa282c)`
 - [ ] **18.5** SEC 15c3-5 market-access pack — named mapping of controls (fat-finger 10.2, credit/capital limits 10.6, duplicate-order check, kill switch 18.4) + attestation evidence export (sonnet) ← blocks: 10.2, 10.6, 18.4
 - [x] **18.6** Borrow / locate service per [[arch-borrow-service]] — Reg SHO short-sale gating wired into the validator/compliance path (sonnet) ← blocks: 10.1 `(9c3e89f)`
-- [~] **18.7** Intraday P&L — realized/unrealized off positions (10.7) + pricing (10.8), FX-converted to firm base currency (sonnet) ← blocks: 10.7, 10.8
+- [x] **18.7** Intraday P&L — realized/unrealized off positions (10.7) + pricing (10.8), FX-converted to firm base currency (sonnet) ← blocks: 10.7, 10.8 `(f007a19)`
 - [ ] **18.8** Notification service per [[arch-notification-service]] — fills/rejects/limit-breach alerts to desktop + email/mobile sinks (sonnet) ← blocks: 8.4
 - [ ] **18.9** Enterprise SSO — OIDC/SAML login + SCIM provisioning on the AAA layer (vendor due-diligence checklist item) (sonnet) ← blocks: 5.1
 - [ ] **18.10** Maker-checker (4-eyes) approvals on config / limit / restricted-list changes (sonnet) ← blocks: 3.7, 10.4
