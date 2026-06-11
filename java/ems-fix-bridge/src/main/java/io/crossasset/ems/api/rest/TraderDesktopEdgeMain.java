@@ -356,7 +356,9 @@ public final class TraderDesktopEdgeMain {
 
     // --quiet (18.19): no scripted demo bot — deterministic world for automated E2E tests
     // (market-data + ESP pumps stay on; tests create their own orders via the API).
-    boolean quiet = java.util.Arrays.asList(args).contains("--quiet");
+    boolean quiet =
+        java.util.Arrays.asList(args).contains("--quiet")
+            || "1".equals(System.getenv("EMS_DEMO_QUIET"));
     if (quiet) {
       System.out.println("Mode           : QUIET (no demo bot)");
       Thread.currentThread().join();

@@ -382,7 +382,6 @@ function wireBlotterLinking(api: ApiClient): void {
       .catch((e: Error) => toast(`${verb} failed: ${e.message}`, false));
 
   const ORDER_TERMINAL = (row: GridRow) => TERMINAL_STATES.has(row.state as string);
-  const ROUTE_TERMINAL = new Set(["FILLED", "CANCELED", "REJECTED", "EXPIRED"]);
 
   attachGridInteractions("orders-viewer", {
     keyField: "orderId",
@@ -459,8 +458,10 @@ function wireBlotterLinking(api: ApiClient): void {
     rowLabel: (row) => `${row.name ?? ""} ${row.routeId}`,
     actions: [
       {
+        // The Route FSM dispatches cancels only from WORKING/PARTIALLY_FILLED (QA #16):
+        // a SENT route has no venue ack yet and PENDING_* are already in flight.
         label: (n) => `Cancel route (${n})`,
-        applicable: (r) => !ROUTE_TERMINAL.has(r.state as string),
+        applicable: (r) => r.state === "WORKING" || r.state === "PARTIALLY_FILLED",
         run: (rows) =>
           batch("CANCEL ROUTE", "cancel_routes", rows.map((r) => ({ routeId: r.routeId }))),
       },
