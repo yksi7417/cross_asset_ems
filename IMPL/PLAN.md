@@ -231,8 +231,8 @@ External edges. ~2-3 weeks.
 - [x] **8.3** Tag 9700 (TraceparentHex) propagation and fallback (sonnet) ← blocks: 8.1, 5.4 `(6aca67e)`
 - [x] **8.4** API session surface — request/response + publish/subscribe operation API (Session/Service/Request/Subscription/Event) over the AAA-authenticated session channel; native client handshake. **Not REST-specific** — REST/WS is one edge binding (8.10). Per [[arch-api-first]] (sonnet) ← blocks: 7.1, 5.1, 8.9 `(f1777fd)`
 - [x] **8.5** Batch operation semantics (all-or-nothing, partial) (sonnet) ← blocks: 8.4 `(7220f45)`
-- [~] **8.6** Excel/CSV bulk import per [[arch-bulk-io]] (gemma for parsers) ← blocks: 8.4
-- [ ] **8.7** Excel/CSV bulk export with templates (gemma) ← blocks: 8.4
+- [x] **8.6** Excel/CSV bulk import per [[arch-bulk-io]] (gemma for parsers) ← blocks: 8.4 `(41e74b4)`
+- [~] **8.7** Excel/CSV bulk export with templates (gemma) ← blocks: 8.4
 - [ ] **8.8** Idempotent re-import test (sonnet) ← blocks: 8.6
 - [x] **[MVP] 8.9** Resumable session channel — heartbeat/TEST_REQUEST, outbound resend buffer, resume-from-seq, per-hop seq dedup; completes the `SequenceRecoveryService` skeleton per [[arch-sequence-recovery]] (sonnet) ← blocks: 5.1, 2.3 (981c33d)
 - [ ] **8.10** REST/WebSocket edge binding for browser UI — maps HTTP/WS onto the API session surface; WS carries the resumable subscription stream (`Last-Event-ID`/seq resume) per [[arch-api-first]] (gemma for REST scaffold, sonnet for WS resume) ← blocks: 8.4
