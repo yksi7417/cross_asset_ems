@@ -258,9 +258,9 @@ Inputs. ~2 weeks.
 
 Block-with-override + position-aware. ~3-4 weeks.
 
-- [~] **10.1** Compliance service per [[arch-compliance]] (sonnet)
+- [x] **10.1** Compliance service per [[arch-compliance]] (sonnet) `(668a978)`
 - [ ] **10.2** Fat-finger check (netted-vs-unnetted) (sonnet) ← blocks: 10.1, 9.5
-- [ ] **10.3** Machine-gun rate limiter (sonnet) ← blocks: 10.1
+- [~] **10.3** Machine-gun rate limiter (sonnet) ← blocks: 10.1
 - [ ] **10.4** Allow / restricted / watch list service (sonnet) ← blocks: 10.1
 - [ ] **10.5** Override mechanics (tag-gated, time-bound) (sonnet) ← blocks: 10.1, 5.3
 - [ ] **10.6** Risk engine per [[arch-risk-engine]] (sonnet) ← blocks: 10.7
