@@ -393,7 +393,7 @@ additions 11.16–11.17. **Not in the current [[LOOP]] goal; queue as the next g
 
 - [x] **18.1** Trading blotter — live orders + routes + fills in **Perspective** (WASM) tables fed by the 8.10 WS stream (Arrow/JSON row deltas, not full refreshes), per the [[order-manager]] workflow note (the buyer's first screen; ui/ today has only ops UIs) (sonnet) ← blocks: 8.10 `(fefdc9a)`
 - [x] **18.2** Order ticket + staging UI per `staging-via-ticket` — per-asset-class ticket layouts, stage/amend/route actions against the 8.4 API surface (sonnet) ← blocks: 18.1 `(bfdddba)`
-- [~] **18.3** Basket / program trading — list load via 8.6, wave routing, aggregate monitoring (distinct from structurally-linked multi-leg packages 7.4) (sonnet) ← blocks: 7.5, 8.6, 18.1
+- [x] **18.3** Basket / program trading — list load via 8.6, wave routing, aggregate monitoring (distinct from structurally-linked multi-leg packages 7.4) (sonnet) ← blocks: 7.5, 8.6, 18.1 `(3554682)`
 - [ ] **18.4** Firm-wide kill switch — firm/desk/venue-scoped mass-cancel + cancel-on-disconnect + new-order lockout; one audited action (opus — control path; a silent failure here is catastrophic) ← blocks: 7.2
 - [ ] **18.5** SEC 15c3-5 market-access pack — named mapping of controls (fat-finger 10.2, credit/capital limits 10.6, duplicate-order check, kill switch 18.4) + attestation evidence export (sonnet) ← blocks: 10.2, 10.6, 18.4
 - [ ] **18.6** Borrow / locate service per [[arch-borrow-service]] — Reg SHO short-sale gating wired into the validator/compliance path (sonnet) ← blocks: 10.1
