@@ -124,6 +124,22 @@ public final class TraderDesktopEdgeMain {
         new ApiSurface(aaa, som, routes, subscriptions, (sid, subId, event) -> {}, pipeline);
     BasketService baskets =
         new BasketService(som, routes, new BulkOrderImporter(api), subscriptions);
+    // ── Simulated market data over the 18.12 SPI → md topics ───────────────────
+    SimulatedFeed feed = new SimulatedFeed("sim");
+    MarketDataTopicBridge mdBridge = new MarketDataTopicBridge(subscriptions);
+    mdBridge.attachHealth(feed);
+    // Desk watchlist (18.14): seeding attaches each symbol to the bridge.
+    DeskWatchlist watchlist =
+        new DeskWatchlist(
+            subscriptions,
+            mdBridge,
+            feed,
+            Set.of(MdField.BID, MdField.ASK, MdField.LAST, MdField.VOLUME));
+    for (Inst inst : INSTRUMENTS) {
+      watchlist.add("desk-1", inst.figi());
+    }
+    feed.start();
+
     // ── Notifications (18.8): fills/rejects/kill alerts to desktop + email/sms ──
     NotificationService notifications = new NotificationService();
     notifications.registerSink(new DesktopSink(subscriptions));
@@ -274,27 +290,12 @@ public final class TraderDesktopEdgeMain {
                 notifications,
                 null,
                 null,
-                esp),
+                esp,
+                watchlist),
             restPort);
     rest.start();
     WsEventStreamServer ws = new WsEventStreamServer(aaa, subscriptions, wsPort);
     ws.start();
-
-    // ── Simulated market data over the 18.12 SPI → md topics ───────────────────
-    SimulatedFeed feed = new SimulatedFeed("sim");
-    MarketDataTopicBridge mdBridge = new MarketDataTopicBridge(subscriptions);
-    mdBridge.attachHealth(feed);
-    // Desk watchlist (18.14): seeding attaches each symbol to the bridge.
-    DeskWatchlist watchlist =
-        new DeskWatchlist(
-            subscriptions,
-            mdBridge,
-            feed,
-            Set.of(MdField.BID, MdField.ASK, MdField.LAST, MdField.VOLUME));
-    for (Inst inst : INSTRUMENTS) {
-      watchlist.add("desk-1", inst.figi());
-    }
-    feed.start();
 
     // ── Intraday P&L (18.7): fills feed positions, md ticks feed marks ─────────
     PositionService positionService = new PositionService();
@@ -353,7 +354,15 @@ public final class TraderDesktopEdgeMain {
     System.out.println("WS stream      : ws://localhost:" + ws.port() + "/ws/events");
     System.out.println("Desktop logon  : token \"trader-token\"");
 
-    runDemoScript(aaa, som, routes, feed, positionService, pricingService);
+    // --quiet (18.19): no scripted demo bot — deterministic world for automated E2E tests
+    // (market-data + ESP pumps stay on; tests create their own orders via the API).
+    boolean quiet = java.util.Arrays.asList(args).contains("--quiet");
+    if (quiet) {
+      System.out.println("Mode           : QUIET (no demo bot)");
+      Thread.currentThread().join();
+    } else {
+      runDemoScript(aaa, som, routes, feed, positionService, pricingService);
+    }
   }
 
   /** A scripted trading session: staged orders, routes, dripped fills, ticking quotes. */

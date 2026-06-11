@@ -66,16 +66,27 @@ export interface WorkingOrder {
   clOrdId: string;
   figi: string;
   state: string;
+  qty: number;
+  px: number | null;
 }
 
 /** Session-sequenced operation client over the REST edge (one instance per logon). */
 export class ApiClient {
   private seq = 1;
   private requestN = 1;
+  /** Sequenced operations are SERIALIZED (18.18): the channel gap-checks sessionSeq, so two
+   *  concurrent fetches (a preview racing a stage) must not arrive out of order. */
+  private chain: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly sessionId: number) {}
 
-  async operation(operation: string, items: object[]): Promise<ItemResult[]> {
+  operation(operation: string, items: object[]): Promise<ItemResult[]> {
+    const next = this.chain.then(() => this.send(operation, items));
+    this.chain = next.catch(() => {}); // a failed op must not poison the queue
+    return next;
+  }
+
+  private async send(operation: string, items: object[]): Promise<ItemResult[]> {
     const response = await fetch(`/api/v1/${operation}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-EMS-Session": String(this.sessionId) },
@@ -246,6 +257,8 @@ export function initTicket(
     const r = results[0];
     if (r.status === "ACCEPTED") {
       setResult(`${verb} OK — ${r.refId}`, true);
+    } else if (r.errorCode === "EMS-SES-2001") {
+      setResult(`${r.errorCode}: session sequence desync — reload the page to re-logon`, false);
     } else {
       setResult(`${r.errorCode}: ${r.errorMessage}`, false);
     }
@@ -299,6 +312,19 @@ export function initTicket(
     orderSelect.value = selected;
   }
   setInterval(refreshOrders, 1_000);
+
+  // Amend prefill (18.18): selecting a working order loads its qty/px into the ticket so AMEND
+  // edits current values instead of silently reusing whatever was last typed for a new order.
+  orderSelect.addEventListener("change", () => {
+    const order = workingOrders().find((o) => o.orderId === orderSelect.value);
+    if (!order) {
+      setResult("", true);
+      return;
+    }
+    qtyInput.value = String(order.qty);
+    pxInput.value = order.px != null ? String(order.px) : "";
+    setResult(`editing ${nameOfSync(order.figi)} ${order.orderId} — qty/px prefilled`, true);
+  });
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 

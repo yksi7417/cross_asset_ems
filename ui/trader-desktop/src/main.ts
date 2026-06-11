@@ -19,7 +19,7 @@ import VIEWER_WASM_URL from "@finos/perspective-viewer/dist/wasm/perspective-vie
 import { ResumableStream, type StreamStatus } from "./stream";
 import { ApiClient, initTicket, type WorkingOrder } from "./ticket";
 import { nameOf, nameOfSync, withName } from "./instruments";
-import { attachGridInteractions } from "./grid-actions";
+import { attachGridInteractions, type GridRow } from "./grid-actions";
 
 const perspectiveReady = Promise.all([
   perspective.init_server(fetch(SERVER_WASM_URL)),
@@ -247,7 +247,7 @@ async function startWatchlist(session: Logon, worker: Client): Promise<void> {
     plugin: "Datagrid",
     theme: "Pro Dark",
     sort: [["name", "asc"]],
-    columns: ["name", "bid", "ask", "last", "volume", "ts"],
+    columns: ["name", "bid", "ask", "last", "volume", "figi", "ts"],
   });
   document.getElementById("watchlist-title")!.textContent =
     `WATCHLIST — ${session.desk.toUpperCase()}`;
@@ -311,6 +311,8 @@ function trackWorkingOrder(row: WireRow): void {
       clOrdId: row.clOrdId as string,
       figi: row.figi as string,
       state,
+      qty: row.qty as number,
+      px: typeof row.px === "number" ? (row.px as number) / PRICE_SCALE : null,
     });
   }
 }
@@ -325,7 +327,9 @@ function toast(message: string, ok: boolean): void {
 }
 
 let sharedApi: ApiClient | null = null;
+let sharedSession: Logon | null = null;
 function apiFor(session: Logon): ApiClient {
+  sharedSession = session;
   sharedApi ??= new ApiClient(session.sessionId);
   return sharedApi;
 }
@@ -356,14 +360,29 @@ function wireBlotterLinking(api: ApiClient): void {
   routesChip.addEventListener("click", clearRoutesLink);
   fillsChip.addEventListener("click", clearFillsLink);
 
-  const batch = (verb: string, op: string, items: object[]) =>
+  // 18.18 feedback fix: rejected items surface their catalog code + reason, never bare counts.
+  const batch = (verb: string, op: string, items: object[], skipped = 0) =>
     api
       .operation(op, items)
       .then((results) => {
-        const ok = results.filter((r) => r.status === "ACCEPTED").length;
-        toast(`${verb}: ${ok}/${results.length} accepted`, ok === results.length);
+        const rejected = results.filter((r) => r.status !== "ACCEPTED");
+        const ok = results.length - rejected.length;
+        const skippedNote = skipped > 0 ? ` (${skipped} skipped: not in an applicable state)` : "";
+        if (rejected.length === 0) {
+          toast(`${verb}: ${ok}/${results.length} accepted${skippedNote}`, true);
+        } else {
+          const first = rejected[0];
+          toast(
+            `${verb}: ${ok}/${results.length} accepted${skippedNote} — ${first.errorCode}: ${first.errorMessage}` +
+              (rejected.length > 1 ? ` (+${rejected.length - 1} more)` : ""),
+            false,
+          );
+        }
       })
       .catch((e: Error) => toast(`${verb} failed: ${e.message}`, false));
+
+  const ORDER_TERMINAL = (row: GridRow) => TERMINAL_STATES.has(row.state as string);
+  const ROUTE_TERMINAL = new Set(["FILLED", "CANCELED", "REJECTED", "EXPIRED"]);
 
   attachGridInteractions("orders-viewer", {
     keyField: "orderId",
@@ -378,34 +397,39 @@ function wireBlotterLinking(api: ApiClient): void {
       void applyFilter("routes-viewer", [["orderId", "==", orderId]]);
       clearFillsLink();
     },
+    rowLabel: (row) => `${row.name ?? row.figi} ${row.orderId}`,
     actions: [
       {
         label: (n) => `Mark ready (${n})`,
-        run: (rows) =>
-          batch("READY", "mark_ready", rows.map((r) => ({ orderId: r.orderId }))),
+        applicable: (r) => r.subState === "NEW" || r.subState === "STAGED",
+        run: (rows) => batch("READY", "mark_ready", rows.map((r) => ({ orderId: r.orderId }))),
       },
       {
-        label: (n) => `Route remaining to ${(document.getElementById("tk-venue") as HTMLSelectElement).value} (${n})`,
+        label: (n) =>
+          `Route remaining to ${(document.getElementById("tk-venue") as HTMLSelectElement).value} (${n})`,
+        applicable: (r) =>
+          !ORDER_TERMINAL(r) &&
+          (r.leavesQty as number) > 0 &&
+          (r.subState === "READY" || r.subState === "ROUTING"),
         run: (rows) =>
           batch(
             "ROUTE",
             "route_orders",
-            rows
-              .filter((r) => (r.leavesQty as number) > 0)
-              .map((r) => ({
-                orderId: r.orderId,
-                venueMic: (document.getElementById("tk-venue") as HTMLSelectElement).value,
-                qty: r.leavesQty,
-              })),
+            rows.map((r) => ({
+              orderId: r.orderId,
+              venueMic: (document.getElementById("tk-venue") as HTMLSelectElement).value,
+              qty: r.leavesQty,
+            })),
           ),
       },
       {
         label: (n) => `Cancel (${n})`,
-        run: (rows) =>
-          batch("CANCEL", "cancel_orders", rows.map((r) => ({ orderId: r.orderId }))),
+        applicable: (r) => !ORDER_TERMINAL(r),
+        run: (rows) => batch("CANCEL", "cancel_orders", rows.map((r) => ({ orderId: r.orderId }))),
       },
       {
         label: (n) => `Aggregate ${n} into a basket…`,
+        applicable: (r) => !ORDER_TERMINAL(r),
         run: (rows) => {
           const name = prompt("Basket name:", "from-selection");
           if (!name) {
@@ -432,11 +456,69 @@ function wireBlotterLinking(api: ApiClient): void {
       fillsChip.classList.remove("hidden");
       void applyFilter("fills-viewer", [["routeId", "==", routeId]]);
     },
+    rowLabel: (row) => `${row.name ?? ""} ${row.routeId}`,
     actions: [
       {
         label: (n) => `Cancel route (${n})`,
+        applicable: (r) => !ROUTE_TERMINAL.has(r.state as string),
         run: (rows) =>
           batch("CANCEL ROUTE", "cancel_routes", rows.map((r) => ({ routeId: r.routeId }))),
+      },
+    ],
+  });
+
+  wireWatchlistManagement();
+}
+
+/** Watchlist management (18.18): add via the header input, remove via right-click. */
+function wireWatchlistManagement(): void {
+  const input = document.getElementById("wl-add") as HTMLInputElement;
+  const session = sharedSession!;
+  const headers = { "Content-Type": "application/json", "X-EMS-Session": String(session.sessionId) };
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") {
+      return;
+    }
+    const figi = input.value.trim();
+    if (!figi) {
+      return;
+    }
+    void fetch(`/api/v1/watchlist/${encodeURIComponent(session.desk)}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ figi }),
+    })
+      .then(async (r) => {
+        const body = (await r.json()) as { added?: boolean; error?: string };
+        if (r.ok && body.added) {
+          toast(`Watching ${figi}`, true);
+          input.value = "";
+        } else {
+          toast(body.error ?? `already watching ${figi}`, false);
+        }
+      })
+      .catch((e: Error) => toast(`watch failed: ${e.message}`, false));
+  });
+
+  attachGridInteractions("watchlist-viewer", {
+    keyField: "figi",
+    rowLabel: (row) => String(row.name ?? row.figi),
+    chip: document.getElementById("wl-selchip")!,
+    actions: [
+      {
+        label: (n) => `Remove from watchlist (${n})`,
+        run: (rows) =>
+          Promise.all(
+            rows.map((r) =>
+              fetch(
+                `/api/v1/watchlist/${encodeURIComponent(session.desk)}/${encodeURIComponent(String(r.figi))}`,
+                { method: "DELETE", headers },
+              ),
+            ),
+          ).then((rs) =>
+            toast(`Removed ${rs.filter((r) => r.ok).length}/${rows.length} from watchlist`, true),
+          ),
       },
     ],
   });

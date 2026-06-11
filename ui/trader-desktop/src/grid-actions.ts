@@ -12,19 +12,23 @@
 export type GridRow = Record<string, unknown>;
 
 export interface GridAction {
-  /** Menu label; receives the selection size, e.g. (n) => `Cancel (${n})`. */
+  /** Menu label; receives the count of APPLICABLE rows, e.g. (n) => `Cancel (${n})`. */
   label: (n: number) => string;
+  /** State filter: which selected rows this action can act on (18.18: state-aware menus). */
+  applicable?: (row: GridRow) => boolean;
   run: (rows: GridRow[]) => void | Promise<void>;
 }
 
 export interface GridInteractionOptions {
   /** Row identity field (orderId / routeId). */
   keyField: string;
+  /** Short row label for the selection chip (defaults to the key). */
+  rowLabel?: (row: GridRow) => string;
   /** Called on plain (single) click — drives blotter linking. */
   onPrimary?: (row: GridRow) => void;
   /** Context-menu actions over the selection. */
   actions: GridAction[];
-  /** Element that displays the live selection count. */
+  /** Element that displays the live selection. */
   chip: HTMLElement;
 }
 
@@ -50,7 +54,14 @@ export function attachGridInteractions(
   let lastModifier = false;
 
   function renderChip(): void {
-    options.chip.textContent = selected.size > 1 ? `${selected.size} selected` : "";
+    if (selected.size === 0) {
+      options.chip.textContent = "";
+    } else if (selected.size === 1) {
+      const row = selected.values().next().value as GridRow;
+      options.chip.textContent = `▸ ${options.rowLabel?.(row) ?? String(row[options.keyField])}`;
+    } else {
+      options.chip.textContent = `▸ ${selected.size} selected`;
+    }
   }
 
   function clear(): void {
@@ -107,12 +118,19 @@ export function attachGridInteractions(
           : `${selected.size} rows selected`;
       m.append(header);
       for (const action of options.actions) {
+        const rows = [...selected.values()].filter((r) => action.applicable?.(r) ?? true);
         const item = document.createElement("button");
-        item.textContent = action.label(selected.size);
-        item.addEventListener("click", () => {
-          closeMenu();
-          void action.run([...selected.values()]);
-        });
+        item.textContent = action.label(rows.length);
+        if (rows.length === 0) {
+          // Visible but inert: the user learns WHY nothing would happen instead of a 0/N toast.
+          item.disabled = true;
+          item.textContent += " — no applicable rows";
+        } else {
+          item.addEventListener("click", () => {
+            closeMenu();
+            void action.run(rows);
+          });
+        }
         m.append(item);
       }
     }

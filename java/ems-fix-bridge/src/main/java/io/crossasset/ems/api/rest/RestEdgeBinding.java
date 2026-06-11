@@ -24,6 +24,7 @@ import io.crossasset.ems.api.SubscriptionRegistry;
 import io.crossasset.ems.api.basket.BasketService;
 import io.crossasset.ems.api.control.KillSwitchService;
 import io.crossasset.ems.api.control.KillSwitchState;
+import io.crossasset.ems.api.md.DeskWatchlist;
 import io.crossasset.ems.api.notify.NotificationService;
 import io.crossasset.ems.api.sso.SsoService;
 import io.crossasset.ems.instrument.InstrumentVersioned;
@@ -65,6 +66,7 @@ public final class RestEdgeBinding {
   private final @org.jspecify.annotations.Nullable SsoService sso;
   private final @org.jspecify.annotations.Nullable String scimBearerToken;
   private final @org.jspecify.annotations.Nullable EspClickService esp;
+  private final @org.jspecify.annotations.Nullable DeskWatchlist watchlist;
 
   public RestEdgeBinding(AaaService aaa, ApiSurface api, SubscriptionRegistry subscriptions) {
     this(aaa, api, subscriptions, null, null);
@@ -150,6 +152,33 @@ public final class RestEdgeBinding {
       @org.jspecify.annotations.Nullable SsoService sso,
       @org.jspecify.annotations.Nullable String scimBearerToken,
       @org.jspecify.annotations.Nullable EspClickService esp) {
+    this(
+        aaa,
+        api,
+        subscriptions,
+        secMaster,
+        baskets,
+        killSwitch,
+        notifications,
+        sso,
+        scimBearerToken,
+        esp,
+        null);
+  }
+
+  /** With a desk watchlist, the {@code /api/v1/watchlist} routes work (18.18). */
+  public RestEdgeBinding(
+      AaaService aaa,
+      ApiSurface api,
+      SubscriptionRegistry subscriptions,
+      @org.jspecify.annotations.Nullable SecurityMasterService secMaster,
+      @org.jspecify.annotations.Nullable BasketService baskets,
+      @org.jspecify.annotations.Nullable KillSwitchService killSwitch,
+      @org.jspecify.annotations.Nullable NotificationService notifications,
+      @org.jspecify.annotations.Nullable SsoService sso,
+      @org.jspecify.annotations.Nullable String scimBearerToken,
+      @org.jspecify.annotations.Nullable EspClickService esp,
+      @org.jspecify.annotations.Nullable DeskWatchlist watchlist) {
     this.aaa = Objects.requireNonNull(aaa, "aaa");
     this.api = Objects.requireNonNull(api, "api");
     this.subscriptions = Objects.requireNonNull(subscriptions, "subscriptions");
@@ -160,6 +189,7 @@ public final class RestEdgeBinding {
     this.sso = sso;
     this.scimBearerToken = scimBearerToken;
     this.esp = esp;
+    this.watchlist = watchlist;
   }
 
   /**
@@ -198,6 +228,9 @@ public final class RestEdgeBinding {
       }
       if ("POST".equals(method) && "/api/v1/esp/click".equals(path)) {
         return espClick(headers, body);
+      }
+      if (path.startsWith("/api/v1/watchlist/")) {
+        return watchlistRoute(method, path, headers, body);
       }
       if (path.startsWith("/scim/v2/Users")) {
         return scimRoute(method, path, headers, body);
@@ -551,6 +584,41 @@ public final class RestEdgeBinding {
     out.put("reason", rejected.reason());
     out.put("detail", rejected.detail());
     return new HttpResult(200, out.toString());
+  }
+
+  /** Watchlist management (18.18): POST adds {figi}; DELETE /{figi} removes. Session-gated. */
+  private HttpResult watchlistRoute(
+      String method, String path, Map<String, String> headers, String body) throws Exception {
+    if (watchlist == null) {
+      return error(404, "Watchlist not configured on this edge.");
+    }
+    requireSession(headers);
+    String rest = path.substring("/api/v1/watchlist/".length());
+    int slash = rest.indexOf('/');
+    String desk = slash < 0 ? rest : rest.substring(0, slash);
+    if ("POST".equals(method) && slash < 0) {
+      JsonNode json = mapper.readTree(body);
+      boolean added = watchlist.add(desk, requireText(json, "figi"));
+      ObjectNode out = mapper.createObjectNode();
+      out.put("added", added);
+      return new HttpResult(added ? 200 : 409, out.toString());
+    }
+    if ("DELETE".equals(method) && slash >= 0) {
+      String figi =
+          java.net.URLDecoder.decode(
+              rest.substring(slash + 1), java.nio.charset.StandardCharsets.UTF_8);
+      boolean removed = watchlist.remove(desk, figi);
+      ObjectNode out = mapper.createObjectNode();
+      out.put("removed", removed);
+      return new HttpResult(removed ? 200 : 404, out.toString());
+    }
+    if ("GET".equals(method) && slash < 0) {
+      ObjectNode out = mapper.createObjectNode();
+      ArrayNode figis = out.putArray("figis");
+      watchlist.list(desk).forEach(figis::add);
+      return new HttpResult(200, out.toString());
+    }
+    return error(404, "Unknown watchlist route: " + method + " " + path);
   }
 
   private long requireSession(Map<String, String> headers) {

@@ -98,6 +98,7 @@
         flex-direction: column;
         gap: 6px;
         min-height: 0;
+        overflow-y: auto; /* short viewports scroll instead of squeezing panels to 0px */
       }
       #right-col {
         flex: 1;
@@ -108,8 +109,12 @@
       }
       #watchlist-panel {
         flex: 3;
+        min-height: 200px;
       }
       #esp-panel {
+        flex: 0 0 auto;
+      }
+      #ticket-panel {
         flex: 0 0 auto;
       }
       #esp-tiles {
@@ -187,6 +192,7 @@
       }
       #notify-panel {
         flex: 2;
+        min-height: 130px;
       }
       #notify-list {
         list-style: none;
@@ -452,6 +458,16 @@
       .hdr-ctl input {
         accent-color: var(--accent);
       }
+      .hdr-input {
+        margin-left: auto;
+        width: 110px;
+        background: var(--bg);
+        border: 1px solid var(--edge);
+        border-radius: 3px;
+        color: var(--text);
+        font-size: 10px;
+        padding: 2px 6px;
+      }
       .hdr-hint {
         color: var(--muted);
         font-size: 10px;
@@ -674,7 +690,11 @@
             <div id="esp-tiles"></div>
           </section>
           <section class="panel" id="watchlist-panel">
-            <h2 id="watchlist-title">WATCHLIST</h2>
+            <h2>
+              <span id="watchlist-title">WATCHLIST</span>
+              <span class="selchip" id="wl-selchip"></span>
+              <input id="wl-add" class="hdr-input" placeholder="+ FIGI ⏎" title="Add an instrument to this desk's watchlist" />
+            </h2>
             <perspective-viewer id="watchlist-viewer"></perspective-viewer>
           </section>
           <section class="panel" id="notify-panel">
