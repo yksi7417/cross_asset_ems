@@ -32,6 +32,9 @@ public final class InMemoryStagedOrderManager implements StagedOrderManager {
   private final ConcurrentHashMap<String, StagedOrder> orders = new ConcurrentHashMap<>();
   private final AtomicLong orderIdSeq = new AtomicLong(1);
 
+  /** Per-session ClOrdID dedup (FIX session rules; backs idempotent re-import, task 8.8). */
+  private final ConcurrentHashMap<String, String> clOrdIdIndex = new ConcurrentHashMap<>();
+
   public InMemoryStagedOrderManager(ValidatorPipeline validatorPipeline) {
     this.validatorPipeline = Objects.requireNonNull(validatorPipeline, "validatorPipeline");
   }
@@ -40,6 +43,13 @@ public final class InMemoryStagedOrderManager implements StagedOrderManager {
   public StageResult stage(OrderRequest request) {
     if (request.qty() <= 0) {
       return new StageResult.Rejected(request.requestId(), "EMS-ORD-2001", "OrderQty must be > 0.");
+    }
+    String dedupKey = request.sessionId() + "|" + request.clOrdId();
+    if (clOrdIdIndex.containsKey(dedupKey)) {
+      return new StageResult.Rejected(
+          request.requestId(),
+          "EMS-ORD-2510",
+          "ClOrdID " + request.clOrdId() + " already used on this session.");
     }
     ValidationResult vr =
         validatorPipeline.validate(
@@ -81,6 +91,7 @@ public final class InMemoryStagedOrderManager implements StagedOrderManager {
             Set.of(),
             nowMicros);
     orders.put(orderId, order);
+    clOrdIdIndex.put(dedupKey, orderId);
     return new StageResult.Accepted(order);
   }
 

@@ -57,6 +57,7 @@ reject_codes:
   - { code: EMS-ORD-2210, category: ORD, severity: error, title: "Cannot un-net", description: "Netting group has fills, internal-cross bookings, or a routed parent; un-netting is no longer possible." }
   - { code: EMS-ORD-2501, category: ORD, severity: error, title: "Amend not allowed", description: "Cannot amend qty/side after quote on this order (see two-step-approval, fxel)." }
   - { code: EMS-ORD-2502, category: ORD, severity: error, title: "Quote expired", description: "QuoteID expired; restage required." }
+  - { code: EMS-ORD-2510, category: ORD, severity: error, title: "Duplicate ClOrdID", description: "ClOrdID already used on this session — per-domain duplicate detection (FIX session rules); a re-import with a new request_id does not re-stage the same client orders." }
   - { code: EMS-ORD-3001, category: ORD, severity: error, title: "Order in terminal state", description: "Order is already Canceled/Rejected/Filled/Expired; cannot transition." }
   - { code: EMS-ORD-3002, category: ORD, severity: error, title: "Pending-amend in flight", description: "Cannot accept a second amend while an OrderCancelReplaceRequest is in Pending Replace." }
   - { code: EMS-ORD-3003, category: ORD, severity: error, title: "Order not in required state", description: "Operation requires a different order/package state (e.g. multileg dispatch requires READY; unaggregate requires no fills)." }
