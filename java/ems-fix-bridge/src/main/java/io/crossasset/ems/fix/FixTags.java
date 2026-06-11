@@ -55,4 +55,12 @@ public final class FixTags {
   public static final int CXL_REJ_REASON = 102;
   public static final int HEART_BT_INT = 108;
   public static final int CXL_REJ_RESPONSE_TO = 434;
+
+  // ── Session recovery / simulator (11.15) ──────────────────────────────────
+  public static final int BEGIN_SEQ_NO = 7;
+  public static final int END_SEQ_NO = 16;
+  public static final int EXEC_REF_ID = 19;
+  public static final int NEW_SEQ_NO = 36;
+  public static final int POSS_DUP_FLAG = 43;
+  public static final int GAP_FILL_FLAG = 123;
 }

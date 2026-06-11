@@ -17,3 +17,13 @@ dependencies {
     implementation(libs.quickfixj.core)
     implementation(libs.jackson.databind)
 }
+
+// Standalone FIX venue simulator (task 11.15) for manual conformance runs:
+//   ./gradlew :ems-fix-bridge:runFixSimulator -PsimPort=9876
+tasks.register<JavaExec>("runFixSimulator") {
+    group = "application"
+    description = "Run the standalone FIX venue simulator (default port 9876)"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("io.crossasset.ems.fix.sim.FixSimulatorMain")
+    args(project.findProperty("simPort")?.toString() ?: "9876")
+}
