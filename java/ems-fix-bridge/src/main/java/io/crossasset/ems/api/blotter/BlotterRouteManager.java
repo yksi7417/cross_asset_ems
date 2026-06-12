@@ -92,13 +92,31 @@ public final class BlotterRouteManager implements RouteManager {
 
   @Override
   public RouteEventResult partialFill(String routeId, long lastQty, long lastPx, String execId) {
-    RouteEventResult result = delegate.partialFill(routeId, lastQty, lastPx, execId);
-    return publishedWithFill(result, execId, lastQty, lastPx);
+    return fill(routeId, lastQty, lastPx, execId, () -> delegate.partialFill(routeId, lastQty, lastPx, execId));
   }
 
   @Override
   public RouteEventResult fullFill(String routeId, long lastQty, long lastPx, String execId) {
-    RouteEventResult result = delegate.fullFill(routeId, lastQty, lastPx, execId);
+    return fill(routeId, lastQty, lastPx, execId, () -> delegate.fullFill(routeId, lastQty, lastPx, execId));
+  }
+
+  /**
+   * Fills feed the average-price accumulators (18.22) BEFORE delegating — the parent order row
+   * publishes from inside the delegate call and must already see this execution — and roll back
+   * if the Route FSM rejects the event.
+   */
+  private RouteEventResult fill(
+      String routeId,
+      long lastQty,
+      long lastPx,
+      String execId,
+      java.util.function.Supplier<RouteEventResult> apply) {
+    Optional<Route> pre = delegate.findRoute(routeId);
+    pre.ifPresent(r -> blotter.recordExecution(r.orderId(), routeId, lastQty, lastPx));
+    RouteEventResult result = apply.get();
+    if (!(result instanceof RouteEventResult.Applied)) {
+      pre.ifPresent(r -> blotter.unrecordExecution(r.orderId(), routeId, lastQty, lastPx));
+    }
     return publishedWithFill(result, execId, lastQty, lastPx);
   }
 

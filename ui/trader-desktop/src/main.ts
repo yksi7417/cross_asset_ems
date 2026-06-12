@@ -18,6 +18,7 @@ import SERVER_WASM_URL from "@finos/perspective/dist/wasm/perspective-server.was
 import VIEWER_WASM_URL from "@finos/perspective-viewer/dist/wasm/perspective-viewer.wasm?url";
 import { ResumableStream, type StreamStatus } from "./stream";
 import { ApiClient, initTicket, type WorkingOrder } from "./ticket";
+import { attachMultiBadge } from "./aggregates";
 import { nameOf, nameOfSync, withInstrument } from "./instruments";
 import { attachGridInteractions, type GridRow } from "./grid-actions";
 
@@ -52,11 +53,14 @@ const ORDERS_SCHEMA = {
   side: "string",
   qty: "float",
   px: "float",
+  avgPx: "float",
   cumQty: "float",
   leavesQty: "float",
   account: "string",
   state: "string",
   subState: "string",
+  tif: "string",
+  ordType: "string",
   version: "integer",
   ts: "datetime",
 } as const;
@@ -72,6 +76,7 @@ const ROUTES_SCHEMA = {
   side: "string",
   qty: "float",
   px: "float",
+  avgPx: "float",
   cumQty: "float",
   leavesQty: "float",
   state: "string",
@@ -145,11 +150,11 @@ function px(value: unknown): number | null {
 }
 
 function orderRow(row: WireRow): WireRow {
-  return { ...row, ...common(row), px: px(row.px) };
+  return { ...row, ...common(row), px: px(row.px), avgPx: px(row.avgPx) };
 }
 
 function routeRow(row: WireRow): WireRow {
-  return { ...row, ...common(row), px: px(row.px) };
+  return { ...row, ...common(row), px: px(row.px), avgPx: px(row.avgPx) };
 }
 
 function fillRow(row: WireRow): WireRow {
@@ -212,7 +217,39 @@ interface Blotter {
   sort: [string, "desc" | "asc"][];
   /** Default visible columns — name-led; FIGI stays available via the settings panel. */
   columns?: string[];
+  /** Computed columns (e.g. signed qty) available to grouping. */
+  expressions?: Record<string, string>;
+  /** Trading-grade aggregation semantics when the user groups rows (18.22). */
+  aggregates?: Record<string, Aggregate>;
 }
+
+/** Perspective 3 aggregate: a name, or [name, [args]] — e.g. ["weighted mean", ["cumQty"]]. */
+type Aggregate = string | [string, string[]];
+
+// Group-by aggregation the way a trader reads a blotter (18.22): identity-ish columns collapse to
+// the shared value or report the mix ("unique" shows blank when children differ — the MULTI
+// marker, see markMultiAggregates); qty sums SIGNED via the signedQty expression (buy +, sell −);
+// avgPx is the cumQty-weighted average price = Σ(cumQty×avgPx)/Σ(cumQty).
+const SAME_OR_MULTI = [
+  "name", "assetClass", "side", "px", "state", "subState", "account",
+  "orderId", "routeId", "venueMic", "tif", "ordType", "ts", "figi", "clOrdId",
+];
+function tradingAggregates(extra: Record<string, Aggregate>): Record<string, Aggregate> {
+  const aggregates: Record<string, Aggregate> = {};
+  for (const column of SAME_OR_MULTI) {
+    aggregates[column] = "unique";
+  }
+  return {
+    ...aggregates,
+    qty: "sum",
+    cumQty: "sum",
+    leavesQty: "sum",
+    avgPx: ["weighted mean", ["cumQty"]],
+    ...extra,
+  };
+}
+
+const SIGNED_QTY = { signedQty: `if("side" == 'BUY', "qty", -"qty")` };
 
 type ViewerEl = HTMLElement & {
   load(table: Table): Promise<void>;
@@ -743,7 +780,9 @@ async function start(session: Logon): Promise<void> {
       table: await schemaTable(worker, ORDERS_SCHEMA, "orderId"),
       transform: orderRow,
       sort: [["ts", "desc"]],
-      columns: ["name", "assetClass", "side", "qty", "px", "cumQty", "leavesQty", "state", "subState", "account", "orderId", "ts"],
+      columns: ["name", "assetClass", "side", "qty", "signedQty", "ordType", "px", "avgPx", "cumQty", "leavesQty", "state", "subState", "tif", "account", "orderId", "ts"],
+      expressions: SIGNED_QTY,
+      aggregates: tradingAggregates({ signedQty: "sum" }),
     },
     {
       topic: "blotter.routes",
@@ -752,7 +791,9 @@ async function start(session: Logon): Promise<void> {
       table: await schemaTable(worker, ROUTES_SCHEMA, "routeId"),
       transform: routeRow,
       sort: [["ts", "desc"]],
-      columns: ["name", "venueMic", "side", "qty", "px", "cumQty", "leavesQty", "state", "routeId", "orderId", "ts"],
+      columns: ["name", "venueMic", "side", "qty", "px", "avgPx", "cumQty", "leavesQty", "state", "routeId", "orderId", "ts"],
+      expressions: SIGNED_QTY,
+      aggregates: tradingAggregates({ signedQty: "sum" }),
     },
     {
       topic: "blotter.fills",
@@ -762,6 +803,7 @@ async function start(session: Logon): Promise<void> {
       transform: fillRow,
       sort: [["ts", "desc"]],
       columns: ["name", "venueMic", "side", "lastQty", "lastPx", "ts"],
+      aggregates: tradingAggregates({ lastQty: "sum", lastPx: ["weighted mean", ["lastQty"]] }),
     },
     {
       topic: "blotter.baskets",
@@ -790,11 +832,16 @@ async function start(session: Logon): Promise<void> {
       theme: "Pro Dark",
       sort: blotter.sort,
       ...(blotter.columns ? { columns: blotter.columns } : {}),
+      ...(blotter.expressions ? { expressions: blotter.expressions } : {}),
+      ...(blotter.aggregates ? { aggregates: blotter.aggregates } : {}),
       // Fills stay empty until a route is selected (18.17 #4): fill volume is the render cost.
       ...(blotter.topic === "blotter.fills" ? { filter: [["routeId", "==", "∅"]] } : {}),
     };
     viewerBase.set(blotter.viewer, { viewer, config });
     await viewer.restore(config);
+    if (blotter.aggregates) {
+      attachMultiBadge(blotter.viewer, new Set(SAME_OR_MULTI));
+    }
 
     const stream = new ResumableStream(
       blotter.topic,

@@ -130,6 +130,60 @@ class BlotterProjectionTest {
   }
 
   @Test
+  void orderRow_carriesTifLabel_ordType_andWeightedAveragePx() throws Exception {
+    String orderId = stageReadyOrder(); // limit 100.25, tif 0
+    JsonNode staged = lastRow(BlotterPublisher.TOPIC_ORDERS);
+    assertThat(staged.get("tif").asText()).isEqualTo("DAY");
+    assertThat(staged.get("ordType").asText()).isEqualTo("LMT");
+    assertThat(staged.has("avgPx")).isFalse(); // nothing executed yet
+
+    String routeId =
+        ((RouteResult.Routed)
+                routes.route(new RouteRequest("RCL-1", orderId, "XNAS", 1_000L, null, null)))
+            .route()
+            .routeId();
+    routes.acknowledgeRoute(routeId);
+    routes.partialFill(routeId, 400L, 100_0000L, "EXEC-1");
+    routes.fullFill(routeId, 600L, 101_0000L, "EXEC-2");
+
+    // WAP = (400×100.0000 + 600×101.0000) / 1000 = 100.6000 — INCLUDING the final fill on the
+    // terminal row (the accumulator is recorded before the order row publishes).
+    JsonNode orderRow = lastRow(BlotterPublisher.TOPIC_ORDERS);
+    assertThat(orderRow.get("state").asText()).isEqualTo("FILLED");
+    assertThat(orderRow.get("avgPx").asLong()).isEqualTo(100_6000L);
+    JsonNode routeRow = lastRow(BlotterPublisher.TOPIC_ROUTES);
+    assertThat(routeRow.get("avgPx").asLong()).isEqualTo(100_6000L);
+  }
+
+  @Test
+  void marketOrder_publishesOrdTypeMkt() throws Exception {
+    StageResult staged =
+        som.stage(new OrderRequest("req-mkt", SESSION, "CL-MKT", FIGI, 1, 500L, null, "ACC-1", 3));
+    assertThat(staged).isInstanceOf(StageResult.Accepted.class);
+    JsonNode row = lastRow(BlotterPublisher.TOPIC_ORDERS);
+    assertThat(row.get("ordType").asText()).isEqualTo("MKT");
+    assertThat(row.get("tif").asText()).isEqualTo("IOC");
+  }
+
+  @Test
+  void rejectedFill_rollsBackTheAverageAccumulator() throws Exception {
+    String orderId = stageReadyOrder();
+    String routeId =
+        ((RouteResult.Routed)
+                routes.route(new RouteRequest("RCL-1", orderId, "XNAS", 1_000L, null, null)))
+            .route()
+            .routeId();
+    // No venue ack: a fill on a SENT route is rejected by the Route FSM (EMS-RTE-5002 class).
+    routes.partialFill(routeId, 400L, 999_0000L, "EXEC-BAD");
+    routes.acknowledgeRoute(routeId);
+    routes.fullFill(routeId, 1_000L, 100_0000L, "EXEC-1");
+
+    // The rejected execution must not pollute the average: WAP = 100.0000, not a blend.
+    assertThat(lastRow(BlotterPublisher.TOPIC_ORDERS).get("avgPx").asLong())
+        .isEqualTo(100_0000L);
+  }
+
+  @Test
   void cancel_publishesTerminalOrderRow() throws Exception {
     String orderId = stageReadyOrder();
     som.cancel(orderId, SESSION);

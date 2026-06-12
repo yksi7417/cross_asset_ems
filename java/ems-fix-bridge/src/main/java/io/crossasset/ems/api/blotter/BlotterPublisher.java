@@ -9,7 +9,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.crossasset.ems.api.SubscriptionRegistry;
 import io.crossasset.ems.oms.Route;
 import io.crossasset.ems.oms.StagedOrder;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
 
 /**
@@ -38,9 +40,58 @@ public final class BlotterPublisher {
   private final SubscriptionRegistry subscriptions;
   private final LongSupplier nowMicros;
 
+  // Execution accumulators for average price (18.22): Σqty / Σ(qty×px) per order and per route.
+  // Recorded by BlotterRouteManager BEFORE the fill is delegated (the order row publishes from
+  // inside the delegate call, which would otherwise see a one-fill-stale average) and rolled back
+  // if the Route FSM rejects the event.
+  private final Map<String, long[]> orderExec = new ConcurrentHashMap<>();
+  private final Map<String, long[]> routeExec = new ConcurrentHashMap<>();
+
   public BlotterPublisher(SubscriptionRegistry subscriptions, LongSupplier nowMicros) {
     this.subscriptions = Objects.requireNonNull(subscriptions, "subscriptions");
     this.nowMicros = Objects.requireNonNull(nowMicros, "nowMicros");
+  }
+
+  /** Record an execution into the order/route average-price accumulators. */
+  public void recordExecution(String orderId, String routeId, long lastQty, long lastPx) {
+    accumulate(orderExec, orderId, lastQty, lastPx);
+    accumulate(routeExec, routeId, lastQty, lastPx);
+  }
+
+  /** Roll a recorded execution back (the Route FSM rejected the fill event). */
+  public void unrecordExecution(String orderId, String routeId, long lastQty, long lastPx) {
+    accumulate(orderExec, orderId, -lastQty, lastPx);
+    accumulate(routeExec, routeId, -lastQty, lastPx);
+  }
+
+  private static void accumulate(Map<String, long[]> map, String key, long qty, long px) {
+    map.compute(
+        key,
+        (k, acc) -> {
+          long[] next = acc == null ? new long[2] : acc;
+          next[0] += qty;
+          next[1] += qty * px;
+          return next;
+        });
+  }
+
+  private static Long averagePx(Map<String, long[]> map, String key) {
+    long[] acc = map.get(key);
+    return acc == null || acc[0] <= 0 ? null : Math.round((double) acc[1] / acc[0]);
+  }
+
+  /** FIX tag-59 TIF labels (trader-readable blotter column, 18.22). */
+  private static String tifLabel(int tif) {
+    return switch (tif) {
+      case 0 -> "DAY";
+      case 1 -> "GTC";
+      case 2 -> "OPG";
+      case 3 -> "IOC";
+      case 4 -> "FOK";
+      case 6 -> "GTD";
+      case 7 -> "CLS";
+      default -> String.valueOf(tif);
+    };
   }
 
   /** Publish the order's current image as a row delta. */
@@ -57,7 +108,12 @@ public final class BlotterPublisher {
     row.put("cumQty", order.fsmContext().cumQty());
     row.put("leavesQty", order.fsmContext().leavesQty());
     row.put("account", order.fsmContext().account());
-    row.put("tif", order.fsmContext().tif());
+    row.put("tif", tifLabel(order.fsmContext().tif()));
+    row.put("ordType", order.fsmContext().price() != null ? "LMT" : "MKT");
+    Long orderAvg = averagePx(orderExec, order.orderId());
+    if (orderAvg != null) {
+      row.put("avgPx", orderAvg.longValue());
+    }
     row.put("state", order.fsmState().name());
     row.put("subState", order.subState().name());
     row.put("version", order.fsmContext().orderVersion());
@@ -80,6 +136,10 @@ public final class BlotterPublisher {
     }
     row.put("cumQty", route.fsmContext().cumQty());
     row.put("leavesQty", route.fsmContext().leavesQty());
+    Long routeAvg = averagePx(routeExec, route.routeId());
+    if (routeAvg != null) {
+      row.put("avgPx", routeAvg.longValue());
+    }
     row.put("state", route.fsmState().name());
     row.put("ts", route.createdAtMicros());
     subscriptions.publish(TOPIC_ROUTES, "RouteRow", route.routeId(), row.toString());

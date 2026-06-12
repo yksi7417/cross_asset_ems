@@ -75,7 +75,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 /** Depth-first search across open shadow roots. */
-function findDeep(root: ParentNode, selector: string): Element | null {
+export function findDeep(root: ParentNode, selector: string): Element | null {
   const direct = root.querySelector(selector);
   if (direct) {
     return direct;
