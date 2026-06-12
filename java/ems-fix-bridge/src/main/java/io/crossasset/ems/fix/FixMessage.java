@@ -4,7 +4,9 @@
  */
 package io.crossasset.ems.fix;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -115,6 +117,7 @@ public final class FixMessage {
    */
   public static final class Builder {
     private final Map<Integer, String> body = new LinkedHashMap<>();
+    private final List<String> trailing = new ArrayList<>();
     private String beginString = DEFAULT_BEGIN_STRING;
 
     public Builder field(int tag, String value) {
@@ -134,11 +137,24 @@ public final class FixMessage {
       return field(tag, Integer.toString(value));
     }
 
+    /**
+     * Append a REPEATING-group entry (e.g. the 957 StrategyParameters group): unlike {@link
+     * #field}, repeated tags are kept in append order, rendered after the keyed fields — put the
+     * group's count tag last via {@code field()} so it sits adjacent to its entries.
+     */
+    public Builder repeatedField(int tag, String value) {
+      trailing.add(tag + "=" + value);
+      return this;
+    }
+
     /** Assemble the wire string with computed {@code BodyLength} and {@code CheckSum}. */
     public String build() {
       StringBuilder bodyBuf = new StringBuilder();
       for (Map.Entry<Integer, String> e : body.entrySet()) {
         bodyBuf.append(e.getKey()).append('=').append(e.getValue()).append(SOH);
+      }
+      for (String entry : trailing) {
+        bodyBuf.append(entry).append(SOH);
       }
       String bodyStr = bodyBuf.toString();
       String header =

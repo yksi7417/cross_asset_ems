@@ -287,7 +287,7 @@ Outbound to the market. ~4-6 weeks.
 - [ ] **11.13** RFQ orchestration per [[arch-rfq]] (sonnet) ← blocks: 11.1
 - [ ] **11.14** RFQ-to-3 enforcement for [[mat|MAT]] swaps (sonnet) ← blocks: 11.13
 - [x] **11.15** FIX venue simulator — venue-side FIX acceptor for end-to-end wire tests (sits alongside the in-process mock 11.2, which stays): session layer (Logon/Heartbeat/TestRequest/SequenceReset + ResendRequest recovery), NewOrderSingle/Cancel/Replace handling with Appendix-D-correct pending states, configurable execution model (ack → partial/full fills, rejects, busts), runs in-process for `ems-it` and standalone via Gradle (sonnet) ← blocks: 11.1 `(04adb49)`
-- [ ] **11.16** Broker algo support: FIX `StrategyParameters` / FIXatdl ingestion + algo ticket metadata so broker algos are routable with custom parameters (sonnet) ← blocks: 11.1
+- [x] **11.16** Broker algo support: FIX `StrategyParameters` / FIXatdl ingestion + algo ticket metadata so broker algos are routable with custom parameters (sonnet) ← blocks: 11.1
 - [x] **11.17** FX ESP streaming executable quotes + last-look handling (complements RFQ; needed for click-to-trade) (sonnet) ← blocks: 9.1 (satisfied by 18.12 SPI per 2026-06-10 rescope), 11.1 `(db832b5)`
 
 ## Phase 12 — Post-Trade
