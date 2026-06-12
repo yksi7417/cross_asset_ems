@@ -111,8 +111,17 @@ public final class TraderDesktopEdgeMain {
         new ApiSurface(aaa, som, routes, subscriptions, (sid, subId, event) -> {}, pipeline);
     BasketService baskets =
         new BasketService(som, routes, new BulkOrderImporter(api), subscriptions);
-    // ── Simulated market data over the 18.12 SPI → md topics ───────────────────
-    SimulatedFeed feed = new SimulatedFeed("sim");
+    // ── Market data over the 18.12 SPI (EMS_MD_FEED: sim | bloomberg-desktop |
+    // bloomberg-server) — ONE feed instance powers both halves: the GUI path (ticks → md
+    // topics → watchlist/blotter) and the backend path (9.5 benchmarks, 9.1/9.3 quote fabric,
+    // P&L marks). With Bloomberg selected, the real FIGIs in the universe (Apple, Microsoft,
+    // Toyota, SPY…) tick live; the synthetic demo FIGIs surface per-subscription entitlement
+    // failures as feed health — visible, never silent.
+    io.crossasset.ems.md.MarketDataFeed feed =
+        io.crossasset.ems.md.MarketDataFeeds.fromEnv(System.getenv());
+    boolean simulatedFeed = io.crossasset.ems.md.MarketDataFeeds.isSimulated(feed);
+    System.out.println(
+        "Market data    : " + feed.feedId() + (simulatedFeed ? " (simulated)" : " (LIVE)"));
     MarketDataTopicBridge mdBridge = new MarketDataTopicBridge(subscriptions);
     mdBridge.attachHealth(feed);
     // Desk watchlist (18.14): seeding attaches each symbol to the bridge.
@@ -124,6 +133,32 @@ public final class TraderDesktopEdgeMain {
             Set.of(MdField.BID, MdField.ASK, MdField.LAST, MdField.VOLUME));
     for (DemoUniverse.DemoInstrument inst : INSTRUMENTS) {
       watchlist.add("desk-1", inst.figi());
+    }
+
+    // ── Backend market-data consumers on the SAME feed (9.1/9.3/9.5) ───────────
+    io.crossasset.ems.md.analytics.BenchmarkService benchmarks =
+        new io.crossasset.ems.md.analytics.BenchmarkService();
+    io.crossasset.ems.md.quote.QuoteServer quoteServer =
+        new io.crossasset.ems.md.quote.QuoteServer(
+            new io.crossasset.ems.md.quote.SubscriberRegistry());
+    PricingService pricingService = new PricingService();
+    for (DemoUniverse.DemoInstrument inst : INSTRUMENTS) {
+      feed.subscribe(
+          inst.figi(),
+          Set.of(MdField.BID, MdField.ASK, MdField.LAST, MdField.VOLUME),
+          tick -> {
+            benchmarks.onTick(tick); // 9.5: VWAP/TWAP/arrival for fat-finger + TCA
+            Long last = tick.values().get(MdField.LAST);
+            if (last != null) {
+              pricingService.recordLive(tick.figi(), last, tick.atMillis()); // P&L marks
+            }
+            quoteServer.publish( // 9.1: the internal quote fabric (SOR/automation consumers)
+                new io.crossasset.ems.md.quote.QuoteServer.QuoteUpdate(
+                    "quote." + tick.figi() + ".l1",
+                    tick.figi(),
+                    tick.values().toString(),
+                    tick.atMillis()));
+          });
     }
     feed.start();
 
@@ -387,7 +422,6 @@ public final class TraderDesktopEdgeMain {
 
     // ── Intraday P&L (18.7): fills feed positions, md ticks feed marks ─────────
     PositionService positionService = new PositionService();
-    PricingService pricingService = new PricingService();
     PnlService pnlService =
         new PnlService(
             positionService,
@@ -457,7 +491,14 @@ public final class TraderDesktopEdgeMain {
       System.out.println("Mode           : QUIET (no demo bot)");
       Thread.currentThread().join();
     } else {
-      runDemoScript(aaa, som, routes, feed, positionService, pricingService, tracer);
+      runDemoScript(
+          aaa,
+          som,
+          routes,
+          simulatedFeed ? (SimulatedFeed) feed : null,
+          positionService,
+          pricingService,
+          tracer);
     }
   }
 
@@ -466,7 +507,7 @@ public final class TraderDesktopEdgeMain {
       InMemoryAaaService aaa,
       io.crossasset.ems.oms.StagedOrderManager som,
       io.crossasset.ems.oms.RouteManager routes,
-      SimulatedFeed feed,
+      io.crossasset.ems.md.@org.jspecify.annotations.Nullable SimulatedFeed feed,
       PositionService positionService,
       PricingService pricingService,
       io.opentelemetry.api.trace.@org.jspecify.annotations.Nullable Tracer tracer)
@@ -479,8 +520,9 @@ public final class TraderDesktopEdgeMain {
     int orderSeq = 0;
 
     while (true) {
-      // Quotes tick every cycle (random walk, ±5 bps).
-      for (int i = 0; i < INSTRUMENTS.size(); i++) {
+      // Quotes tick every cycle (random walk, ±5 bps) — SIMULATOR ONLY: on a live feed
+      // (Bloomberg) the bot still trades orders but never fabricates prices.
+      for (int i = 0; feed != null && i < INSTRUMENTS.size(); i++) {
         DemoUniverse.DemoInstrument inst = INSTRUMENTS.get(i);
         lastPx[i] += Math.round(lastPx[i] * (random.nextDouble() - 0.5) * 0.001);
         long spread = Math.max(1, lastPx[i] / 2_000);

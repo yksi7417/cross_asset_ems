@@ -25,6 +25,21 @@ the production components. Simulated: market data (`SimulatedFeed` random walk),
 are scripted, not a real exchange), and the ESP dealer (`MockEspVenue`). Identity is a bootstrap
 token credential — production logon would ride SSO (18.9).
 
+**Live Bloomberg market data (18.13).** With a terminal (or SAPI) and the desk's licensed blpapi
+jar on the classpath, the demo runs on real prices — one switch powers BOTH the GUI (watchlist /
+blotter md topics) and the backend (9.5 benchmarks → fat-finger/TCA, 9.1 quote fabric, P&L marks):
+
+```bash
+EMS_MD_FEED=bloomberg-desktop ./gradlew :ems-fix-bridge:runTraderEdge        # terminal on this box
+EMS_MD_FEED=bloomberg-server EMS_BBG_HOST=sapi.host EMS_BBG_PORT=8194 \
+  EMS_BBG_APP=ems ./gradlew :ems-fix-bridge:runTraderEdge                    # SAPI / B-PIPE
+```
+
+The real FIGIs in the universe (Apple, Microsoft, Toyota, SPDR, Shell…) tick live; the synthetic
+demo FIGIs surface per-security entitlement failures as **feed health on the MARKET DATA chip** —
+visible, never a silent fallback. Without the blpapi jar the feed reports DOWN with an install
+hint. The demo bot stops fabricating prices on a live feed (it still trades orders).
+
 ## 2. Spin it up
 
 Prerequisites: Java 21 (`./scripts/dev/bootstrap.sh` installs it) and Node.js with `npm`.
