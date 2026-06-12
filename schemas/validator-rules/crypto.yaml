@@ -1,0 +1,162 @@
+
+asset_class: CRYPTO
+version: "1.0"
+generated_at: "2026-06-06"
+rule_count: 12
+rules:
+  - id: crypto-0001
+    name: chain_id_valid
+    description: chain_id must match a recognized EVM (or non-EVM) chain identifier; reject unknown networks.
+    severity: error
+    reject_code: EMS-ORD-6501
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [chain_id]
+    check:
+      type: lookup
+      expression: "chain_id IN known_chain_ids()"
+    fix_suggestion: "Use canonical chain IDs: 1=ETH, 56=BSC, 137=Polygon, 42161=Arbitrum, 10=Optimism, 43114=Avalanche."
+    spec_reference: arch-validator.md#5.98 + chainlist.org
+  - id: crypto-0002
+    name: contract_address_format
+    description: contract_address must be a 20-byte hex string with EIP-55 checksum (or all-lowercase for non-checksummed).
+    severity: error
+    reject_code: EMS-ORD-6502
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [contract_address, chain_id]
+    check:
+      type: custom
+      expression: "regex_match(contract_address, '^0x[0-9a-fA-F]{40}$') AND (eip55_checksum(contract_address) OR is_all_lower(contract_address) OR is_all_upper(contract_address))"
+    fix_suggestion: "Apply EIP-55 checksum; all-lowercase is acceptable for lookups but never all-uppercase."
+    spec_reference: arch-validator.md#5.99 + EIP-55
+  - id: crypto-0003
+    name: decimals_in_range
+    description: Token decimals must be in [0, 18] for ERC-20; 0 for ERC-721; 8 for native BTC; 9 for native SOL.
+    severity: error
+    reject_code: EMS-ORD-6503
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [decimals, token_standard]
+    check:
+      type: cross_field
+      expression: "(token_standard == 'ERC20' AND 0 <= decimals <= 18) OR (token_standard == 'NATIVE' AND decimals IN [8, 9, 12, 18]) OR (token_standard == 'ERC721' AND decimals == 0)"
+    fix_suggestion: "Most ERC-20 are 18; USDC/USDT are 6; WBTC is 8; consult the token's deployed contract."
+    spec_reference: arch-validator.md#5.100 + EIP-20
+  - id: crypto-0004
+    name: total_supply_sanity
+    description: total_supply must be a non-negative integer (in token's smallest unit); >0 for tradeable tokens.
+    severity: error
+    reject_code: EMS-ORD-6504
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [total_supply, decimals]
+    check:
+      type: cross_field
+      expression: "total_supply >= 0 AND total_supply < 2^(256 - decimals)"
+    fix_suggestion: "Cap at uint256 maximum; some contracts omit totalSupply — those can still trade but flag."
+    spec_reference: arch-validator.md#5.100
+  - id: crypto-0005
+    name: circulating_supply_le_total
+    description: circulating_supply must be <= total_supply; both are in smallest units.
+    severity: error
+    reject_code: EMS-ORD-6505
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [circulating_supply, total_supply]
+    check:
+      type: cross_field
+      expression: "0 <= circulating_supply <= total_supply"
+    fix_suggestion: "Refresh from CoinGecko/CoinMarketCap; for staked or locked tokens, ensure lockup is not in circulating."
+    spec_reference: arch-validator.md#5.101
+  - id: crypto-0006
+    name: notional_currency_supported
+    description: Quote currency must be one of USD, USDT, USDC, EUR, BTC, ETH; reject exotic-quote markets for non-OTC.
+    severity: error
+    reject_code: EMS-ORD-6506
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [quote_ccy, venue]
+    check:
+      type: lookup
+      expression: "quote_ccy IN supported_quote_ccys(venue)"
+    fix_suggestion: "Default to USD/USDT for CEX; venue-specific (e.g., BUSD on Binance, KRW on Upbit)."
+    spec_reference: arch-validator.md#5.102
+  - id: crypto-0007
+    name: gas_token_required
+    description: When the order is on-chain (DEX) rather than off-chain, gas_token and gas_budget must be set.
+    severity: error
+    reject_code: EMS-ORD-6507
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [on_chain_flag, gas_token, gas_budget]
+    check:
+      type: cross_field
+      expression: "NOT on_chain_flag OR (gas_token == native_token(chain_id) AND gas_budget > 0)"
+    fix_suggestion: "For DEX orders, set gas_budget in gwei*gas; estimate using eth_estimateGas on a dry-run."
+    spec_reference: arch-validator.md#5.103 + EIP-1559
+  - id: crypto-0008
+    name: chain_id_match_venue
+    description: chain_id must match the venue's supported network (e.g., Uniswap v3 mainnet=1, Arbitrum=42161).
+    severity: error
+    reject_code: EMS-ORD-6508
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [chain_id, venue]
+    check:
+      type: lookup
+      expression: "chain_id IN venue_supported_chains(venue)"
+    fix_suggestion: "Do not route an Arbitrum address to a Polygon venue; check the venue's chain support list."
+    spec_reference: arch-validator.md#5.104
+  - id: crypto-0009
+    name: token_standard_valid
+    description: token_standard must be one of {ERC20, ERC721, ERC1155, SPL, NATIVE, BEP20, TRC20}.
+    severity: error
+    reject_code: EMS-ORD-6509
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [token_standard]
+    check:
+      type: lookup
+      expression: "token_standard IN supported_standards()"
+    fix_suggestion: "EVM: ERC20/721/1155; Solana: SPL; native chains use NATIVE; do not use 'ERC20' for non-EVM."
+    spec_reference: arch-validator.md#5.105
+  - id: crypto-0010
+    name: trade_size_minimum
+    description: Order notional must meet the venue's minimum (typically $10 for retail, $1000 for OTC desks).
+    severity: error
+    reject_code: EMS-ORD-6510
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [notional_quote, venue, channel]
+    check:
+      type: lookup
+      expression: "notional_quote >= venue_min_notional(venue, channel)"
+    fix_suggestion: "Sub-minimum orders can be aggregated to a parent block; check the venue's min-notional policy."
+    spec_reference: arch-validator.md#5.106
+  - id: crypto-0011
+    name: stablecoin_depeg_warning
+    description: For stablecoin orders, the quote-USD deviation must be < 2% (state error if breached).
+    severity: error
+    reject_code: EMS-ORD-6511
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [is_stablecoin, price_usd, peg_target]
+    check:
+      type: cross_field
+      expression: "NOT is_stablecoin OR abs(price_usd - peg_target) / peg_target < 0.02"
+    fix_suggestion: "Halt stablecoin pairs during depegs; alert risk; consider routing through Curve 3pool as last resort."
+    spec_reference: arch-validator.md#5.107
+  - id: crypto-0012
+    name: token_blacklist_check
+    description: Token must not be on the desk's blacklist (sanctions, honeypots, rug-pulled).
+    severity: error
+    reject_code: EMS-ORD-6512
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [contract_address, chain_id]
+    check:
+      type: lookup
+      expression: "(chain_id, contract_address) NOT IN desk_blacklist()"
+    fix_suggestion: "Run the contract through a rug-pull detector (e.g., GoPlus, Chainabuse) before adding to the book."
+    spec_reference: arch-validator.md#5.108

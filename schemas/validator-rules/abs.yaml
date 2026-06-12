@@ -1,0 +1,376 @@
+asset_class: ABS
+version: '1.0'
+generated_at: '2026-06-06'
+rule_count: 25
+rules:
+- id: abs-0001
+  name: ISIN present and ISO 6166 compliant
+  description: 'Every ABS position record must carry a valid International Securities Identification Number conforming to ISO 6166: 12 characters total, 2-letter country prefix, 9-character alphanumeric
+    body, 1 check digit.'
+  severity: error
+  reject_code: EMS-ORD-6601
+  applies_to:
+    template_ids: &id001
+    - '0x0B01'
+    - '0x0B02'
+    - '0x0B03'
+    fields:
+    - isin
+  check:
+    type: regex
+    expression: isin != null AND length(isin) = 12 AND isin MATCHES '^[A-Z]{2}[A-Z0-9]{9}[0-9]$'
+  fix_suggestion: ISIN missing or does not match ISO 6166 format
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0002
+  name: CUSIP present for US-domiciled deals
+  description: ABS positions from US-domiciled issuers or trust structures must carry a valid 9-character CUSIP. The check digit (9th character) is validated against the standard CUSIP checksum (Modulus
+    10, weighted).
+  severity: error
+  reject_code: EMS-ORD-6602
+  applies_to:
+    template_ids: *id001
+    fields:
+    - cusip
+  check:
+    type: completeness
+    expression: issuer_country = 'US' IMPLIES (cusip != null AND length(cusip) = 9 AND cusipcusip_check(cusip) = true)
+  fix_suggestion: CUSIP missing or fails checksum for US-domiciled deal
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0003
+  name: Deal and tranche identifiers required
+  description: Each ABS position must reference both a deal_id (the issuing trust or shelf) and a tranche_id (the specific class). These together form the natural key and must be non-null.
+  severity: error
+  reject_code: EMS-ORD-6603
+  applies_to:
+    template_ids: *id001
+    fields:
+    - deal_id
+    - tranche_id
+  check:
+    type: completeness
+    expression: deal_id != null AND length(deal_id) >= 3 AND tranche_id != null AND length(tranche_id) >= 1
+  fix_suggestion: deal_id and/or tranche_id missing or too short
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0004
+  name: Original principal must be positive
+  description: The original face / principal balance of the tranche at issuance must be a strictly positive number expressed in the deal currency.
+  severity: error
+  reject_code: EMS-ORD-6604
+  applies_to:
+    template_ids: *id001
+    fields:
+    - original_principal
+  check:
+    type: completeness
+    expression: original_principal != null AND original_principal > 0
+  fix_suggestion: original_principal must be > 0
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0005
+  name: Current outstanding cannot exceed original principal
+  description: Outstanding principal at the current pool cut cannot exceed the original principal at issuance. This guards against manual override errors and feed re-mapping issues.
+  severity: error
+  reject_code: EMS-ORD-6605
+  applies_to:
+    template_ids: *id001
+    fields:
+    - current_outstanding
+    - original_principal
+  check:
+    type: completeness
+    expression: current_outstanding != null AND current_outstanding >= 0 AND current_outstanding <= original_principal
+  fix_suggestion: current_outstanding exceeds original_principal
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0006
+  name: Currency is a valid ISO 4217 code
+  description: The position currency must be a 3-letter uppercase ISO 4217 code and must exist in the active currency reference table.
+  severity: error
+  reject_code: EMS-ORD-6606
+  applies_to:
+    template_ids: *id001
+    fields:
+    - currency
+  check:
+    type: lookup
+    expression: currency != null AND length(currency) = 3 AND currencyref_lookup(currency) = 'ACTIVE'
+  fix_suggestion: Currency is missing, malformed, or not in active reference set
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0007
+  name: Coupon type is from approved enum
+  description: 'Coupon type must be one of: FIXED, FLOATING, STEP_UP, STEP_DOWN, DEFERRED, PIK, ZERO_COUPON, INVERSE_FLOAT.'
+  severity: error
+  reject_code: EMS-ORD-6607
+  applies_to:
+    template_ids: *id001
+    fields:
+    - coupon_type
+  check:
+    type: custom
+    expression: coupon_type IN ('FIXED','FLOATING','STEP_UP','STEP_DOWN','DEFERRED','PIK','ZERO_COUPON','INVERSE_FLOAT')
+  fix_suggestion: coupon_type not in approved enum
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0008
+  name: Coupon rate in plausible band
+  description: For fixed-coupon tranches, the coupon rate (annualized, in percent) should fall between 0% and 30%. Values outside this band are flagged for human review but not auto-rejected.
+  severity: warning
+  reject_code: EMS-ORD-6608
+  applies_to:
+    template_ids: *id001
+    fields:
+    - coupon_rate
+  check:
+    type: range
+    expression: coupon_type = 'FIXED' IMPLIES (coupon_rate >= 0 AND coupon_rate <= 30)
+  fix_suggestion: Coupon rate outside [0%, 30%] band for a fixed-coupon tranche
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0009
+  name: Payment frequency is valid
+  description: Payment frequency must be one of MONTHLY, QUARTERLY, SEMI_ANNUAL, ANNUAL, or BULLET.
+  severity: error
+  reject_code: EMS-ORD-6609
+  applies_to:
+    template_ids: *id001
+    fields:
+    - payment_frequency
+  check:
+    type: custom
+    expression: payment_frequency IN ('MONTHLY','QUARTERLY','SEMI_ANNUAL','ANNUAL','BULLET')
+  fix_suggestion: payment_frequency not in approved set
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0010
+  name: Pool factor within [0, 1]
+  description: The pool factor (current outstanding / original principal) must lie in the closed interval [0, 1]. A factor of 0 means fully written-off or fully amortized; 1 means untouched since issuance.
+  severity: error
+  reject_code: EMS-ORD-6610
+  applies_to:
+    template_ids: *id001
+    fields:
+    - pool_factor
+  check:
+    type: range
+    expression: pool_factor >= 0 AND pool_factor <= 1
+  fix_suggestion: pool_factor outside [0, 1]
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0011
+  name: Weighted average life not beyond legal final maturity
+  description: The model-implied weighted average life (WAL) in years must be strictly less than the time to legal final maturity.
+  severity: error
+  reject_code: EMS-ORD-6611
+  applies_to:
+    template_ids: *id001
+    fields:
+    - weighted_average_life
+    - legal_final_maturity
+  check:
+    type: completeness
+    expression: weighted_average_life != null AND legal_final_maturity != null AND weighted_average_life < legal_final_maturity
+  fix_suggestion: WAL exceeds time to legal final maturity
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0012
+  name: Credit enhancement above deal minimum
+  description: Current credit enhancement (excess spread + overcollateralization + reserve account + subordination, as defined per deal waterfall) must be at or above the deal's documented minimum CE.
+  severity: warning
+  reject_code: EMS-ORD-6612
+  applies_to:
+    template_ids: *id001
+    fields:
+    - current_ce
+    - minimum_ce
+  check:
+    type: range
+    expression: current_ce >= minimum_ce
+  fix_suggestion: Current credit enhancement below deal-stated minimum CE
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0013
+  name: Servicer is active and not on watchlist
+  description: The named servicer must exist in the servicer reference table with status ACTIVE and watchlist_flag = false. If watchlist_flag is true a manual override is required.
+  severity: error
+  reject_code: EMS-ORD-6613
+  applies_to:
+    template_ids: *id001
+    fields:
+    - servicer_id
+  check:
+    type: lookup
+    expression: servicerref_lookup(servicer_id).status = 'ACTIVE' AND servicerref_lookup(servicer_id).watchlist = false
+  fix_suggestion: Servicer missing, inactive, or on internal watchlist
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0014
+  name: Trustee present and valid
+  description: A trustee must be named. For US deals this is typically a bank trust company; for European deals a fiduciary or licensed trustee.
+  severity: error
+  reject_code: EMS-ORD-6614
+  applies_to:
+    template_ids: *id001
+    fields:
+    - trustee_id
+  check:
+    type: lookup
+    expression: trustee_id != null AND trusteeref_lookup(trustee_id) != null
+  fix_suggestion: Trustee identifier missing or not found in trustee reference data
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0015
+  name: Next payment date strictly after last payment date
+  description: The next scheduled payment date must be strictly greater than the last paid / record payment date and must be a business day in the deal's payment calendar.
+  severity: error
+  reject_code: EMS-ORD-6615
+  applies_to:
+    template_ids: *id001
+    fields:
+    - next_payment_date
+    - payment_date
+  check:
+    type: range
+    expression: next_payment_date > payment_date AND is_business_day(next_payment_date, payment_calendar)
+  fix_suggestion: next_payment_date must be strictly after payment_date and a business day
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0016
+  name: Seasoning within plausible bounds
+  description: Seasoning (months since issuance) must be in [0, deal_age_months] and must be consistent with the difference between issuance_date and the current pool cut.
+  severity: error
+  reject_code: EMS-ORD-6616
+  applies_to:
+    template_ids: *id001
+    fields:
+    - seasoning_months
+  check:
+    type: range
+    expression: seasoning_months >= 0 AND seasoning_months <= months_between(issuance_date, pool_cut_date)
+  fix_suggestion: seasoning_months out of bounds relative to issuance and pool cut dates
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0017
+  name: Asset class matches deal type
+  description: The position's asset_class tag must be consistent with the deal's deal_type (e.g. a position tagged AUTO_LOAN cannot sit inside a deal_type of RESIDENTIAL_MBS).
+  severity: error
+  reject_code: EMS-ORD-6617
+  applies_to:
+    template_ids: *id001
+    fields:
+    - asset_class
+    - deal_type
+  check:
+    type: custom
+    expression: compatible_asset_class(asset_class, deal_type) = true
+  fix_suggestion: Position asset_class incompatible with deal_type
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0018
+  name: Rating present and not withdrawn
+  description: At least one current external rating (Moody's, S&P, or Fitch) must be present. Ratings with action = 'WITHDRAWN' are not acceptable as the only rating.
+  severity: error
+  reject_code: EMS-ORD-6618
+  applies_to:
+    template_ids: *id001
+    fields:
+    - ratings
+  check:
+    type: range
+    expression: count(ratings where action != 'WITHDRAWN') >= 1
+  fix_suggestion: No active external rating on file (or only withdrawn ratings present)
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0019
+  name: Country of origination is on supported list
+  description: The country of origination must be a valid ISO 3166-1 alpha-2 code and must be on the firm's supported jurisdictions list. Off-list countries trigger an enhanced-diligence review.
+  severity: warning
+  reject_code: EMS-ORD-6619
+  applies_to:
+    template_ids: *id001
+    fields:
+    - country_of_origination
+  check:
+    type: lookup
+    expression: countryref_lookup(country_of_origination).status = 'SUPPORTED'
+  fix_suggestion: Country of origination not in firm-supported jurisdictions
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0020
+  name: Obligor count positive for granular pools
+  description: For granular pool types (AUTO_LOAN, CREDIT_CARD, CONSUMER, SMB_LOAN), the obligor count must be > 0 and consistent with the implied average balance (original_principal / obligor_count within
+    a plausible band).
+  severity: error
+  reject_code: EMS-ORD-6620
+  applies_to:
+    template_ids: *id001
+    fields:
+    - obligor_count
+    - original_principal
+  check:
+    type: range
+    expression: pool_type IN ('AUTO_LOAN','CREDIT_CARD','CONSUMER','SMB_LOAN') IMPLIES (obligor_count > 0)
+  fix_suggestion: Obligor count missing or zero for granular pool type
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0021
+  name: Servicer advance within facility cap
+  description: Total outstanding servicer advances (principal + interest + expenses) cannot exceed the deal's documented servicer_advance_cap. Most deals cap this at the lesser of a fixed dollar amount
+    or a % of pool outstanding.
+  severity: warning
+  reject_code: EMS-ORD-6621
+  applies_to:
+    template_ids: *id001
+    fields:
+    - servicer_advance_total
+    - servicer_advance_cap
+  check:
+    type: range
+    expression: servicer_advance_total <= servicer_advance_cap
+  fix_suggestion: Servicer advances exceed documented facility cap
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0022
+  name: Geographic concentration cap
+  description: No single US state (or non-US region) may exceed the geographic concentration cap documented in the deal's concentration tests. Most prime US RMBS deals cap at 25-40%; subprime can be lower.
+  severity: warning
+  reject_code: EMS-ORD-6622
+  applies_to:
+    template_ids: *id001
+    fields:
+    - top_state_concentration_pct
+    - geo_concentration_cap
+  check:
+    type: range
+    expression: top_state_concentration_pct <= geo_concentration_cap
+  fix_suggestion: Top-state geographic concentration exceeds deal cap
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0023
+  name: Debt service coverage ratio within deal band
+  description: "The pool's current debt service coverage ratio (DSCR) \u2014 defined as trailing-N-month collections divided by trailing-N-month scheduled interest + principal due \u2014 must fall within\
+    \ the deal's documented DSCR band. DSCR below the lower bound signals serious cash-flow stress; DSCR materially above the upper bound suggests stale or mis-calibrated data."
+  severity: error
+  reject_code: EMS-ORD-6623
+  applies_to:
+    template_ids: *id001
+    fields:
+    - dscr
+    - dscr_lower_bound
+    - dscr_upper_bound
+  check:
+    type: completeness
+    expression: dscr != null AND dscr >= dscr_lower_bound AND dscr <= dscr_upper_bound
+  fix_suggestion: DSCR outside deal-defined band [lower, upper]
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0024
+  name: Delinquency aging bucket monotonicity and sum check
+  description: "The delinquency aging buckets (current, 1-30 DPD, 31-60 DPD, 61-90 DPD, 90+ DPD, repossession, charge-off) must be monotonically non-increasing as severity increases \u2014 i.e. current\
+    \ >= 1-30 >= 31-60 >= 61-90 >= 90+ \u2014 and the sum of all buckets must equal the total pool balance (within 0.01% tolerance for rounding)."
+  severity: error
+  reject_code: EMS-ORD-6624
+  applies_to:
+    template_ids: *id001
+    fields:
+    - delinquency_buckets
+  check:
+    type: range
+    expression: monotonic_nonincreasing(delinquency_buckets) AND abs(sum(delinquency_buckets) - pool_balance) / pool_balance <= 0.0001
+  fix_suggestion: Delinquency aging buckets are not monotonic or do not sum to pool balance
+  spec_reference: arch-validator.md#5 (abs layer)
+- id: abs-0025
+  name: Weighted average FICO in plausible range
+  description: For consumer ABS pools that carry a weighted average FICO (or equivalent internal score), the value must be in the range [300, 850] and, for prime shelf programs, must additionally be at
+    or above the program-stated minimum WA FICO.
+  severity: warning
+  reject_code: EMS-ORD-6625
+  applies_to:
+    template_ids: *id001
+    fields:
+    - weighted_average_fico
+  check:
+    type: completeness
+    expression: weighted_average_fico != null AND weighted_average_fico >= 300 AND weighted_average_fico <= 850 AND weighted_average_fico >= program_min_wa_fico
+  fix_suggestion: Weighted average FICO outside [300, 850] or below program minimum
+  spec_reference: arch-validator.md#5 (abs layer)

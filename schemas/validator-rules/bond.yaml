@@ -1,0 +1,396 @@
+
+asset_class: BOND
+version: "1.0"
+generated_at: "2026-06-06"
+rule_count: 30
+rules:
+  - id: bond-0001
+    name: isin_format
+    description: ISIN must be 12 characters and pass Luhn check (sourced from CSD or ICMA reference).
+    severity: error
+    reject_code: EMS-ORD-6101
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [isin]
+    check:
+      type: custom
+      expression: "len(isin) == 12 AND luhn_check(isin) == 0"
+    fix_suggestion: "Re-fetch from the CSD of record (Euroclear, Clearstream, DTCC); do not synthesize."
+    spec_reference: arch-validator.md#3.2 + ISO 6166
+  - id: bond-0002
+    name: coupon_non_negative
+    description: Coupon (annual) must be a non-negative decimal; zero-coupon is valid only when coupon_type == 'zero'.
+    severity: error
+    reject_code: EMS-ORD-6102
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [coupon, coupon_type]
+    check:
+      type: cross_field
+      expression: "coupon >= 0 AND (coupon == 0 implies coupon_type == 'zero')"
+    fix_suggestion: "Set coupon_type='zero' for discount instruments; do not transmit 0.0 coupon on a fixed bond."
+    spec_reference: arch-validator.md#5.17 + ICMA RBP §3
+  - id: bond-0003
+    name: coupon_within_market
+    description: Coupon should be within 0–25% for investment-grade and 0–50% for HY/EM; outside this is a warning.
+    severity: warning
+    reject_code: EMS-ORD-6103
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [coupon, rating_sp, rating_moody, rating_fitch]
+    check:
+      type: cross_field
+      expression: "coupon <= coupon_max_for_rating(min_rating(rating_sp, rating_moody, rating_fitch))"
+    fix_suggestion: "Verify the input; coupons >50% almost always indicate a misfeed or PIK/penalty instrument."
+    spec_reference: arch-validator.md#5.17
+  - id: bond-0004
+    name: coupon_frequency_valid
+    description: "Coupon frequency must be one of the standard values: 1, 2, 4, 12 (annual, semi, quarterly, monthly) per ICMA conventions."
+    severity: error
+    reject_code: EMS-ORD-6104
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [coupon_frequency]
+    check:
+      type: lookup
+      expression: "coupon_frequency IN [1, 2, 4, 12] OR coupon_type == 'zero'"
+    fix_suggestion: "Most sovereigns and corporates are semi-annual (2); treasuries can also be annual; do not transmit custom frequencies."
+    spec_reference: arch-validator.md#5.18 + ICMA RBP §4.1
+  - id: bond-0005
+    name: day_count_convention_valid
+    description: "Day count convention must be an ISDA-standard: ACT/360, ACT/365, ACT/ACT, 30/360, 30E/360, ACT/ACT-ICMA, ACT/ACT-ISDA."
+    severity: error
+    reject_code: EMS-ORD-6105
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [day_count_convention]
+    check:
+      type: lookup
+      expression: "day_count_convention IN isda_day_counts()"
+    fix_suggestion: "Use ACT/ACT-ICMA for fixed-coupon; ACT/360 for money-market; 30E/360 for EUR corporates."
+    spec_reference: arch-validator.md#5.19 + ISDA 2006 §4.16
+  - id: bond-0006
+    name: issue_before_maturity
+    description: issue_date must strictly precede maturity_date; same-day is permitted only for tap issues.
+    severity: error
+    reject_code: EMS-ORD-6106
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [issue_date, maturity_date, tap_flag]
+    check:
+      type: cross_field
+      expression: "issue_date < maturity_date OR (issue_date == maturity_date AND tap_flag == true)"
+    fix_suggestion: "Verify against the prospectus; OTC trades may have separate trade_date and issue_date."
+    spec_reference: arch-validator.md#5.20
+  - id: bond-0007
+    name: tenor_positive
+    description: Tenor (maturity - issue, in years) must be between 1 day and 100 years; perpetual needs perp_flag.
+    severity: error
+    reject_code: EMS-ORD-6107
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [issue_date, maturity_date, perp_flag]
+    check:
+      type: cross_field
+      expression: "perp_flag OR (maturity_date - issue_date) BETWEEN 1 AND 36525"
+    fix_suggestion: "Set perp_flag for perpetuals; otherwise 100y is the soft cap; consult the desk for long-dated issuance."
+    spec_reference: arch-validator.md#5.20
+  - id: bond-0008
+    name: face_value_positive
+    description: face_value (denomination) must be positive and aligned to currency standards (1k for USD, 100k for JGB, 1k for EUR corporate).
+    severity: error
+    reject_code: EMS-ORD-6108
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [face_value, currency]
+    check:
+      type: lookup
+      expression: "face_value > 0 AND face_value IN face_value_standards(currency)"
+    fix_suggestion: "Round to the standard denomination; OTC blocks must be documented with block_size."
+    spec_reference: arch-validator.md#5.21
+  - id: bond-0009
+    name: seniority_consistent
+    description: Seniority ranking must be one of {senior_secured, senior_unsecured, subordinated, junior_sub, mezzanine, equity_linked} and not conflict with coupon type.
+    severity: error
+    reject_code: EMS-ORD-6109
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [seniority, coupon_type, structured_flag]
+    check:
+      type: cross_field
+      expression: "seniority IN seniority_levels() AND NOT (seniority == 'senior_secured' AND coupon_type == 'pik')"
+    fix_suggestion: "Secured + PIK is rare; verify prospectus or set coupon_type='cash_pik_stepup'."
+    spec_reference: arch-validator.md#5.22
+  - id: bond-0010
+    name: rating_present
+    description: At least one external rating (SP/Moody/Fitch) must be populated for any non-sovereign, non-144A bond.
+    severity: warning
+    reject_code: EMS-ORD-6110
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [rating_sp, rating_moody, rating_fitch, issuer_type, is_144a]
+    check:
+      type: cross_field
+      expression: "is_144a OR issuer_type == 'sovereign' OR (rating_sp != NULL OR rating_moody != NULL OR rating_fitch != NULL)"
+    fix_suggestion: "For 144A/Reg-S issues, ratings are optional but recommended; populate when available."
+    spec_reference: arch-validator.md#5.23
+  - id: bond-0011
+    name: rating_freshness
+    description: Rating timestamps must be within the last 18 months for actively traded issues; older ratings emit a warning.
+    severity: warning
+    reject_code: EMS-ORD-6111
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [rating_sp_ts, rating_moody_ts, rating_fitch_ts]
+    check:
+      type: cross_field
+      expression: "all_ratings_recent([rating_sp_ts, rating_moody_ts, rating_fitch_ts], 548)"
+    fix_suggestion: "Pull refreshed ratings from the agency feed (RRA overlay); stale ratings may mask a downgrade."
+    spec_reference: arch-validator.md#5.23
+  - id: bond-0012
+    name: call_schedule_valid
+    description: When call_schedule is present, the first call date must be on or after issue_date, monotonically increasing, and make-whole fields must be consistent.
+    severity: error
+    reject_code: EMS-ORD-6112
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [call_schedule, make_whole_flag, issue_date]
+    check:
+      type: cross_field
+      expression: "call_schedule == NULL OR (call_schedule[0].date >= issue_date AND monotonic(call_schedule) AND (make_whole_flag == true implies call_schedule[0].premium == 'make_whole'))"
+    fix_suggestion: "Align with the offering circular's call table; if make-whole applies, first call must list a spread/benchmark."
+    spec_reference: arch-validator.md#5.24 + ICMA RBP §6.1
+  - id: bond-0013
+    name: put_schedule_valid
+    description: When put_schedule is present, dates must be monotonically increasing and on coupon payment dates.
+    severity: error
+    reject_code: EMS-ORD-6113
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [put_schedule, coupon_schedule]
+    check:
+      type: cross_field
+      expression: "put_schedule == NULL OR (monotonic(put_schedule) AND put_schedule.dates subset_of coupon_schedule.dates)"
+    fix_suggestion: "Investor puts must be on payment dates per most indentures; double-check the trustee notice."
+    spec_reference: arch-validator.md#5.25
+  - id: bond-0014
+    name: accrual_dates_aligned
+    description: Accrual start_date and end_date must bracket trade_date; accrual_end must equal next coupon_date.
+    severity: error
+    reject_code: EMS-ORD-6114
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [accrual_start, accrual_end, trade_date, coupon_schedule]
+    check:
+      type: cross_field
+      expression: "accrual_start <= trade_date < accrual_end AND accrual_end == next_coupon_date(coupon_schedule, trade_date)"
+    fix_suggestion: "Recompute accrual from issue_date and coupon_frequency; do not cache across coupon boundaries."
+    spec_reference: arch-validator.md#5.26 + ISDA 2006 §4.6
+  - id: bond-0015
+    name: day_count_matches_market
+    description: Day count convention must match the market convention for the currency (30E/360 for EUR, ACT/ACT for US Treasuries, etc.).
+    severity: warning
+    reject_code: EMS-ORD-6115
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [day_count_convention, currency, market_segment]
+    check:
+      type: cross_field
+      expression: "day_count_convention IN market_dcc(currency, market_segment)"
+    fix_suggestion: "Mismatches are common in cross-listed bonds; either correct or attach a 'non-standard' override flag."
+    spec_reference: arch-validator.md#5.19
+  - id: bond-0016
+    name: settlement_t_plus_standards
+    description: Settlement cycle must be T+1 (US treasuries + corporates from May 2024) or T+2 (most other markets) unless explicitly overridden.
+    severity: error
+    reject_code: EMS-ORD-6116
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [settle_type, market_segment, trade_date]
+    check:
+      type: lookup
+      expression: "settle_type IN standard_settlements(market_segment, trade_date)"
+    fix_suggestion: "Default to T+1 for US, T+2 for EU/JP; do not transmit T+3 (legacy) without desk override."
+    spec_reference: arch-validator.md#5.9 + SEC 15c6-1
+  - id: bond-0017
+    name: yield_computable
+    description: "YTM and clean price must be cross-consistent: given clean_price, face, coupon, and maturity, the recomputed YTM must match the yield field within 1bp."
+    severity: error
+    reject_code: EMS-ORD-6117
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [price, yield, coupon, maturity_date, face_value, settle_date]
+    check:
+      type: custom
+      expression: "abs(ytm(price, face_value, coupon, settle_date, maturity_date) - yield) < 0.0001"
+    fix_suggestion: "Use the bond-pricing library (e.g., QuantLib) to recompute; reject on >1bp divergence."
+    spec_reference: arch-validator.md#5.27
+  - id: bond-0018
+    name: accrued_interest_non_negative
+    description: Accrued interest must be non-negative; negative accrual is only valid for ex-coupon trades and requires ex_coupon_flag.
+    severity: warning
+    reject_code: EMS-ORD-6118
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [accrued_interest, ex_coupon_flag]
+    check:
+      type: cross_field
+      expression: "accrued_interest >= 0 OR ex_coupon_flag == true"
+    fix_suggestion: "Set ex_coupon_flag when trading flat of coupon (XD); otherwise the seller receives accrued."
+    spec_reference: arch-validator.md#5.28 + ICMA RBP §7.2
+  - id: bond-0019
+    name: dirty_price_equals_clean_plus_accrued
+    description: dirty_price must equal clean_price + accrued_interest within half a tick.
+    severity: error
+    reject_code: EMS-ORD-6119
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [price, accrued_interest, dirty_price]
+    check:
+      type: cross_field
+      expression: "abs(price + accrued_interest - dirty_price) < (tick_size / 2)"
+    fix_suggestion: "Always transmit either clean_price+accrued or dirty_price; pick one to avoid drift."
+    spec_reference: arch-validator.md#5.27
+  - id: bond-0020
+    name: sinking_fund_valid
+    description: When sinking_fund_flag is true, schedule dates must align with coupon dates and total sink cannot exceed face value.
+    severity: error
+    reject_code: EMS-ORD-6120
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [sinking_fund_flag, sink_schedule, face_value]
+    check:
+      type: cross_field
+      expression: "NOT sinking_fund_flag OR (monotonic(sink_schedule) AND sum(sink_schedule.amount) <= face_value)"
+    fix_suggestion: "Validate against the prospectus; cumulative sink > face is impossible."
+    spec_reference: arch-validator.md#5.29
+  - id: bond-0021
+    name: structured_coupon_components
+    description: Structured (inverse-floater, range-accrual, etc.) bonds must have component legs or a structured_template_id.
+    severity: error
+    reject_code: EMS-ORD-6121
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [structured_flag, structured_template_id, leg_count]
+    check:
+      type: cross_field
+      expression: "NOT structured_flag OR (structured_template_id != NULL AND leg_count >= 1)"
+    fix_suggestion: "Map the instrument to a structured template (e.g., INVERSE_FLOAT, CMS_LINKED); do not use plain coupon=0."
+    spec_reference: arch-validator.md#5.30
+  - id: bond-0022
+    name: tax_withholding_flag
+    description: WH tax flag and treaty rate must be present for cross-border bonds; domestic trades default to 0.
+    severity: error
+    reject_code: EMS-ORD-6122
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [issuer_country, holder_country, wh_tax_rate, treaty_rate]
+    check:
+      type: cross_field
+      expression: "issuer_country == holder_country OR (wh_tax_rate != NULL AND treaty_rate <= wh_tax_rate)"
+    fix_suggestion: "Default to the issuer's statutory rate; treaty rate must be applied via reclaim process, not net payment."
+    spec_reference: arch-validator.md#5.31
+  - id: bond-0023
+    name: isin_cusip_consistent
+    description: When both ISIN and CUSIP are present, the embedded CUSIP must match.
+    severity: error
+    reject_code: EMS-ORD-6123
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [isin, cusip]
+    check:
+      type: cross_field
+      expression: "isin == NULL OR cusip == NULL OR isin_to_cusip(isin) == cusip"
+    fix_suggestion: "Re-derive CUSIP from the ISIN master; mismatch is a hard fail (different seniority/series)."
+    spec_reference: arch-validator.md#3.6
+  - id: bond-0024
+    name: floating_index_valid
+    description: Floating-rate bonds must reference a valid benchmark (SOFR, EURIBOR, SONIA, TONAR, etc.) and a known tenor.
+    severity: error
+    reject_code: EMS-ORD-6124
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [float_index, float_tenor, coupon_type]
+    check:
+      type: cross_field
+      expression: "coupon_type != 'float' OR (float_index IN supported_indices() AND float_tenor IN [1,3,6,12])"
+    fix_suggestion: "Map legacy LIBOR tenors to RFR compounded indices; do not transmit 'LIBOR3M' after discontinuation."
+    spec_reference: arch-validator.md#5.32 + ISDA IBOR Fallbacks
+  - id: bond-0025
+    name: spread_within_band
+    description: Quoted spread (over benchmark) for a FRN should be between -500 and +1500 bps; outside this is a hard reject.
+    severity: error
+    reject_code: EMS-ORD-6125
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [spread_bps, float_index]
+    check:
+      type: cross_field
+      expression: "-500 <= spread_bps <= 1500"
+    fix_suggestion: "Verify against the broker run; >1500bps is almost always a desk error."
+    spec_reference: arch-validator.md#5.32
+  - id: bond-0026
+    name: maturity_market_holiday
+    description: Maturity date that falls on a non-business day in the issuer's primary market must be rolled per Following/Bond-Basis.
+    severity: error
+    reject_code: EMS-ORD-6126
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [maturity_date, market_segment, business_day_convention]
+    check:
+      type: cross_field
+      expression: "maturity_date == adjust(maturity_date, business_day_convention, market_segment)"
+    fix_suggestion: "Apply 'Following' or 'Modified Following' from the bond prospectus; do not leave raw calendar dates."
+    spec_reference: arch-validator.md#5.33 + ISDA 2006 §4.10
+  - id: bond-0027
+    name: outstanding_face_positive
+    description: Outstanding face (amount_outstanding) must be positive and not exceed issue size.
+    severity: error
+    reject_code: EMS-ORD-6127
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [amount_outstanding, issue_size]
+    check:
+      type: cross_field
+      expression: "0 < amount_outstanding <= issue_size"
+    fix_suggestion: "Refresh from the CSD; if it dropped to zero the issue has been fully redeemed."
+    spec_reference: arch-validator.md#5.34
+  - id: bond-0028
+    name: callable_only_above_par
+    description: Call prices for non-make-whole calls must be >= par (100); make-whole calls must specify benchmark and spread.
+    severity: warning
+    reject_code: EMS-ORD-6128
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [call_schedule, make_whole_flag]
+    check:
+      type: cross_field
+      expression: "call_schedule == NULL OR make_whole_flag OR all(c.price >= 100 for c in call_schedule)"
+    fix_suggestion: "Verify against the offering circular; below-par calls exist only for convertibles."
+    spec_reference: arch-validator.md#5.24
+  - id: bond-0029
+    name: cpn_roll_convention
+    description: Coupon payment business-day convention must be one of {Following, Modified Following, Preceding, Unadjusted, End-of-Month}.
+    severity: error
+    reject_code: EMS-ORD-6129
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [roll_convention, business_day_convention]
+    check:
+      type: lookup
+      expression: "roll_convention IN ['FOLLOWING','MOD_FOLLOWING','PRECEDING','UNADJUSTED','EOM']"
+    fix_suggestion: "Default to 'MOD_FOLLOWING' unless the prospectus specifies otherwise."
+    spec_reference: arch-validator.md#5.35 + ISDA 2006 §4.10
+  - id: bond-0030
+    name: reference_entity_consistency
+    description: Single-name CDS-referenced bonds and their underlying reference entity must share the RED code and seniority.
+    severity: error
+    reject_code: EMS-ORD-6130
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [red_code, seniority, issuer_red_code]
+    check:
+      type: cross_field
+      expression: "red_code == NULL OR red_code == issuer_red_code"
+    fix_suggestion: "Map both via the RED database; mismatch means you are hedging a different name than you think."
+    spec_reference: arch-validator.md#5.36 + ISDA CDS DC

@@ -11,4 +11,6 @@ dependencies {
     api(project(":ems-core"))
     api(project(":ems-transport"))
     implementation(project(":ems-aaa"))
+    // 6.4: the rules↔catalog consistency test parses both YAML surfaces.
+    testImplementation(libs.snakeyaml)
 }

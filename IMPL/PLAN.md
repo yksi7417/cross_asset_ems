@@ -72,7 +72,7 @@ starting point for the cheaper tiers, **not** merge-ready.
 
 | Branch | Tasks | Contents | Carry-forward |
 |---|---|---|---|
-| `wip/6.4-validation-rules` | 6.4 | 185 per-asset validation rules, 8 files | `(sonnet)` reject-code reconciliation needed (see note below) |
+| ~~`wip/6.4-validation-rules`~~ | 6.4 | **EXTRACTED + RECONCILED 2026-06-12** — rules renumbered into EMS-ORD-6xxx blocks, catalog extended to 256 codes | done |
 | `wip/6.5-validator-golden` | 6.5 | 47 golden fixtures (wrong category/code scheme) | `(sonnet)` regen against actual catalog (see note below) |
 | ~~`wip/11.2-11.10-fix-adapters`~~ | 11.2–11.10 | **ABANDONED** — all 10 files were empty (1 newline each). Reset to `[ ]`. | Fresh `(gemma)` boilerplate → `(sonnet)` review |
 | ~~`wip/13.2-13.4-observability`~~  | 13.2–13.4 | **EXTRACTED** `6c9601c` — 13.2/13.3 done; 13.4 scaffolded (dashboards at 9/9/6 panels, targets 24/12/12) | 13.4 needs `(sonnet)` panel-count follow-up |
@@ -205,7 +205,7 @@ Hard-reject path. ~1-2 weeks.
 - [x] **6.1** Reject code catalog (`EMS-<CAT>-<NNNN>`) per [[arch-validator]] (gemma) `(eaa7c8f)`
 - [x] **6.2** Layered evaluation pipeline (session → identity → ref → perm → ...) (sonnet) `(b099d4a)`
 - [x] **6.3** Permission denial messages with admin-hint pointers (sonnet) ← blocks: 6.1, 5.3 `(b80b305)`
-- [~] **6.4** Per-asset-class validation rules (gemma first drafts, sonnet review)
+- [x] **6.4** Per-asset-class validation rules (gemma first drafts, sonnet review) — reconciled 2026-06-12: **catalog extended** (not remapped — 185 precise rules onto 26 generic codes would destroy the per-code feedback the desktop renders); per-asset-class blocks in the unused `EMS-ORD-6xxx` range (equity 60xx, bond 61xx, fx 62xx, derivative 63xx, commodity 64xx, crypto 65xx, abs 66xx, loan 67xx — also fixes the draft's triple reuse of EMS-ORD-1001), 185 catalog entries generated from the rules, consistency pinned by `RejectCodeCatalogConsistencyTest` (unique, in-block, catalog-resolving, metadata count)
 - [x] **6.5** Validator golden tests (one per code, full coverage) (gemma) ← blocks: 6.1
 
 ## Phase 7 — OMS Core
@@ -285,6 +285,7 @@ Outbound to the market. ~4-6 weeks.
 - [ ] **11.11** Smart Order Router per [[arch-smart-order-router]] (sonnet)
 - [ ] **11.12** Algo wheel selection strategies (sonnet) ← blocks: 11.11
 - [ ] **11.13** RFQ orchestration per [[arch-rfq]] (sonnet) ← blocks: 11.1
+- [ ] **11.18** RFQ workflow for RFQ-traded instruments (user request 2026-06-12) — ETFs (create/redeem-driven block liquidity), fixed income (corp/govt — already the dominant trading style on MKAX/TWEU-style venues), and other quote-driven instruments: (1) instrument-level `quoteStyle` flag in the security master (ORDER_BOOK / RFQ / BOTH) so the ticket knows which workflow to offer; (2) RFQ lifecycle on the OMS — request → dealer quotes (N respondents, countdown) → accept/decline/expire — distinct FSM from the order path, linked to the resulting execution; (3) desktop RFQ ticket panel: pick instrument + size + side, fire RFQ to selected dealers, live quote ladder with countdown, click-to-accept books the fill into the blotter like any execution; (4) demo edge: mock dealers quoting around the simulated feed for the ETF + bond instruments in DemoUniverse; E2E spec for the workflow ← blocks: 11.13, 18.2
 - [ ] **11.14** RFQ-to-3 enforcement for [[mat|MAT]] swaps (sonnet) ← blocks: 11.13
 - [x] **11.15** FIX venue simulator — venue-side FIX acceptor for end-to-end wire tests (sits alongside the in-process mock 11.2, which stays): session layer (Logon/Heartbeat/TestRequest/SequenceReset + ResendRequest recovery), NewOrderSingle/Cancel/Replace handling with Appendix-D-correct pending states, configurable execution model (ack → partial/full fills, rejects, busts), runs in-process for `ems-it` and standalone via Gradle (sonnet) ← blocks: 11.1 `(04adb49)`
 - [x] **11.16** Broker algo support: FIX `StrategyParameters` / FIXatdl ingestion + algo ticket metadata so broker algos are routable with custom parameters (sonnet) ← blocks: 11.1

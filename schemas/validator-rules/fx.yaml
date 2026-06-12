@@ -1,0 +1,266 @@
+
+asset_class: FX
+version: "1.0"
+generated_at: "2026-06-06"
+rule_count: 20
+rules:
+  - id: fx-0001
+    name: ccy_pair_valid
+    description: base_ccy and quote_ccy must be different ISO 4217 codes; identical pairs are invalid.
+    severity: error
+    reject_code: EMS-ORD-6201
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [base_ccy, quote_ccy]
+    check:
+      type: cross_field
+      expression: "base_ccy != quote_ccy AND base_ccy IN iso4217() AND quote_ccy IN iso4217()"
+    fix_suggestion: "Pick the market-convention pair order (e.g., EURUSD not USDEUR); the FX rule is that base comes first."
+    spec_reference: arch-validator.md#5.37 + ISO 4217
+  - id: fx-0002
+    name: pair_not_blocked
+    description: Currency pair must not be in the desk's blocked-pairs list (e.g., sanctions, NDF-only).
+    severity: error
+    reject_code: EMS-ORD-6202
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [base_ccy, quote_ccy, desk_id]
+    check:
+      type: lookup
+      expression: "(base_ccy, quote_ccy) NOT IN desk_blocked_pairs(desk_id)"
+    fix_suggestion: "Review desk_config.yaml; for sanctioned pairs route to compliance review not the venue."
+    spec_reference: arch-validator.md#5.38
+  - id: fx-0003
+    name: tenor_within_limits
+    description: Tenor (value_date - trade_date) must be within {spot, 1W, 1M, 3M, 6M, 1Y, 2Y} for deliverable forwards unless overridden.
+    severity: error
+    reject_code: EMS-ORD-6203
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [tenor, deliverable, product_type]
+    check:
+      type: cross_field
+      expression: "tenor IN supported_tenors(base_ccy, deliverable, product_type)"
+    fix_suggestion: "Long-dated FX (>2Y) requires desk override and swap-line pricing; NDFs cap at 1Y standard."
+    spec_reference: arch-validator.md#5.39 + FX Global Code
+  - id: fx-0004
+    name: value_date_business_day
+    description: value_date must be a valid business day in both currency calendars; TOM/SPOT computed from trade_date.
+    severity: error
+    reject_code: EMS-ORD-6204
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [value_date, trade_date, base_ccy, quote_ccy]
+    check:
+      type: lookup
+      expression: "is_business_day(value_date, base_ccy) AND is_business_day(value_date, quote_ccy) AND value_date > trade_date"
+    fix_suggestion: "Compute value_date = trade_date + spot_offset(base_ccy, quote_ccy) which handles T+1/T+2 split."
+    spec_reference: arch-validator.md#5.40
+  - id: fx-0005
+    name: ndf_fixing_source
+    description: Non-deliverable forwards must specify a fixing_source on the approved list (e.g., BFIX, WM/Refinitiv, RBI, etc.).
+    severity: error
+    reject_code: EMS-ORD-6205
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [deliverable, fixing_source, product_type]
+    check:
+      type: cross_field
+      expression: "deliverable OR fixing_source IN approved_fixing_sources(quote_ccy)"
+    fix_suggestion: "Use the central-bank source where possible (e.g., RBI for INR); fallback to WM/Refinitiv BFIX."
+    spec_reference: arch-validator.md#5.41 + NDF Template §2
+  - id: fx-0006
+    name: ndf_fixing_date
+    description: NDF fixing_date must equal value_date for 'fixing at maturity' and value_date - 2BD for 'fixing 2BD before' conventions.
+    severity: error
+    reject_code: EMS-ORD-6206
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [deliverable, fixing_date, value_date, fixing_convention]
+    check:
+      type: cross_field
+      expression: "deliverable OR fixing_date == resolve_fixing_date(value_date, fixing_convention, quote_ccy)"
+    fix_suggestion: "Confirm the NDF template; most CNY/INR fix at value_date-2BD; BRL and KRW fix at value_date."
+    spec_reference: arch-validator.md#5.41
+  - id: fx-0007
+    name: ndf_eligibility
+    description: NDF product is permitted only for currencies on the NDF-eligible list (CNY, INR, KRW, BRL, TWD, RUB historical, etc.).
+    severity: error
+    reject_code: EMS-ORD-6207
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [deliverable, quote_ccy]
+    check:
+      type: cross_field
+      expression: "deliverable OR quote_ccy IN ndf_eligible_ccys()"
+    fix_suggestion: "All other crosses must be DF (deliverable); converting a deliverable ccy to NDF is a violation."
+    spec_reference: arch-validator.md#5.42
+  - id: fx-0008
+    name: spot_value_date_aligned
+    description: SPOT value_date must be T+1 (USD/CAD/EUR/GBP) or T+2 (rest) per CLS calendar; reject misalignments.
+    severity: error
+    reject_code: EMS-ORD-6208
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [tenor, value_date, trade_date, base_ccy, quote_ccy]
+    check:
+      type: cross_field
+      expression: "tenor != 'SPOT' OR value_date == trade_date + cls_spot_offset(base_ccy, quote_ccy)"
+    fix_suggestion: "Use cls_session.py to compute the spot value date; do not hard-code T+2."
+    spec_reference: arch-validator.md#5.43 + CLS Calendar
+  - id: fx-0009
+    name: pip_precision
+    description: Quoted price precision must be 4 decimals for JPY pairs and 4 for most pairs (5 for FX swaps).
+    severity: error
+    reject_code: EMS-ORD-6209
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [price, base_ccy, quote_ccy, product_type]
+    check:
+      type: cross_field
+      expression: "decimal_places(price) == pip_decimals(quote_ccy, product_type)"
+    fix_suggestion: "Round to 4 dp (5 for JPY) for spot/fwd; FX swaps conventionally 5 dp; NDFs to 4 dp."
+    spec_reference: arch-validator.md#5.44
+  - id: fx-0010
+    name: notional_positive
+    description: Trade notional in base_ccy must be a positive multiple of 1M for institutional flow; sub-1M is allowed for retail.
+    severity: error
+    reject_code: EMS-ORD-6210
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [notional_base, channel]
+    check:
+      type: cross_field
+      expression: "notional_base > 0 AND (channel == 'retail' OR notional_base >= 1000000)"
+    fix_suggestion: "Aggregate sub-1M trades into a parent block or route to a retail-tier venue."
+    spec_reference: arch-validator.md#5.45
+  - id: fx-0011
+    name: cut_off_time
+    description: Trade must be received before the venue's cut-off for the tenor (typically 17:00 NY for spot, 16:00 for forwards).
+    severity: error
+    reject_code: EMS-ORD-6211
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [trade_ts, tenor, venue]
+    check:
+      type: lookup
+      expression: "trade_ts <= venue_cutoff(venue, tenor, today())"
+    fix_suggestion: "If past cut-off, value_date rolls to next business day; reject TOM/SPOT same-day submissions."
+    spec_reference: arch-validator.md#5.46
+  - id: fx-0012
+    name: fixing_offset_positive
+    description: NDF fixing offset from value_date must be 0, 1, or 2 business days.
+    severity: error
+    reject_code: EMS-ORD-6212
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [fixing_offset_bd, deliverable]
+    check:
+      type: cross_field
+      expression: "deliverable OR fixing_offset_bd IN [0, 1, 2]"
+    fix_suggestion: "Stick to market conventions: 2BD for most Asian NDFs, 0BD for LATAM."
+    spec_reference: arch-validator.md#5.47
+  - id: fx-0013
+    name: ccy_pair_product
+    description: Product type must be valid for the pair (e.g., NDF only for restricted pairs, NDS only for major pairs).
+    severity: error
+    reject_code: EMS-ORD-6213
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [product_type, base_ccy, quote_ccy]
+    check:
+      type: lookup
+      expression: "product_type IN allowed_products(base_ccy, quote_ccy)"
+    fix_suggestion: "Check the product matrix in config; NDS not supported on CNY/NDF pairs."
+    spec_reference: arch-validator.md#5.48
+  - id: fx-0014
+    name: swap_near_far_leg
+    description: FX swap must have two legs with opposite signs, value_date_near < value_date_far, and consistent notionals.
+    severity: error
+    reject_code: EMS-ORD-6214
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [product_type, near_leg, far_leg, base_ccy, quote_ccy]
+    check:
+      type: cross_field
+      expression: "product_type != 'FX_SWAP' OR (near_leg.qty == -far_leg.qty AND near_leg.value_date < far_leg.value_date AND near_leg.ccy == far_leg.ccy)"
+    fix_suggestion: "Verify the swap sign convention; near leg is always opposite sign of far leg."
+    spec_reference: arch-validator.md#5.49
+  - id: fx-0015
+    name: nondeliverable_ccy_for_ndf_only
+    description: If deliverable is false, the quote_ccy must be in the NDF set; if true, must NOT be in the NDF set.
+    severity: error
+    reject_code: EMS-ORD-6215
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [deliverable, quote_ccy]
+    check:
+      type: cross_field
+      expression: "(deliverable AND quote_ccy NOT IN ndf_eligible_ccys()) OR (NOT deliverable AND quote_ccy IN ndf_eligible_ccys())"
+    fix_suggestion: "NDFs on deliverable pairs (e.g., EURUSD) are not allowed; check your book correctly."
+    spec_reference: arch-validator.md#5.42
+  - id: fx-0016
+    name: fixing_source_rating
+    description: For sanctioned-jurisdiction currencies, fixing_source must be from an independent vendor (not a state source).
+    severity: error
+    reject_code: EMS-ORD-6216
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [fixing_source, quote_ccy, sanctions_flag]
+    check:
+      type: cross_field
+      expression: "NOT sanctions_flag OR fixing_source IN independent_fixings()"
+    fix_suggestion: "Use WM/Refinitiv or Bloomberg BFIX for sanctioned pairs; do not transmit central-bank fixings."
+    spec_reference: arch-validator.md#5.50
+  - id: fx-0017
+    name: option_strike_positive
+    description: FX option strike must be positive; barrier level must be on correct side of spot at trade time.
+    severity: error
+    reject_code: EMS-ORD-6217
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [strike, barrier_level, spot, product_type, barrier_type]
+    check:
+      type: cross_field
+      expression: "strike > 0 AND (barrier_level == NULL OR (barrier_type IN ['up_and_out','up_and_in'] implies barrier_level > spot) AND (barrier_type IN ['down_and_out','down_and_in'] implies barrier_level < spot))"
+    fix_suggestion: "For KO barriers, 'up' barriers must be above spot at inception; 'down' barriers below."
+    spec_reference: arch-validator.md#5.51
+  - id: fx-0018
+    name: notional_currency_consistent
+    description: Notional currency must equal the product's base or quote per convention; reject otherwise.
+    severity: error
+    reject_code: EMS-ORD-6218
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [notional_ccy, base_ccy, quote_ccy, product_type]
+    check:
+      type: cross_field
+      expression: "notional_ccy == base_ccy OR notional_ccy == quote_ccy"
+    fix_suggestion: "If quoting in a third ccy, you must first triangulate or use a synthetic pair."
+    spec_reference: arch-validator.md#5.52
+  - id: fx-0019
+    name: delivery_date_business_day_both
+    description: value_date must be a CLS-eligible settlement day for BOTH currencies; reject non-CLS days.
+    severity: error
+    reject_code: EMS-ORD-6219
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [value_date, base_ccy, quote_ccy, cls_eligible]
+    check:
+      type: cross_field
+      expression: "NOT cls_eligible OR is_cls_settle(value_date, base_ccy, quote_ccy)"
+    fix_suggestion: "Use the CLS calendar; for non-CLS pairs (most NDF currencies) this is moot."
+    spec_reference: arch-validator.md#5.53 + CLS Rules
+  - id: fx-0020
+    name: forward_points_within_band
+    description: Forward points (in pips) must be within ±3× the historical 30-day standard deviation for the tenor.
+    severity: warning
+    reject_code: EMS-ORD-6220
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [forward_points, tenor, base_ccy, quote_ccy]
+    check:
+      type: cross_field
+      expression: "abs(forward_points) <= 3 * fwd_sigma(base_ccy, quote_ccy, tenor, 30)"
+    fix_suggestion: "If breached, this is likely a fat-finger or stale quote; pull the live forward from the curve."
+    spec_reference: arch-validator.md#5.54

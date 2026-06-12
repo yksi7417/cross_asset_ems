@@ -1,0 +1,331 @@
+
+asset_class: EQUITY
+version: "1.0"
+generated_at: "2026-06-06"
+rule_count: 25
+rules:
+  - id: equity-0001
+    name: ticker_format
+    description: Ticker symbol must be 1-12 uppercase alphanumeric characters; class-share dots are permitted only on exchanges that allow them.
+    severity: error
+    reject_code: EMS-ORD-6001
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [ticker]
+    check:
+      type: regex
+      expression: "regex_match(ticker, '^[A-Z0-9\\.]{1,12}$') AND exchange_mic != 'XLON' ? no_dots(ticker) : true"
+    fix_suggestion: "Verify the symbol in the listing exchange's reference data feed; do not transmit exchange suffixes inline."
+    spec_reference: arch-validator.md#5.1 + ISO 6166
+  - id: equity-0002
+    name: figi_format
+    description: FIGI must be a 12-character BSID; check digit must validate per ISO 18774.
+    severity: error
+    reject_code: EMS-ORD-6002
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [figi]
+    check:
+      type: custom
+      expression: "len(figi) == 12 AND figi_checksum(figi) == 0"
+    fix_suggestion: "Re-fetch the FIGI from the identifier-mapping service before retransmit."
+    spec_reference: arch-validator.md#3.1 + ISO 18774 §6
+  - id: equity-0003
+    name: isin_format
+    description: "ISIN must be 12 characters: 2-letter ISO 3166-1 country code, 9 alphanumerics, 1 numeric Luhn check digit (per ISO 6166)."
+    severity: error
+    reject_code: EMS-ORD-6003
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [isin]
+    check:
+      type: custom
+      expression: "len(isin) == 12 AND isin[0:2] IN iso_country_codes AND luhn_check(isin) == 0"
+    fix_suggestion: "Validate the ISIN with the ANNA Service Bureau; reject the order if the response is 'not allocated'."
+    spec_reference: arch-validator.md#3.2 + ISO 6166:2021
+  - id: equity-0004
+    name: cusip_format
+    description: CUSIP must be 9 characters with a valid Mod-10 check digit issued by CUSIP Global Services.
+    severity: error
+    reject_code: EMS-ORD-6004
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [cusip]
+    check:
+      type: custom
+      expression: "len(cusip) == 9 AND cusip_check_digit(cusip) == 0"
+    fix_suggestion: "Confirm the CUSIP is not in the 'restricted' list; consult CGS before retransmit."
+    spec_reference: arch-validator.md#3.3 + CUSIP Standard §3
+  - id: equity-0005
+    name: sedol_format
+    description: SEDOL must be 7 characters with a valid check digit (only required when instrument is GB or IE listed).
+    severity: warning
+    reject_code: EMS-ORD-6005
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [sedol]
+    check:
+      type: custom
+      expression: "sedol == NULL OR (len(sedol) == 7 AND sedol_check_digit(sedol) == 0)"
+    fix_suggestion: "SEDOL is optional for non-UK/Ireland listings; if populated it must be valid."
+    spec_reference: arch-validator.md#3.4 + LSE TD-141
+  - id: equity-0006
+    name: mic_valid
+    description: Exchange MIC must be a registered ISO 10383 Market Identifier Code that is currently 'active' or 'open' in the ALMIC table.
+    severity: error
+    reject_code: EMS-ORD-6006
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [exchange_mic]
+    check:
+      type: lookup
+      expression: "exchange_mic IN almic_active_mics()"
+    fix_suggestion: "Use the venue's primary MIC; segment MICs (e.g., XNYS-ELO) require venue-segment config flag."
+    spec_reference: arch-validator.md#4.1 + ISO 10383
+  - id: equity-0007
+    name: currency_iso_valid
+    description: Instrument currency must be a registered ISO 4217 active currency code.
+    severity: error
+    reject_code: EMS-ORD-6007
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [currency]
+    check:
+      type: lookup
+      expression: "currency IN iso4217_active()"
+    fix_suggestion: "Historical currency codes (e.g., DEM) are not accepted; convert the position to EUR."
+    spec_reference: arch-validator.md#5.2 + ISO 4217
+  - id: equity-0008
+    name: tick_size_positive
+    description: Tick size must be a positive decimal drawn from the venue's published tick table.
+    severity: error
+    reject_code: EMS-ORD-6008
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [tick_size, exchange_mic]
+    check:
+      type: lookup
+      expression: "tick_size > 0 AND tick_size IN venue_tick_table(exchange_mic, last_price_band)"
+    fix_suggestion: "Pull tick size from market-data snapshot for the security; do not hard-code."
+    spec_reference: arch-validator.md#5.3 + Reg NMS Rule 612
+  - id: equity-0009
+    name: lot_size_positive
+    description: Round-lot size must be a positive integer; odd-lot flag must be set when below round-lot.
+    severity: error
+    reject_code: EMS-ORD-6009
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [lot_size, qty, odd_lot_flag]
+    check:
+      type: cross_field
+      expression: "lot_size > 0 AND (qty % lot_size == 0 OR odd_lot_flag == true)"
+    fix_suggestion: "If trading sub-lot, set odd_lot_flag and ensure route is enabled for odd-lots."
+    spec_reference: arch-validator.md#5.4
+  - id: equity-0010
+    name: market_hours_set
+    description: Either both market_open_time and market_close_time are populated, or both are null (for 24-hour venues).
+    severity: error
+    reject_code: EMS-ORD-6010
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [market_open_time, market_close_time]
+    check:
+      type: cross_field
+      expression: "(market_open_time != NULL AND market_close_time != NULL) OR (market_open_time == NULL AND market_close_time == NULL)"
+    fix_suggestion: "Leave null for 24-hour venues; for scheduled sessions, both must be set in exchange-local TZ."
+    spec_reference: arch-validator.md#5.5
+  - id: equity-0011
+    name: market_open_before_close
+    description: market_open_time must strictly precede market_close_time on the same trading day.
+    severity: error
+    reject_code: EMS-ORD-6011
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [market_open_time, market_close_time]
+    check:
+      type: cross_field
+      expression: "market_open_time < market_close_time"
+    fix_suggestion: "Confirm timezone (DST-aware) and that you are not crossing midnight; split into two sessions if so."
+    spec_reference: arch-validator.md#5.5
+  - id: equity-0012
+    name: price_within_tick
+    description: Limit/stop price must be a multiple of tick_size for the security on this venue.
+    severity: error
+    reject_code: EMS-ORD-6012
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [price, tick_size]
+    check:
+      type: cross_field
+      expression: "ord_type IN ['limit','stop_limit','stop'] AND fmod(price, tick_size) == 0.0"
+    fix_suggestion: "Round price to nearest tick; reject if rounding violates minimum increment."
+    spec_reference: arch-validator.md#5.3
+  - id: equity-0013
+    name: price_positive_limit
+    description: Limit price must be strictly positive on long-orders and strictly negative for short instructions.
+    severity: error
+    reject_code: EMS-ORD-6013
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [price, side]
+    check:
+      type: cross_field
+      expression: "(side == 'buy' AND price > 0) OR (side == 'sell_short' AND price > 0) OR (side == 'sell' AND price >= 0)"
+    fix_suggestion: "Negative prices only valid for reverse-splits/overnight auctions; verify instrument override."
+    spec_reference: arch-validator.md#5.6
+  - id: equity-0014
+    name: ticker_figi_consistent
+    description: Ticker and FIGI must resolve to the same security in the issuer master table; mismatch is a hard reject.
+    severity: error
+    reject_code: EMS-ORD-6014
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [ticker, figi]
+    check:
+      type: cross_field
+      expression: "resolve(ticker, exchange_mic) == resolve(figi)"
+    fix_suggestion: "Rebuild the order from a single identifier source; do not mix ticker-from-blotter with figi-from-news."
+    spec_reference: arch-validator.md#3.5
+  - id: equity-0015
+    name: isin_cusip_consistent
+    description: When both ISIN and CUSIP are present, the derived CUSIP must equal the cusip field (first 9 chars of ISIN-base).
+    severity: error
+    reject_code: EMS-ORD-6015
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [isin, cusip]
+    check:
+      type: cross_field
+      expression: "isin == NULL OR cusip == NULL OR isin_to_cusip(isin) == cusip"
+    fix_suggestion: "Pick a single source-of-truth identifier; populating both invites drift."
+    spec_reference: arch-validator.md#3.6
+  - id: equity-0016
+    name: security_status_active
+    description: Security status must be 'active' in the venue reference snapshot at order entry time.
+    severity: error
+    reject_code: EMS-ORD-6016
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [security_status, exchange_mic]
+    check:
+      type: lookup
+      expression: "security_status == 'active'"
+    fix_suggestion: "Halt routed orders if security is suspended/paused; cancel and notify user."
+    spec_reference: arch-validator.md#5.7
+  - id: equity-0017
+    name: corporate_action_block
+    description: Block new orders when an ex-date corporate action is scheduled within the settlement window of the order.
+    severity: error
+    reject_code: EMS-ORD-6017
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [figi, settle_date, corporate_action_flag]
+    check:
+      type: lookup
+      expression: "NOT ca_imminent(figi, trade_date, settle_date)"
+    fix_suggestion: "Wait for record-date settlement or use settle-date <= ex-date - 1; alert PM."
+    spec_reference: arch-validator.md#5.8
+  - id: equity-0018
+    name: settlement_type_valid
+    description: Settlement type must be supported by the exchange (T+1, T+2, T+3, cash, SDF) and consistent with the security's market.
+    severity: error
+    reject_code: EMS-ORD-6018
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [settle_type, exchange_mic]
+    check:
+      type: lookup
+      expression: "settle_type IN exchange_supported_settlements(exchange_mic)"
+    fix_suggestion: "Default to T+1 for US/CA, T+2 for EU; FX-settled trades need leg-pair config."
+    spec_reference: arch-validator.md#5.9 + SEC Rule 15c6-1
+  - id: equity-0019
+    name: trade_date_business_day
+    description: Trade date must be a valid business day on the instrument's primary exchange.
+    severity: error
+    reject_code: EMS-ORD-6019
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [trade_date, exchange_mic]
+    check:
+      type: lookup
+      expression: "is_business_day(trade_date, exchange_mic) AND trade_date <= today()"
+    fix_suggestion: "Use the venue holiday calendar; weekends/holidays default to next business day."
+    spec_reference: arch-validator.md#5.10
+  - id: equity-0020
+    name: luld_band_check
+    description: Order price must be within the Limit-Up/Limit-Down band published by the primary listing exchange (state error if breached).
+    severity: error
+    reject_code: EMS-ORD-6020
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [price, figi]
+    check:
+      type: lookup
+      expression: "price BETWEEN luld_lower(figi) AND luld_upper(figi)"
+    fix_suggestion: "Pull LULD bands within the last 100ms; if breached, switch to auction order type or wait for re-strategy."
+    spec_reference: arch-validator.md#5.11 + LULD Plan
+  - id: equity-0021
+    name: min_qty_enforced
+    description: Order quantity must meet the venue's minimum fill quantity, or 'all-or-none' must be set.
+    severity: error
+    reject_code: EMS-ORD-6021
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [qty, min_qty, aon_flag, exchange_mic]
+    check:
+      type: cross_field
+      expression: "qty >= venue_min_qty(exchange_mic) OR aon_flag == true"
+    fix_suggestion: "Set aon_flag=true for sub-minimum orders; otherwise bump qty up to round-lot."
+    spec_reference: arch-validator.md#5.12
+  - id: equity-0022
+    name: isin_country_exchange
+    description: ISIN country code should match the primary listing exchange's domicile; mismatch is a warning.
+    severity: warning
+    reject_code: EMS-ORD-6022
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [isin, exchange_mic]
+    check:
+      type: cross_field
+      expression: "isin[0:2] == mic_country(exchange_mic)"
+    fix_suggestion: "Cross-listed securities (ADRs, GDRs) are valid; suppress warning with desk-level override."
+    spec_reference: arch-validator.md#5.13
+  - id: equity-0023
+    name: delisted_security_block
+    description: Block orders for securities whose delist_date is in the past (state condition error).
+    severity: error
+    reject_code: EMS-ORD-6023
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [figi, delist_date]
+    check:
+      type: lookup
+      expression: "delist_date == NULL OR delist_date > today()"
+    fix_suggestion: "Close any open positions in the de-listed name; do not re-transmit orders."
+    spec_reference: arch-validator.md#5.14
+  - id: equity-0024
+    name: short_marking_required
+    description: Short-sale orders must carry a locate_source and a locate_timestamp within the locate window.
+    severity: error
+    reject_code: EMS-ORD-6024
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [side, locate_source, locate_timestamp]
+    check:
+      type: cross_field
+      expression: "side != 'sell_short' OR (locate_source != NULL AND locate_timestamp != NULL AND (now() - locate_timestamp) < locate_max_age)"
+    fix_suggestion: "Refresh locate from the borrow-desk feed before sending short orders."
+    spec_reference: arch-validator.md#5.15 + Reg SHO 201
+  - id: equity-0025
+    name: auction_session_hours
+    description: Auction orders (MOC, LOC, OPO) must be within the venue's auction acceptance window.
+    severity: error
+    reject_code: EMS-ORD-6025
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [ord_type, exchange_mic, accept_time]
+    check:
+      type: lookup
+      expression: "ord_type NOT IN ['market_on_close','limit_on_close','opening'] OR accept_time IN auction_window(exchange_mic, ord_type)"
+    fix_suggestion: "Submit auction orders before the cut-off (e.g., 15:50 ET for MOC on NYSE); reject after."
+    spec_reference: arch-validator.md#5.16

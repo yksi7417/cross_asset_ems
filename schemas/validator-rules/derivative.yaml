@@ -1,0 +1,461 @@
+
+asset_class: DERIVATIVE
+version: "1.0"
+generated_at: "2026-06-06"
+rule_count: 35
+rules:
+  - id: derivative-0001
+    name: underlying_exists
+    description: Underlying instrument must resolve in the reference data store and have status 'active'.
+    severity: error
+    reject_code: EMS-ORD-6301
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [underlying, underlying_type]
+    check:
+      type: lookup
+      expression: "resolve(underlying, underlying_type).status == 'active'"
+    fix_suggestion: "Refresh the underlying from the security-master; do not transmit a derived/parent index id without expansion."
+    spec_reference: arch-validator.md#3.7
+  - id: derivative-0002
+    name: strike_positive
+    description: Strike price must be positive for all single-name options and structured products.
+    severity: error
+    reject_code: EMS-ORD-6302
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [strike, product_type]
+    check:
+      type: cross_field
+      expression: "product_type IN ['OPTION','BARRIER','DIGITAL','VAR_SWAP'] implies strike > 0"
+    fix_suggestion: "Negative strikes are not supported; for commodity options with negative forward (e.g., power), use structured template."
+    spec_reference: arch-validator.md#5.55
+  - id: derivative-0003
+    name: expiry_after_trade_date
+    description: expiry must be strictly after trade_date; same-day expiry only for 'daily' options on the underlying.
+    severity: error
+    reject_code: EMS-ORD-6303
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [expiry, trade_date, daily_flag]
+    check:
+      type: cross_field
+      expression: "expiry > trade_date OR (expiry == trade_date AND daily_flag == true)"
+    fix_suggestion: "For 0DTE options, set daily_flag and confirm the underlying supports daily expiries."
+    spec_reference: arch-validator.md#5.56
+  - id: derivative-0004
+    name: exercise_style_valid
+    description: exercise_style must be one of {American, European, Bermuda, Asian, Compound} and supported for this product.
+    severity: error
+    reject_code: EMS-ORD-6304
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [exercise_style, product_type, underlying_type]
+    check:
+      type: lookup
+      expression: "exercise_style IN supported_exercise(product_type, underlying_type)"
+    fix_suggestion: "Equity options: American/European; FX options: European only; Swaptions: European/Bermuda."
+    spec_reference: arch-validator.md#5.57 + OCC rules
+  - id: derivative-0005
+    name: option_type_valid
+    description: option_type must be 'call' or 'put' for vanilla; 'binary_call'/'binary_put' for digitals.
+    severity: error
+    reject_code: EMS-ORD-6305
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [option_type, barrier_type, payoff_type]
+    check:
+      type: cross_field
+      expression: "payoff_type == 'vanilla' implies option_type IN ['call','put']; payoff_type == 'binary' implies option_type IN ['binary_call','binary_put']"
+    fix_suggestion: "Use 'binary_call' instead of 'call' for cash-or-nothing; 'binary_put' for put-binary."
+    spec_reference: arch-validator.md#5.58
+  - id: derivative-0006
+    name: contract_size_positive
+    description: contract_size (multiplier) must be positive; for listed futures, must match the exchange specification.
+    severity: error
+    reject_code: EMS-ORD-6306
+    applies_to:
+      template_ids: ["0x0201", "0x0101"]
+      fields: [contract_size, product_type, exchange_mic]
+    check:
+      type: lookup
+      expression: "contract_size > 0 AND (product_type != 'FUTURE' OR contract_size == exchange_spec(underlying, exchange_mic).multiplier)"
+    fix_suggestion: "Pull the spec from the exchange's product catalog; do not hard-code (e.g., ES = 50, NQ = 20)."
+    spec_reference: arch-validator.md#5.59
+  - id: derivative-0007
+    name: settlement_type_valid
+    description: settlement_type must be {Cash, Physical, CashPhysicalOptional} and supported by the venue.
+    severity: error
+    reject_code: EMS-ORD-6307
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [settlement_type, product_type, exchange_mic]
+    check:
+      type: lookup
+      expression: "settlement_type IN supported_settlement(product_type, exchange_mic)"
+    fix_suggestion: "Cash settled is default for index options; physical for single-stock delivery; FX options are physical (cash in ccy1)."
+    spec_reference: arch-validator.md#5.60
+  - id: derivative-0008
+    name: premium_positive
+    description: Premium (option price) must be non-negative; zero is permitted for gratuitous options but flagged.
+    severity: warning
+    reject_code: EMS-ORD-6308
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [premium, product_type]
+    check:
+      type: cross_field
+      expression: "premium >= 0 AND (premium > 0 OR gratuitous_flag == true)"
+    fix_suggestion: "For stock-grant options set gratuitous_flag=true; otherwise the option should have positive cost."
+    spec_reference: arch-validator.md#5.61
+  - id: derivative-0009
+    name: barrier_consistency
+    description: Barrier level must be on the correct side of strike; double barrier levels must be ordered.
+    severity: error
+    reject_code: EMS-ORD-6309
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [barrier_level, strike, barrier_type, option_type]
+    check:
+      type: cross_field
+      expression: "(barrier_type IN ['up_and_out','up_and_in'] implies barrier_level > strike) AND (barrier_type IN ['down_and_out','down_and_in'] implies barrier_level < strike)"
+    fix_suggestion: "Up-and-out calls: barrier > strike; down-and-out puts: barrier < strike."
+    spec_reference: arch-validator.md#5.62
+  - id: derivative-0010
+    name: irs_leg_consistency
+    description: "IRS must have exactly two legs: one fixed (rate, day count, freq) and one floating (index, tenor, freq)."
+    severity: error
+    reject_code: EMS-ORD-6310
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [legs, product_type]
+    check:
+      type: cross_field
+      expression: "product_type != 'IRS' OR (len(legs) == 2 AND one(legs, fixed) AND one(legs, float) AND legs[0].ccy == legs[1].ccy)"
+    fix_suggestion: "Use the IRS template (pay/receive fixed vs float); legs must share notional and ccy."
+    spec_reference: arch-validator.md#5.63 + ISDA CDM
+  - id: derivative-0011
+    name: irs_leg_same_notional
+    description: Both IRS legs must have identical notional, currency, and effective_date; mismatches are rejects.
+    severity: error
+    reject_code: EMS-ORD-6311
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [legs, product_type]
+    check:
+      type: cross_field
+      expression: "product_type != 'IRS' OR (legs[0].notional == legs[1].notional AND legs[0].ccy == legs[1].ccy AND legs[0].effective_date == legs[1].effective_date)"
+    fix_suggestion: "Use a single notional at the trade level; leg-level notionals must match for vanilla IRS."
+    spec_reference: arch-validator.md#5.63
+  - id: derivative-0012
+    name: irs_pay_freq_valid
+    description: Pay frequency for each leg must be one of {1M, 3M, 6M, 12M} (in months); non-standard requires a structured flag.
+    severity: error
+    reject_code: EMS-ORD-6312
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [leg_pay_freq, product_type, structured_flag]
+    check:
+      type: cross_field
+      expression: "all(leg_pay_freq IN [1,3,6,12] for l in legs) OR structured_flag == true"
+    fix_suggestion: "Most IRS are semi-annual fixed / quarterly float; switch to structured for OIS compounding."
+    spec_reference: arch-validator.md#5.64
+  - id: derivative-0013
+    name: irs_float_index_valid
+    description: Floating leg index must be a supported RFR or legacy IBOR with fallback to compounded RFR.
+    severity: error
+    reject_code: EMS-ORD-6313
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [leg_float_index, leg_float_tenor]
+    check:
+      type: cross_field
+      expression: "leg_float_index IN supported_float_indices()"
+    fix_suggestion: "Use SOFR (USD), ESTR (EUR), SONIA (GBP), TONAR (JPY); flag any 'USD-LIBOR' as deprecated."
+    spec_reference: arch-validator.md#5.65 + ISDA 2020 Fallbacks
+  - id: derivative-0014
+    name: cds_reference_entity_valid
+    description: CDS reference entity must resolve in the RED database; senior unsecured must match the standard.
+    severity: error
+    reject_code: EMS-ORD-6314
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [cds_reference_entity, cds_seniority, cds_series]
+    check:
+      type: lookup
+      expression: "resolve_red(cds_reference_entity, cds_seniority) != NULL AND cds_series IN [1..14]"
+    fix_suggestion: "Use the RED picker; standard CDS is Series 14 (2014 ISDA Definitions)."
+    spec_reference: arch-validator.md#5.66 + ISDA CDS DC
+  - id: derivative-0015
+    name: cds_spread_positive
+    description: CDS spread (running coupon) must be positive and within the par-rate band (5-1500bps for HY, 1-300 for IG).
+    severity: error
+    reject_code: EMS-ORD-6315
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [cds_spread, cds_reference_entity]
+    check:
+      type: cross_field
+      expression: "1 <= cds_spread <= 2000 AND cds_spread < 5 * par_spread(cds_reference_entity, cds_seniority)"
+    fix_suggestion: "Par-spread engine can give you the level; spreads >5x par indicate a stressed name or error."
+    spec_reference: arch-validator.md#5.66
+  - id: derivative-0016
+    name: cds_recovery_in_band
+    description: CDS recovery rate assumption must be in [0.0, 0.8]; standard is 0.4 for senior unsecured.
+    severity: error
+    reject_code: EMS-ORD-6316
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [cds_recovery, cds_seniority]
+    check:
+      type: cross_field
+      expression: "0.0 <= cds_recovery <= 0.8 AND (cds_seniority == 'SNRFOR' implies cds_recovery == 0.4)"
+    fix_suggestion: "Default 40% for senior; subordinated uses 20% per ISDA standard; do not transmit 0% or 100%."
+    spec_reference: arch-validator.md#5.66 + ISDA 2014 §3
+  - id: derivative-0017
+    name: cds_maturity_aligned
+    description: "CDS maturity must be one of the standard tenors: 3M, 6M, 1Y, 2Y, 3Y, 4Y, 5Y, 7Y, 10Y, 20Y, 30Y."
+    severity: error
+    reject_code: EMS-ORD-6317
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [cds_maturity, product_type]
+    check:
+      type: cross_field
+      expression: "product_type != 'CDS' OR cds_maturity IN [0.25, 0.5, 1, 2, 3, 4, 5, 7, 10, 20, 30]"
+    fix_suggestion: "Off-the-run tenors (e.g., 8Y) can be quoted but are not standard; use IMM rolls for ≥1Y."
+    spec_reference: arch-validator.md#5.66
+  - id: derivative-0018
+    name: future_expiry_spec_match
+    description: Listed future expiry must be a contract code that exists in the exchange spec (e.g., ESZ5 = Dec 2025).
+    severity: error
+    reject_code: EMS-ORD-6318
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [contract_code, product_type, exchange_mic]
+    check:
+      type: lookup
+      expression: "contract_code IN active_contracts(underlying, exchange_mic, trade_date)"
+    fix_suggestion: "Pull the contract calendar from the exchange (CME: ES=Equity, CL=Crude); use the front-month logic."
+    spec_reference: arch-validator.md#5.67 + exchange specs
+  - id: derivative-0019
+    name: listed_option_monthly_weekly
+    description: Listed option series must follow the venue's monthly/weekly/daily symbol convention.
+    severity: error
+    reject_code: EMS-ORD-6319
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [option_series, product_type, exchange_mic]
+    check:
+      type: lookup
+      expression: "option_series IN available_series(underlying, exchange_mic, expiry)"
+    fix_suggestion: "Weekly listings follow the Friday-cycle (e.g., SPY W1, W2, W3, W4); OPRA symbol format is fixed."
+    spec_reference: arch-validator.md#5.68 + OPRA
+  - id: derivative-0020
+    name: fx_option_premium_currency
+    description: FX vanilla option premium must be quoted in either base_ccy or quote_ccy, not a third currency.
+    severity: error
+    reject_code: EMS-ORD-6320
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [premium_ccy, base_ccy, quote_ccy, product_type]
+    check:
+      type: cross_field
+      expression: "product_type != 'FX_OPTION' OR premium_ccy IN [base_ccy, quote_ccy]"
+    fix_suggestion: "Use the convention 'premium in foreign ccy for call' (per Cutilli/options-style) to avoid drift."
+    spec_reference: arch-validator.md#5.69
+  - id: derivative-0021
+    name: swaption_expiry_before_swap
+    description: Swaption expiry must be strictly before the underlying swap's start_date (typically start-1BD or exercise lag).
+    severity: error
+    reject_code: EMS-ORD-6321
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [expiry, swap_start, product_type]
+    check:
+      type: cross_field
+      expression: "product_type != 'SWAPTION' OR expiry <= swap_start - lag(currency)"
+    fix_suggestion: "Default lag is 2BD for EUR and 1BD for USD; check the market-standard cash-settled swaption."
+    spec_reference: arch-validator.md#5.70 + ISDA 2006
+  - id: derivative-0022
+    name: cap_floor_strike_aligned
+    description: Cap/floor strike must match one of the strike levels available on the strike ladder.
+    severity: error
+    reject_code: EMS-ORD-6322
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [strike, product_type, leg_float_index]
+    check:
+      type: lookup
+      expression: "product_type NOT IN ['CAP','FLOOR'] OR strike IN strike_ladder(leg_float_index, maturity)"
+    fix_suggestion: "Strike ladder is typically 25bp increments for SOFR/SONIA; ESTR caps in 12.5bp for OIS."
+    spec_reference: arch-validator.md#5.71
+  - id: derivative-0023
+    name: structured_payoff_legs
+    description: Structured product (autocall, reverse-convertible, etc.) must have a payoff_template_id and matching leg count.
+    severity: error
+    reject_code: EMS-ORD-6323
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [structured_flag, payoff_template_id, legs]
+    check:
+      type: cross_field
+      expression: "NOT structured_flag OR (payoff_template_id != NULL AND len(legs) >= 2)"
+    fix_suggestion: "Use the structured-payoff library (e.g., autocall_v1, rc_v3); do not build ad-hoc legs."
+    spec_reference: arch-validator.md#5.72
+  - id: derivative-0024
+    name: structured_payoff_dates_consistent
+    description: Observation, barrier, and coupon dates in a structured product must be strictly ordered.
+    severity: error
+    reject_code: EMS-ORD-6324
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [observation_dates, barrier_dates, coupon_dates, structured_flag]
+    check:
+      type: cross_field
+      expression: "NOT structured_flag OR strict_ordering(observation_dates, barrier_dates, coupon_dates)"
+    fix_suggestion: "Validate against the term-sheet XML; out-of-order dates will compute the wrong payoff."
+    spec_reference: arch-validator.md#5.72
+  - id: derivative-0025
+    name: listed_option_underlying_index
+    description: For index options, the underlying must be a known index (SPX, NDX, VIX, etc.), not a basket of single names.
+    severity: error
+    reject_code: EMS-ORD-6325
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [underlying, underlying_type, product_type]
+    check:
+      type: cross_field
+      expression: "underlying_type == 'INDEX' implies underlying IN supported_indices()"
+    fix_suggestion: "Baskets of 50 stocks must be wrapped as a custom index; do not transmit 50 underlying legs."
+    spec_reference: arch-validator.md#5.73
+  - id: derivative-0026
+    name: variance_swap_vega_cap
+    description: Variance swap vega notional must be in USD-equivalent millions; strike must be within 5-150 vol points.
+    severity: error
+    reject_code: EMS-ORD-6326
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [vega_notional, var_strike, product_type]
+    check:
+      type: cross_field
+      expression: "product_type != 'VAR_SWAP' OR (vega_notional > 0 AND 5 <= var_strike <= 150)"
+    fix_suggestion: "Variance strikes outside 5-150 indicate wrong units (bps vs vol points) or hedging of a memo book."
+    spec_reference: arch-validator.md#5.74
+  - id: derivative-0027
+    name: quanto_currency_consistency
+    description: Quanto option's underlying ccy must differ from the settlement ccy; both must be valid.
+    severity: error
+    reject_code: EMS-ORD-6327
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [quanto_flag, underlying_ccy, settle_ccy]
+    check:
+      type: cross_field
+      expression: "NOT quanto_flag OR (underlying_ccy != settle_ccy AND underlying_ccy IN ccy_list() AND settle_ccy IN ccy_list())"
+    fix_suggestion: "Non-quanto options have underlying_ccy == settle_ccy; do not set quanto_flag for plain FX options."
+    spec_reference: arch-validator.md#5.75
+  - id: derivative-0028
+    name: trade_date_imm_roll
+    description: CDS and IRS with IMM roll (3rd Wednesday) must have a valid IMM date; reject on non-IMM for IMM-only products.
+    severity: warning
+    reject_code: EMS-ORD-6328
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [effective_date, imm_only_flag, product_type]
+    check:
+      type: cross_field
+      expression: "NOT imm_only_flag OR is_imm_date(effective_date)"
+    fix_suggestion: "Most off-the-run trades are IMM-rolled; for bespoke use trade_date = spot_date."
+    spec_reference: arch-validator.md#5.76
+  - id: derivative-0029
+    name: cds_pay_freq_standard
+    description: CDS payment frequency must be quarterly (3M) for standard; monthly for trade-date credit events.
+    severity: error
+    reject_code: EMS-ORD-6329
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [cds_pay_freq, product_type]
+    check:
+      type: cross_field
+      expression: "product_type != 'CDS' OR cds_pay_freq IN [1, 3]"
+    fix_suggestion: "Standard CDS is quarterly; monthly is only for specific credit events (e.g., restructuring)."
+    spec_reference: arch-validator.md#5.66
+  - id: derivative-0030
+    name: barrier_breach_window
+    description: When barrier_window is specified (e.g., 'continuous', 'daily_close', 'first 30 days'), it must be a known value.
+    severity: error
+    reject_code: EMS-ORD-6330
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [barrier_window, barrier_type]
+    check:
+      type: lookup
+      expression: "barrier_type == NULL OR barrier_window IN ['continuous','daily_close','first_close','last_close','period']"
+    fix_suggestion: "Most FX options are continuous; equity options are daily-close; for windows use period(begin,end)."
+    spec_reference: arch-validator.md#5.77
+  - id: derivative-0031
+    name: fx_option_cutoff
+    description: FX option expiry must cut off at NY 10:00 (or the agreed cut-off) for same-day expiry; otherwise must be TOM.
+    severity: error
+    reject_code: EMS-ORD-6331
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [expiry, cut_off_zone, product_type]
+    check:
+      type: cross_field
+      expression: "product_type != 'FX_OPTION' OR (expiry > today() OR (expiry == today() AND now() < cut_off(cut_off_zone)))"
+    fix_suggestion: "Same-day expiries on G7 pairs cut 10:00 ET; EM cuts vary; for retail use TOM/SPOT cut-offs."
+    spec_reference: arch-validator.md#5.78
+  - id: derivative-0032
+    name: calendar_spread_offsets
+    description: Calendar spread orders on futures must have legs with distinct contract_codes and aligned underlying.
+    severity: error
+    reject_code: EMS-ORD-6332
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [legs, product_type, strategy]
+    check:
+      type: cross_field
+      expression: "strategy != 'CALENDAR' OR (len(legs) == 2 AND legs[0].underlying == legs[1].underlying AND legs[0].contract_code != legs[1].contract_code)"
+    fix_suggestion: "Verify both legs reference the same product root (e.g., ESZ5 vs ESH6 not ES vs NQ)."
+    spec_reference: arch-validator.md#5.79
+  - id: derivative-0033
+    name: position_limit_warning
+    description: Open interest in a contract must be >0 and total contracts held must be < position limit for the trader.
+    severity: warning
+    reject_code: EMS-ORD-6333
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [contract_code, trader_id, open_interest]
+    check:
+      type: lookup
+      expression: "open_interest(contract_code) > 0 AND current_position(trader_id) < trader_limit(trader_id, contract_code)"
+    fix_suggestion: "Check trader position limits; pull the live open interest from exchange feed (RTG or OPRA)."
+    spec_reference: arch-validator.md#5.80 + exchange position rules
+  - id: derivative-0034
+    name: corporate_action_adjustment
+    description: For single-stock derivatives, an upcoming corporate action must adjust the contract terms (or block).
+    severity: error
+    reject_code: EMS-ORD-6334
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [underlying, product_type, ca_event_id]
+    check:
+      type: lookup
+      expression: "product_type NOT IN ['EQ_OPTION','EQ_FUTURE'] OR ca_event_id == NULL OR ca_adjusted(ca_event_id, contract_code)"
+    fix_suggestion: "Coordinate with the corporate-actions team; OCC publishes adjustment circulars on event day."
+    spec_reference: arch-validator.md#5.81 + OCC By-Laws
+  - id: derivative-0035
+    name: cdx_index_membership
+    description: For CDX/iTraxx index trades, the index must be a recognized series and the entity must be a current member.
+    severity: error
+    reject_code: EMS-ORD-6335
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [cds_reference_entity, cds_index_series, product_type]
+    check:
+      type: lookup
+      expression: "product_type != 'INDEX_CDS' OR (cds_index_series IN active_index_series() AND cds_reference_entity IN index_members(cds_index_series))"
+    fix_suggestion: "Pull the index roll schedule from Markit; off-the-run indices use a different series number."
+    spec_reference: arch-validator.md#5.82 + IHS Markit

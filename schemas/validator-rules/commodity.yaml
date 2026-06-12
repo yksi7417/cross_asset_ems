@@ -1,0 +1,240 @@
+
+asset_class: COMMODITY
+version: "1.0"
+generated_at: "2026-06-06"
+rule_count: 18
+rules:
+  - id: commodity-0001
+    name: unit_of_measure_valid
+    description: "unit_of_measure must be one of the standard codes: BBL, MT, OZ, BU, GAL, MMBTU, LB, KG, etc."
+    severity: error
+    reject_code: EMS-ORD-6401
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [unit_of_measure]
+    check:
+      type: lookup
+      expression: "unit_of_measure IN standard_uom_set()"
+    fix_suggestion: "Map to ISO 80000 units; e.g., crude = BBL, gold = OZ, corn = BU, nat gas = MMBTU."
+    spec_reference: arch-validator.md#5.83 + ISO 80000-4
+  - id: commodity-0002
+    name: contract_size_positive
+    description: contract_size (qty per contract) must be positive and match the exchange specification.
+    severity: error
+    reject_code: EMS-ORD-6402
+    applies_to:
+      template_ids: ["0x0201", "0x0101"]
+      fields: [contract_size, product_type, exchange_mic]
+    check:
+      type: lookup
+      expression: "contract_size > 0 AND contract_size == exchange_spec(product_type, exchange_mic).size"
+    fix_suggestion: "Pull the spec from CME (CL=1000 BBL), LME (lots), ICE (NYMEX,IPE); do not hard-code."
+    spec_reference: arch-validator.md#5.59 + exchange specs
+  - id: commodity-0003
+    name: delivery_location_valid
+    description: delivery_location must resolve to a recognized hub/warehouse/port from the exchange's licensed list.
+    severity: error
+    reject_code: EMS-ORD-6403
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [delivery_location, product_type, exchange_mic]
+    check:
+      type: lookup
+      expression: "delivery_location IN exchange_locations(product_type, exchange_mic)"
+    fix_suggestion: "For Brent: Sullom Voe; WTI: Cushing; Gold: London, NYC, Zurich; consult the spec catalog."
+    spec_reference: arch-validator.md#5.84 + exchange rules
+  - id: commodity-0004
+    name: quality_grade_specified
+    description: quality_grade must be specified for physical commodities (e.g., WTI sulfur 0.42%, Brent 0.37%, etc.).
+    severity: error
+    reject_code: EMS-ORD-6404
+    applies_to:
+      template_ids: ["0x0201"]
+      fields: [quality_grade, product_type, delivery_type]
+    check:
+      type: cross_field
+      expression: "delivery_type != 'physical' OR quality_grade != NULL"
+    fix_suggestion: "For cash-settled commodities (e.g., GSCI) the grade is implicit in the index; set delivery_type='cash'."
+    spec_reference: arch-validator.md#5.85
+  - id: commodity-0005
+    name: contract_expiry_spec_match
+    description: contract_code must match an active expiry month/year for the product on the given venue.
+    severity: error
+    reject_code: EMS-ORD-6405
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [contract_code, product_type, exchange_mic, trade_date]
+    check:
+      type: lookup
+      expression: "contract_code IN active_contracts(product_type, exchange_mic, trade_date)"
+    fix_suggestion: "Use the exchange's listed-month matrix (e.g., CL has 9 years of months; GC has 24)."
+    spec_reference: arch-validator.md#5.86
+  - id: commodity-0006
+    name: last_trade_date_valid
+    description: last_trade_date must be in the future at order entry and precede delivery by the exchange-defined notice period.
+    severity: error
+    reject_code: EMS-ORD-6406
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [last_trade_date, product_type, exchange_mic]
+    check:
+      type: lookup
+      expression: "last_trade_date > today() AND last_trade_date < first_notice_date(exchange_mic, product_type, last_trade_date)"
+    fix_suggestion: "Pull the LTD/notice schedule from exchange; do not transmit post-first-notice orders without override."
+    spec_reference: arch-validator.md#5.87 + exchange rules
+  - id: commodity-0007
+    name: tick_size_standard
+    description: tick_size must be one of the venue's published minimum increments (e.g., CL = 0.01, GC = 0.10).
+    severity: error
+    reject_code: EMS-ORD-6407
+    applies_to:
+      template_ids: ["0x0201", "0x0101"]
+      fields: [tick_size, product_type, exchange_mic]
+    check:
+      type: lookup
+      expression: "tick_size IN venue_ticks(product_type, exchange_mic)"
+    fix_suggestion: "Use the product spec's tick table; do not transmit EUR-denominated ticks on USD contracts."
+    spec_reference: arch-validator.md#5.3 + exchange specs
+  - id: commodity-0008
+    name: price_within_tick
+    description: Order price must be a multiple of tick_size for the commodity/venue combination.
+    severity: error
+    reject_code: EMS-ORD-6408
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [price, tick_size]
+    check:
+      type: cross_field
+      expression: "fmod(price, tick_size) == 0.0"
+    fix_suggestion: "Round to the nearest tick; warn if the rounding violates the trader's intended price."
+    spec_reference: arch-validator.md#5.3
+  - id: commodity-0009
+    name: currency_quote_match
+    description: Quoted currency must match the product's settlement ccy (USD for most, EUR for Eurex wheat, etc.).
+    severity: error
+    reject_code: EMS-ORD-6409
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [currency, product_type, exchange_mic]
+    check:
+      type: lookup
+      expression: "currency == product_settle_ccy(product_type, exchange_mic)"
+    fix_suggestion: "Most commodities are USD-denominated; Eurex (EUR), LME metals (USD), TOCOM (JPY) need ccy override."
+    spec_reference: arch-validator.md#5.88
+  - id: commodity-0010
+    name: warehouse_receipt_required
+    description: For physical delivery, warehouse_receipt_id or warrant_id must be supplied for in-warehouse trades.
+    severity: error
+    reject_code: EMS-ORD-6410
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [delivery_type, warehouse_receipt_id, product_type]
+    check:
+      type: cross_field
+      expression: "delivery_type == 'warehouse' implies warehouse_receipt_id != NULL"
+    fix_suggestion: "Pull WR/Warrant IDs from the warehouse system; for LME, warrants are tradable and must be valid."
+    spec_reference: arch-validator.md#5.89 + LME rules
+  - id: commodity-0011
+    name: lme_prompt_date_valid
+    description: "For LME metals, prompt_date must be one of: cash, tomorrow, cash+3, weekly (Wed 1-5), monthly (3rd Wed)."
+    severity: error
+    reject_code: EMS-ORD-6411
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [prompt_date, exchange_mic, product_type]
+    check:
+      type: cross_field
+      expression: "exchange_mic != 'XLME' OR prompt_date IN lme_prompts()"
+    fix_suggestion: "LME prompt dates are unique to LME; use the lme_prompts library to compute valid dates."
+    spec_reference: arch-validator.md#5.90 + LME Rulebook
+  - id: commodity-0012
+    name: refined_metal_lot_size
+    description: For precious metals, lot size must be 100oz (1 Good Delivery bar) or its multiple; LBMA standards.
+    severity: error
+    reject_code: EMS-ORD-6412
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [qty, product_type, unit_of_measure]
+    check:
+      type: cross_field
+      expression: "product_type NOT IN ['GOLD','SILVER','PLATINUM','PALLADIUM'] OR qty % 100 == 0"
+    fix_suggestion: "LBMA Good Delivery bars are 1000oz (gold/platinum) or 1000oz (silver); wholesale in 1oz-1000oz."
+    spec_reference: arch-validator.md#5.91 + LBMA
+  - id: commodity-0013
+    name: heating_oil_winter_spec
+    description: Heating-oil and propane contracts have seasonal specifications; off-season trades require an override.
+    severity: warning
+    reject_code: EMS-ORD-6413
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [product_type, contract_code, trade_date]
+    check:
+      type: lookup
+      expression: "product_type NOT IN ['HO','PNE'] OR in_season(contract_code, trade_date)"
+    fix_suggestion: "HO contracts deliver year-round but the index spec resets in winter; verify the contract code."
+    spec_reference: arch-validator.md#5.92 + NYMEX rules
+  - id: commodity-0014
+    name: softs_agricultural_grade
+    description: For soft commodities (sugar, coffee, cocoa, cotton), grade must be from the ICE/Euronext list.
+    severity: error
+    reject_code: EMS-ORD-6414
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [product_type, quality_grade, exchange_mic]
+    check:
+      type: lookup
+      expression: "product_type NOT IN ['SUGAR','COFFEE','COCOA','COTTON','OJ'] OR quality_grade IN soft_grade_list(product_type, exchange_mic)"
+    fix_suggestion: "Sugar = No.11 (raw) or No.5 (white); Coffee = 'C' arabica; consult the ICE softs schedule."
+    spec_reference: arch-validator.md#5.93 + ICE softs
+  - id: commodity-0015
+    name: emissions_allowance_phase
+    description: EU ETS and similar emissions trades must specify the phase (e.g., Phase 4, 2021-2030) and vintage.
+    severity: error
+    reject_code: EMS-ORD-6415
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [product_type, ets_phase, vintage_year]
+    check:
+      type: cross_field
+      expression: "product_type NOT IN ['EUA','CCA','RGGI'] OR (ets_phase != NULL AND vintage_year BETWEEN 2013 AND 2030)"
+    fix_suggestion: "Phase 4 is 2021-2030; vintage 2013+ for general EUA; verify on EEX/ICE registry."
+    spec_reference: arch-validator.md#5.94 + EU ETS
+  - id: commodity-0016
+    name: freight_route_valid
+    description: For dry-bulk and wet-bulk freight derivatives, the route (e.g., TD3C, TD20) must be a published basket.
+    severity: error
+    reject_code: EMS-ORD-6416
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [product_type, route, exchange_mic]
+    check:
+      type: lookup
+      expression: "product_type NOT IN ['BDI','TD3','TD7','TD20','CAPE'] OR route IN published_routes(product_type, exchange_mic)"
+    fix_suggestion: "Use Baltic Exchange baskets; FFAs (Forward Freight Agreements) on SGX/CME/ICE."
+    spec_reference: arch-validator.md#5.95 + Baltic Exchange
+  - id: commodity-0017
+    name: strike_within_band_option
+    description: For commodity options, strike must be within ±5% of the settlement average; outside this is a hard reject.
+    severity: error
+    reject_code: EMS-ORD-6417
+    applies_to:
+      template_ids: ["0x0101", "0x0102", "0x0201"]
+      fields: [strike, settle_avg, product_type]
+    check:
+      type: cross_field
+      expression: "abs(strike - settle_avg) < 0.05 * settle_avg"
+    fix_suggestion: "Out-of-band strikes indicate a stale price or wrong underlying; refresh settle_avg from the venue."
+    spec_reference: arch-validator.md#5.96
+  - id: commodity-0018
+    name: spread_leg_validity
+    description: Crack-spread / spark-spread trades must have legs with same product_family, distinct contracts, and matched UoM.
+    severity: error
+    reject_code: EMS-ORD-6418
+    applies_to:
+      template_ids: ["0x0101", "0x0102"]
+      fields: [legs, product_type, strategy]
+    check:
+      type: cross_field
+      expression: "strategy NOT IN ['CRACK','SPARK','CRUSH'] OR (all(l.product_family == legs[0].product_family for l in legs) AND len(set(l.unit_of_measure for l in legs)) == 1)"
+    fix_suggestion: "Crack = CL+HO-Gasoline; Spark = Power-Gas; verify ratios against the exchange-published spec."
+    spec_reference: arch-validator.md#5.97 + exchange specs

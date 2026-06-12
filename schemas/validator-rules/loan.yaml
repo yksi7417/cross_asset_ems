@@ -1,0 +1,320 @@
+asset_class: LOAN
+version: '1.0'
+generated_at: '2026-06-06'
+rule_count: 20
+rules:
+- id: loan-0001
+  name: Principal positive and within desk limit
+  description: The committed/funded principal must be strictly positive and may not exceed the desk's per-obligor concentration limit. Off-desk transactions require a separate credit exception and are not
+    handled by this rule.
+  severity: error
+  reject_code: EMS-ORD-6701
+  applies_to:
+    template_ids: &id001
+    - '0x0A01'
+    - '0x0A02'
+    - '0x0A03'
+    fields:
+    - principal
+  check:
+    type: lookup
+    expression: principal != null AND principal > 0 AND principal <= desk_limit_lookup(desk_id, obligor_id)
+  fix_suggestion: Principal must be > 0 and within desk per-obligor limit
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0002
+  name: Currency is a valid ISO 4217 code
+  description: Loan currency must be a 3-letter uppercase ISO 4217 code and must be on the firm's active settlement currency list.
+  severity: error
+  reject_code: EMS-ORD-6702
+  applies_to:
+    template_ids: *id001
+    fields:
+    - currency
+  check:
+    type: lookup
+    expression: currency != null AND length(currency) = 3 AND currencyref_lookup(currency).status = 'ACTIVE'
+  fix_suggestion: Currency is missing, malformed, or not on active settlement list
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0003
+  name: Benchmark index exists in rate-index reference data
+  description: 'If the loan is floating-rate, the benchmark_index must be one of the recognised families: SOFR, SONIA, EURIBOR (legacy), TONA, SORA, CORRA, BBSW, BKBM, NIBOR, STIBOR, PRIBOR, or a documented
+    bilateral variant. A specific tenor (e.g. SOFR-3M, EURIBOR-6M) must be specified.'
+  severity: error
+  reject_code: EMS-ORD-6703
+  applies_to:
+    template_ids: *id001
+    fields:
+    - benchmark_index
+    - benchmark_tenor
+  check:
+    type: lookup
+    expression: benchmark_index != null AND benchmark_indexref_lookup(benchmark_index, benchmark_tenor) != null
+  fix_suggestion: benchmark_index/tenor not found in rate-index reference data
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0004
+  name: Spread in reasonable range per rating
+  description: 'The all-in margin (spread_bps) over the benchmark must lie in a band that depends on the credit rating: investment grade (AAA-BBB) is typically -50 to 400 bps; high yield (BB-B) 200 to 1000
+    bps; distressed/CCC 800 to 2000 bps. Negative spreads (reversed) are flagged for review.'
+  severity: warning
+  reject_code: EMS-ORD-6704
+  applies_to:
+    template_ids: *id001
+    fields:
+    - spread_bps
+    - rating_band
+  check:
+    type: range
+    expression: spread_bps >= rating_band_floor(rating_band) AND spread_bps <= rating_band_cap(rating_band)
+  fix_suggestion: Spread outside plausible band for the assigned rating
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0005
+  name: Amortization type consistent with facility type and maturity
+  description: TERM_LOAN_A facilities must amortize; TERM_LOAN_B, BULLET, BRIDGE and DELAYED_DRAW facilities must be bullet at final maturity. SINKING_FUND is reserved for bond-like structures and is not
+    permitted on a revolver. Violations of this convention are flagged as errors.
+  severity: error
+  reject_code: EMS-ORD-6705
+  applies_to:
+    template_ids: *id001
+    fields:
+    - amortization_type
+    - facility_type
+  check:
+    type: custom
+    expression: compatible_amortization(amortization_type, facility_type) = true
+  fix_suggestion: amortization_type inconsistent with facility_type
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0006
+  name: Maturity strictly after origination date
+  description: The stated maturity must be strictly after the origination (or settlement) date, and the resulting tenor must be positive and no greater than 30 years for amortizing facilities, 7 years for
+    revolvers.
+  severity: error
+  reject_code: EMS-ORD-6706
+  applies_to:
+    template_ids: *id001
+    fields:
+    - maturity
+    - origination_date
+  check:
+    type: range
+    expression: maturity > origination_date AND tenor_years(maturity, origination_date) <= max_tenor(facility_type)
+  fix_suggestion: maturity must be > origination_date and within facility-type tenor cap
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0007
+  name: Day count convention consistent with currency
+  description: 'Day count convention must match the convention typically associated with the loan currency: USD -> ACT/360 or 30/360; GBP -> ACT/365; EUR -> ACT/360 or 30/360; JPY -> ACT/365; AUD -> ACT/365.
+    A mismatch triggers a warning (not an error) for non-standard legal opinions.'
+  severity: warning
+  reject_code: EMS-ORD-6707
+  applies_to:
+    template_ids: *id001
+    fields:
+    - day_count_convention
+    - currency
+  check:
+    type: custom
+    expression: is_standard_dcc(day_count_convention, currency) = true
+  fix_suggestion: Day count convention non-standard for the loan currency
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0008
+  name: Lien position is valid
+  description: Lien position must be one of 1ST, 2ND, 3RD, 4TH, JUNIOR (catch-all for subordinated tranches beyond 3rd), or UNSECURED. Numeric strings ("1", "2") are not accepted.
+  severity: error
+  reject_code: EMS-ORD-6708
+  applies_to:
+    template_ids: *id001
+    fields:
+    - lien_position
+  check:
+    type: custom
+    expression: lien_position IN ('1ST','2ND','3RD','4TH','JUNIOR','UNSECURED')
+  fix_suggestion: lien_position not in approved enum
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0009
+  name: Facility type and seniority consistent
+  description: 'Facility type and lien_position must be jointly consistent: REVOLVER and TERM_LOAN_A are typically SENIOR_SECURED (1ST); TERM_LOAN_B is typically SENIOR_SECURED (1ST) but not always; SUBORDINATED
+    and MEZZANINE facilities cannot be 1ST lien. This rule catches the obvious misconfigurations.'
+  severity: error
+  reject_code: EMS-ORD-6709
+  applies_to:
+    template_ids: *id001
+    fields:
+    - facility_type
+    - lien_position
+  check:
+    type: custom
+    expression: consistent_seniority(facility_type, lien_position) = true
+  fix_suggestion: facility_type and lien_position are not jointly consistent
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0010
+  name: Obligor country not on restricted list
+  description: Obligor's country of risk must not be on the firm's sanctions / restricted-jurisdictions list (OFAC, EU, UK, UN consolidated).
+  severity: error
+  reject_code: EMS-ORD-6710
+  applies_to:
+    template_ids: *id001
+    fields:
+    - obligor_country
+  check:
+    type: lookup
+    expression: sanctionsref_lookup(obligor_country).status = 'CLEAR'
+  fix_suggestion: Obligor country on restricted or sanctions list
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0011
+  name: Sector code is valid GICS / NAICS
+  description: Sector code must be a valid 6-digit GICS or NAICS code and must resolve to a non-vacant sector in the sector reference table.
+  severity: error
+  reject_code: EMS-ORD-6711
+  applies_to:
+    template_ids: *id001
+    fields:
+    - sector_code
+  check:
+    type: lookup
+    expression: sectorref_lookup(sector_code) != null
+  fix_suggestion: Sector code missing or not in sector reference data
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0012
+  name: Rating present or explicit unrated flag
+  description: The loan must carry at least one current external rating (Moody's, S&P, Fitch) OR an explicit unrated_flag = true with a documented unrated_reason. Bank-syndicated leveraged loans are frequently
+    unrated; the unrated_flag pathway is the accepted alternative.
+  severity: error
+  reject_code: EMS-ORD-6712
+  applies_to:
+    template_ids: *id001
+    fields:
+    - ratings
+    - unrated_flag
+  check:
+    type: range
+    expression: count(ratings) >= 1 OR unrated_flag = true
+  fix_suggestion: Loan has no external rating and unrated_flag is not set
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0013
+  name: Refinancing event date after origination
+  description: If a refi_event_date is set (refinancing of a previous facility), it must be strictly after the origination_date of the original facility and must fall before (or on) the current origination_date.
+  severity: error
+  reject_code: EMS-ORD-6713
+  applies_to:
+    template_ids: *id001
+    fields:
+    - refi_event_date
+    - origination_date
+    - prior_origination_date
+  check:
+    type: range
+    expression: refi_event_date == null OR (refi_event_date > prior_origination_date AND refi_event_date <= origination_date)
+  fix_suggestion: refi_event_date must be after prior origination and on/before current origination
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0014
+  name: Prepayment penalty schedule consistent with facility type
+  description: REVOLVER and DELAYED_DRAW facilities typically have no prepayment penalty (or only a customary funding-cost reimbursement). TERM_LOAN_A and TERM_LOAN_B usually carry a soft-call protection
+    (typically 1% in year 1, stepping down). BULLET/BRIDGE may carry non-call periods expressed in months. Schedule steps must be monotonically non-increasing.
+  severity: warning
+  reject_code: EMS-ORD-6714
+  applies_to:
+    template_ids: *id001
+    fields:
+    - prepayment_penalty_schedule
+    - facility_type
+  check:
+    type: custom
+    expression: consistent_penalty(prepayment_penalty_schedule, facility_type) = true AND monotonic_nonincreasing(prepayment_penalty_schedule)
+  fix_suggestion: Prepayment penalty schedule inconsistent with facility_type or not monotonic
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0015
+  name: Covenant package required for leveraged loans
+  description: Loans classified as LEVERAGED (typically BB+ and below, or covenant_lite_indicator = false with leverage > 4x) must carry a non-null covenant_package. Acceptable packages include MAINTENANCE,
+    INCURRENCE, or HYBRID. A null package on a leveraged loan is a hard error.
+  severity: error
+  reject_code: EMS-ORD-6715
+  applies_to:
+    template_ids: *id001
+    fields:
+    - covenant_package
+    - is_leveraged
+  check:
+    type: custom
+    expression: is_leveraged = true IMPLIES covenant_package IN ('MAINTENANCE','INCURRENCE','HYBRID')
+  fix_suggestion: Leveraged loan missing a covenant_package (MAINTENANCE/INCURRENCE/HYBRID)
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0016
+  name: LSTA standard language for syndicated US loans
+  description: Syndicated US loans (syndication_status = 'SYNDICATED' AND governing_law = 'NY') should reference the LSTA standard terms (either a specific LSTA model agreement version or a lsta_compliant
+    = true flag). Non-LSTA agreements on a US syndicated deal are flagged for legal review.
+  severity: warning
+  reject_code: EMS-ORD-6716
+  applies_to:
+    template_ids: *id001
+    fields:
+    - syndication_status
+    - governing_law
+    - lsta_compliant
+  check:
+    type: custom
+    expression: (syndication_status = 'SYNDICATED' AND governing_law = 'NY') IMPLIES lsta_compliant = true
+  fix_suggestion: Syndicated US loan should use LSTA standard language
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0017
+  name: ESG / Sustainability-linked loan flag consistency
+  description: If the loan is tagged sll_flag = true (sustainability-linked) or gsl_flag = true (green/social), the corresponding kpi_schedule and ratchet_mechanism must be present and non-empty. Conversely,
+    kpi_schedule present implies sll_flag = true.
+  severity: error
+  reject_code: EMS-ORD-6717
+  applies_to:
+    template_ids: *id001
+    fields:
+    - sll_flag
+    - gsl_flag
+    - kpi_schedule
+    - ratchet_mechanism
+  check:
+    type: completeness
+    expression: (sll_flag = true OR gsl_flag = true) IMPLIES (kpi_schedule != null AND ratchet_mechanism != null) AND (kpi_schedule != null IMPLIES sll_flag = true)
+  fix_suggestion: ESG/SLL flag inconsistent with kpi_schedule / ratchet_mechanism presence
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0018
+  name: Original principal >= current outstanding
+  description: For amortizing and PIK facilities, original_principal must be >= current_outstanding. Violations indicate a draw on a fully repaid facility or a feed mapping error.
+  severity: error
+  reject_code: EMS-ORD-6718
+  applies_to:
+    template_ids: *id001
+    fields:
+    - original_principal
+    - current_outstanding
+  check:
+    type: completeness
+    expression: original_principal != null AND current_outstanding != null AND original_principal >= current_outstanding
+  fix_suggestion: original_principal must be >= current_outstanding
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0019
+  name: PIK toggle forbidden on TERM_LOAN_A
+  description: A payment-in-kind (PIK) toggle is a high-coupon / deferred-pay feature reserved for junior or distressed facilities. It is incompatible with TERM_LOAN_A (which is meant to amortize on a scheduled
+    basis with full cash interest). The combination is a hard error.
+  severity: error
+  reject_code: EMS-ORD-6719
+  applies_to:
+    template_ids: *id001
+    fields:
+    - pik_toggle
+    - facility_type
+  check:
+    type: custom
+    expression: NOT (pik_toggle = true AND facility_type = 'TERM_LOAN_A')
+  fix_suggestion: PIK toggle cannot be set on a TERM_LOAN_A facility
+  spec_reference: arch-validator.md#5 (loan layer)
+- id: loan-0020
+  name: Governing law is on approved list
+  description: 'Governing law must be one of: NY, DE, CA (US states), ENGLAND, SCOTLAND (UK), GERMANY, FRANCE, IRELAND, LUXEMBOURG, NETHERLANDS, SWITZERLAND, JAPAN, HONG_KONG, SINGAPORE, CAYMAN, BERMUDA,
+    BVI. Other jurisdictions trigger enhanced legal review.'
+  severity: error
+  reject_code: EMS-ORD-6720
+  applies_to:
+    template_ids: *id001
+    fields:
+    - governing_law
+  check:
+    type: custom
+    expression: governing_law IN ('NY','DE','CA','ENGLAND','SCOTLAND','GERMANY','FRANCE','IRELAND','LUXEMBOURG','NETHERLANDS','SWITZERLAND','JAPAN','HONG_KONG','SINGAPORE','CAYMAN','BERMUDA','BVI')
+  fix_suggestion: Governing law not on approved jurisdictions list
+  spec_reference: arch-validator.md#5 (loan layer)
