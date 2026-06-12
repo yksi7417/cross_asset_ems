@@ -56,3 +56,49 @@ test("order click filters routes; route click opens the fills panel; chips clear
   await page.click("#routes-linkchip");
   await expect(page.locator("#routes-linkchip")).toBeHidden();
 });
+
+// 18.27: linking is selection-aware — N selected orders filter ROUTES to all N, not just the
+// last-clicked row.
+test("multi-select links: two selected orders show both routes; chip counts the selection", async ({
+  page,
+  request,
+}) => {
+  const seeder = new ApiSeeder(request);
+  await seeder.logon();
+  const stamp = Date.now();
+  const a = await seeder.stageReadyRoute(`E2E-M1-${stamp}`);
+  const b = await seeder.stageReadyRoute(`E2E-M2-${stamp}`);
+  await seeder.stageReadyRoute(`E2E-M3-${stamp}`); // noise: must be filtered OUT
+
+  await logonUi(page);
+  await expectRowContaining(page, "orders-viewer", a.orderId);
+  await expectRowContaining(page, "orders-viewer", b.orderId);
+
+  const rowCell = (orderId: string) =>
+    page
+      .locator("#orders-viewer regular-table tbody tr", { hasText: orderId })
+      .first()
+      .locator("td")
+      .first();
+
+  // Click A, then ctrl+click B: the routes link must cover BOTH orders.
+  await rowCell(a.orderId).click();
+  await rowCell(b.orderId).click({ modifiers: ["ControlOrMeta"] });
+  await expect(page.locator("#routes-linkchip")).toContainText("2 orders", { timeout: 10_000 });
+  await expect(page.locator("#orders-selchip")).toContainText("2 selected");
+  await expect
+    .poll(async () => page.locator("#routes-viewer regular-table tbody tr").count(), {
+      timeout: 10_000,
+    })
+    .toBe(2);
+
+  // Multi-select the two routes: the fills link arms for both (no fills in the quiet world).
+  await page.locator("#routes-viewer regular-table tbody tr").nth(0).locator("td").first().click();
+  await page
+    .locator("#routes-viewer regular-table tbody tr")
+    .nth(1)
+    .locator("td")
+    .first()
+    .click({ modifiers: ["ControlOrMeta"] });
+  await expect(page.locator("#fills-linkchip")).toContainText("2 routes");
+});

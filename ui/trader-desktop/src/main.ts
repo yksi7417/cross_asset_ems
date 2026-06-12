@@ -377,11 +377,11 @@ function apiFor(session: Logon): ApiClient {
 }
 
 /**
- * Linked blotter + context menus (18.17 #3/#4/#5). Single click on an order filters ROUTES to
- * that order (toggleable via the LINK checkbox); single click on a route reveals its FILLS
- * (hidden otherwise — fill volume is the render cost). Ctrl+click multi-selects; right-click
- * opens the action menu for the selection (batch ready/route/cancel, aggregate into a basket,
- * route cancels).
+ * Linked blotter + context menus (18.17 #3/#4/#5, selection-aware since 18.27). Selecting N
+ * orders filters ROUTES to all N (toggleable via the LINK checkbox); selecting N routes reveals
+ * their FILLS (hidden otherwise — fill volume is the render cost). Ctrl+click / shift+click /
+ * keyboard selections all drive the link; right-click opens the action menu for the selection
+ * (batch ready/route/cancel, aggregate into a basket, route cancels).
  */
 function wireBlotterLinking(api: ApiClient): void {
   const linkToggle = document.getElementById("link-toggle") as HTMLInputElement;
@@ -428,14 +428,17 @@ function wireBlotterLinking(api: ApiClient): void {
   attachGridInteractions("orders-viewer", {
     keyField: "orderId",
     chip: document.getElementById("orders-selchip")!,
-    onPrimary: (row) => {
-      if (!linkToggle.checked) {
-        return;
+    onSelection: (rows) => {
+      if (!linkToggle.checked || rows.length === 0) {
+        return; // empty selections keep the current link; the ✕ chip clears it
       }
-      const orderId = row.orderId as string;
-      routesChip.textContent = `⛓ ${row.name ?? orderId} ✕`;
+      const orderIds = rows.map((r) => r.orderId as string);
+      routesChip.textContent =
+        rows.length === 1
+          ? `⛓ ${rows[0].name ?? orderIds[0]} ✕`
+          : `⛓ ${rows.length} orders ✕`;
       routesChip.classList.remove("hidden");
-      void applyFilter("routes-viewer", [["orderId", "==", orderId]]);
+      void applyFilter("routes-viewer", [["orderId", "in", orderIds]]);
       clearFillsLink();
     },
     rowLabel: (row) => `${row.name ?? row.figi} ${row.orderId}`,
@@ -488,14 +491,15 @@ function wireBlotterLinking(api: ApiClient): void {
   attachGridInteractions("routes-viewer", {
     keyField: "routeId",
     chip: document.getElementById("routes-selchip")!,
-    onPrimary: (row) => {
-      if (!linkToggle.checked) {
+    onSelection: (rows) => {
+      if (!linkToggle.checked || rows.length === 0) {
         return;
       }
-      const routeId = row.routeId as string;
-      fillsChip.textContent = `⛓ ${routeId} ✕`;
+      const routeIds = rows.map((r) => r.routeId as string);
+      fillsChip.textContent =
+        rows.length === 1 ? `⛓ ${routeIds[0]} ✕` : `⛓ ${rows.length} routes ✕`;
       fillsChip.classList.remove("hidden");
-      void applyFilter("fills-viewer", [["routeId", "==", routeId]]);
+      void applyFilter("fills-viewer", [["routeId", "in", routeIds]]);
     },
     rowLabel: (row) => `${row.name ?? ""} ${row.routeId}`,
     actions: [

@@ -35,8 +35,11 @@ export interface GridInteractionOptions {
   keyField: string;
   /** Short row label for the selection chip (defaults to the key). */
   rowLabel?: (row: GridRow) => string;
-  /** Called on plain (single) click — drives blotter linking. */
-  onPrimary?: (row: GridRow) => void;
+  /**
+   * Called on EVERY selection change with the full selection (18.27) — drives blotter linking,
+   * so ctrl+click / shift+click / keyboard selections link all N rows, not just the last click.
+   */
+  onSelection?: (rows: GridRow[]) => void;
   /** Context-menu actions over the selection. */
   actions: GridAction[];
   /** Element that displays the live selection. */
@@ -134,6 +137,7 @@ export function attachGridInteractions(
       options.chip.textContent = `▸ ${selected.size} selected`;
     }
     scheduleHighlight();
+    options.onSelection?.([...selected.values()]);
   }
 
   function selectOnly(y: number, row: GridRow): void {
@@ -290,7 +294,6 @@ export function attachGridInteractions(
       toggle(y, row);
     } else {
       selectOnly(y, row);
-      options.onPrimary?.(row);
     }
   }
 
