@@ -304,11 +304,11 @@ STP and reporting. ~3-4 weeks.
 - [ ] **12.7** [[msrb-rtrs]] submission (sonnet) ← blocks: 12.5
 - [ ] **12.8** [[cftc-sdr]] submission (sonnet) ← blocks: 12.5
 - [ ] **12.9** [[rts-22-27-28|RTS 22]] submission (sonnet) ← blocks: 12.5
-- [ ] **12.10** Best execution audit per [[arch-best-execution]] (sonnet)
+- [x] **12.10** Best execution audit per [[arch-best-execution]] (sonnet) — BestExAuditor: per-order routing decisions with alternatives-considered (the RFQ ladder is exactly this data) + attached TCA executions + adherence verdicts ALIGNED / EXCEPTION (better alternative, documented rationale) / DEVIATED (better alternative, no rationale — the committee's review queue)
 - [ ] **12.11** Per-pod / per-firm jurisdiction routing per [[arch-jurisdictional-compliance]] (sonnet)
 - [x] **12.12** [[finra|CAT]] submission — equities/options order-event reporting (16.1 already maps equity→CAT; this is the submission adapter, sibling of 12.6–12.9) (sonnet) ← blocks: 12.5
 - [x] **12.13** Commissions / fees / accrued-interest engine — per-broker + per-asset-class schedules, applied at allocation and carried onto confirms (a buyer expects net-money confirms, not clean qty×price) (sonnet) ← blocks: 12.1
-- [ ] **12.14** TCA per [[arch-tca]] — slippage vs arrival/VWAP/IS benchmarks, venue/broker league tables, exportable best-ex committee pack (sonnet) ← blocks: 9.5, 12.10
+- [x] **12.14** TCA per [[arch-tca]] — slippage vs arrival/VWAP/IS benchmarks, venue/broker league tables, exportable best-ex committee pack (sonnet) ← blocks: 9.5, 12.10 — TcaService: per-fill cost-positive slippage vs arrival/VWAP/TWAP/mid/PWP (9.5 snapshots), qty-weighted league tables cheapest-first, deterministic committee pack with worst-fill review items
 - [x] **12.15** Surveillance feed per [[arch-surveillance]] — order/exec event export + baseline alerts (layering, wash, spoof-pattern, fat-finger cluster) (sonnet) ← blocks: 3.3
 - [x] **12.16** Client drop-copy service — real-time FIX drop of executions per client/desk/firm scope (sonnet) ← blocks: 8.2
 
