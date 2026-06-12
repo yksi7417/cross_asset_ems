@@ -2,7 +2,7 @@
   "name": "ems-trader-desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "Cross-Asset EMS trader desktop \u2014 Perspective (WASM) blotter streaming row deltas over the WS edge (task 18.1)",
+  "description": "Cross-Asset EMS trader desktop — Perspective (WASM) blotter streaming row deltas over the WS edge (task 18.1)",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,8 @@
   "dependencies": {
     "@finos/perspective": "^3.8.0",
     "@finos/perspective-viewer": "^3.8.0",
-    "@finos/perspective-viewer-datagrid": "^3.8.0"
+    "@finos/perspective-viewer-datagrid": "^3.8.0",
+    "dockview-core": "^6.6.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
