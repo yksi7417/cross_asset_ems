@@ -102,6 +102,26 @@ each landing in a different backend — the quickest way to prove the whole pipe
 | **Logs** | 1 INFO record per stage (trace-correlated) | collector → **OpenSearch** | <http://localhost:5601> → index pattern `ems-logs*` |
 | **Metrics** | counter `ems.toy.stages.processed` | collector → **Prometheus** → **Grafana** | <http://localhost:9091> → query `ems_toy_stages_processed_total`; or the provisioned **OTel Pipeline Overview** dashboard at <http://localhost:3000/d/ems-otel-overview> |
 
+### Real telemetry from the demo (18.26)
+
+The toy proves the pipeline; the **demo edge emits real traffic** when told to. No service
+initializes the OTel SDK by default (tests/CI stay silent) — opt in with one env var:
+
+```bash
+docker compose -f infra/docker-compose/compose.dev.yaml up -d otel-collector jaeger
+EMS_DEMO_OTEL=1 ./gradlew :ems-fix-bridge:runTraderEdge       # or set OTEL_EXPORTER_OTLP_ENDPOINT
+```
+
+Then in **Jaeger** (<http://localhost:16686>), service `trader-desktop-edge`:
+
+- **`demo.order` spans** — one per demo-bot order lifecycle, carrying the internal audit handle
+  (`order.id`, `route.id`) plus figi/side/qty/venue/cum_qty as attributes and one span **event
+  per fill** (execId, qty, px).
+- **HTTP spans** — every REST request the desktop makes, grouped by route template
+  (`POST /api/v1/stage_orders`, `GET /api/v1/instruments/{figi}`, …) with method/path/status.
+
+(Verified live 2026-06-12: Jaeger lists the service with both span kinds and fill events.)
+
 ### Stack endpoints
 
 | Service | URL |

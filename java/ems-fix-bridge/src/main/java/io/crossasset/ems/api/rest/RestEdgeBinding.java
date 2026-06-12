@@ -221,7 +221,31 @@ public final class RestEdgeBinding {
    * Handle one HTTP-shaped call. {@code path} excludes the query string; {@code query} carries
    * decoded query params; {@code headers} are case-insensitive-normalized to lower-case keys.
    */
+  /** Observes every handled request (18.26): the demo edge wires this to OTel spans/metrics. */
+  @FunctionalInterface
+  public interface RequestObserver {
+    void onRequest(String method, String path, int status, long startNanos, long endNanos);
+  }
+
+  private RequestObserver requestObserver = (m, p, s, t0, t1) -> {};
+
+  public void setRequestObserver(RequestObserver observer) {
+    this.requestObserver = observer;
+  }
+
   public HttpResult handle(
+      String method,
+      String path,
+      Map<String, String> query,
+      Map<String, String> headers,
+      String body) {
+    long startNanos = System.nanoTime();
+    HttpResult result = route(method, path, query, headers, body);
+    requestObserver.onRequest(method, path, result.status(), startNanos, System.nanoTime());
+    return result;
+  }
+
+  private HttpResult route(
       String method,
       String path,
       Map<String, String> query,

@@ -30,6 +30,7 @@ import io.crossasset.ems.instrument.SecurityMasterEvent;
 import io.crossasset.ems.instrument.SecurityMasterSnapshot;
 import io.crossasset.ems.md.MdField;
 import io.crossasset.ems.md.SimulatedFeed;
+import io.crossasset.ems.observability.EmsOpenTelemetry;
 import io.crossasset.ems.oms.InMemoryRouteManager;
 import io.crossasset.ems.oms.InMemoryStagedOrderManager;
 import io.crossasset.ems.oms.OrderRequest;
@@ -279,6 +280,41 @@ public final class TraderDesktopEdgeMain {
             watchlist);
     binding.setIssuerNames(DemoUniverse.ISSUER_NAMES::get); // 18.29: group-by-issuer
     binding.setCurrencyProfiles(DemoUniverse::profileOf); // 18.30: trading/settle/base/quote
+
+    // ── Real telemetry (18.26): OTLP traces from the demo edge ──────────────────
+    // Opt-in: set OTEL_EXPORTER_OTLP_ENDPOINT (or EMS_DEMO_OTEL=1 for localhost:4317) with the
+    // observability stack up — every REST request and every demo-bot order lifecycle exports to
+    // Jaeger/Grafana/OpenSearch. Off by default so tests/CI stay silent (this was the 13.x gap:
+    // only the otel TOY ever initialized the SDK; no service emitted anything).
+    io.opentelemetry.api.trace.Tracer tracer = null;
+    boolean otelOn =
+        System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != null
+            || "1".equals(System.getenv("EMS_DEMO_OTEL"));
+    if (otelOn) {
+      EmsOpenTelemetry otel =
+          EmsOpenTelemetry.builder("trader-desktop-edge").deploymentEnv("demo").build();
+      tracer = otel.getTracer();
+      io.opentelemetry.api.trace.Tracer httpTracer = tracer;
+      binding.setRequestObserver(
+          (method, path, status, startNanos, endNanos) -> {
+            java.time.Instant end = java.time.Instant.now();
+            java.time.Instant start = end.minusNanos(endNanos - startNanos);
+            io.opentelemetry.api.trace.Span span =
+                httpTracer
+                    .spanBuilder(method + " " + routeTemplate(path))
+                    .setStartTimestamp(start)
+                    .startSpan();
+            span.setAttribute("http.request.method", method);
+            span.setAttribute("url.path", path);
+            span.setAttribute("http.response.status_code", status);
+            if (status >= 500) {
+              span.setStatus(io.opentelemetry.api.trace.StatusCode.ERROR);
+            }
+            span.end(end);
+          });
+      System.out.println("OTel telemetry : ON (service trader-desktop-edge)");
+    }
+
     RestHttpServer rest = new RestHttpServer(binding, restPort);
     rest.start();
     WsEventStreamServer ws = new WsEventStreamServer(aaa, subscriptions, wsPort);
@@ -356,7 +392,7 @@ public final class TraderDesktopEdgeMain {
       System.out.println("Mode           : QUIET (no demo bot)");
       Thread.currentThread().join();
     } else {
-      runDemoScript(aaa, som, routes, feed, positionService, pricingService);
+      runDemoScript(aaa, som, routes, feed, positionService, pricingService, tracer);
     }
   }
 
@@ -367,7 +403,8 @@ public final class TraderDesktopEdgeMain {
       io.crossasset.ems.oms.RouteManager routes,
       SimulatedFeed feed,
       PositionService positionService,
-      PricingService pricingService)
+      PricingService pricingService,
+      io.opentelemetry.api.trace.@org.jspecify.annotations.Nullable Tracer tracer)
       throws InterruptedException {
     LogonOutcome logon = aaa.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "demo-bot"));
     long session = ((LogonOutcome.Accepted) logon).session().sessionId();
@@ -422,18 +459,27 @@ public final class TraderDesktopEdgeMain {
                     0));
         if (staged instanceof StageResult.Accepted accepted) {
           String orderId = accepted.order().orderId();
+          // One span per order lifecycle (18.26): the internal audit handle (orderId) rides as
+          // a span attribute, fills as span events — live demo traffic in Jaeger.
+          io.opentelemetry.api.trace.Span span =
+              tracer == null
+                  ? null
+                  : tracer
+                      .spanBuilder("demo.order")
+                      .setAttribute("order.id", orderId)
+                      .setAttribute("order.figi", inst.figi())
+                      .setAttribute("order.side", side == 1 ? "BUY" : "SELL")
+                      .setAttribute("order.qty", qty)
+                      .startSpan();
           som.markReady(orderId, session);
+          String venue = inst.venues().get(random.nextInt(inst.venues().size()));
           RouteResult routed =
-              routes.route(
-                  new RouteRequest(
-                      "RCL-" + orderSeq,
-                      orderId,
-                      inst.venues().get(random.nextInt(inst.venues().size())),
-                      qty,
-                      lastPx[i],
-                      null));
+              routes.route(new RouteRequest("RCL-" + orderSeq, orderId, venue, qty, lastPx[i], null));
           if (routed instanceof RouteResult.Routed r) {
             String routeId = r.route().routeId();
+            if (span != null) {
+              span.setAttribute("route.id", routeId).setAttribute("route.venue", venue);
+            }
             routes.acknowledgeRoute(routeId);
             long remaining = qty;
             int execSeq = 0;
@@ -446,6 +492,14 @@ public final class TraderDesktopEdgeMain {
               } else {
                 routes.partialFill(routeId, fillQty, lastPx[i], execId);
               }
+              if (span != null) {
+                span.addEvent(
+                    "fill",
+                    io.opentelemetry.api.common.Attributes.of(
+                        io.opentelemetry.api.common.AttributeKey.stringKey("exec.id"), execId,
+                        io.opentelemetry.api.common.AttributeKey.longKey("fill.qty"), fillQty,
+                        io.opentelemetry.api.common.AttributeKey.longKey("fill.px"), lastPx[i]));
+              }
               positionService.applyFill(
                   new PositionService.Fill(
                       execId,
@@ -457,11 +511,27 @@ public final class TraderDesktopEdgeMain {
                       orderSeq * 1_000L + execSeq));
               Thread.sleep(150);
             }
+            if (span != null) {
+              span.setAttribute("order.cum_qty", qty - remaining);
+            }
+          }
+          if (span != null) {
+            span.end();
           }
         }
       }
       Thread.sleep(400);
     }
+  }
+
+  /** Collapse path ids so HTTP spans group by route, not by entity (18.26). */
+  private static String routeTemplate(String path) {
+    return path
+        .replaceAll("^/api/v1/instruments/.+", "/api/v1/instruments/{figi}")
+        .replaceAll("^/api/v1/orders/[^/]+/history$", "/api/v1/orders/{id}/history")
+        .replaceAll("^/api/v1/routes/[^/]+/history$", "/api/v1/routes/{id}/history")
+        .replaceAll("^/api/v1/notifications/[^/]+/ack$", "/api/v1/notifications/{id}/ack")
+        .replaceAll("^/api/v1/baskets/[^/]+/wave$", "/api/v1/baskets/{id}/wave");
   }
 
   /** Demo email/SMS channel: prints to stdout (real adapters are deployment config). */
