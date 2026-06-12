@@ -6,6 +6,7 @@ package io.crossasset.ems.api.rest;
 
 import io.crossasset.ems.instrument.AssetClass;
 import io.crossasset.ems.instrument.CurrencyCode;
+import io.crossasset.ems.instrument.CurrencyProfile;
 import io.crossasset.ems.instrument.Fungibility;
 import io.crossasset.ems.instrument.InstrumentCore;
 import io.crossasset.ems.instrument.InstrumentType;
@@ -43,6 +44,7 @@ public final class DemoUniverse {
   private static final String LEI_VW = "LEI-DEMO-VW";
   private static final String LEI_UST = "LEI-DEMO-UST";
   private static final String LEI_UKGOV = "LEI-DEMO-UKGOV";
+  private static final String LEI_SHELL = "LEI-DEMO-SHELL";
 
   /** Demo LEI → issuer display name (the GLEIF stand-in). */
   public static final Map<String, String> ISSUER_NAMES =
@@ -52,7 +54,8 @@ public final class DemoUniverse {
           LEI_TOYOTA, "Toyota Motor Corp",
           LEI_VW, "Volkswagen AG",
           LEI_UST, "US Treasury",
-          LEI_UKGOV, "UK Government");
+          LEI_UKGOV, "UK Government",
+          LEI_SHELL, "Shell plc");
 
   /** One demo instrument: security-master core + trading conventions for the demo bot. */
   public record DemoInstrument(InstrumentCore core, long basePx, long lotQty, List<String> venues) {
@@ -84,6 +87,18 @@ public final class DemoUniverse {
               core("BBG000BCM915", "Toyota Motor Corp", InstrumentType.COMMON_STOCK,
                   CurrencyCode.JPY, "JP", SettlementConvention.T_PLUS_2, LEI_TOYOTA),
               2815_0000L, 100L, List.of("XTKS")),
+          // ADR (18.30): the receipt trades + settles USD on US venues; the underlying line
+          // above is JPY on XTKS. Same issuer — group-by-issuer shows both wrappers.
+          new DemoInstrument(
+              core("BBG00DEMOADR", "Toyota Motor ADR", InstrumentType.ADR,
+                  CurrencyCode.USD, "US", SettlementConvention.T_PLUS_1, LEI_TOYOTA),
+              180_2000L, 100L, List.of("XNYS")),
+          // Dual-listing minor-unit trap (18.30): Shell quotes in GBp (pence) on XLON — a
+          // 2,650.5 print is £26.505. tradingMinorUnit=true in its CurrencyProfile.
+          new DemoInstrument(
+              core("BBG00DEMOSHL", "Shell plc", InstrumentType.COMMON_STOCK,
+                  CurrencyCode.GBP, "GB", SettlementConvention.T_PLUS_2, LEI_SHELL),
+              2650_5000L, 100L, List.of("XLON")),
           // ── Government bonds ───────────────────────────────────────────────────
           new DemoInstrument(
               core("BBG00DEMOT35", "US Treasury 4.25% 2035", InstrumentType.TREASURY,
@@ -106,6 +121,12 @@ public final class DemoUniverse {
               core("BBG00DEMOCV0", "Microsoft 0% 2030 Convertible", InstrumentType.CONVERTIBLE,
                   CurrencyCode.USD, "US", SettlementConvention.T_PLUS_1, LEI_MSFT),
               112_5000L, 100L, List.of("MKAX")),
+          // Samurai (18.30): JPY-denominated debt issued in Japan by a FOREIGN (US) issuer —
+          // denomination is independent of the issuer; groups under Microsoft with the USD line.
+          new DemoInstrument(
+              core("BBG00DEMOSM1", "Microsoft 0.8% 2031 Samurai", InstrumentType.CORPORATE_SENIOR,
+                  CurrencyCode.JPY, "JP", SettlementConvention.T_PLUS_2, LEI_MSFT),
+              100_2000L, 100L, List.of("TWJP")),
           // ── FX (spot + forward — no single issuer) ─────────────────────────────
           new DemoInstrument(
               core("BBG00DEMOFX1", "EUR/USD Spot", InstrumentType.FX_SPOT,
@@ -139,15 +160,43 @@ public final class DemoUniverse {
                   CurrencyCode.EUR, "DE", SettlementConvention.PER_CCP, null),
               2_6150L, 1_000_000L, List.of("BGCD")));
 
-  /** figi → trade currency, for P&L conversion to the firm base currency. */
+  /**
+   * Per-figi currency-profile overrides (18.30): FX pairs carry BASE/QUOTE (price is
+   * quote-per-base, qty is base notional); Shell quotes in GBp pence on XLON (minor unit).
+   * Everything else collapses via {@link CurrencyProfile#defaults}.
+   */
+  private static final Map<String, CurrencyProfile> PROFILE_OVERRIDES =
+      Map.of(
+          "BBG00DEMOFX1", CurrencyProfile.fxPair(CurrencyCode.EUR, CurrencyCode.USD),
+          "BBG00DEMOFX2", CurrencyProfile.fxPair(CurrencyCode.USD, CurrencyCode.JPY),
+          "BBG00DEMOSHL",
+              new CurrencyProfile(CurrencyCode.GBP, true, CurrencyCode.GBP, null, null));
+
+  /** Resolve an instrument's currency roles — explicit override or the collapsed default. */
+  public static CurrencyProfile profileOf(InstrumentCore core) {
+    CurrencyProfile override = PROFILE_OVERRIDES.get(core.figi());
+    return override != null ? override : CurrencyProfile.defaults(core);
+  }
+
+  /**
+   * figi → P&L conversion key: the TRADING currency, with minor-unit lines keyed separately
+   * ("GBX" = pence) so a 2,650.5 GBp mark converts at rate/100 instead of 100× off.
+   */
   public static final Map<String, String> CURRENCY_OF =
       INSTRUMENTS.stream()
           .collect(Collectors.toUnmodifiableMap(
-              DemoInstrument::figi, i -> i.core().currency().name()));
+              DemoInstrument::figi,
+              i -> {
+                CurrencyProfile p = profileOf(i.core());
+                if (p.tradingMinorUnit() && p.tradingCurrency() == CurrencyCode.GBP) {
+                  return "GBX";
+                }
+                return p.tradingCurrency().name();
+              }));
 
   /** Demo FX rates: USD per 1 unit of currency, fixed-point 4dp (PnlService.setFxRate). */
   public static final Map<String, Long> FX_TO_USD =
-      Map.of("EUR", 1_0842L, "GBP", 1_2710L, "JPY", 64L);
+      Map.of("EUR", 1_0842L, "GBP", 1_2710L, "JPY", 64L, "GBX", 127L);
 
   private DemoUniverse() {}
 

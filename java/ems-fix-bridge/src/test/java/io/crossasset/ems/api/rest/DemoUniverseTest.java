@@ -132,4 +132,68 @@ class DemoUniverseTest {
           currency + " needs an FX rate or international P&L silently drops to zero");
     }
   }
+
+  // ── Currency roles (18.30) — one pin per security type from [[currency-in-execution]] ──
+
+  private static DemoUniverse.DemoInstrument byFigi(String figi) {
+    return DemoUniverse.INSTRUMENTS.stream()
+        .filter(i -> i.figi().equals(figi))
+        .findFirst()
+        .orElseThrow();
+  }
+
+  @Test
+  void fxPairsCarryBaseAndQuote_priceIsQuotePerBase() {
+    var eurusd = DemoUniverse.profileOf(byFigi("BBG00DEMOFX1").core());
+    assertEquals("EUR", eurusd.baseCurrency().name(), "EUR/USD: base is the unit bought/sold");
+    assertEquals("USD", eurusd.quoteCurrency().name(), "EUR/USD: price denominates in USD");
+    assertEquals("USD", eurusd.tradingCurrency().name());
+
+    var usdjpy = DemoUniverse.profileOf(byFigi("BBG00DEMOFX2").core());
+    assertEquals("USD", usdjpy.baseCurrency().name(), "USD/JPY is NOT JPY/USD — convention");
+    assertEquals("JPY", usdjpy.quoteCurrency().name());
+  }
+
+  @Test
+  void samuraiBond_denominationIsIndependentOfIssuer() {
+    var samurai = byFigi("BBG00DEMOSM1");
+    assertEquals("JPY", samurai.core().currency().name(), "JPY-denominated");
+    assertEquals("JP", samurai.core().countryOfIssue(), "issued in Japan");
+    assertEquals("LEI-DEMO-MSFT", samurai.core().issuerLei(), "by a US issuer");
+    var profile = DemoUniverse.profileOf(samurai.core());
+    assertEquals("JPY", profile.tradingCurrency().name());
+    assertEquals("JPY", profile.settlementCurrency().name());
+    assertFalse(profile.isFxPair());
+  }
+
+  @Test
+  void adr_tradesUsdWhileItsUnderlyingLineTradesJpy_sameIssuer() {
+    var adr = byFigi("BBG00DEMOADR");
+    var local = byFigi("BBG000BCM915");
+    assertEquals("USD", DemoUniverse.profileOf(adr.core()).tradingCurrency().name());
+    assertEquals("JPY", DemoUniverse.profileOf(local.core()).tradingCurrency().name());
+    assertEquals(local.core().issuerLei(), adr.core().issuerLei(), "one issuer, two wrappers");
+  }
+
+  @Test
+  void minorUnitListing_isFlaggedAndPnlConvertsAtPenceRate() {
+    var shell = DemoUniverse.profileOf(byFigi("BBG00DEMOSHL").core());
+    assertTrue(shell.tradingMinorUnit(), "Shell quotes in GBp pence on XLON");
+    assertEquals("GBP", shell.tradingCurrency().name());
+    // P&L keys pence separately: GBX rate = GBP rate / 100, or marks convert 100x off.
+    assertEquals("GBX", DemoUniverse.CURRENCY_OF.get("BBG00DEMOSHL"));
+    assertEquals(
+        DemoUniverse.FX_TO_USD.get("GBP") / 100, (long) DemoUniverse.FX_TO_USD.get("GBX"));
+  }
+
+  @Test
+  void collapsedDefaults_everyOtherInstrumentTradesAndSettlesItsCoreCurrency() {
+    for (DemoUniverse.DemoInstrument inst : DemoUniverse.INSTRUMENTS) {
+      var profile = DemoUniverse.profileOf(inst.core());
+      if (!profile.isFxPair() && !profile.tradingMinorUnit()) {
+        assertEquals(inst.core().currency(), profile.tradingCurrency(), inst.figi());
+        assertEquals(inst.core().currency(), profile.settlementCurrency(), inst.figi());
+      }
+    }
+  }
 }

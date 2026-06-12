@@ -13,6 +13,10 @@ export interface InstrumentInfo {
   assetClass: string;
   /** Issuer display name (18.29) — empty for products with no single issuer (FX, IRS, index). */
   issuer: string;
+  /** Trading currency (18.30) — what the price quotes in; "GBX"-style when minor-unit (GBp). */
+  ccy: string;
+  /** Settlement currency (18.30) — what cash moves (FX shows BASE/QUOTE instead). */
+  settleCcy: string;
 }
 
 const cache = new Map<string, InstrumentInfo>();
@@ -33,12 +37,29 @@ export function infoOf(figi: string): Promise<InstrumentInfo> {
   if (!pending) {
     pending = fetch(`/api/v1/instruments/${encodeURIComponent(figi)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((body: { name?: string; assetClass?: string; issuer?: string }) => ({
-        name: body.name || figi,
-        assetClass: body.assetClass ?? "",
-        issuer: body.issuer ?? "",
-      }))
-      .catch(() => ({ name: figi, assetClass: "", issuer: "" }))
+      .then(
+        (body: {
+          name?: string;
+          assetClass?: string;
+          issuer?: string;
+          tradingCurrency?: string;
+          tradingMinorUnit?: boolean;
+          settlementCurrency?: string;
+          baseCurrency?: string;
+          quoteCurrency?: string;
+        }) => ({
+          name: body.name || figi,
+          assetClass: body.assetClass ?? "",
+          issuer: body.issuer ?? "",
+          // GBp-style minor units render distinctly (GBX) — a 2,650.5 print is £26.505.
+          ccy: (body.tradingMinorUnit ? "GBX" : body.tradingCurrency) ?? "",
+          // FX settles both legs: show the pair rather than pretending one currency moves.
+          settleCcy: body.baseCurrency
+            ? `${body.baseCurrency}/${body.quoteCurrency}`
+            : (body.settlementCurrency ?? ""),
+        }),
+      )
+      .catch(() => ({ name: figi, assetClass: "", issuer: "", ccy: "", settleCcy: "" }))
       .then((info) => {
         cache.set(figi, info);
         inflight.delete(figi);

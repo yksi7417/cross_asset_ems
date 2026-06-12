@@ -134,7 +134,7 @@ on routes. Results land as a toast, and the rows update through the stream like 
 
 ### 4.3 Watchlist + the cross-asset universe
 
-Fifteen instruments tick several times a second (bid/ask/last/volume) — the demo universe is
+Eighteen instruments tick several times a second (bid/ask/last/volume) — the demo universe is
 **cross-asset** (18.21), at least one US and one international name per supported class, each
 trading in its natural unit and routing to class-appropriate venues. Securities carry their
 **issuer** (18.29): group the order blotter by `issuer` and Microsoft's stock, 0% 2030
@@ -151,7 +151,10 @@ convertible and Sep26 450 call collapse into one capital-structure node (Apple l
 | Rates (IRS) | USD SOFR 5Y | EUR €STR 5Y | 1M notional | TWSD, BGCD |
 
 (Defined in `DemoUniverse.java`; non-equity FIGIs are synthetic demo identifiers. IRS "price" is
-the fixed rate in percent.) Non-USD P&L converts to the USD base via demo FX rates. The order
+the fixed rate in percent.) Currency roles (18.30, see [[currency-in-execution]]) are visible in
+the ticket and the `ccy`/`settleCcy` columns: EUR/USD quotes USD-per-EUR and settles both legs,
+the Microsoft JPY samurai trades/settles JPY under a US issuer, the Toyota ADR trades USD beside
+its JPY XTKS line, and Shell quotes in GBp pence (P&L converts at the pence rate, not 100x off). Non-USD P&L converts to the USD base via demo FX rates. The order
 blotter shows the `assetClass` column, resolved from `GET /api/v1/instruments/{figi}` and cached
 like security names.
 

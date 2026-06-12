@@ -50,6 +50,8 @@ const ORDERS_SCHEMA = {
   name: "string",
   assetClass: "string",
   issuer: "string",
+  ccy: "string",
+  settleCcy: "string",
   clOrdId: "string",
   figi: "string",
   side: "string",
@@ -72,6 +74,8 @@ const ROUTES_SCHEMA = {
   name: "string",
   assetClass: "string",
   issuer: "string",
+  ccy: "string",
+  settleCcy: "string",
   orderId: "string",
   clOrdId: "string",
   venueMic: "string",
@@ -91,6 +95,8 @@ const FILLS_SCHEMA = {
   name: "string",
   assetClass: "string",
   issuer: "string",
+  ccy: "string",
+  settleCcy: "string",
   routeId: "string",
   orderId: "string",
   venueMic: "string",
@@ -236,7 +242,7 @@ type Aggregate = string | [string, string[]];
 // marker, see markMultiAggregates); qty sums SIGNED via the signedQty expression (buy +, sell −);
 // avgPx is the cumQty-weighted average price = Σ(cumQty×avgPx)/Σ(cumQty).
 const SAME_OR_MULTI = [
-  "name", "assetClass", "issuer", "side", "px", "state", "subState", "account",
+  "name", "assetClass", "issuer", "ccy", "settleCcy", "side", "px", "state", "subState", "account",
   "orderId", "routeId", "venueMic", "tif", "ordType", "ts", "figi", "clOrdId",
 ];
 function tradingAggregates(extra: Record<string, Aggregate>): Record<string, Aggregate> {
@@ -798,7 +804,7 @@ async function start(session: Logon): Promise<void> {
       table: await schemaTable(worker, ORDERS_SCHEMA, "orderId"),
       transform: orderRow,
       sort: [["ts", "desc"]],
-      columns: ["name", "assetClass", "issuer", "side", "qty", "signedQty", "notional", "ordType", "px", "avgPx", "cumQty", "leavesQty", "state", "subState", "tif", "account", "orderId", "ts"],
+      columns: ["name", "assetClass", "issuer", "side", "qty", "signedQty", "notional", "ordType", "px", "ccy", "avgPx", "cumQty", "leavesQty", "state", "subState", "tif", "account", "orderId", "ts"],
       expressions: BLOTTER_EXPRESSIONS,
       aggregates: tradingAggregates({ signedQty: "sum", notional: "sum" }),
     },

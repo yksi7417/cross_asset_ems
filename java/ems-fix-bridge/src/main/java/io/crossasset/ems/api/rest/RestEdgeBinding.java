@@ -78,6 +78,21 @@ public final class RestEdgeBinding {
     this.issuerNames = directory;
   }
 
+  /** Instrument → currency roles (18.30); defaults collapse to the core's single currency. */
+  private java.util.function.Function<
+          io.crossasset.ems.instrument.InstrumentCore,
+          io.crossasset.ems.instrument.CurrencyProfile>
+      currencyProfiles = io.crossasset.ems.instrument.CurrencyProfile::defaults;
+
+  /** Wire currency-profile resolution (trading/settlement/base/quote) for {@code /instruments}. */
+  public void setCurrencyProfiles(
+      java.util.function.Function<
+              io.crossasset.ems.instrument.InstrumentCore,
+              io.crossasset.ems.instrument.CurrencyProfile>
+          profiles) {
+    this.currencyProfiles = profiles;
+  }
+
   public RestEdgeBinding(AaaService aaa, ApiSurface api, SubscriptionRegistry subscriptions) {
     this(aaa, api, subscriptions, null, null);
   }
@@ -315,6 +330,15 @@ public final class RestEdgeBinding {
     out.put("type", instrument.core().instrumentType().name());
     out.put("currency", instrument.core().currency().name());
     out.put("settlement", instrument.core().settlementConvention().name());
+    // Currency roles (18.30): what the price quotes in vs what cash moves vs FX base/quote.
+    var profile = currencyProfiles.apply(instrument.core());
+    out.put("tradingCurrency", profile.tradingCurrency().name());
+    out.put("tradingMinorUnit", profile.tradingMinorUnit());
+    out.put("settlementCurrency", profile.settlementCurrency().name());
+    if (profile.isFxPair()) {
+      out.put("baseCurrency", profile.baseCurrency().name());
+      out.put("quoteCurrency", profile.quoteCurrency().name());
+    }
     // Issuer (18.29): group-by-issuer collapses a company's capital structure cross-asset.
     String issuerLei = instrument.core().issuerLei();
     if (issuerLei != null) {

@@ -22,27 +22,40 @@ const TIFS: [string, number][] = [
   ["FOK", 4],
 ];
 
+// Currency roles (18.30, [[currency-in-execution]]): the px label names the TRADING currency
+// (what the price is quoted in — "GBp" for minor-unit lines, the QUOTE ccy for FX) and the hint
+// names the SETTLEMENT currency (what cash moves; FX moves both legs).
+const tradingCcy = (i: Instrument) =>
+  i.tradingMinorUnit ? `${i.tradingCurrency} pence (GBp)` : (i.tradingCurrency ?? i.currency);
+const settleCcy = (i: Instrument) =>
+  i.baseCurrency
+    ? `both legs ${i.baseCurrency}+${i.quoteCurrency}`
+    : (i.settlementCurrency ?? i.currency);
+
 /** Per-asset-class ticket layout: labels and contextual hint line. */
-const LAYOUTS: Record<string, { qty: string; px: string; hint: (i: Instrument) => string }> = {
+const LAYOUTS: Record<string, { qty: string; px: (i: Instrument) => string; hint: (i: Instrument) => string }> = {
   EQUITY: {
     qty: "QTY (SHARES)",
-    px: "LIMIT PX (BLANK = MARKET)",
-    hint: (i) => `${i.currency} · settle ${i.settlement.replaceAll("_", "")}`,
+    px: (i) => `LIMIT PX ${tradingCcy(i)} (BLANK = MARKET)`,
+    hint: (i) => `settle ${settleCcy(i)} · ${i.settlement.replaceAll("_", "")}`,
   },
   FIXED_INCOME: {
     qty: "NOTIONAL (FACE)",
-    px: "CLEAN PRICE",
-    hint: (i) => `${i.currency} · settle ${i.settlement.replaceAll("_", "")}`,
+    px: (i) => `CLEAN PRICE per 100 (${tradingCcy(i)})`,
+    hint: (i) => `settle ${settleCcy(i)} · ${i.settlement.replaceAll("_", "")}`,
   },
   FX: {
     qty: "BASE NOTIONAL",
-    px: "ALL-IN RATE",
-    hint: (i) => `${i.currency} · value date per ${i.settlement.replaceAll("_", "")}`,
+    px: (i) =>
+      i.baseCurrency
+        ? `ALL-IN RATE (${i.quoteCurrency} per ${i.baseCurrency})`
+        : "ALL-IN RATE",
+    hint: (i) => `settle ${settleCcy(i)} · value date per ${i.settlement.replaceAll("_", "")}`,
   },
   DEFAULT: {
     qty: "QUANTITY",
-    px: "PRICE (BLANK = MARKET)",
-    hint: (i) => `${i.assetClass} · ${i.currency}`,
+    px: (i) => `PRICE ${tradingCcy(i)} (BLANK = MARKET)`,
+    hint: (i) => `${i.assetClass} · settle ${settleCcy(i)}`,
   },
 };
 
@@ -52,6 +65,11 @@ interface Instrument {
   assetClass: string;
   currency: string;
   settlement: string;
+  tradingCurrency?: string;
+  tradingMinorUnit?: boolean;
+  settlementCurrency?: string;
+  baseCurrency?: string;
+  quoteCurrency?: string;
 }
 
 export interface ItemResult {
@@ -284,7 +302,9 @@ export function initTicket(
       nameLabel.textContent = instrument ? instrument.name : "unknown instrument";
       hintLabel.textContent = instrument ? layout.hint(instrument) : "";
       qtyLabel.textContent = layout.qty;
-      pxLabel.textContent = layout.px;
+      pxLabel.textContent = instrument
+        ? layout.px(instrument)
+        : "PRICE (BLANK = MARKET)";
       try {
         const results = await api.operation("preview_validate", [{ figi }]);
         const r = results[0];

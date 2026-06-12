@@ -278,6 +278,7 @@ public final class TraderDesktopEdgeMain {
             esp,
             watchlist);
     binding.setIssuerNames(DemoUniverse.ISSUER_NAMES::get); // 18.29: group-by-issuer
+    binding.setCurrencyProfiles(DemoUniverse::profileOf); // 18.30: trading/settle/base/quote
     RestHttpServer rest = new RestHttpServer(binding, restPort);
     rest.start();
     WsEventStreamServer ws = new WsEventStreamServer(aaa, subscriptions, wsPort);
