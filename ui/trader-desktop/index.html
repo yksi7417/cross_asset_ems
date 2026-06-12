@@ -365,6 +365,9 @@
         letter-spacing: 0.14em;
         color: var(--muted);
         border-bottom: 1px solid var(--edge);
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
       .panel > perspective-viewer {
         flex: 1;
@@ -489,6 +492,26 @@
         border-radius: 8px;
         padding: 1px 8px;
         text-transform: none;
+      }
+      /* Column picker / layout reset (18.23) — right-aligned in each grid header. */
+      .col-btn {
+        margin-left: auto;
+        background: none;
+        border: 1px solid var(--edge);
+        border-radius: 6px;
+        color: var(--muted, #8aa);
+        font: inherit;
+        font-size: 9px;
+        letter-spacing: 0.06em;
+        padding: 1px 7px;
+        cursor: pointer;
+      }
+      .col-btn + .col-btn {
+        margin-left: 4px;
+      }
+      .col-btn:hover {
+        color: var(--accent);
+        border-color: var(--accent);
       }
       #ctx-menu {
         position: fixed;

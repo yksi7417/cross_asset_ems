@@ -20,6 +20,7 @@ import { ResumableStream, type StreamStatus } from "./stream";
 import { ApiClient, initTicket, type WorkingOrder } from "./ticket";
 import { attachMultiBadge } from "./aggregates";
 import { nameOf, nameOfSync, withInstrument } from "./instruments";
+import { attachColumnControls, setLayoutScope } from "./layout";
 import { reportStreamStatus } from "./recovery";
 import { attachGridInteractions, type GridRow } from "./grid-actions";
 
@@ -279,6 +280,13 @@ type ViewerEl = HTMLElement & {
 /** Per-viewer base config so link filters can be applied/cleared without losing layout. */
 const viewerBase = new Map<string, { viewer: ViewerEl; config: Record<string, unknown> }>();
 
+/** Interaction-key columns that must stay configured per grid (18.23 invariant). */
+const REQUIRED_COLUMNS: Record<string, string[]> = {
+  "orders-viewer": ["orderId"],
+  "routes-viewer": ["routeId", "orderId"],
+  "fills-viewer": ["routeId"],
+};
+
 async function applyFilter(viewerId: string, filter: unknown[][]): Promise<void> {
   const base = viewerBase.get(viewerId);
   if (base) {
@@ -303,12 +311,14 @@ async function startWatchlist(session: Logon, worker: Client): Promise<void> {
     restore(config: object): Promise<void>;
   };
   await viewer.load(table);
-  await viewer.restore({
+  const wlConfig = {
     plugin: "Datagrid",
     theme: "Pro Dark",
     sort: [["name", "asc"]],
     columns: ["name", "bid", "ask", "last", "volume", "figi", "ts"],
-  });
+  };
+  await viewer.restore(wlConfig);
+  attachColumnControls("watchlist-viewer", ["figi"], wlConfig, () => {});
   document.getElementById("watchlist-title")!.textContent =
     `WATCHLIST — ${session.desk.toUpperCase()}`;
 
@@ -788,6 +798,7 @@ function startEsp(session: Logon): void {
 
 async function start(session: Logon): Promise<void> {
   await perspectiveReady;
+  setLayoutScope(session.user, session.desk); // 18.23: layouts persist per user/desk
   const worker = await perspective.worker();
   await startWatchlist(session, worker);
   const apiClient = apiFor(session);
@@ -866,6 +877,14 @@ async function start(session: Logon): Promise<void> {
     if (blotter.aggregates) {
       attachMultiBadge(blotter.viewer, new Set(SAME_OR_MULTI));
     }
+    // Column picker + per-user layout persistence (18.23). Interaction keys stay configured —
+    // selection/linking read rows through the view, which only carries configured columns.
+    attachColumnControls(
+      blotter.viewer,
+      REQUIRED_COLUMNS[blotter.viewer] ?? [],
+      config,
+      (updated) => viewerBase.set(blotter.viewer, { viewer, config: updated }),
+    );
 
     const stream = new ResumableStream(
       blotter.topic,

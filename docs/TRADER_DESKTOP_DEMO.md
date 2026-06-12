@@ -118,9 +118,14 @@ routes and drip-fills orders continuously — rows appear, `cumQty`/`leavesQty` 
 `NEW → ROUTING → PARTIALLY_FILLED → FILLED`. Rows show the **security name** everywhere (resolved
 from the security master and cached); the FIGI is demoted to an optional column.
 
-Every panel is a Perspective viewer: **click a column header to sort**, and open the **settings
-panel** (the ⚙/columns icon in each panel's top-left toolbar) for per-column *Group By / Split By /
-Sort / Filter* — the grid keeps updating live while pivoted (that is the point of Perspective).
+Every panel is a Perspective viewer: **click a column header to sort**, and hit **⚙ COLUMNS** in
+any grid header (18.23) for the full picker — drag columns in/out, *Group By / Split By / Sort /
+Filter* — the grid keeps updating live while pivoted (that is the point of Perspective). Your
+layout **persists per user/desk** and survives reloads; **⟲** resets the grid to its default.
+Interaction-key columns (orderId/routeId/figi) are re-asserted automatically — hiding them would
+break right-click menus and linking. To add a NEW column to a blotter there is one place to edit:
+the grid's schema in `ui/trader-desktop/src/main.ts` (plus the server row payload if it's new
+data) — the picker offers it from then on.
 
 **Linked blotter (the LINK toggle in the ORDER BLOTTER header, on by default):** click an order →
 ROUTES filters to that order (a ⛓ chip shows the link; click it to clear). Click a route → FILLS
