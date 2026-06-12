@@ -248,10 +248,10 @@ Inputs. ~2 weeks.
 > Aeron multicast fabric below resumes when SOR (11.11) or venue work needs it. Consequence:
 > **10.2** (fat-finger, ← 9.5) and **12.14** (TCA, ← 9.5) wait with it.
 
-- [ ] **9.1** Quote server per [[arch-quote-server]] (sonnet) ← blocks: 2.3
-- [ ] **9.2** Subscriber-visibility registry (sonnet) ← blocks: 9.1
-- [ ] **9.3** Quote multicast over Aeron (sonnet) ← blocks: 9.1, 2.3
-- [ ] **9.4** IOI service per [[arch-ioi]] (sonnet)
+- [x] **9.1** Quote server per [[arch-quote-server]] (sonnet) ← blocks: 2.3 — un-deferred 2026-06-12: the deferral's own return condition ("when SOR/venue work demands an internal quote fabric") was met by 11.11. QuoteServer: quote.{figi}.{l1|l2|trade} topics + globs, per-subscription QoS + event-time throttling, logon snapshots
+- [x] **9.2** Subscriber-visibility registry (sonnet) ← blocks: 9.1 — SubscriberRegistry: records who is on each topic even under multicast delivery (the compliance "who sees this quote?" answer), heartbeat-pruned, deterministic order
+- [x] **9.3** Quote multicast over Aeron (sonnet) ← blocks: 9.1, 2.3 — QuoteMulticast: best-effort multicast TAIL (loss is normal) + sequence-stamped retention ring with unicast REPLAY (from=lastSeq+1, the house cursor contract); past-retention replays return empty LOUDLY (snapshot re-image required); real Aeron channel URIs + deterministic stream ids; LoopbackTail for tests/single-box
+- [x] **9.4** IOI service per [[arch-ioi]] (sonnet) — IoiService: industry qualifier semantics preserved and strength-ranked (NATURAL > IN_TOUCH_WITH), HARD client-segment gating (invisible, not greyed), source-keyed lifecycle (networks cancel by THEIR ids), expiry sweep, traded-against linkage for axe TCA
 - [x] **9.5** Real-time analytics (VWAP, TWAP, PWP, arrival) per [[arch-realtime-analytics]] — BenchmarkService on the 18.12 SPI (the original 9.1 quote-server blocker is satisfied by the SPI per the 2026-06-10 rescope): event-time streaming VWAP/TWAP/mid/last, frozen arrival marks, tape-based PWP; deterministic replay pinned
 
 ## Phase 10 — Pre-Trade Auxiliaries
