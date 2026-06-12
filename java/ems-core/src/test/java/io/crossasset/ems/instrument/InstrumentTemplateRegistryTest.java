@@ -82,10 +82,10 @@ class InstrumentTemplateRegistryTest {
 
   @Test
   void allTemplates_count_matchesSbeSchemaFiles() {
-    // 18 instrument schemas currently have SBE XML files; unbuilt templates (TBA-MBS, ETF, etc.)
-    // are intentionally absent until their schema tasks land.
+    // 22 instrument schemas have SBE XML files (4.12 TBA/pool, 4.14 structured, 4.17 event
+    // contracts landed 2026-06-12 — the template catalog is complete).
     assertEquals(
-        18,
+        22,
         REGISTRY.all().size(),
         "Registry count must equal the number of deployed SBE instrument schema files");
   }
@@ -105,15 +105,24 @@ class InstrumentTemplateRegistryTest {
   }
 
   @Test
-  void forAssetClass_fixedIncome_containsFourTemplates() {
+  void forAssetClass_fixedIncome_containsSixTemplates() {
     List<InstrumentTemplateDescriptor> templates =
         REGISTRY.forAssetClass(InstrumentAssetClass.FIXED_INCOME);
-    assertEquals(4, templates.size(), "FixedIncome group must contain Bond/ConvBond/Loan/Abs");
+    assertEquals(
+        6, templates.size(), "FixedIncome group: Bond/ConvBond/Loan/Abs + TBA/SpecifiedPool");
     Set<Integer> ids =
         templates.stream()
             .map(InstrumentTemplateDescriptor::templateId)
             .collect(Collectors.toSet());
-    assertTrue(ids.containsAll(Set.of(0x2002, 0x2003, 0x2004, 0x2012)));
+    assertTrue(ids.containsAll(Set.of(0x2002, 0x2003, 0x2004, 0x2012, 0x2013, 0x2014)));
+  }
+
+  @Test
+  void structuredProductsAndEventContracts_areRegistered() {
+    assertTrue(REGISTRY.isKnown(0x2090), "StructuredProductInstrument (4.14)");
+    assertTrue(REGISTRY.isKnown(0x20A0), "EventContractInstrument (4.17)");
+    assertEquals(1, REGISTRY.forAssetClass(InstrumentAssetClass.STRUCTURED_PRODUCT).size());
+    assertEquals(1, REGISTRY.forAssetClass(InstrumentAssetClass.EVENT_CONTRACT).size());
   }
 
   @Test

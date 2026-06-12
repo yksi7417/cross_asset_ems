@@ -22,6 +22,7 @@ import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
+import io.opentelemetry.sdk.trace.samplers.Sampler;
 import java.time.Duration;
 
 /**
@@ -117,6 +118,8 @@ public final class EmsOpenTelemetry {
     private String hostName = null;
     private String otlpEndpoint =
         System.getenv().getOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317");
+    private double traceSampleRatio =
+        Double.parseDouble(System.getenv().getOrDefault("EMS_TRACE_SAMPLE_RATIO", "1.0"));
     private Duration batchTimeout = Duration.ofMillis(500);
     private Duration batchMaxQueueSize = Duration.ofSeconds(10);
     private Duration metricExportInterval = Duration.ofSeconds(10);
@@ -148,6 +151,15 @@ public final class EmsOpenTelemetry {
 
     public Builder otlpEndpoint(final String endpoint) {
       this.otlpEndpoint = endpoint;
+      return this;
+    }
+
+    /** Head sample ratio (13.6): 1.0 dev default; production sets 0.01-0.05 via env/config. */
+    public Builder traceSampleRatio(final double ratio) {
+      if (ratio < 0.0 || ratio > 1.0) {
+        throw new IllegalArgumentException("traceSampleRatio must be in [0,1]");
+      }
+      this.traceSampleRatio = ratio;
       return this;
     }
 
@@ -221,7 +233,16 @@ public final class EmsOpenTelemetry {
               .setEndpoint(otlpEndpoint)
               .setTimeout(batchMaxQueueSize)
               .build();
+      // 13.6 sampling: the HEAD half. A ratio sampler cannot know a span will error (errors
+      // are set at END), so error-keeping is the COLLECTOR's tail_sampling job — the SDK head
+      // ratio only caps the export volume the collector must tail-sample. parentBased keeps
+      // traces coherent: a sampled parent's children always export.
+      final Sampler sampler =
+          traceSampleRatio >= 1.0
+              ? Sampler.alwaysOn()
+              : Sampler.parentBased(Sampler.traceIdRatioBased(traceSampleRatio));
       return SdkTracerProvider.builder()
+          .setSampler(sampler)
           .addSpanProcessor(
               BatchSpanProcessor.builder(exporter)
                   .setScheduleDelay(batchTimeout)

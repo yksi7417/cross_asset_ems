@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Task 4.12: a SPECIFIED agency pool — the opposite of TBA: a particular pool number with its own factor/WAC/WAM, NON-fungible (you trade THIS pool), pay-ups priced vs the TBA. -->
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
+                   byteOrder="littleEndian"
+                   package="SpecifiedPoolInstrument"
+                   id="0x2014"
+                   version="0"
+                   semanticVersion="1.0">
+  <sbe:types>
+    <sbe:composite name="MessageHeader" description="Standard SBE message header">
+      <sbe:type name="blockLength" id="1" primitiveType="uint16" offset="0"/>
+      <sbe:type name="templateId"  id="2" primitiveType="uint16" offset="2"/>
+      <sbe:type name="schemaId"    id="3" primitiveType="uint16" offset="4"/>
+      <sbe:type name="version"     id="4" primitiveType="uint16" offset="6"/>
+    </sbe:composite>
+
+    <sbe:composite name="InstrumentCore" description="Fixed-offset core reference data block (315 bytes) carried at the start of every AbsInstrument message">
+      <sbe:type name="figi"                id="1"  primitiveType="char"   length="12"  offset="0"/>
+      <sbe:type name="internalIid"         id="2"  primitiveType="char"   length="20"  offset="12"/>
+      <sbe:type name="compositeFigi"       id="3"  presence="optional"   primitiveType="char"   length="12"  offset="32"/>
+      <sbe:type name="shareClassFigi"      id="4"  presence="optional"   primitiveType="char"   length="12"  offset="44"/>
+      <sbe:type name="assetClass"          id="5"  nullValue="255"       primitiveType="uint8"  offset="56"/>
+      <sbe:type name="instrumentType"      id="6"  nullValue="255"       primitiveType="uint8"  offset="57"/>
+      <sbe:type name="displayName"         id="7"                       primitiveType="char"   length="64"  offset="58"/>
+      <sbe:type name="legalName"           id="8"                       primitiveType="char"   length="128" offset="122"/>
+      <sbe:type name="issuerLei"           id="9"  presence="optional"   primitiveType="char"   length="20"  offset="250"/>
+      <sbe:type name="currency"            id="10" nullValue="65535"     primitiveType="uint16" offset="270"/>
+      <sbe:type name="countryOfIssue"      id="11"                      primitiveType="char"   length="2"   offset="272"/>
+      <sbe:type name="countryOfListing"    id="12" presence="optional"  primitiveType="char"   length="2"   offset="274"/>
+      <sbe:type name="fungibility"         id="13" nullValue="255"      primitiveType="uint8"  offset="276"/>
+      <sbe:type name="settlementConvention" id="14" nullValue="255"     primitiveType="uint8"  offset="277"/>
+      <sbe:type name="effectiveDate"       id="15"                      primitiveType="uint64" offset="278"/>
+      <sbe:type name="expiryDate"          id="16" presence="optional"  primitiveType="uint64" offset="286"/>
+      <sbe:type name="status"              id="17" nullValue="255"      primitiveType="uint8"  offset="294"/>
+      <sbe:type name="createdAt"           id="18"                      primitiveType="uint64" offset="295"/>
+      <sbe:type name="updatedAt"           id="19"                      primitiveType="uint64" offset="303"/>
+      <sbe:type name="version"             id="20"                      primitiveType="uint32" offset="311"/>
+    </sbe:composite>
+
+    <sbe:enum name="Status" encodingType="uint8">
+      <sbe:validValue name="Active">0</sbe:validValue>
+      <sbe:validValue name="Inactive">1</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="Fungibility" encodingType="uint8">
+      <sbe:validValue name="Fungible">0</sbe:validValue>
+      <sbe:validValue name="NonFungible">1</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="SettlementConvention" encodingType="uint8">
+      <sbe:validValue name="TPlus1">1</sbe:validValue>
+      <sbe:validValue name="TPlus2">2</sbe:validValue>
+      <sbe:validValue name="TbaMonthly">5</sbe:validValue>
+    </sbe:enum>
+
+    <sbe:enum name="Agency" encodingType="uint8">
+      <sbe:validValue name="Fnma">1</sbe:validValue>
+      <sbe:validValue name="Fhlmc">2</sbe:validValue>
+      <sbe:validValue name="Gnma1">3</sbe:validValue>
+      <sbe:validValue name="Gnma2">4</sbe:validValue>
+    </sbe:enum>
+  </sbe:types>
+
+  <sbe:group name="PoolAttributes" id="100" blockLength="57" dimensionType="groupSizeEncoding">
+    <sbe:field name="poolNumber" id="1" type="char" length="12" offset="0"/>
+    <sbe:field name="agency" id="2" type="Agency" offset="12"/>
+    <sbe:field name="couponBps" id="3" type="uint32" offset="13"/>
+    <sbe:field name="originalFace" id="4" type="uint64" offset="17"/>
+    <sbe:field name="currentFactorMantissa" id="5" type="int64" offset="25"/>
+    <sbe:field name="wacBps" id="6" type="uint32" offset="33"/>
+    <sbe:field name="wamMonths" id="7" type="uint16" offset="37"/>
+    <sbe:field name="walaMonths" id="8" type="uint16" offset="39"/>
+    <sbe:field name="issueDate" id="9" type="uint64" offset="41"/>
+    <sbe:field name="maturityDate" id="10" type="uint64" offset="49"/>
+  </sbe:group>
+
+  <sbe:message name="SpecifiedPoolInstrument" id="0x2014">
+    <sbe:header>MessageHeader</sbe:header>
+    <sbe:field name="instrumentCore" id="1" type="InstrumentCore" offset="0"/>
+    <sbe:group name="poolAttributes" id="2" type="PoolAttributes" blockLength="57" dimensionType="groupSizeEncoding"/>
+  </sbe:message>
+</sbe:messageSchema>

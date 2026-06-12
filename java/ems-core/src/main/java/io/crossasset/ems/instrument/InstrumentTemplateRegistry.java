@@ -45,6 +45,16 @@ public final class InstrumentTemplateRegistry {
             desc(
                 0x2004, "LoanInstrument", InstrumentAssetClass.FIXED_INCOME, "loan-instrument.xml"),
             desc(0x2012, "AbsInstrument", InstrumentAssetClass.FIXED_INCOME, "abs-instrument.xml"),
+            desc(
+                0x2013,
+                "TbaMbsInstrument",
+                InstrumentAssetClass.FIXED_INCOME,
+                "tba-mbs-instrument.xml"),
+            desc(
+                0x2014,
+                "SpecifiedPoolInstrument",
+                InstrumentAssetClass.FIXED_INCOME,
+                "specified-pool-instrument.xml"),
             // Listed Derivatives
             desc(
                 0x2030,
@@ -95,7 +105,18 @@ public final class InstrumentTemplateRegistry {
                 "CryptoFungibleInstrument",
                 InstrumentAssetClass.CRYPTO,
                 "crypto-fungible-instrument.xml"),
-            desc(0x2081, "NftInstrument", InstrumentAssetClass.CRYPTO, "nft-instrument.xml"));
+            desc(0x2081, "NftInstrument", InstrumentAssetClass.CRYPTO, "nft-instrument.xml"),
+            // Structured products (4.14) + event contracts (4.17)
+            desc(
+                0x2090,
+                "StructuredProductInstrument",
+                InstrumentAssetClass.STRUCTURED_PRODUCT,
+                "structured-product-instrument.xml"),
+            desc(
+                0x20A0,
+                "EventContractInstrument",
+                InstrumentAssetClass.EVENT_CONTRACT,
+                "event-contract-instrument.xml"));
 
     Map<Integer, InstrumentTemplateDescriptor> map = new LinkedHashMap<>();
     for (InstrumentTemplateDescriptor t : templates) {

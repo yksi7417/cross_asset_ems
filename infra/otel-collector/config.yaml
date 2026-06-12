@@ -15,6 +15,23 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
+  # 13.6 sampling strategy — the TAIL half (the head ratio lives in the SDK builder):
+  # decisions made after the full trace is seen, so errors and slow traces ALWAYS keep
+  # while routine traffic keeps at 5%. decision_wait must exceed the longest trace.
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 50000
+    policies:
+      - name: keep-all-errors
+        type: status_code
+        status_code: { status_codes: [ERROR] }
+      - name: keep-slow-traces
+        type: latency
+        latency: { threshold_ms: 1000 }
+      - name: routine-five-percent
+        type: probabilistic
+        probabilistic: { sampling_percentage: 5 }
+
   batch:
     timeout: 5s
     send_batch_size: 1024
@@ -71,7 +88,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, resource, batch]
+      processors: [memory_limiter, tail_sampling, resource, batch]
       exporters: [otlp/jaeger, debug]
     metrics:
       receivers: [otlp]

@@ -173,12 +173,12 @@ The "what" layer. ~3-4 weeks.
 - [x] **4.9** `FxSpotInstrument` / `FxForwardInstrument` / `FxSwapInstrument` / `FxNdfInstrument` (gemma drafts, sonnet review) `(1c8d297)`
 - [x] **4.10** `FxOptionInstrument` template (sonnet — exotic discriminator) `(cfc4f05)`
 - [x] **4.11** `ListedOptionInstrument` / `ListedFutureInstrument` (gemma drafts, sonnet review) `(7bf9ad5)`
-- [ ] **4.12** `TbaMbsInstrument` / `SpecifiedPoolInstrument` (sonnet — fungibility handling)
+- [x] **4.12** `TbaMbsInstrument` / `SpecifiedPoolInstrument` (sonnet — fungibility handling) — SBE schemas 0x2013/0x2014 + registry: TBA is FUNGIBLE by design (SIFMA good-delivery on agency/product/coupon/month, monthly settle), a specified pool is THIS pool (number, factor, WAC/WAM, non-fungible, pay-up vs TBA)
 - [x] **4.13** `AbsInstrument` / `ConvertibleBondInstrument` / `LoanInstrument` (gemma drafts, sonnet review) `(49ceffd)`
-- [ ] **4.14** `StructuredProductInstrument` (sonnet — flexibility for bespoke)
+- [x] **4.14** `StructuredProductInstrument` (sonnet — flexibility for bespoke) — SBE schema 0x2090 + new STRUCTURED_PRODUCT asset class: wrapper (note/cert/warrant/deposit) × payoff (autocall/reverse-convertible/capital-protected/participation/bespoke) with strike/barrier/participation/protection economics in the fixed block; true bespoke terms ride ext attributes
 - [x] **4.15** `CommodityFutureInstrument` / `CommodityPhysicalInstrument` (gemma drafts, sonnet review) `(49ceffd)`
 - [x] **4.16** `CryptoFungibleInstrument` / `NftInstrument` (gemma drafts, sonnet review) `(49ceffd)`
-- [ ] **4.17** `EventContractInstrument` template (prediction markets) (sonnet)
+- [x] **4.17** `EventContractInstrument` template (prediction markets) (sonnet) — SBE schema 0x20A0 + new EVENT_CONTRACT asset class: binary/categorical/scalar outcomes, fixed payout per contract (price IS the probability), resolution source + deadline
 - [x] **4.18** Package entity + Leg group schema (sonnet) ← blocks: 4.4 `(b3ec442)`
 - [x] **4.19** Security master CRUD + supersession events per [[arch-security-master]] (sonnet) ← blocks: 4.4, 3.1 `(c8eaddb)`
 - [x] **4.20** Corporate actions → supersession integration per [[arch-corporate-actions]] (sonnet) ← blocks: 4.19 `(8a514fc)`
@@ -319,9 +319,9 @@ Three pillars. ~1-2 weeks.
 - [x] **13.1** OTel SDK + collector configuration (gemma) `(9661ba3)`
 - [x] **13.2** ELK / OpenSearch ingest pipeline (gemma) `(6c9601c)`
 - [x] **13.3** Prometheus exporters per service (gemma) `(6c9601c)`
-- [~] **13.4** Grafana dashboards: golden signals + per-asset latency (gemma for templates, sonnet for design) — scaffold at 9/9/6 panels; targets 24/12/12; needs sonnet follow-up pass
+- [x] **13.4** Grafana dashboards: golden signals + per-asset latency (gemma for templates, sonnet for design) — rebuilt at 24/12/12 panels; the gemma business-overview draft was an ENERGY-management dashboard (carbon saved, grid load — wrong EMS) and is now trading flow (order rates, fill ratio, notional, rejects by catalog code, compliance blocks, RFQ funnel, venue/class distribution, stream lag, reg-report acks); golden signals deepened per signal (order-path/WS latency, apdex, error budget burn, JVM/GC/queues); per-asset adds RFQ dealer response, ESP click→fill, last-look hold, tick→blotter
 - [x] **[MVP] 13.5** Distributed-trace verification: end-to-end trace from FIX in → venue out, single trace ID through the whole chain (sonnet) ← blocks: 8.1, 11.2 `(6953c3c)`
-- [ ] **13.6** Sampling strategy (1-5% routine, 100% errors) (sonnet)
+- [x] **13.6** Sampling strategy (1-5% routine, 100% errors) (sonnet) — split head/tail: SDK head ratio (parentBased traceIdRatio, EMS_TRACE_SAMPLE_RATIO env, dev default 1.0) caps export volume; collector tail_sampling makes the real decision after the full trace — 100% errors, 100% slow (>1s), 5% routine; config validated in the real contrib image
 
 ## Phase 14 — Operations
 
