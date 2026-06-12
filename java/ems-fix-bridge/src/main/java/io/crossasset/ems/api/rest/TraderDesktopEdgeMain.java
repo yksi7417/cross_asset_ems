@@ -474,8 +474,7 @@ public final class TraderDesktopEdgeMain {
     LogonOutcome logon = aaa.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "demo-bot"));
     long session = ((LogonOutcome.Accepted) logon).session().sessionId();
     Random random = new Random();
-    long[] lastPx =
-        INSTRUMENTS.stream().mapToLong(DemoUniverse.DemoInstrument::basePx).toArray();
+    long[] lastPx = INSTRUMENTS.stream().mapToLong(DemoUniverse.DemoInstrument::basePx).toArray();
     long volume = 0;
     int orderSeq = 0;
 
@@ -539,7 +538,8 @@ public final class TraderDesktopEdgeMain {
           som.markReady(orderId, session);
           String venue = inst.venues().get(random.nextInt(inst.venues().size()));
           RouteResult routed =
-              routes.route(new RouteRequest("RCL-" + orderSeq, orderId, venue, qty, lastPx[i], null));
+              routes.route(
+                  new RouteRequest("RCL-" + orderSeq, orderId, venue, qty, lastPx[i], null));
           if (routed instanceof RouteResult.Routed r) {
             String routeId = r.route().routeId();
             if (span != null) {
@@ -591,8 +591,7 @@ public final class TraderDesktopEdgeMain {
 
   /** Collapse path ids so HTTP spans group by route, not by entity (18.26). */
   private static String routeTemplate(String path) {
-    return path
-        .replaceAll("^/api/v1/instruments/.+", "/api/v1/instruments/{figi}")
+    return path.replaceAll("^/api/v1/instruments/.+", "/api/v1/instruments/{figi}")
         .replaceAll("^/api/v1/orders/[^/]+/history$", "/api/v1/orders/{id}/history")
         .replaceAll("^/api/v1/routes/[^/]+/history$", "/api/v1/routes/{id}/history")
         .replaceAll("^/api/v1/notifications/[^/]+/ack$", "/api/v1/notifications/{id}/ack")

@@ -182,8 +182,7 @@ class DemoUniverseTest {
     assertEquals("GBP", shell.tradingCurrency().name());
     // P&L keys pence separately: GBX rate = GBP rate / 100, or marks convert 100x off.
     assertEquals("GBX", DemoUniverse.CURRENCY_OF.get("BBG00DEMOSHL"));
-    assertEquals(
-        DemoUniverse.FX_TO_USD.get("GBP") / 100, (long) DemoUniverse.FX_TO_USD.get("GBX"));
+    assertEquals(DemoUniverse.FX_TO_USD.get("GBP") / 100, (long) DemoUniverse.FX_TO_USD.get("GBX"));
   }
 
   @Test

@@ -13,13 +13,13 @@ import java.util.concurrent.ConcurrentHashMap;
  * applied at allocation, producing the {@link NetMoney} decomposition a confirm carries — a buyer
  * expects net-money confirms, not clean qty×price.
  *
- * <p>Schedule resolution: exact (broker, assetClass) → broker default (broker, "*") → house
- * default ("*", assetClass) → global ("*", "*") → zero fees. Registration is config-time; lookup
- * is lock-free.
+ * <p>Schedule resolution: exact (broker, assetClass) → broker default (broker, "*") → house default
+ * ("*", assetClass) → global ("*", "*") → zero fees. Registration is config-time; lookup is
+ * lock-free.
  *
- * <p>Money math is all fixed-point 1e4, integer, round-half-up on each component's final
- * division — deterministic for replay. Bond gross uses the FI convention (clean price per 100
- * face): {@code gross = face × px / 100}; everything else {@code gross = qty × px}.
+ * <p>Money math is all fixed-point 1e4, integer, round-half-up on each component's final division —
+ * deterministic for replay. Bond gross uses the FI convention (clean price per 100 face): {@code
+ * gross = face × px / 100}; everything else {@code gross = qty × px}.
  */
 public final class FeeEngine {
 
@@ -68,7 +68,8 @@ public final class FeeEngine {
     // FI gross = face × px/100 (clean price per 100); everything else qty × px. Both stay 1e4.
     long gross = fixedIncome ? mulDivRound(qty, price, 100) : qty * price;
 
-    long commission = mulDivRound(gross, schedule.commissionBps(), 10_000) + qty * schedule.perUnitFee();
+    long commission =
+        mulDivRound(gross, schedule.commissionBps(), 10_000) + qty * schedule.perUnitFee();
     if (schedule.minCommission() > 0 && commission < schedule.minCommission()) {
       commission = schedule.minCommission();
     }
@@ -83,8 +84,10 @@ public final class FeeEngine {
             : mulDivRound(gross, schedule.regulatoryFeeBps(), 10_000);
 
     // Buys pay gross + charges + accrued; sells receive gross − charges + accrued.
-    long net = isBuy ? gross + commission + fees + accruedInterest
-                     : gross - commission - fees + accruedInterest;
+    long net =
+        isBuy
+            ? gross + commission + fees + accruedInterest
+            : gross - commission - fees + accruedInterest;
     return new NetMoney(gross, commission, fees, accruedInterest, net);
   }
 
@@ -92,8 +95,7 @@ public final class FeeEngine {
     java.math.BigInteger numerator =
         java.math.BigInteger.valueOf(a).multiply(java.math.BigInteger.valueOf(b));
     java.math.BigInteger doubled =
-        numerator.multiply(java.math.BigInteger.TWO)
-            .divide(java.math.BigInteger.valueOf(divisor));
+        numerator.multiply(java.math.BigInteger.TWO).divide(java.math.BigInteger.valueOf(divisor));
     long d = doubled.longValueExact();
     return (d + (d >= 0 ? 1 : -1)) / 2;
   }

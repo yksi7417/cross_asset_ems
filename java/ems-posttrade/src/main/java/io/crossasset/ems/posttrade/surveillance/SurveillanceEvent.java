@@ -8,9 +8,9 @@ import java.util.Objects;
 
 /**
  * One normalized order/exec event on the surveillance export stream (task 12.15,
- * [[arch-surveillance]]). The OMS lifecycle (new/modify/cancel/exec) is flattened into the
- * minimal shape detectors need; the original event id is retained so alerts can cite their
- * evidence ({@code subject_events}) back into the audit spine.
+ * [[arch-surveillance]]). The OMS lifecycle (new/modify/cancel/exec) is flattened into the minimal
+ * shape detectors need; the original event id is retained so alerts can cite their evidence ({@code
+ * subject_events}) back into the audit spine.
  *
  * @param eventId the source event's id (audit linkage)
  * @param type lifecycle event kind

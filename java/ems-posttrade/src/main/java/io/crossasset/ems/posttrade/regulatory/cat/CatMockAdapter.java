@@ -11,13 +11,13 @@ import java.util.Map;
 
 /**
  * CAT execution-event adapter for the 12.5 reporting pipeline (task 12.12): when the STP chain
- * reports an equity/options execution, it lands in CAT as an ORDER_TRADE (MEOT) event — the
- * {@code RegulatorDeterminer.crossAssetUs()} rules already route US_EQUITY/PREFERRED here. The
- * full order lifecycle (new/route/modify/cancel) is captured by {@link CatReporter} at the OMS
- * event points; this adapter covers the trade leg that flows with allocation/confirmation.
+ * reports an equity/options execution, it lands in CAT as an ORDER_TRADE (MEOT) event — the {@code
+ * RegulatorDeterminer.crossAssetUs()} rules already route US_EQUITY/PREFERRED here. The full order
+ * lifecycle (new/route/modify/cancel) is captured by {@link CatReporter} at the OMS event points;
+ * this adapter covers the trade leg that flows with allocation/confirmation.
  *
- * <p>Mock-submission scope, like TRACE 12.6: deterministic payload + ack, no network; the real
- * CAT wire drops into {@link CatReporter.Wire} and this adapter unchanged.
+ * <p>Mock-submission scope, like TRACE 12.6: deterministic payload + ack, no network; the real CAT
+ * wire drops into {@link CatReporter.Wire} and this adapter unchanged.
  */
 public final class CatMockAdapter implements RegulatorAdapter {
 

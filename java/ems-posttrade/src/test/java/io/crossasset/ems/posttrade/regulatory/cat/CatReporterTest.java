@@ -8,8 +8,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.crossasset.ems.posttrade.regulatory.InMemoryRegulatoryReportingService;
 import io.crossasset.ems.posttrade.regulatory.RegReportEvent;
-import io.crossasset.ems.posttrade.regulatory.RegulatorDeterminer;
 import io.crossasset.ems.posttrade.regulatory.Regulator;
+import io.crossasset.ems.posttrade.regulatory.RegulatorDeterminer;
 import io.crossasset.ems.posttrade.regulatory.ReportableTrade;
 import io.crossasset.ems.posttrade.regulatory.ReportingProfile;
 import java.util.List;
@@ -93,8 +93,9 @@ class CatReporterTest {
             1,
             500L,
             1_824_500L,
-            Map.of("side", "1", "qty", "500", "price", "1824500",
-                "orderId", "ORD-77", "eventTs", "123456"));
+            Map.of(
+                "side", "1", "qty", "500", "price", "1824500", "orderId", "ORD-77", "eventTs",
+                "123456"));
     List<RegReportEvent> events = service.report(trade, "fill");
 
     assertThat(events).isNotEmpty();

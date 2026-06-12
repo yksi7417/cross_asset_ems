@@ -8,10 +8,10 @@ import java.util.Optional;
 import java.util.function.ToLongFunction;
 
 /**
- * Scripted dealer for the demo edge and tests (task 11.18): quotes around a reference price
- * (the simulated feed's last) with a fixed spread, deterministic per (dealer, rfq). Behavior
- * knobs cover the negotiation paths the desktop must handle: a dealer that declines names, one
- * that quotes then fades on confirm (last look), and plain firm quoting.
+ * Scripted dealer for the demo edge and tests (task 11.18): quotes around a reference price (the
+ * simulated feed's last) with a fixed spread, deterministic per (dealer, rfq). Behavior knobs cover
+ * the negotiation paths the desktop must handle: a dealer that declines names, one that quotes then
+ * fades on confirm (last look), and plain firm quoting.
  */
 public final class MockRfqDealer implements RfqDealer {
 
@@ -77,7 +77,8 @@ public final class MockRfqDealer implements RfqDealer {
             dealer,
             px,
             rfq.qty(),
-            fadesOnConfirm ? Rfq.QuoteResponse.Qualifier.LAST_LOOK
+            fadesOnConfirm
+                ? Rfq.QuoteResponse.Qualifier.LAST_LOOK
                 : Rfq.QuoteResponse.Qualifier.FIRM,
             nowMillis + quoteTtlMillis));
   }

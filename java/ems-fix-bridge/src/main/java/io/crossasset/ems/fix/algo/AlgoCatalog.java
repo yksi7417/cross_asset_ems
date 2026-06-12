@@ -18,11 +18,11 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 /**
- * The broker-algo catalog (task 11.16): strategies keyed by broker, ingested from FIXatdl
- * documents (the industry's algo-definition XML — each broker ships one describing its algos and
- * their parameter panels) or registered programmatically. The ticket lists {@link #strategies}
- * per broker, renders {@link AlgoStrategy#parameters}, validates via {@link
- * AlgoStrategy#validate}, and the FIX path encodes with {@link StrategyParameterEncoder}.
+ * The broker-algo catalog (task 11.16): strategies keyed by broker, ingested from FIXatdl documents
+ * (the industry's algo-definition XML — each broker ships one describing its algos and their
+ * parameter panels) or registered programmatically. The ticket lists {@link #strategies} per
+ * broker, renders {@link AlgoStrategy#parameters}, validates via {@link AlgoStrategy#validate}, and
+ * the FIX path encodes with {@link StrategyParameterEncoder}.
  *
  * <p>FIXatdl ingestion reads the core subset that drives routing — {@code <Strategy name
  * wireValue>} and {@code <Parameter name xsi:type use minValue maxValue>} (+ {@code <EnumPair

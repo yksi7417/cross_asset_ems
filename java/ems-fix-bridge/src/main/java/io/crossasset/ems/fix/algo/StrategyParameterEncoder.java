@@ -9,9 +9,9 @@ import java.util.Map;
 
 /**
  * Encodes a validated algo selection onto an outbound order (task 11.16): {@code
- * TargetStrategy(847)} plus the {@code NoStrategyParameters(957)} repeating group —
- * {@code StrategyParameterName(958)} / {@code StrategyParameterType(959)} /
- * {@code StrategyParameterValue(960)} per entry, in the strategy's parameter-definition order
+ * TargetStrategy(847)} plus the {@code NoStrategyParameters(957)} repeating group — {@code
+ * StrategyParameterName(958)} / {@code StrategyParameterType(959)} / {@code
+ * StrategyParameterValue(960)} per entry, in the strategy's parameter-definition order
  * (deterministic wire bytes; brokers reject shuffled groups).
  *
  * <p>Callers validate first ({@link AlgoStrategy#validate}) — this encoder throws on violations

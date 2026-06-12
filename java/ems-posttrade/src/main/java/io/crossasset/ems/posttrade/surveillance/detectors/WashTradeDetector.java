@@ -13,10 +13,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Wash trades (12.15 baseline): the same actor EXECUTES on both sides of the same instrument
- * within the window at overlapping prices — no change of beneficial ownership, prints volume.
- * Price overlap tolerance is {@code priceToleranceFp} (fixed-point 1e4); HIGH severity — wash
- * trading is rarely accidental.
+ * Wash trades (12.15 baseline): the same actor EXECUTES on both sides of the same instrument within
+ * the window at overlapping prices — no change of beneficial ownership, prints volume. Price
+ * overlap tolerance is {@code priceToleranceFp} (fixed-point 1e4); HIGH severity — wash trading is
+ * rarely accidental.
  */
 public final class WashTradeDetector implements Detector {
 
@@ -48,7 +48,8 @@ public final class WashTradeDetector implements Detector {
     Map<String, List<SurveillanceEvent>> groups = new LinkedHashMap<>();
     for (SurveillanceEvent event : window) {
       if (event.type() == SurveillanceEvent.Type.EXECUTION) {
-        groups.computeIfAbsent(event.actor() + "|" + event.instrumentId(), k -> new ArrayList<>())
+        groups
+            .computeIfAbsent(event.actor() + "|" + event.instrumentId(), k -> new ArrayList<>())
             .add(event);
       }
     }

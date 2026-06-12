@@ -9,8 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
 /**
- * 12.13 money math, pinned with hand-computed values (all fixed-point 1e4): a confirm's
- * net money must be exact, deterministic, and side-correct.
+ * 12.13 money math, pinned with hand-computed values (all fixed-point 1e4): a confirm's net money
+ * must be exact, deterministic, and side-correct.
  */
 class FeeEngineTest {
 
@@ -71,15 +71,13 @@ class FeeEngineTest {
   @Test
   void commissionBounds_minFloor_maxCap() {
     FeeEngine engine = new FeeEngine();
-    engine.register(
-        "UBS", "US_EQUITY", new FeeSchedule(10, 0, 500_000L, 2_000_000L, 0, false));
+    engine.register("UBS", "US_EQUITY", new FeeSchedule(10, 0, 500_000L, 2_000_000L, 0, false));
 
     // Tiny ticket: 10bp of 10×100.00 = 1,000 → floored to min 500,000 ($50).
     assertThat(engine.compute("UBS", "US_EQUITY", 1, 10, 1_000_000L, false, 0).commission())
         .isEqualTo(500_000L);
     // Huge ticket: 10bp of 1M×100.00 = 10,000,000,000 bp calc → capped at 2,000,000 ($200).
-    assertThat(
-            engine.compute("UBS", "US_EQUITY", 1, 1_000_000L, 1_000_000L, false, 0).commission())
+    assertThat(engine.compute("UBS", "US_EQUITY", 1, 1_000_000L, 1_000_000L, false, 0).commission())
         .isEqualTo(2_000_000L);
   }
 
@@ -108,17 +106,31 @@ class FeeEngineTest {
 
     var ours =
         new io.crossasset.ems.posttrade.confirmation.TradeRecord(
-            "TRD-1", "BBG00DEMOC29", 1, 100_000L, 971_000L, money.accruedInterest(),
-            "2026-06-12", "2026-06-13", "CPTY-X");
+            "TRD-1",
+            "BBG00DEMOC29",
+            1,
+            100_000L,
+            971_000L,
+            money.accruedInterest(),
+            "2026-06-12",
+            "2026-06-13",
+            "CPTY-X");
     var theirs =
         new io.crossasset.ems.posttrade.confirmation.TradeRecord(
-            "TRD-1", "BBG00DEMOC29", 1, 100_000L, 971_000L, money.accruedInterest() + 1,
-            "2026-06-12", "2026-06-13", "CPTY-X");
+            "TRD-1",
+            "BBG00DEMOC29",
+            1,
+            100_000L,
+            971_000L,
+            money.accruedInterest() + 1,
+            "2026-06-12",
+            "2026-06-13",
+            "CPTY-X");
     var result =
         io.crossasset.ems.posttrade.confirmation.MatchEngine.match(
-                ours,
-                theirs,
-                io.crossasset.ems.posttrade.confirmation.MatchTolerance.corpBond(2_500L, 100L));
+            ours,
+            theirs,
+            io.crossasset.ems.posttrade.confirmation.MatchTolerance.corpBond(2_500L, 100L));
     assertThat(result.matched()).isTrue();
   }
 

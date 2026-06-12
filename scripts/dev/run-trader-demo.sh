@@ -59,8 +59,8 @@ UI_LOG=$(mktemp -t trader-ui.XXXXXX.log)
 cleanup() {
     echo
     echo "── Shutting down…"
-    [ -n "${UI_PID:-}" ]   && kill "$UI_PID"   2>/dev/null || true
-    [ -n "${EDGE_PID:-}" ] && kill "$EDGE_PID" 2>/dev/null || true
+    if [ -n "${UI_PID:-}" ]; then kill "$UI_PID" 2>/dev/null || true; fi
+    if [ -n "${EDGE_PID:-}" ]; then kill "$EDGE_PID" 2>/dev/null || true; fi
     # Gradle runs the edge in a child JVM; make sure it goes too.
     pkill -f TraderDesktopEdgeMain 2>/dev/null || true
     echo "   logs kept: $EDGE_LOG  $UI_LOG"

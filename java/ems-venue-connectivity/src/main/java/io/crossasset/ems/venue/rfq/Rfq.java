@@ -12,8 +12,8 @@ import java.util.Objects;
 /**
  * One RFQ negotiation (tasks 11.13/11.18, [[arch-rfq]] § Canonical RFQ data model): the sender
  * solicits N dealers, time-bound quotes arrive independently, the sender ELECTS one, the dealer
- * confirms (or fails last-look and the RFQ drops back to ACTIVE for re-election). Mutable
- * aggregate owned by {@link RfqService}; every transition is clock-driven and deterministic.
+ * confirms (or fails last-look and the RFQ drops back to ACTIVE for re-election). Mutable aggregate
+ * owned by {@link RfqService}; every transition is clock-driven and deterministic.
  */
 public final class Rfq {
 

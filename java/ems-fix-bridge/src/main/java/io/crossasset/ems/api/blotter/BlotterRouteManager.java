@@ -92,18 +92,28 @@ public final class BlotterRouteManager implements RouteManager {
 
   @Override
   public RouteEventResult partialFill(String routeId, long lastQty, long lastPx, String execId) {
-    return fill(routeId, lastQty, lastPx, execId, () -> delegate.partialFill(routeId, lastQty, lastPx, execId));
+    return fill(
+        routeId,
+        lastQty,
+        lastPx,
+        execId,
+        () -> delegate.partialFill(routeId, lastQty, lastPx, execId));
   }
 
   @Override
   public RouteEventResult fullFill(String routeId, long lastQty, long lastPx, String execId) {
-    return fill(routeId, lastQty, lastPx, execId, () -> delegate.fullFill(routeId, lastQty, lastPx, execId));
+    return fill(
+        routeId,
+        lastQty,
+        lastPx,
+        execId,
+        () -> delegate.fullFill(routeId, lastQty, lastPx, execId));
   }
 
   /**
    * Fills feed the average-price accumulators (18.22) BEFORE delegating — the parent order row
-   * publishes from inside the delegate call and must already see this execution — and roll back
-   * if the Route FSM rejects the event.
+   * publishes from inside the delegate call and must already see this execution — and roll back if
+   * the Route FSM rejects the event.
    */
   private RouteEventResult fill(
       String routeId,

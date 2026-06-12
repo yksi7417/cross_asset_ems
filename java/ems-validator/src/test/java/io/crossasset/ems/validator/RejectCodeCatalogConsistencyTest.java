@@ -23,15 +23,29 @@ import org.yaml.snakeyaml.Yaml;
  * The 6.4 reconciliation contract, pinned: every per-asset validation rule's reject code resolves
  * in the catalog, codes are globally unique, and the per-asset-class 6xxx blocks stay in their
  * lanes (equity 60xx, bond 61xx, fx 62xx, derivative 63xx, commodity 64xx, crypto 65xx, abs 66xx,
- * loan 67xx). The original draft reused EMS-ORD-1001 for three different rules across three
- * files — this test is why that can never happen again.
+ * loan 67xx). The original draft reused EMS-ORD-1001 for three different rules across three files —
+ * this test is why that can never happen again.
  */
 class RejectCodeCatalogConsistencyTest {
 
   private static final Map<String, Integer> BLOCKS =
       Map.of(
-          "equity", 6000, "bond", 6100, "fx", 6200, "derivative", 6300,
-          "commodity", 6400, "crypto", 6500, "abs", 6600, "loan", 6700);
+          "equity",
+          6000,
+          "bond",
+          6100,
+          "fx",
+          6200,
+          "derivative",
+          6300,
+          "commodity",
+          6400,
+          "crypto",
+          6500,
+          "abs",
+          6600,
+          "loan",
+          6700);
 
   private static Path repoRoot() {
     Path p = Path.of("").toAbsolutePath();
@@ -91,8 +105,7 @@ class RejectCodeCatalogConsistencyTest {
 
   @Test
   void catalogMetadataCountMatchesReality() throws IOException {
-    String catalog =
-        Files.readString(repoRoot().resolve("schemas/reject-codes/catalog.yaml"));
+    String catalog = Files.readString(repoRoot().resolve("schemas/reject-codes/catalog.yaml"));
     long actual = Pattern.compile("- \\{ code:").matcher(catalog).results().count();
     Matcher meta = Pattern.compile("total_codes: (\\d+)").matcher(catalog);
     assertThat(meta.find()).isTrue();

@@ -10,8 +10,8 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * One broker algo definition (task 11.16) — the metadata an algo ticket renders and the order
- * path validates against. The shape mirrors FIXatdl's {@code <Strategy>}: a wire identifier
+ * One broker algo definition (task 11.16) — the metadata an algo ticket renders and the order path
+ * validates against. The shape mirrors FIXatdl's {@code <Strategy>}: a wire identifier
  * (TargetStrategy 847 value), provider, and typed parameters.
  *
  * @param broker the providing broker (catalog scope)
@@ -110,8 +110,7 @@ public record AlgoStrategy(
         }
         case CHAR, STRING, UTC_TIME -> {
           if (!parameter.enumValues().isEmpty() && !parameter.enumValues().contains(value)) {
-            errors.add(
-                parameter.name() + ": " + value + " not in " + parameter.enumValues());
+            errors.add(parameter.name() + ": " + value + " not in " + parameter.enumValues());
           }
         }
       }

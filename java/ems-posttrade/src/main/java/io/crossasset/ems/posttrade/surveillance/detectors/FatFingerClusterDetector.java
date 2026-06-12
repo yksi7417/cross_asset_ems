@@ -13,11 +13,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Fat-finger cluster (12.15 baseline): one actor's NEW orders whose size is an outlier versus
- * their own median order size in the window ({@code ratioThreshold}× median). One outlier is a
- * fat finger the pre-trade gate should have caught (10.2 is deferred); a CLUSTER of them
- * (≥ {@code minOutliers}) means a systematic problem — broken algo, wrong-unit upload, or a
- * compromised session — and pages CRITICAL.
+ * Fat-finger cluster (12.15 baseline): one actor's NEW orders whose size is an outlier versus their
+ * own median order size in the window ({@code ratioThreshold}× median). One outlier is a fat finger
+ * the pre-trade gate should have caught (10.2 is deferred); a CLUSTER of them (≥ {@code
+ * minOutliers}) means a systematic problem — broken algo, wrong-unit upload, or a compromised
+ * session — and pages CRITICAL.
  */
 public final class FatFingerClusterDetector implements Detector {
 

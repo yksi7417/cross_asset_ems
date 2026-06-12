@@ -39,7 +39,8 @@ class RfqServiceTest {
 
     // Buyer's best = lowest offer: JPM at 5bp over reference beats GS at 10bp.
     Rfq.QuoteResponse best =
-        rfq.responses().stream().min(java.util.Comparator.comparingLong(Rfq.QuoteResponse::price))
+        rfq.responses().stream()
+            .min(java.util.Comparator.comparingLong(Rfq.QuoteResponse::price))
             .orElseThrow();
     assertThat(best.dealer()).isEqualTo("JPM");
 
@@ -49,8 +50,7 @@ class RfqServiceTest {
     assertThat(booked).containsExactly(best);
     assertThat(transitions)
         .containsExactly(
-            "RFQ-1:REQUESTED", "RFQ-1:ACTIVE", "RFQ-1:ACTIVE",
-            "RFQ-1:ELECTED", "RFQ-1:EXECUTED");
+            "RFQ-1:REQUESTED", "RFQ-1:ACTIVE", "RFQ-1:ACTIVE", "RFQ-1:ELECTED", "RFQ-1:EXECUTED");
   }
 
   @Test
@@ -91,7 +91,8 @@ class RfqServiceTest {
   void expiry_withResponsesIsExpired_withoutIsNoResponses() {
     service.addDealer(MockRfqDealer.firm("GS", figi -> 1_000_000L, 10, 30_000));
     Rfq quoted = service.request(7L, "ACC-1", "BBG00DEMOC29", 1, 100_000, List.of(), 60_000, T0);
-    Rfq unquoted = service.request(7L, "ACC-1", "BBG00DEMOC29", 1, 100_000, List.of("NOBODY"), 60_000, T0);
+    Rfq unquoted =
+        service.request(7L, "ACC-1", "BBG00DEMOC29", 1, 100_000, List.of("NOBODY"), 60_000, T0);
 
     service.sweep(T0 + 59_999);
     assertThat(quoted.state()).isEqualTo(Rfq.State.ACTIVE); // not yet
@@ -153,7 +154,15 @@ class RfqServiceTest {
 
     // Bar = 10bp over reference 1_000_000: GS at +8bp clears; auto-ex elects it immediately.
     Rfq rfq =
-        auto.request(7L, "ACC-1", "BBG00DEMOC29", 1, 100_000, List.of(), 60_000, T0,
+        auto.request(
+            7L,
+            "ACC-1",
+            "BBG00DEMOC29",
+            1,
+            100_000,
+            List.of(),
+            60_000,
+            T0,
             RfqService.AutoExPolicy.within(10, 1_000_000L));
     assertThat(rfq.state()).isEqualTo(Rfq.State.EXECUTED);
     assertThat(booked).hasSize(1);
@@ -162,7 +171,15 @@ class RfqServiceTest {
     // Outside the bar: stays ACTIVE for the trader (the interaction path).
     booked.clear();
     Rfq wide =
-        auto.request(7L, "ACC-1", "BBG00DEMOC29", 1, 100_000, List.of("GS"), 60_000, T0,
+        auto.request(
+            7L,
+            "ACC-1",
+            "BBG00DEMOC29",
+            1,
+            100_000,
+            List.of("GS"),
+            60_000,
+            T0,
             RfqService.AutoExPolicy.within(5, 1_000_000L));
     assertThat(wide.state()).isEqualTo(Rfq.State.ACTIVE);
     assertThat(booked).isEmpty();

@@ -100,8 +100,7 @@ public final class RestEdgeBinding {
 
   /** Instrument → currency roles (18.30); defaults collapse to the core's single currency. */
   private java.util.function.Function<
-          io.crossasset.ems.instrument.InstrumentCore,
-          io.crossasset.ems.instrument.CurrencyProfile>
+          io.crossasset.ems.instrument.InstrumentCore, io.crossasset.ems.instrument.CurrencyProfile>
       currencyProfiles = io.crossasset.ems.instrument.CurrencyProfile::defaults;
 
   /** Wire currency-profile resolution (trading/settlement/base/quote) for {@code /instruments}. */
@@ -281,17 +280,13 @@ public final class RestEdgeBinding {
       if ("GET".equals(method) && path.startsWith("/api/v1/instruments/")) {
         return instrument(path.substring("/api/v1/instruments/".length()));
       }
-      if ("GET".equals(method)
-          && path.startsWith("/api/v1/orders/")
-          && path.endsWith("/history")) {
+      if ("GET".equals(method) && path.startsWith("/api/v1/orders/") && path.endsWith("/history")) {
         return history(
             headers,
             path.substring("/api/v1/orders/".length(), path.length() - "/history".length()),
             true);
       }
-      if ("GET".equals(method)
-          && path.startsWith("/api/v1/routes/")
-          && path.endsWith("/history")) {
+      if ("GET".equals(method) && path.startsWith("/api/v1/routes/") && path.endsWith("/history")) {
         return history(
             headers,
             path.substring("/api/v1/routes/".length(), path.length() - "/history".length()),
@@ -319,7 +314,8 @@ public final class RestEdgeBinding {
       }
       if ("POST".equals(method) && path.startsWith("/api/v1/rfq/") && path.endsWith("/elect")) {
         return rfqElect(
-            headers, path.substring("/api/v1/rfq/".length(), path.length() - "/elect".length()),
+            headers,
+            path.substring("/api/v1/rfq/".length(), path.length() - "/elect".length()),
             body);
       }
       if ("GET".equals(method) && path.startsWith("/api/v1/rfq/")) {
@@ -387,9 +383,9 @@ public final class RestEdgeBinding {
   /** Instrument reference lookup for the ticket (18.2): asset class drives the field layout. */
   /**
    * Audit-trail timeline (18.25): every projection image ever published for one order (or one
-   * route) plus its routes and fills, merged in event-time order. The projection topics retain
-   * the full image history keyed by refId — the trader-visible face of the audit spine. Each
-   * entry: {@code {kind: ORDER|ROUTE|FILL, asOf, row}}.
+   * route) plus its routes and fills, merged in event-time order. The projection topics retain the
+   * full image history keyed by refId — the trader-visible face of the audit spine. Each entry:
+   * {@code {kind: ORDER|ROUTE|FILL, asOf, row}}.
    */
   private HttpResult history(Map<String, String> headers, String id, boolean isOrder)
       throws Exception {
@@ -510,8 +506,7 @@ public final class RestEdgeBinding {
     }
     var sorted = new ArrayList<>(rfq.responses());
     var byPrice =
-        java.util.Comparator.comparingLong(
-            io.crossasset.ems.venue.rfq.Rfq.QuoteResponse::price);
+        java.util.Comparator.comparingLong(io.crossasset.ems.venue.rfq.Rfq.QuoteResponse::price);
     sorted.sort(rfq.side() == 1 ? byPrice : byPrice.reversed());
     ArrayNode quotes = out.putArray("quotes");
     for (var response : sorted) {

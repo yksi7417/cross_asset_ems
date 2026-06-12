@@ -16,8 +16,7 @@ import java.util.TreeMap;
  *
  * @param eventType the CAT event taxonomy entry
  * @param orderKey firm-unique order linkage key (orderId; CAT joins the lifecycle on this)
- * @param eventTimestampMicros when the event occurred (micros; CAT requires ms precision or
- *     better)
+ * @param eventTimestampMicros when the event occurred (micros; CAT requires ms precision or better)
  * @param fields event-specific payload fields (symbol, side, qty, px, routedOrderID, …) —
  *     serialized in key order so payloads are replay-deterministic
  */

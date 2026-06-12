@@ -179,8 +179,7 @@ class BlotterProjectionTest {
     routes.fullFill(routeId, 1_000L, 100_0000L, "EXEC-1");
 
     // The rejected execution must not pollute the average: WAP = 100.0000, not a blend.
-    assertThat(lastRow(BlotterPublisher.TOPIC_ORDERS).get("avgPx").asLong())
-        .isEqualTo(100_0000L);
+    assertThat(lastRow(BlotterPublisher.TOPIC_ORDERS).get("avgPx").asLong()).isEqualTo(100_0000L);
   }
 
   @Test

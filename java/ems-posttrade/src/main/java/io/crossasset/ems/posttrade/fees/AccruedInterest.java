@@ -5,13 +5,13 @@
 package io.crossasset.ems.posttrade.fees;
 
 /**
- * Bond accrued-interest math (task 12.13): {@code accrued = face × coupon × accruedDays/basis},
- * in fixed-point 1e4 money with banker's-neutral integer rounding (round half up on the final
- * division only — no intermediate truncation, so the result is deterministic and basis-exact).
+ * Bond accrued-interest math (task 12.13): {@code accrued = face × coupon × accruedDays/basis}, in
+ * fixed-point 1e4 money with banker's-neutral integer rounding (round half up on the final division
+ * only — no intermediate truncation, so the result is deterministic and basis-exact).
  *
  * <p>Day-count conventions follow the US conventions for the demo universe's instruments:
- * corporates/munis 30/360, treasuries ACT/ACT (the caller supplies actual days and period basis
- * — calendar resolution is reference-data's job, not money math's).
+ * corporates/munis 30/360, treasuries ACT/ACT (the caller supplies actual days and period basis —
+ * calendar resolution is reference-data's job, not money math's).
  */
 public final class AccruedInterest {
 
@@ -34,7 +34,8 @@ public final class AccruedInterest {
             .multiply(java.math.BigInteger.valueOf(accruedDays));
     java.math.BigInteger denominator =
         java.math.BigInteger.valueOf(10_000L).multiply(java.math.BigInteger.valueOf(basisDays));
-    java.math.BigInteger[] qr = numerator.multiply(java.math.BigInteger.TWO).divideAndRemainder(denominator);
+    java.math.BigInteger[] qr =
+        numerator.multiply(java.math.BigInteger.TWO).divideAndRemainder(denominator);
     long doubled = qr[0].longValueExact();
     return (doubled + (doubled >= 0 ? 1 : -1)) / 2; // round half up
   }

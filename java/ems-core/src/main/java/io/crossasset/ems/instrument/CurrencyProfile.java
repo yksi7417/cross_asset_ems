@@ -15,13 +15,14 @@ import java.util.Objects;
  * different currency than the underlying), and dual listings in minor units (GBp is not GBP).
  *
  * @param tradingCurrency what the PRICE is quoted in
- * @param tradingMinorUnit true when prices quote in the minor unit (GBp pence, ZAc cents) — a
- *     1,250 GBp print is 12.50 GBP; validation bands and notional math must divide by 100
- * @param settlementCurrency what cash actually moves (FX settles BOTH legs; this is the
- *     quote-leg convention currency)
- * @param baseCurrency FX only (nullable): the unit currency being bought/sold (EUR in EUR/USD), else null
- * @param quoteCurrency FX only (nullable): the currency the price is denominated in (USD in EUR/USD), else
- *     null
+ * @param tradingMinorUnit true when prices quote in the minor unit (GBp pence, ZAc cents) — a 1,250
+ *     GBp print is 12.50 GBP; validation bands and notional math must divide by 100
+ * @param settlementCurrency what cash actually moves (FX settles BOTH legs; this is the quote-leg
+ *     convention currency)
+ * @param baseCurrency FX only (nullable): the unit currency being bought/sold (EUR in EUR/USD),
+ *     else null
+ * @param quoteCurrency FX only (nullable): the currency the price is denominated in (USD in
+ *     EUR/USD), else null
  */
 public record CurrencyProfile(
     CurrencyCode tradingCurrency,

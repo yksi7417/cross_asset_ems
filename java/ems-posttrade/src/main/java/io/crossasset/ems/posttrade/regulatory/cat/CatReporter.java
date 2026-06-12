@@ -12,13 +12,13 @@ import java.util.Objects;
 
 /**
  * CAT order-event capture + batch submission (task 12.12, [[finra]] § CAT, sibling of the
- * trade-level adapters 12.6–12.9). Lifecycle events accumulate as they happen; {@link
- * #submitBatch} drains the buffer into one deterministic batch submission against the wire seam
- * — mirroring CAT's file-batch model (events by 8am next trading day), not per-event RPC.
+ * trade-level adapters 12.6–12.9). Lifecycle events accumulate as they happen; {@link #submitBatch}
+ * drains the buffer into one deterministic batch submission against the wire seam — mirroring CAT's
+ * file-batch model (events by 8am next trading day), not per-event RPC.
  *
- * <p>v1 ships the {@link Wire#mock} wire (deterministic ack, no network), the same scoping as
- * TRACE 12.6: the would-be wire bytes are exact and replay byte-identically; the real CAT
- * Reporter Portal / SFTP wire is a drop-in {@code Wire}.
+ * <p>v1 ships the {@link Wire#mock} wire (deterministic ack, no network), the same scoping as TRACE
+ * 12.6: the would-be wire bytes are exact and replay byte-identically; the real CAT Reporter Portal
+ * / SFTP wire is a drop-in {@code Wire}.
  */
 public final class CatReporter {
 
@@ -62,10 +62,26 @@ public final class CatReporter {
       String orderId, long tsMicros, String symbol, int side, long qty, Long limitPx) {
     Map<String, String> fields =
         limitPx == null
-            ? Map.of("symbol", symbol, "side", String.valueOf(side), "qty", String.valueOf(qty),
-                "ordType", "MKT")
-            : Map.of("symbol", symbol, "side", String.valueOf(side), "qty", String.valueOf(qty),
-                "ordType", "LMT", "px", String.valueOf(limitPx));
+            ? Map.of(
+                "symbol",
+                symbol,
+                "side",
+                String.valueOf(side),
+                "qty",
+                String.valueOf(qty),
+                "ordType",
+                "MKT")
+            : Map.of(
+                "symbol",
+                symbol,
+                "side",
+                String.valueOf(side),
+                "qty",
+                String.valueOf(qty),
+                "ordType",
+                "LMT",
+                "px",
+                String.valueOf(limitPx));
     return capture(new CatEvent(CatEvent.Type.NEW_ORDER, orderId, tsMicros, fields));
   }
 
@@ -107,10 +123,14 @@ public final class CatReporter {
             orderId,
             tsMicros,
             Map.of(
-                "execID", execId,
-                "lastQty", String.valueOf(lastQty),
-                "lastPx", String.valueOf(lastPx),
-                "venue", venue)));
+                "execID",
+                execId,
+                "lastQty",
+                String.valueOf(lastQty),
+                "lastPx",
+                String.valueOf(lastPx),
+                "venue",
+                venue)));
   }
 
   private CatEvent capture(CatEvent event) {
@@ -126,11 +146,11 @@ public final class CatReporter {
   }
 
   /**
-   * Drain the open batch into one submission. The batch payload is a deterministic header
-   * (reporter IMID + batch seq + event count) followed by each event's payload line in capture
-   * order — replay rebuilds the identical bytes. Returns the outcome (also retained, {@link
-   * #submissions}). A nacked batch leaves the events in the buffer for re-submission after the
-   * underlying problem is fixed — CAT errors are repair-and-resubmit by next day, not drop.
+   * Drain the open batch into one submission. The batch payload is a deterministic header (reporter
+   * IMID + batch seq + event count) followed by each event's payload line in capture order — replay
+   * rebuilds the identical bytes. Returns the outcome (also retained, {@link #submissions}). A
+   * nacked batch leaves the events in the buffer for re-submission after the underlying problem is
+   * fixed — CAT errors are repair-and-resubmit by next day, not drop.
    */
   public BatchResult submitBatch() {
     String batchId = reporterImid + "-B" + ++batchSeq;

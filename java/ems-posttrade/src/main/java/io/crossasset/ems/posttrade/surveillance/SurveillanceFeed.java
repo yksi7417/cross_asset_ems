@@ -12,13 +12,13 @@ import java.util.function.Consumer;
 
 /**
  * The surveillance feed (task 12.15, [[arch-surveillance]]): order/exec events are exported in
- * (ingested into the stream), detectors evaluate their look-back window on each arrival, and
- * raised alerts flow to the sink — the compliance-officer review queue; CRITICAL alerts are the
+ * (ingested into the stream), detectors evaluate their look-back window on each arrival, and raised
+ * alerts flow to the sink — the compliance-officer review queue; CRITICAL alerts are the
  * auto-freeze tier that compliance enforces on subsequent pre-trade gates.
  *
  * <p>Detection is asynchronous-by-design (it never blocks the order path) yet DETERMINISTIC:
- * event-time windows, pure detectors, dedup by content-derived alert id — replaying the same
- * event stream re-raises the identical alerts ([[arch-time-replay-server|Replay]]).
+ * event-time windows, pure detectors, dedup by content-derived alert id — replaying the same event
+ * stream re-raises the identical alerts ([[arch-time-replay-server|Replay]]).
  */
 public final class SurveillanceFeed {
 
@@ -46,7 +46,8 @@ public final class SurveillanceFeed {
     for (Detector detector : detectors) {
       long from = event.tsMicros() - detector.windowMicros();
       List<SurveillanceEvent> window =
-          stream.stream().filter(e -> e.tsMicros() >= from && e.tsMicros() <= event.tsMicros())
+          stream.stream()
+              .filter(e -> e.tsMicros() >= from && e.tsMicros() <= event.tsMicros())
               .toList();
       for (Alert alert : detector.evaluate(window)) {
         if (seenAlertIds.add(alert.alertId())) {

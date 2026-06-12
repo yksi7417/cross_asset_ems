@@ -13,8 +13,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * 11.16: FIXatdl ingestion, ticket-side validation, and the 847/957-group wire encoding that
- * makes a broker algo routable with custom parameters.
+ * 11.16: FIXatdl ingestion, ticket-side validation, and the 847/957-group wire encoding that makes
+ * a broker algo routable with custom parameters.
  */
 class AlgoCatalogTest {
 
@@ -43,7 +43,8 @@ class AlgoCatalogTest {
     List<AlgoStrategy> loaded = catalog.ingestFixatdl("GS", FIXATDL);
 
     assertThat(loaded).hasSize(2);
-    assertThat(catalog.strategies("GS")).extracting(AlgoStrategy::name)
+    assertThat(catalog.strategies("GS"))
+        .extracting(AlgoStrategy::name)
         .containsExactly("VWAP", "TWAP");
 
     AlgoStrategy vwap = catalog.find("GS", "GSVWAP").orElseThrow();
@@ -63,8 +64,7 @@ class AlgoCatalogTest {
     AlgoStrategy vwap = catalog.find("GS", "GSVWAP").orElseThrow();
 
     assertThat(vwap.validate(Map.of("StartTime", "t0", "EndTime", "t1"))).isEmpty();
-    assertThat(vwap.validate(Map.of("StartTime", "t0")))
-        .containsExactly("EndTime: required");
+    assertThat(vwap.validate(Map.of("StartTime", "t0"))).containsExactly("EndTime: required");
     assertThat(vwap.validate(Map.of("StartTime", "t0", "EndTime", "t1", "MaxPctVolume", "90")))
         .containsExactly("MaxPctVolume: 90 > max 50");
     assertThat(vwap.validate(Map.of("StartTime", "t0", "EndTime", "t1", "Style", "X")))
@@ -80,14 +80,12 @@ class AlgoCatalogTest {
     catalog.ingestFixatdl("GS", FIXATDL);
     AlgoStrategy vwap = catalog.find("GS", "GSVWAP").orElseThrow();
     Map<String, String> values =
-        Map.of("StartTime", "20260612-14:30:00", "EndTime", "20260612-21:00:00",
-            "MaxPctVolume", "15");
+        Map.of(
+            "StartTime", "20260612-14:30:00", "EndTime", "20260612-21:00:00", "MaxPctVolume", "15");
 
     String fix =
         StrategyParameterEncoder.encode(
-                FixMessage.builder().field(35, "D").field(49, "EMS").field(56, "GS"),
-                vwap,
-                values)
+                FixMessage.builder().field(35, "D").field(49, "EMS").field(56, "GS"), vwap, values)
             .build();
 
     assertThat(fix).contains("847=GSVWAP");
@@ -104,9 +102,7 @@ class AlgoCatalogTest {
     // Determinism: same inputs, same bytes.
     String again =
         StrategyParameterEncoder.encode(
-                FixMessage.builder().field(35, "D").field(49, "EMS").field(56, "GS"),
-                vwap,
-                values)
+                FixMessage.builder().field(35, "D").field(49, "EMS").field(56, "GS"), vwap, values)
             .build();
     assertThat(again).isEqualTo(fix);
   }

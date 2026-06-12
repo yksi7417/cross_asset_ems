@@ -8,10 +8,10 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * A raised surveillance alert (task 12.15, [[arch-surveillance]] § Output —
- * {@code SurveillanceAlertRaised}). Alerts are evidence-citing and deterministic: the same
- * detector version over the same events raises the identical alert (id derived from content,
- * never a random UUID — replay must reproduce it byte-for-byte).
+ * A raised surveillance alert (task 12.15, [[arch-surveillance]] § Output — {@code
+ * SurveillanceAlertRaised}). Alerts are evidence-citing and deterministic: the same detector
+ * version over the same events raises the identical alert (id derived from content, never a random
+ * UUID — replay must reproduce it byte-for-byte).
  */
 public record Alert(
     String alertId,

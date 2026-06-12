@@ -6,7 +6,6 @@ package io.crossasset.ems.fix.dropcopy;
 
 import io.crossasset.ems.fix.FixMessage;
 import io.crossasset.ems.fix.FixTags;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -15,10 +14,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Client drop-copy service (task 12.16): a real-time FIX drop of executions to subscribed
- * clients, scoped per client / desk / firm — a prime broker watches its client's flow, a desk
- * head watches the desk, risk watches the firm. Drop-copy sessions are READ-ONLY mirrors of
- * ExecutionReports; they never originate orders.
+ * Client drop-copy service (task 12.16): a real-time FIX drop of executions to subscribed clients,
+ * scoped per client / desk / firm — a prime broker watches its client's flow, a desk head watches
+ * the desk, risk watches the firm. Drop-copy sessions are READ-ONLY mirrors of ExecutionReports;
+ * they never originate orders.
  *
  * <p>Each subscription owns its FIX session identity (senderCompId per subscriber) and its own
  * outbound sequence; an execution matching the scope is encoded as an ExecutionReport (35=8,
@@ -67,7 +66,9 @@ public final class DropCopyService {
   private final List<Subscription> subscriptions = new CopyOnWriteArrayList<>();
   private final Map<String, long[]> deliveredCounts = new ConcurrentHashMap<>();
 
-  /** @param senderCompId this EMS's CompID on every drop session */
+  /**
+   * @param senderCompId this EMS's CompID on every drop session
+   */
   public DropCopyService(String senderCompId) {
     this.senderCompId = Objects.requireNonNull(senderCompId, "senderCompId");
   }
@@ -100,8 +101,9 @@ public final class DropCopyService {
     for (Subscription subscription : subscriptions) {
       if (matches(subscription, execution)) {
         long seq = subscription.seq().incrementAndGet();
-        subscription.sink().deliver(
-            subscription.subscriptionId(), seq, encode(execution, subscription, seq));
+        subscription
+            .sink()
+            .deliver(subscription.subscriptionId(), seq, encode(execution, subscription, seq));
         deliveredCounts.computeIfAbsent(subscription.subscriptionId(), k -> new long[1])[0]++;
       }
     }

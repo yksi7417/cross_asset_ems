@@ -7,10 +7,10 @@ package io.crossasset.ems.venue.rfq;
 import java.util.Optional;
 
 /**
- * The dealer seam (task 11.13, [[arch-rfq]] § Pluggable venue adapters): one quoting
- * counterparty on an RFQ panel. Production implementations bridge to RFQ venues
- * (MarketAxess/Tradeweb-style); {@link MockRfqDealer} quotes around a reference price for the
- * demo and tests. Both halves are clock-driven (no wall-clock reads) so negotiations replay.
+ * The dealer seam (task 11.13, [[arch-rfq]] § Pluggable venue adapters): one quoting counterparty
+ * on an RFQ panel. Production implementations bridge to RFQ venues (MarketAxess/Tradeweb-style);
+ * {@link MockRfqDealer} quotes around a reference price for the demo and tests. Both halves are
+ * clock-driven (no wall-clock reads) so negotiations replay.
  */
 public interface RfqDealer {
 

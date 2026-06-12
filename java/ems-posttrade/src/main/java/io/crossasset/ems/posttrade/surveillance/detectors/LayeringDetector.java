@@ -50,7 +50,8 @@ public final class LayeringDetector implements Detector {
     // Group by (actor, instrument) preserving event order — alert ids must be deterministic.
     Map<String, List<SurveillanceEvent>> groups = new LinkedHashMap<>();
     for (SurveillanceEvent event : window) {
-      groups.computeIfAbsent(event.actor() + "|" + event.instrumentId(), k -> new ArrayList<>())
+      groups
+          .computeIfAbsent(event.actor() + "|" + event.instrumentId(), k -> new ArrayList<>())
           .add(event);
     }
     List<Alert> alerts = new ArrayList<>();

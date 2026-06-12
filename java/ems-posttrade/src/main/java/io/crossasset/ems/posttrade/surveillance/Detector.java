@@ -9,8 +9,8 @@ import java.util.List;
 /**
  * A surveillance detector (task 12.15, [[arch-surveillance]] § Detector model): a PURE projection
  * over the events in its window — no clock reads, no I/O, no state outside the arguments — so the
- * same detector version over the same window reproduces identical alerts under replay.
- * Detectors are versioned like FSMs; bump {@link #version()} on any behavior change.
+ * same detector version over the same window reproduces identical alerts under replay. Detectors
+ * are versioned like FSMs; bump {@link #version()} on any behavior change.
  */
 public interface Detector {
 
@@ -22,8 +22,8 @@ public interface Detector {
   long windowMicros();
 
   /**
-   * Evaluate one window of events (already filtered to the window, in event-time order) and
-   * return the alerts it raises — possibly none.
+   * Evaluate one window of events (already filtered to the window, in event-time order) and return
+   * the alerts it raises — possibly none.
    */
   List<Alert> evaluate(List<SurveillanceEvent> window);
 }

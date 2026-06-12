@@ -31,11 +31,20 @@ class DropCopyServiceTest {
     List<Delivered> client = new ArrayList<>();
     List<Delivered> desk = new ArrayList<>();
     List<Delivered> firm = new ArrayList<>();
-    service.subscribe(ScopeKind.CLIENT_ACCOUNT, "ACC-A", "PB1",
+    service.subscribe(
+        ScopeKind.CLIENT_ACCOUNT,
+        "ACC-A",
+        "PB1",
         (id, seq, fix) -> client.add(new Delivered(id, seq, fix)));
-    service.subscribe(ScopeKind.DESK, "desk-1", "DESKHEAD",
+    service.subscribe(
+        ScopeKind.DESK,
+        "desk-1",
+        "DESKHEAD",
         (id, seq, fix) -> desk.add(new Delivered(id, seq, fix)));
-    service.subscribe(ScopeKind.FIRM, "firm-demo", "RISK",
+    service.subscribe(
+        ScopeKind.FIRM,
+        "firm-demo",
+        "RISK",
         (id, seq, fix) -> firm.add(new Delivered(id, seq, fix)));
 
     service.onExecution(exec("E1", "ACC-A", "desk-1", "firm-demo")); // all three
@@ -53,7 +62,10 @@ class DropCopyServiceTest {
   void copiesCarryTheCopyMsgIndicatorAndSubscriberCompId() {
     DropCopyService service = new DropCopyService("EMS");
     List<Delivered> out = new ArrayList<>();
-    service.subscribe(ScopeKind.FIRM, "firm-demo", "RISK",
+    service.subscribe(
+        ScopeKind.FIRM,
+        "firm-demo",
+        "RISK",
         (id, seq, fix) -> out.add(new Delivered(id, seq, fix)));
     service.onExecution(exec("E1", "ACC-A", "desk-1", "firm-demo"));
 

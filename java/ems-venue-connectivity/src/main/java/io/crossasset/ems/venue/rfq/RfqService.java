@@ -13,9 +13,9 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
- * RFQ orchestration (task 11.13, [[arch-rfq]] § State machine): request → dealer quotes →
- * election → dealer confirm (last look) → execution; expiry and cancellation as first-class
- * events. The service owns every transition; dealers and the execution booker are seams.
+ * RFQ orchestration (task 11.13, [[arch-rfq]] § State machine): request → dealer quotes → election
+ * → dealer confirm (last look) → execution; expiry and cancellation as first-class events. The
+ * service owns every transition; dealers and the execution booker are seams.
  *
  * <p>Deterministic by construction: all timing arrives as {@code nowMillis} arguments (the edge
  * passes its clock; tests pass literals), dealer quoting is synchronous on request/sweep, ids are
@@ -31,10 +31,10 @@ public final class RfqService {
   }
 
   /**
-   * Counterparty eligibility (user requirement 2026-06-12): may {@code account} trade with
-   * {@code dealer}? Backed by onboarding reality — ISDA/CSA for OTC, prime relationships, credit
-   * lines. Ineligible quotes still SHOW on the ladder (the trader should see the better price
-   * they can't access — that's an onboarding action item) but can never execute.
+   * Counterparty eligibility (user requirement 2026-06-12): may {@code account} trade with {@code
+   * dealer}? Backed by onboarding reality — ISDA/CSA for OTC, prime relationships, credit lines.
+   * Ineligible quotes still SHOW on the ladder (the trader should see the better price they can't
+   * access — that's an onboarding action item) but can never execute.
    */
   @FunctionalInterface
   public interface EligibilityCheck {
@@ -43,8 +43,8 @@ public final class RfqService {
 
   /**
    * Auto-execution policy (user requirement 2026-06-12): after the panel quotes, execute without
-   * trader interaction when the best ELIGIBLE quote clears the bar — or return empty to leave
-   * the election to the trader. {@code maxSpreadBp} guards against auto-lifting a wide market.
+   * trader interaction when the best ELIGIBLE quote clears the bar — or return empty to leave the
+   * election to the trader. {@code maxSpreadBp} guards against auto-lifting a wide market.
    */
   public record AutoExPolicy(boolean enabled, long maxSpreadBp, long referencePx) {
     public static AutoExPolicy traderDecides() {
@@ -65,8 +65,8 @@ public final class RfqService {
 
   /**
    * @param booker receives the winning quote once a dealer confirms
-   * @param events called after EVERY state-changing transition (the edge publishes the RFQ image
-   *     to the desktop's stream topic from here)
+   * @param events called after EVERY state-changing transition (the edge publishes the RFQ image to
+   *     the desktop's stream topic from here)
    */
   public RfqService(ExecutionBooker booker, Consumer<Rfq> events) {
     this(booker, events, (account, dealer) -> true);
@@ -104,14 +104,21 @@ public final class RfqService {
       long ttlMillis,
       long nowMillis) {
     return request(
-        sessionId, account, figi, side, qty, dealers, ttlMillis, nowMillis,
+        sessionId,
+        account,
+        figi,
+        side,
+        qty,
+        dealers,
+        ttlMillis,
+        nowMillis,
         AutoExPolicy.traderDecides());
   }
 
   /**
    * Fire an RFQ; with an enabled {@link AutoExPolicy}, the best ELIGIBLE quote inside the spread
-   * bar executes immediately after the panel answers — no trader interaction (the automation
-   * path); otherwise the ladder waits for a trader election.
+   * bar executes immediately after the panel answers — no trader interaction (the automation path);
+   * otherwise the ladder waits for a trader election.
    */
   public Rfq request(
       long sessionId,
@@ -165,8 +172,8 @@ public final class RfqService {
   }
 
   /**
-   * Elect a response and put it to the dealer for confirmation. Confirmed ⇒ EXECUTED and the
-   * booker books; faded/stale ⇒ back to ACTIVE for re-election (the last-look path).
+   * Elect a response and put it to the dealer for confirmation. Confirmed ⇒ EXECUTED and the booker
+   * books; faded/stale ⇒ back to ACTIVE for re-election (the last-look path).
    */
   public Rfq elect(String rfqId, String responseId, long nowMillis) {
     Rfq rfq = require(rfqId);
@@ -190,10 +197,7 @@ public final class RfqService {
       return rfq;
     }
     RfqDealer dealer =
-        panel.stream()
-            .filter(d -> d.dealer().equals(response.dealer()))
-            .findFirst()
-            .orElseThrow();
+        panel.stream().filter(d -> d.dealer().equals(response.dealer())).findFirst().orElseThrow();
     if (dealer.confirm(response, nowMillis)) {
       rfq.executed(responseId);
       events.accept(rfq);
