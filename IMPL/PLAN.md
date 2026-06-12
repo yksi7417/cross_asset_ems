@@ -274,14 +274,14 @@ Outbound to the market. ~4-6 weeks.
 
 - [x] **[MVP] 11.1** Venue adapter framework per [[arch-venue-connectivity]] (sonnet) `(1d95436)`
 - [x] **[MVP] 11.2** [[marketaxess]] FIX adapter — **v0: in-process mock** (accepts routes, emits ack+fills; no real wire) (gemma for boilerplate, sonnet for nuances) ← blocks: 11.1 `(7bb2739)`
-- [ ] **11.3** [[tradeweb]] FIX adapter (gemma for boilerplate, sonnet)
-- [ ] **11.4** [[brokertec]] FIX adapter (gemma for boilerplate, sonnet)
-- [ ] **11.5** [[ebs]] FIX adapter (gemma for boilerplate, sonnet)
-- [ ] **11.6** [[refinitiv-fxall]] FIX adapter (gemma for boilerplate, sonnet)
-- [ ] **11.7** [[bloomberg-emsx]] FIX adapter (gemma for boilerplate, sonnet)
-- [ ] **11.8** [[bloomberg-sef]] FIX adapter (gemma for boilerplate, sonnet)
-- [ ] **11.9** [[bloomberg-bridge]] FIX adapter (gemma for boilerplate, sonnet)
-- [ ] **11.10** [[nyse]] / [[nasdaq]] / [[cboe-bzx]] FIX/Pillar/OUCH adapters (gemma for boilerplate, sonnet)
+- [x] **11.3** [[tradeweb]] FIX adapter (gemma for boilerplate, sonnet) — priced-orders-only FI marketplace, settlement-dated (64), RFQ-capable — dialect built + tested vs the FIX simulator/gateway; UAT certification pending venue credentials
+- [x] **11.4** [[brokertec]] FIX adapter (gemma for boilerplate, sonnet) — treasury CLOB: LIMIT only, $1M-face increments, no cancel/replace (cancel+new), DAY mandatory — dialect built + tested vs the FIX simulator/gateway; UAT certification pending venue credentials
+- [x] **11.5** [[ebs]] FIX adapter (gemma for boilerplate, sonnet) — FX spot CLOB: base-ccy millions convention, value-dated — dialect built + tested vs the FIX simulator/gateway; UAT certification pending venue credentials
+- [x] **11.6** [[refinitiv-fxall]] FIX adapter (gemma for boilerplate, sonnet) — relationship-FX RFQ: last-look acknowledged (18=L), value-dated, never advertises firm-CLOB semantics — dialect built + tested vs the FIX simulator/gateway; UAT certification pending venue credentials
+- [x] **11.7** [[bloomberg-emsx]] FIX adapter (gemma for boilerplate, sonnet) — broker-routing hub: target broker mandatory (76), forwards 957-group strategy params (pairs with the 11.16 FIXatdl catalog) — dialect built + tested vs the FIX simulator/gateway; UAT certification pending venue credentials
+- [x] **11.8** [[bloomberg-sef]] FIX adapter (gemma for boilerplate, sonnet) — swaps SEF: deterministic UTI stamped on every order (same derivation as 12.8), clearing house carried — dialect built + tested vs the FIX simulator/gateway; UAT certification pending venue credentials
+- [x] **11.9** [[bloomberg-bridge]] FIX adapter (gemma for boilerplate, sonnet) — bilateral FX: relationship bank mandatory, value-dated — dialect built + tested vs the FIX simulator/gateway; UAT certification pending venue credentials
+- [x] **11.10** [[nyse]] / [[nasdaq]] / [[cboe-bzx]] FIX/Pillar/OUCH adapters (gemma for boilerplate, sonnet) — one Reg-NMS dialect parameterized per MIC: ISO flag (18=f), self-trade-prevention key, automated indicator (1028=N) — dialect built + tested vs the FIX simulator/gateway; UAT certification pending venue credentials
 - [x] **11.11** Smart Order Router per [[arch-smart-order-router]] (sonnet) — SorStrategy contract (pure decide(), injected clock), SmartOrderRouter registry with the per-decision audit log (feeds BestExAuditor), SweepStrategy (price-time priority, never trades through, limit stops the walk, residual posts at best venue)
 - [x] **11.12** Algo wheel selection strategies (sonnet) ← blocks: 11.11 — AlgoWheel: ROUND_ROBIN / WEIGHTED_RANDOM (replay-stable hash(wheelId|routeId) seed, no wall-clock entropy) / PERFORMANCE_TIER (weights scaled by 12.14 TCA broker-league slippage — the feedback loop); eligibility filtering with exclusions NAMED in the rationale (unbiased selection includes showing what was excluded)
 - [x] **11.13** RFQ orchestration per [[arch-rfq]] (sonnet) ← blocks: 11.1 — canonical lifecycle (REQUESTED→ACTIVE→ELECTED→EXECUTED with Elected→Active on last-look fade, EXPIRED/NO_RESPONSES/CANCELLED), pluggable RfqDealer seam + MockRfqDealer (firm/declining/fading), clock-driven + replay-deterministic; `RfqServiceTest`

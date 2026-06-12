@@ -67,6 +67,10 @@ public final class FixVenueGateway extends AbstractVenueAdapter {
   private final ConcurrentHashMap<String, String> routeToClOrd = new ConcurrentHashMap<>();
 
   private final AtomicLong cancelSeq = new AtomicLong(1);
+
+  /** Venue dialect (11.3–11.10): per-venue rules + tags; passthrough by default (8.2). */
+  private volatile VenueDialect dialect;
+
   private final AtomicBoolean testRequestPending = new AtomicBoolean(false);
   private final Object emitLock = new Object();
 
@@ -165,10 +169,23 @@ public final class FixVenueGateway extends AbstractVenueAdapter {
 
   // ── Outbound (router → venue) ───────────────────────────────────────────────
 
+  /** Install the venue's dialect (validation + tag conventions). */
+  public void setDialect(VenueDialect dialect) {
+    this.dialect = dialect;
+  }
+
   @Override
   public void submit(VenueRouteRequest request) {
     if (isShadow()) {
       return;
+    }
+    if (dialect != null) {
+      java.util.Optional<String> violation = dialect.validate(request);
+      if (violation.isPresent()) {
+        // Venue rules fail FAST and locally — the venue would only say the same thing slower.
+        sink().rejected(request.routeId(), dialect.id() + ": " + violation.get());
+        return;
+      }
     }
     clOrdToRoute.put(request.clOrdId(), request.routeId());
     routeToClOrd.put(request.routeId(), request.clOrdId());
@@ -184,6 +201,9 @@ public final class FixVenueGateway extends AbstractVenueAdapter {
             b.field(FixTags.ORD_TYPE, 1);
           } else {
             b.field(FixTags.ORD_TYPE, 2).field(FixTags.PRICE, request.price());
+          }
+          if (dialect != null) {
+            dialect.customize(b, request);
           }
           if (traceAware) {
             traces
