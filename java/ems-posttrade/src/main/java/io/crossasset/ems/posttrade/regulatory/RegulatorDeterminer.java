@@ -57,11 +57,32 @@ public final class RegulatorDeterminer {
         .addRule(us("TREASURY"), Regulator.TRACE)
         .addRule(us("US_EQUITY"), Regulator.FINRA_CAT)
         .addRule(us("PREFERRED"), Regulator.FINRA_CAT)
+        .addRule(us("MUNI"), Regulator.MSRB_RTRS)
         .addRule(us("LISTED_FUT_OPT"), Regulator.CFTC_SDR)
+        .addRule(us("IRS"), Regulator.CFTC_SDR)
         .addRule(us("FX_FORWARD"), Regulator.CFTC_SDR);
   }
 
   private static java.util.function.Predicate<ReportableTrade> us(String coverage) {
     return t -> "US".equals(t.jurisdiction()) && coverage.equals(t.assetClass());
+  }
+
+  /**
+   * Cross-asset EU/UK matrix (12.11): MiFIR RTS 22 covers transactions in instruments admitted to
+   * trading on EU venues — equities, bonds, listed derivatives all report RTS 22; munis and CAT are
+   * US-only concepts and match no rule here.
+   */
+  public static RegulatorDeterminer crossAssetEu() {
+    return new RegulatorDeterminer()
+        .addRule(eu("EU_EQUITY"), Regulator.MIFIR_RTS22)
+        .addRule(eu("EU_CORP"), Regulator.MIFIR_RTS22)
+        .addRule(eu("GILT"), Regulator.MIFIR_RTS22)
+        .addRule(eu("LISTED_FUT_OPT"), Regulator.MIFIR_RTS22);
+  }
+
+  private static java.util.function.Predicate<ReportableTrade> eu(String coverage) {
+    return t ->
+        ("EU".equals(t.jurisdiction()) || "UK".equals(t.jurisdiction()))
+            && coverage.equals(t.assetClass());
   }
 }

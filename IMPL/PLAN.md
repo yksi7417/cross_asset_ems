@@ -298,14 +298,14 @@ STP and reporting. ~3-4 weeks.
 - [x] **[MVP] 12.1** Allocation service per [[arch-allocation-service]] (sonnet) `(31911bb)`
 - [x] **[MVP] 12.2** STP pipeline per [[arch-stp-pipeline]] (sonnet) ← blocks: 12.1 `(bc92f1c)`
 - [x] **[MVP] 12.3** Confirmation/Affirmation per [[arch-confirmation-affirmation]] (sonnet) ← blocks: 12.2 `(b218e63)`
-- [ ] **12.4** [[markitserv]] integration (sonnet) ← blocks: 12.3
+- [x] **12.4** [[markitserv]] integration (sonnet) ← blocks: 12.3 — MarkitServNetwork on the ConfirmationNetwork seam: UTI-keyed (the OTC distinction — dealers ALLEGE under the UTI, the buy-side pairs its trade ref and affirms/disputes); mock-wire scope like its siblings
 - [x] **[MVP] 12.5** Regulatory reporting per [[arch-regulatory-reporting-service]] (sonnet) `(51e1713)`
 - [x] **[MVP] 12.6** [[trace]] submission — **v0: mock submission** (sonnet) ← blocks: 12.5 `(39a9a88)`
-- [ ] **12.7** [[msrb-rtrs]] submission (sonnet) ← blocks: 12.5
-- [ ] **12.8** [[cftc-sdr]] submission (sonnet) ← blocks: 12.5
-- [ ] **12.9** [[rts-22-27-28|RTS 22]] submission (sonnet) ← blocks: 12.5
+- [x] **12.7** [[msrb-rtrs]] submission (sonnet) ← blocks: 12.5 — MsrbRtrsAdapter: muni PAR + cusip/coupon/yield/capacity dialect; MUNI→MSRB_RTRS added to the US matrix
+- [x] **12.8** [[cftc-sdr]] submission (sonnet) ← blocks: 12.5 — CftcSdrAdapter: deterministic UTI (supplied wins; derived from reportingLei+tradeRef, never random — replay rebuilds it), both-LEI + swap economics; IRS→CFTC_SDR added to the US matrix
+- [x] **12.9** [[rts-22-27-28|RTS 22]] submission (sonnet) ← blocks: 12.5 — Rts22Adapter: ISIN-identified (not FIGI), both-leg LEIs, venue MIC with XOFF off-venue default, DEAL/MTCH/AOTC capacity
 - [x] **12.10** Best execution audit per [[arch-best-execution]] (sonnet) — BestExAuditor: per-order routing decisions with alternatives-considered (the RFQ ladder is exactly this data) + attached TCA executions + adherence verdicts ALIGNED / EXCEPTION (better alternative, documented rationale) / DEVIATED (better alternative, no rationale — the committee's review queue)
-- [ ] **12.11** Per-pod / per-firm jurisdiction routing per [[arch-jurisdictional-compliance]] (sonnet)
+- [x] **12.11** Per-pod / per-firm jurisdiction routing per [[arch-jurisdictional-compliance]] (sonnet) — JurisdictionRouter: firms homed to regulatory matrices (crossAssetUs / new crossAssetEu), dual-homed firms report the union, unhomed firms fail LOUDLY (silently unreported trades are how reg findings happen)
 - [x] **12.12** [[finra|CAT]] submission — equities/options order-event reporting (16.1 already maps equity→CAT; this is the submission adapter, sibling of 12.6–12.9) (sonnet) ← blocks: 12.5
 - [x] **12.13** Commissions / fees / accrued-interest engine — per-broker + per-asset-class schedules, applied at allocation and carried onto confirms (a buyer expects net-money confirms, not clean qty×price) (sonnet) ← blocks: 12.1
 - [x] **12.14** TCA per [[arch-tca]] — slippage vs arrival/VWAP/IS benchmarks, venue/broker league tables, exportable best-ex committee pack (sonnet) ← blocks: 9.5, 12.10 — TcaService: per-fill cost-positive slippage vs arrival/VWAP/TWAP/mid/PWP (9.5 snapshots), qty-weighted league tables cheapest-first, deterministic committee pack with worst-fill review items
