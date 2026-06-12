@@ -3,21 +3,27 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-// Security-name resolution (18.17 feedback #2): people read tickers/names, not FIGIs.
-// Names come from GET /api/v1/instruments/{figi} (the security master) and are cached
-// for the session; unknown instruments fall back to the FIGI so nothing renders blank.
+// Security-master resolution (18.17 feedback #2, extended for 18.21): people read tickers/names,
+// not FIGIs — and a cross-asset blotter needs the asset class on every row. Both come from
+// GET /api/v1/instruments/{figi} (the security master) and are cached for the session; unknown
+// instruments fall back to the FIGI so nothing renders blank.
 
-const names = new Map<string, string>();
-const inflight = new Map<string, Promise<string>>();
+export interface InstrumentInfo {
+  name: string;
+  assetClass: string;
+}
+
+const cache = new Map<string, InstrumentInfo>();
+const inflight = new Map<string, Promise<InstrumentInfo>>();
 
 /** Resolved name if already cached (synchronous callers: dropdowns, labels). */
 export function nameOfSync(figi: string): string {
-  return names.get(figi) ?? figi;
+  return cache.get(figi)?.name ?? figi;
 }
 
-/** Resolve a FIGI to its display name, fetching once per session. */
-export function nameOf(figi: string): Promise<string> {
-  const cached = names.get(figi);
+/** Resolve a FIGI to its security-master info, fetching once per session. */
+export function infoOf(figi: string): Promise<InstrumentInfo> {
+  const cached = cache.get(figi);
   if (cached) {
     return Promise.resolve(cached);
   }
@@ -25,21 +31,29 @@ export function nameOf(figi: string): Promise<string> {
   if (!pending) {
     pending = fetch(`/api/v1/instruments/${encodeURIComponent(figi)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((body: { name?: string }) => body.name || figi)
-      .catch(() => figi)
-      .then((name) => {
-        names.set(figi, name);
+      .then((body: { name?: string; assetClass?: string }) => ({
+        name: body.name || figi,
+        assetClass: body.assetClass ?? "",
+      }))
+      .catch(() => ({ name: figi, assetClass: "" }))
+      .then((info) => {
+        cache.set(figi, info);
         inflight.delete(figi);
-        return name;
+        return info;
       });
     inflight.set(figi, pending);
   }
   return pending;
 }
 
-/** Add a resolved `name` field to a row that carries a `figi`. */
-export async function withName<T extends Record<string, unknown>>(
+/** Resolve a FIGI to its display name, fetching once per session. */
+export function nameOf(figi: string): Promise<string> {
+  return infoOf(figi).then((info) => info.name);
+}
+
+/** Add resolved `name` + `assetClass` fields to a row that carries a `figi`. */
+export async function withInstrument<T extends Record<string, unknown>>(
   row: T,
-): Promise<T & { name: string }> {
-  return { ...row, name: await nameOf(row.figi as string) };
+): Promise<T & InstrumentInfo> {
+  return { ...row, ...(await infoOf(row.figi as string)) };
 }

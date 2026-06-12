@@ -132,9 +132,27 @@ render cost on a busy desk, so nothing paints until you ask.
 remaining to the ticket's venue, Cancel, and *Aggregate N into a basket…* on orders; Cancel route
 on routes. Results land as a toast, and the rows update through the stream like any other action.
 
-### 4.3 Watchlist
+### 4.3 Watchlist + the cross-asset universe
 
-Four equities tick several times a second (bid/ask/last/volume). Per-desk membership streams on
+Thirteen instruments tick several times a second (bid/ask/last/volume) — the demo universe is
+**cross-asset** (18.21), at least one US and one international name per supported class, each
+trading in its natural unit and routing to class-appropriate venues:
+
+| Class | US | International | Qty unit | Venues |
+|---|---|---|---|---|
+| Equity | Apple, Microsoft | Toyota (JPY) | shares ×100 | XNAS/XNYS/ARCX, XTKS |
+| Govt bonds | UST 4.25% 2035 | UK Gilt 4.5% 2034 (GBP) | $1k face ×100 | BTEC/DWFI, TWEU |
+| Corp credit | Apple 3.45% 2029 | Volkswagen 4.125% 2031 (EUR) | $1k face ×100 | MKAX, MAEL |
+| FX | EUR/USD spot | USD/JPY 1M fwd | 100k notional | FXAL, EBSX |
+| Listed deriv | E-mini S&P Sep26 | EURO STOXX 50 Sep26 (EUR) | contracts | XCME, XEUR |
+| Rates (IRS) | USD SOFR 5Y | EUR €STR 5Y | 1M notional | TWSD, BGCD |
+
+(Defined in `DemoUniverse.java`; non-equity FIGIs are synthetic demo identifiers. IRS "price" is
+the fixed rate in percent.) Non-USD P&L converts to the USD base via demo FX rates. The order
+blotter shows the `assetClass` column, resolved from `GET /api/v1/instruments/{figi}` and cached
+like security names.
+
+Per-desk watchlist membership streams on
 `watchlist.desk-1`; ticks stream on the `md` firehose and are filtered client-side to that set,
 merged into a per-FIGI last-value image before `table.update`.
 

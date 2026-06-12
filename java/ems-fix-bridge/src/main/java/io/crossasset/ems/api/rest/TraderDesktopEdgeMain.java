@@ -24,17 +24,10 @@ import io.crossasset.ems.api.md.MarketDataTopicBridge;
 import io.crossasset.ems.api.notify.DesktopSink;
 import io.crossasset.ems.api.notify.NotificationService;
 import io.crossasset.ems.bulk.BulkOrderImporter;
-import io.crossasset.ems.instrument.AssetClass;
-import io.crossasset.ems.instrument.CurrencyCode;
-import io.crossasset.ems.instrument.Fungibility;
 import io.crossasset.ems.instrument.InMemorySecurityMasterService;
-import io.crossasset.ems.instrument.InstrumentCore;
-import io.crossasset.ems.instrument.InstrumentType;
 import io.crossasset.ems.instrument.InstrumentVersioned;
-import io.crossasset.ems.instrument.LifecycleStatus;
 import io.crossasset.ems.instrument.SecurityMasterEvent;
 import io.crossasset.ems.instrument.SecurityMasterSnapshot;
-import io.crossasset.ems.instrument.SettlementConvention;
 import io.crossasset.ems.md.MdField;
 import io.crossasset.ems.md.SimulatedFeed;
 import io.crossasset.ems.oms.InMemoryRouteManager;
@@ -70,16 +63,9 @@ import java.util.Set;
  */
 public final class TraderDesktopEdgeMain {
 
-  private record Inst(String figi, String name, long basePx) {}
-
-  private static final List<Inst> INSTRUMENTS =
-      List.of(
-          new Inst("BBG000B9XRY4", "Apple Inc", 182_4500L),
-          new Inst("BBG000BPH459", "Microsoft Corp", 415_1200L),
-          new Inst("BBG000BMHYD1", "JPMorgan Chase", 198_3300L),
-          new Inst("BBG000BLNNH6", "IBM Corp", 168_7700L));
-
-  private static final List<String> VENUES = List.of("XNAS", "XNYS", "ARCX");
+  // Cross-asset demo universe (18.21): ≥2 instruments per supported asset class (1 US + 1
+  // international), each carrying its own lot/venue conventions. Defined in DemoUniverse.
+  private static final List<DemoUniverse.DemoInstrument> INSTRUMENTS = DemoUniverse.INSTRUMENTS;
 
   private TraderDesktopEdgeMain() {}
 
@@ -96,11 +82,11 @@ public final class TraderDesktopEdgeMain {
     InMemorySecurityMasterService secMaster = new InMemorySecurityMasterService();
     SecurityMasterSnapshot snapshot = SecurityMasterSnapshot.EMPTY;
     long version = 1;
-    for (Inst inst : INSTRUMENTS) {
+    for (DemoUniverse.DemoInstrument inst : INSTRUMENTS) {
       snapshot =
           snapshot.apply(
               new SecurityMasterEvent.InstrumentCreated(
-                  new InstrumentVersioned(equity(inst.figi(), inst.name()), null), version++));
+                  new InstrumentVersioned(inst.core(), null), version++));
     }
     secMaster.publish(snapshot);
 
@@ -135,7 +121,7 @@ public final class TraderDesktopEdgeMain {
             mdBridge,
             feed,
             Set.of(MdField.BID, MdField.ASK, MdField.LAST, MdField.VOLUME));
-    for (Inst inst : INSTRUMENTS) {
+    for (DemoUniverse.DemoInstrument inst : INSTRUMENTS) {
       watchlist.add("desk-1", inst.figi());
     }
     feed.start();
@@ -300,7 +286,13 @@ public final class TraderDesktopEdgeMain {
     // ── Intraday P&L (18.7): fills feed positions, md ticks feed marks ─────────
     PositionService positionService = new PositionService();
     PricingService pricingService = new PricingService();
-    PnlService pnlService = new PnlService(positionService, pricingService, figi -> "USD", "USD");
+    PnlService pnlService =
+        new PnlService(
+            positionService,
+            pricingService,
+            figi -> DemoUniverse.CURRENCY_OF.getOrDefault(figi, "USD"),
+            "USD");
+    DemoUniverse.FX_TO_USD.forEach(pnlService::setFxRate);
     com.fasterxml.jackson.databind.ObjectMapper pnlMapper =
         new com.fasterxml.jackson.databind.ObjectMapper();
     Thread.ofVirtual()
@@ -379,16 +371,17 @@ public final class TraderDesktopEdgeMain {
     LogonOutcome logon = aaa.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "demo-bot"));
     long session = ((LogonOutcome.Accepted) logon).session().sessionId();
     Random random = new Random();
-    long[] lastPx = INSTRUMENTS.stream().mapToLong(Inst::basePx).toArray();
+    long[] lastPx =
+        INSTRUMENTS.stream().mapToLong(DemoUniverse.DemoInstrument::basePx).toArray();
     long volume = 0;
     int orderSeq = 0;
 
     while (true) {
       // Quotes tick every cycle (random walk, ±5 bps).
       for (int i = 0; i < INSTRUMENTS.size(); i++) {
-        Inst inst = INSTRUMENTS.get(i);
+        DemoUniverse.DemoInstrument inst = INSTRUMENTS.get(i);
         lastPx[i] += Math.round(lastPx[i] * (random.nextDouble() - 0.5) * 0.001);
-        long spread = Math.max(100, lastPx[i] / 2_000);
+        long spread = Math.max(1, lastPx[i] / 2_000);
         volume += random.nextInt(900) + 100;
         feed.emit(
             inst.figi(),
@@ -406,11 +399,13 @@ public final class TraderDesktopEdgeMain {
       }
 
       // Every few cycles: a new order through stage → ready → route → ack → fills.
+      // Qty in the instrument's natural unit: shares (×100), $1k bond face, FX/IRS notional,
+      // futures contracts — so each asset class reads like its own market.
       if (orderSeq < 999 && random.nextInt(4) == 0) {
         orderSeq++;
         int i = random.nextInt(INSTRUMENTS.size());
-        Inst inst = INSTRUMENTS.get(i);
-        long qty = (random.nextInt(20) + 1) * 100L;
+        DemoUniverse.DemoInstrument inst = INSTRUMENTS.get(i);
+        long qty = (random.nextInt(20) + 1) * inst.lotQty();
         int side = random.nextInt(2) + 1;
         StageResult staged =
             som.stage(
@@ -432,7 +427,7 @@ public final class TraderDesktopEdgeMain {
                   new RouteRequest(
                       "RCL-" + orderSeq,
                       orderId,
-                      VENUES.get(random.nextInt(VENUES.size())),
+                      inst.venues().get(random.nextInt(inst.venues().size())),
                       qty,
                       lastPx[i],
                       null));
@@ -442,7 +437,7 @@ public final class TraderDesktopEdgeMain {
             long remaining = qty;
             int execSeq = 0;
             while (remaining > 0 && random.nextInt(3) > 0) {
-              long fillQty = Math.min(remaining, (random.nextInt(5) + 1) * 100L);
+              long fillQty = Math.min(remaining, (random.nextInt(5) + 1) * inst.lotQty());
               remaining -= fillQty;
               String execId = "EXEC-" + orderSeq + "-" + ++execSeq;
               if (remaining == 0) {
@@ -489,31 +484,5 @@ public final class TraderDesktopEdgeMain {
         return true;
       }
     };
-  }
-
-  private static InstrumentCore equity(String figi, String name) {
-    return new InstrumentCore(
-        figi,
-        "IID-" + figi,
-        null,
-        null,
-        AssetClass.EQUITY,
-        InstrumentType.COMMON_STOCK,
-        name,
-        name,
-        null,
-        CurrencyCode.USD,
-        "US",
-        null,
-        Fungibility.FUNGIBLE,
-        SettlementConvention.T_PLUS_2,
-        0,
-        LifecycleStatus.ACTIVE,
-        1_000_000L,
-        Long.MAX_VALUE,
-        1L,
-        null,
-        1_000_000L,
-        1_000_000L);
   }
 }

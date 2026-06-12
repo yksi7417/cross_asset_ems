@@ -18,7 +18,7 @@ import SERVER_WASM_URL from "@finos/perspective/dist/wasm/perspective-server.was
 import VIEWER_WASM_URL from "@finos/perspective-viewer/dist/wasm/perspective-viewer.wasm?url";
 import { ResumableStream, type StreamStatus } from "./stream";
 import { ApiClient, initTicket, type WorkingOrder } from "./ticket";
-import { nameOf, nameOfSync, withName } from "./instruments";
+import { nameOf, nameOfSync, withInstrument } from "./instruments";
 import { attachGridInteractions, type GridRow } from "./grid-actions";
 
 const perspectiveReady = Promise.all([
@@ -46,6 +46,7 @@ const SIDES: Record<number, string> = { 1: "BUY", 2: "SELL", 5: "SELL SHORT" };
 const ORDERS_SCHEMA = {
   orderId: "string",
   name: "string",
+  assetClass: "string",
   clOrdId: "string",
   figi: "string",
   side: "string",
@@ -63,6 +64,7 @@ const ORDERS_SCHEMA = {
 const ROUTES_SCHEMA = {
   routeId: "string",
   name: "string",
+  assetClass: "string",
   orderId: "string",
   clOrdId: "string",
   venueMic: "string",
@@ -79,6 +81,7 @@ const ROUTES_SCHEMA = {
 const FILLS_SCHEMA = {
   execId: "string",
   name: "string",
+  assetClass: "string",
   routeId: "string",
   orderId: "string",
   venueMic: "string",
@@ -740,7 +743,7 @@ async function start(session: Logon): Promise<void> {
       table: await schemaTable(worker, ORDERS_SCHEMA, "orderId"),
       transform: orderRow,
       sort: [["ts", "desc"]],
-      columns: ["name", "side", "qty", "px", "cumQty", "leavesQty", "state", "subState", "account", "orderId", "ts"],
+      columns: ["name", "assetClass", "side", "qty", "px", "cumQty", "leavesQty", "state", "subState", "account", "orderId", "ts"],
     },
     {
       topic: "blotter.routes",
@@ -806,8 +809,8 @@ async function start(session: Logon): Promise<void> {
         }
         const row = blotter.transform(wire);
         if (typeof row.figi === "string") {
-          // Resolve the security name (cached after first sight), then write the row.
-          void withName(row).then((named) => blotter.table.update([named]));
+          // Resolve name + asset class (cached after first sight), then write the row.
+          void withInstrument(row).then((named) => blotter.table.update([named]));
         } else {
           void blotter.table.update([row]);
         }
