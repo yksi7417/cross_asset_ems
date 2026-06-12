@@ -70,3 +70,7 @@ open-router.key
 # Node / UI builds
 node_modules/
 ui/*/dist/
+
+# Playwright run artifacts (traces, last-run state)
+ui/*/test-results/
+ui/*/playwright-report/
