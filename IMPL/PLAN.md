@@ -252,7 +252,7 @@ Inputs. ~2 weeks.
 - [ ] **9.2** Subscriber-visibility registry (sonnet) ← blocks: 9.1
 - [ ] **9.3** Quote multicast over Aeron (sonnet) ← blocks: 9.1, 2.3
 - [ ] **9.4** IOI service per [[arch-ioi]] (sonnet)
-- [ ] **9.5** Real-time analytics (VWAP, TWAP, PWP, arrival) per [[arch-realtime-analytics]] (gemma for math, sonnet for streaming)
+- [x] **9.5** Real-time analytics (VWAP, TWAP, PWP, arrival) per [[arch-realtime-analytics]] — BenchmarkService on the 18.12 SPI (the original 9.1 quote-server blocker is satisfied by the SPI per the 2026-06-10 rescope): event-time streaming VWAP/TWAP/mid/last, frozen arrival marks, tape-based PWP; deterministic replay pinned
 
 ## Phase 10 — Pre-Trade Auxiliaries
 
