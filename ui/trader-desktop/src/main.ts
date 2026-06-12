@@ -251,7 +251,16 @@ function tradingAggregates(extra: Record<string, Aggregate>): Record<string, Agg
   };
 }
 
-const SIGNED_QTY = { signedQty: `if("side" == 'BUY', "qty", -"qty")` };
+// Computed columns (18.22 signedQty, 18.28 notional). Notional respects per-class price meaning:
+// for FX and IRS the order qty IS the notional by convention (px is a rate/exchange-rate — px×qty
+// would be the quote-leg amount, not "the notional"); everywhere else notional = px × signedQty.
+// Known limitation: demo futures carry no contract multiplier (an ES "notional" reads as
+// index-points × contracts) — DemoUniverse has no multiplier field yet.
+const SIGNED = `if("side" == 'BUY', "qty", -"qty")`;
+const BLOTTER_EXPRESSIONS = {
+  signedQty: SIGNED,
+  notional: `if("assetClass" == 'FX' or "assetClass" == 'RATES_DERIVATIVE', ${SIGNED}, "px" * (${SIGNED}))`,
+};
 
 type ViewerEl = HTMLElement & {
   load(table: Table): Promise<void>;
@@ -786,9 +795,9 @@ async function start(session: Logon): Promise<void> {
       table: await schemaTable(worker, ORDERS_SCHEMA, "orderId"),
       transform: orderRow,
       sort: [["ts", "desc"]],
-      columns: ["name", "assetClass", "side", "qty", "signedQty", "ordType", "px", "avgPx", "cumQty", "leavesQty", "state", "subState", "tif", "account", "orderId", "ts"],
-      expressions: SIGNED_QTY,
-      aggregates: tradingAggregates({ signedQty: "sum" }),
+      columns: ["name", "assetClass", "side", "qty", "signedQty", "notional", "ordType", "px", "avgPx", "cumQty", "leavesQty", "state", "subState", "tif", "account", "orderId", "ts"],
+      expressions: BLOTTER_EXPRESSIONS,
+      aggregates: tradingAggregates({ signedQty: "sum", notional: "sum" }),
     },
     {
       topic: "blotter.routes",
@@ -797,9 +806,9 @@ async function start(session: Logon): Promise<void> {
       table: await schemaTable(worker, ROUTES_SCHEMA, "routeId"),
       transform: routeRow,
       sort: [["ts", "desc"]],
-      columns: ["name", "venueMic", "side", "qty", "px", "avgPx", "cumQty", "leavesQty", "state", "routeId", "orderId", "ts"],
-      expressions: SIGNED_QTY,
-      aggregates: tradingAggregates({ signedQty: "sum" }),
+      columns: ["name", "venueMic", "side", "qty", "notional", "px", "avgPx", "cumQty", "leavesQty", "state", "routeId", "orderId", "ts"],
+      expressions: BLOTTER_EXPRESSIONS,
+      aggregates: tradingAggregates({ signedQty: "sum", notional: "sum" }),
     },
     {
       topic: "blotter.fills",
