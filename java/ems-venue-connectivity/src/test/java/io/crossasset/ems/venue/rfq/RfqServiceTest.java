@@ -186,6 +186,31 @@ class RfqServiceTest {
   }
 
   @Test
+  void matSwaps_mustRfqToAtLeastThreeDealers() {
+    // 11.14: a MAT swap RFQ'd to fewer than 3 dealers is refused BEFORE any dealer sees it.
+    service.addDealer(MockRfqDealer.firm("GS", figi -> 4_0250L, 2, 30_000));
+    service.addDealer(MockRfqDealer.firm("JPM", figi -> 4_0250L, 3, 30_000));
+    service.addDealer(MockRfqDealer.firm("MS", figi -> 4_0250L, 4, 30_000));
+    service.setMatPolicy(figi -> figi.equals("BBG00DEMOIR5")); // the USD IRS is MAT
+
+    assertThatThrownBy(
+            () ->
+                service.request(
+                    7L, "ACC-1", "BBG00DEMOIR5", 1, 1_000_000, List.of("GS", "JPM"), 60_000, T0))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("MAT")
+        .hasMessageContaining(">= 3");
+
+    // Three dealers (or the full panel) satisfies the floor.
+    Rfq full = service.request(7L, "ACC-1", "BBG00DEMOIR5", 1, 1_000_000, List.of(), 60_000, T0);
+    assertThat(full.dealersInvited()).hasSize(3);
+    // Non-MAT instruments keep bilateral RFQ.
+    Rfq bilateral =
+        service.request(7L, "ACC-1", "BBG00DEMOC29", 1, 100_000, List.of("GS"), 60_000, T0);
+    assertThat(bilateral.dealersInvited()).hasSize(1);
+  }
+
+  @Test
   void deterministicReplay_sameClockSameQuotesSameTransitions() {
     RfqService a = new RfqService((r, w) -> {}, r -> {});
     List<String> log = new ArrayList<>();

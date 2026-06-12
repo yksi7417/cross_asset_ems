@@ -56,12 +56,30 @@ public final class RfqService {
     }
   }
 
+  /**
+   * RFQ-to-3 (task 11.14): swaps Made Available to Trade on a SEF must be RFQ'd to at least THREE
+   * unaffiliated dealers (CFTC SEF rules). The predicate marks MAT instruments; requests below the
+   * floor are refused before any dealer sees them.
+   */
+  @FunctionalInterface
+  public interface MatPolicy {
+    boolean requiresRfqTo3(String figi);
+  }
+
+  private static final int MAT_MIN_DEALERS = 3;
+
   private final List<RfqDealer> panel = new ArrayList<>();
   private final Map<String, Rfq> rfqs = new LinkedHashMap<>();
   private final ExecutionBooker booker;
   private final Consumer<Rfq> events;
   private final EligibilityCheck eligibility;
+  private MatPolicy matPolicy = figi -> false;
   private int seq = 0;
+
+  /** Wire the MAT determination (reference data knows which swaps are MAT). */
+  public void setMatPolicy(MatPolicy policy) {
+    this.matPolicy = Objects.requireNonNull(policy);
+  }
 
   /**
    * @param booker receives the winning quote once a dealer confirms
@@ -130,9 +148,17 @@ public final class RfqService {
       long ttlMillis,
       long nowMillis,
       AutoExPolicy autoEx) {
-    String rfqId = "RFQ-" + ++seq;
     List<String> invited =
         dealers.isEmpty() ? panel.stream().map(RfqDealer::dealer).toList() : List.copyOf(dealers);
+    if (matPolicy.requiresRfqTo3(figi) && invited.size() < MAT_MIN_DEALERS) {
+      throw new IllegalArgumentException(
+          figi
+              + " is MAT: RFQ must go to >= "
+              + MAT_MIN_DEALERS
+              + " dealers, got "
+              + invited.size());
+    }
+    String rfqId = "RFQ-" + ++seq;
     Rfq rfq = new Rfq(rfqId, sessionId, account, figi, side, qty, invited, nowMillis + ttlMillis);
     rfqs.put(rfqId, rfq);
     events.accept(rfq);
