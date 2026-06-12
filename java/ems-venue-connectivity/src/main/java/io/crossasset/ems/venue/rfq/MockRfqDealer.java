@@ -5,7 +5,7 @@
 package io.crossasset.ems.venue.rfq;
 
 import java.util.Optional;
-import java.util.function.LongUnaryOperator;
+import java.util.function.ToLongFunction;
 
 /**
  * Scripted dealer for the demo edge and tests (task 11.18): quotes around a reference price
@@ -16,7 +16,7 @@ import java.util.function.LongUnaryOperator;
 public final class MockRfqDealer implements RfqDealer {
 
   private final String dealer;
-  private final LongUnaryOperator referencePx; // figi-hash → px supplier wired by the edge
+  private final ToLongFunction<String> referencePx; // figi → px (the edge wires the live feed)
   private final long spreadBp;
   private final long quoteTtlMillis;
   private final boolean declines;
@@ -24,7 +24,7 @@ public final class MockRfqDealer implements RfqDealer {
 
   private MockRfqDealer(
       String dealer,
-      LongUnaryOperator referencePx,
+      ToLongFunction<String> referencePx,
       long spreadBp,
       long quoteTtlMillis,
       boolean declines,
@@ -39,7 +39,7 @@ public final class MockRfqDealer implements RfqDealer {
 
   /** A firm dealer quoting {@code spreadBp} around the reference. */
   public static MockRfqDealer firm(
-      String dealer, LongUnaryOperator referencePx, long spreadBp, long quoteTtlMillis) {
+      String dealer, ToLongFunction<String> referencePx, long spreadBp, long quoteTtlMillis) {
     return new MockRfqDealer(dealer, referencePx, spreadBp, quoteTtlMillis, false, false);
   }
 
@@ -50,7 +50,7 @@ public final class MockRfqDealer implements RfqDealer {
 
   /** A dealer that quotes tight but fades on confirm — the last-look path. */
   public static MockRfqDealer fading(
-      String dealer, LongUnaryOperator referencePx, long spreadBp, long quoteTtlMillis) {
+      String dealer, ToLongFunction<String> referencePx, long spreadBp, long quoteTtlMillis) {
     return new MockRfqDealer(dealer, referencePx, spreadBp, quoteTtlMillis, false, true);
   }
 
@@ -64,7 +64,7 @@ public final class MockRfqDealer implements RfqDealer {
     if (declines) {
       return Optional.empty();
     }
-    long reference = referencePx.applyAsLong(rfq.figi().hashCode());
+    long reference = referencePx.applyAsLong(rfq.figi());
     // Buyer pays reference + spread, seller receives reference − spread.
     long px =
         rfq.side() == 1

@@ -280,6 +280,71 @@ public final class TraderDesktopEdgeMain {
             watchlist);
     binding.setIssuerNames(DemoUniverse.ISSUER_NAMES::get); // 18.29: group-by-issuer
     binding.setCurrencyProfiles(DemoUniverse::profileOf); // 18.30: trading/settle/base/quote
+    binding.setQuoteStyles(core -> DemoUniverse.quoteStyleOf(core).name()); // 11.18
+
+    // ── RFQ workflow (11.18): mock dealer panel quoting around the demo base px ──
+    // Eligibility (user requirement): AXES quotes TIGHTEST but only trades with institutional
+    // accounts — for the demo's ACC-* accounts its quote shows greyed on the ladder, never
+    // executable. FADE demonstrates the last-look path (quotes tight, fades on confirm).
+    java.util.function.ToLongFunction<String> referencePx =
+        figi ->
+            INSTRUMENTS.stream()
+                .filter(i -> i.figi().equals(figi))
+                .mapToLong(DemoUniverse.DemoInstrument::basePx)
+                .findFirst()
+                .orElse(100_0000L);
+    long rfqSession =
+        ((LogonOutcome.Accepted)
+                aaa.logon(LogonCredentials.fresh(CredentialKind.TOKEN, "demo-bot")))
+            .session()
+            .sessionId();
+    io.crossasset.ems.venue.rfq.RfqService rfqService =
+        new io.crossasset.ems.venue.rfq.RfqService(
+            (rfq, winner) -> {
+              // Book the executed quote through the SAME guarded OMS path as any order:
+              // it lands in the blotter, P&L, notifications — an execution like any other.
+              StageResult staged =
+                  som.stage(
+                      new OrderRequest(
+                          rfq.rfqId(),
+                          rfqSession,
+                          rfq.rfqId(),
+                          rfq.figi(),
+                          rfq.side(),
+                          winner.qty(),
+                          winner.price(),
+                          rfq.account(),
+                          0));
+              if (staged instanceof StageResult.Accepted accepted) {
+                String orderId = accepted.order().orderId();
+                som.markReady(orderId, rfqSession);
+                RouteResult routed =
+                    routes.route(
+                        new RouteRequest(
+                            rfq.rfqId() + "-R",
+                            orderId,
+                            winner.dealer(),
+                            winner.qty(),
+                            winner.price(),
+                            null));
+                if (routed instanceof RouteResult.Routed r) {
+                  routes.acknowledgeRoute(r.route().routeId());
+                  routes.fullFill(
+                      r.route().routeId(), winner.qty(), winner.price(), rfq.rfqId() + "-X");
+                }
+              }
+            },
+            rfq -> {},
+            (account, dealer) -> !"AXES".equals(dealer) || account.startsWith("ACC-INST"));
+    rfqService.addDealer(
+        io.crossasset.ems.venue.rfq.MockRfqDealer.firm("AXES", referencePx, 2, 25_000));
+    rfqService.addDealer(
+        io.crossasset.ems.venue.rfq.MockRfqDealer.fading("FADE", referencePx, 3, 25_000));
+    rfqService.addDealer(
+        io.crossasset.ems.venue.rfq.MockRfqDealer.firm("GS", referencePx, 5, 25_000));
+    rfqService.addDealer(
+        io.crossasset.ems.venue.rfq.MockRfqDealer.firm("JPM", referencePx, 8, 25_000));
+    binding.setRfq(rfqService, System::currentTimeMillis);
 
     // ── Real telemetry (18.26): OTLP traces from the demo edge ──────────────────
     // Opt-in: set OTEL_EXPORTER_OTLP_ENDPOINT (or EMS_DEMO_OTEL=1 for localhost:4317) with the

@@ -78,6 +78,26 @@ public final class RestEdgeBinding {
     this.issuerNames = directory;
   }
 
+  /** RFQ workflow (11.18): orchestration service + clock, wired by the edge. */
+  private io.crossasset.ems.venue.rfq.@org.jspecify.annotations.Nullable RfqService rfqService;
+
+  private java.util.function.LongSupplier rfqClock = System::currentTimeMillis;
+
+  /** Instrument → quote style (11.18): which workflow the ticket offers. */
+  private java.util.function.Function<io.crossasset.ems.instrument.InstrumentCore, String>
+      quoteStyles = core -> "ORDER_BOOK";
+
+  public void setRfq(
+      io.crossasset.ems.venue.rfq.RfqService service, java.util.function.LongSupplier clock) {
+    this.rfqService = service;
+    this.rfqClock = clock;
+  }
+
+  public void setQuoteStyles(
+      java.util.function.Function<io.crossasset.ems.instrument.InstrumentCore, String> styles) {
+    this.quoteStyles = styles;
+  }
+
   /** Instrument → currency roles (18.30); defaults collapse to the core's single currency. */
   private java.util.function.Function<
           io.crossasset.ems.instrument.InstrumentCore,
@@ -294,6 +314,17 @@ public final class RestEdgeBinding {
       if ("POST".equals(method) && "/api/v1/esp/click".equals(path)) {
         return espClick(headers, body);
       }
+      if ("POST".equals(method) && "/api/v1/rfq/request".equals(path)) {
+        return rfqRequest(headers, body);
+      }
+      if ("POST".equals(method) && path.startsWith("/api/v1/rfq/") && path.endsWith("/elect")) {
+        return rfqElect(
+            headers, path.substring("/api/v1/rfq/".length(), path.length() - "/elect".length()),
+            body);
+      }
+      if ("GET".equals(method) && path.startsWith("/api/v1/rfq/")) {
+        return rfqGet(headers, path.substring("/api/v1/rfq/".length()));
+      }
       if (path.startsWith("/api/v1/watchlist/")) {
         return watchlistRoute(method, path, headers, body);
       }
@@ -401,6 +432,101 @@ public final class RestEdgeBinding {
     return new HttpResult(200, out.toString());
   }
 
+  // ── RFQ workflow (11.18) ─────────────────────────────────────────────────────
+
+  private HttpResult rfqRequest(Map<String, String> headers, String body) throws Exception {
+    if (rfqService == null) {
+      return error(404, "RFQ service not configured on this edge.");
+    }
+    long sessionId = requireSession(headers);
+    JsonNode json = mapper.readTree(body);
+    long now = rfqClock.getAsLong();
+    rfqService.sweep(now);
+    java.util.List<String> dealers = new ArrayList<>();
+    json.path("dealers").forEach(d -> dealers.add(d.asText()));
+    var autoEx =
+        json.path("autoEx").asBoolean(false)
+            ? io.crossasset.ems.venue.rfq.RfqService.AutoExPolicy.within(
+                json.path("maxSpreadBp").asLong(10), json.path("referencePx").asLong())
+            : io.crossasset.ems.venue.rfq.RfqService.AutoExPolicy.traderDecides();
+    var rfq =
+        rfqService.request(
+            sessionId,
+            requireText(json, "account"),
+            requireText(json, "figi"),
+            json.path("side").asInt(1),
+            json.path("qty").asLong(),
+            dealers,
+            json.path("ttlMillis").asLong(30_000),
+            now,
+            autoEx);
+    return new HttpResult(200, rfqJson(rfq).toString());
+  }
+
+  private HttpResult rfqElect(Map<String, String> headers, String rfqId, String body)
+      throws Exception {
+    if (rfqService == null) {
+      return error(404, "RFQ service not configured on this edge.");
+    }
+    requireSession(headers);
+    JsonNode json = mapper.readTree(body);
+    try {
+      var rfq = rfqService.elect(rfqId, requireText(json, "responseId"), rfqClock.getAsLong());
+      return new HttpResult(200, rfqJson(rfq).toString());
+    } catch (IllegalStateException | IllegalArgumentException e) {
+      ObjectNode out = mapper.createObjectNode();
+      out.put("error", e.getMessage());
+      return new HttpResult(409, out.toString());
+    }
+  }
+
+  private HttpResult rfqGet(Map<String, String> headers, String rfqId) {
+    if (rfqService == null) {
+      return error(404, "RFQ service not configured on this edge.");
+    }
+    requireSession(headers);
+    rfqService.sweep(rfqClock.getAsLong());
+    return rfqService
+        .find(rfqId)
+        .map(rfq -> new HttpResult(200, rfqJson(rfq).toString()))
+        .orElseGet(() -> error(404, "Unknown RFQ: " + rfqId));
+  }
+
+  /**
+   * The RFQ image the ladder renders: state + responses sorted BEST-FIRST for the side, each
+   * carrying its eligibility flag (ineligible quotes show greyed — visible, never executable).
+   */
+  private ObjectNode rfqJson(io.crossasset.ems.venue.rfq.Rfq rfq) {
+    ObjectNode out = mapper.createObjectNode();
+    out.put("rfqId", rfq.rfqId());
+    out.put("figi", rfq.figi());
+    out.put("account", rfq.account());
+    out.put("side", rfq.side());
+    out.put("qty", rfq.qty());
+    out.put("state", rfq.state().name());
+    out.put("expireAtMillis", rfq.expireAtMillis());
+    if (rfq.executedResponseId() != null) {
+      out.put("executedResponseId", rfq.executedResponseId());
+    }
+    var sorted = new ArrayList<>(rfq.responses());
+    var byPrice =
+        java.util.Comparator.comparingLong(
+            io.crossasset.ems.venue.rfq.Rfq.QuoteResponse::price);
+    sorted.sort(rfq.side() == 1 ? byPrice : byPrice.reversed());
+    ArrayNode quotes = out.putArray("quotes");
+    for (var response : sorted) {
+      ObjectNode q = quotes.addObject();
+      q.put("responseId", response.responseId());
+      q.put("dealer", response.dealer());
+      q.put("px", response.price());
+      q.put("qty", response.qty());
+      q.put("qualifier", response.qualifier().name());
+      q.put("validUntilMillis", response.validUntilMillis());
+      q.put("eligible", rfqService.eligible(rfq.account(), response.dealer()));
+    }
+    return out;
+  }
+
   private HttpResult instrument(String figi) {
     if (secMaster == null) {
       return error(404, "Instrument lookup not configured on this edge.");
@@ -426,6 +552,8 @@ public final class RestEdgeBinding {
       out.put("baseCurrency", profile.baseCurrency().name());
       out.put("quoteCurrency", profile.quoteCurrency().name());
     }
+    // Quote style (11.18): ORDER_BOOK / RFQ / BOTH — which workflow the ticket offers.
+    out.put("quoteStyle", quoteStyles.apply(instrument.core()));
     // Issuer (18.29): group-by-issuer collapses a company's capital structure cross-asset.
     String issuerLei = instrument.core().issuerLei();
     if (issuerLei != null) {

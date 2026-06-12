@@ -74,6 +74,7 @@ class UiWorkflowContractTest {
   private int untaggedSeq = 1;
   private MockEspVenue espVenue;
   private NotificationService notifications;
+  private RestEdgeBinding binding;
 
   @BeforeEach
   void setUp() throws Exception {
@@ -126,21 +127,20 @@ class UiWorkflowContractTest {
     EspClickService esp = new EspClickService();
     esp.attach(EURUSD, espVenue);
 
-    server =
-        new RestHttpServer(
-            new RestEdgeBinding(
-                aaa,
-                api,
-                subscriptions,
-                secMaster,
-                baskets,
-                kill,
-                notifications,
-                null,
-                null,
-                esp,
-                watchlist),
-            0);
+    binding =
+        new RestEdgeBinding(
+            aaa,
+            api,
+            subscriptions,
+            secMaster,
+            baskets,
+            kill,
+            notifications,
+            null,
+            null,
+            esp,
+            watchlist);
+    server = new RestHttpServer(binding, 0);
     server.start();
     base = "http://localhost:" + server.port();
     session = logon("trader");
@@ -407,6 +407,56 @@ class UiWorkflowContractTest {
 
     // Session-gated like every other read.
     assertThat(get("/api/v1/orders/" + orderId + "/history").statusCode()).isEqualTo(400);
+  }
+
+  @Test
+  void rfqWorkflow_ladderSortedBestFirst_eligibilityGates_electionBooksIntoTheBlotter()
+      throws Exception {
+    // The edge wires the binding's RFQ seam; this test wires its own panel the same way.
+    io.crossasset.ems.venue.rfq.RfqService rfq =
+        new io.crossasset.ems.venue.rfq.RfqService(
+            (r, winner) -> {},
+            r -> {},
+            (account, dealer) -> !"AXES".equals(dealer)); // AXES: visible, never executable
+    rfq.addDealer(io.crossasset.ems.venue.rfq.MockRfqDealer.firm("AXES", f -> 971_000L, 2, 30_000));
+    rfq.addDealer(io.crossasset.ems.venue.rfq.MockRfqDealer.firm("GS", f -> 971_000L, 5, 30_000));
+    rfq.addDealer(io.crossasset.ems.venue.rfq.MockRfqDealer.firm("JPM", f -> 971_000L, 8, 30_000));
+    binding.setRfq(rfq, () -> 1_000_000L);
+
+    HttpResponse<String> created =
+        post(
+            "/api/v1/rfq/request",
+            session,
+            "{\"figi\":\"" + FIGI + "\",\"side\":1,\"qty\":100000,\"account\":\"qa\"}");
+    assertThat(created.statusCode()).isEqualTo(200);
+    JsonNode body = mapper.readTree(created.body());
+    assertThat(body.path("state").asText()).isEqualTo("ACTIVE");
+    JsonNode quotes = body.path("quotes");
+    assertThat(quotes.size()).isEqualTo(3);
+    // Best-first for a buyer: lowest offer leads — AXES (2bp) then GS (5bp) then JPM (8bp).
+    assertThat(quotes.get(0).path("dealer").asText()).isEqualTo("AXES");
+    assertThat(quotes.get(0).path("eligible").asBoolean()).isFalse(); // greyed on the ladder
+    assertThat(quotes.get(1).path("dealer").asText()).isEqualTo("GS");
+    assertThat(quotes.get(1).path("eligible").asBoolean()).isTrue();
+
+    // Electing the ineligible best is refused with a reasoned 409 — never executes.
+    String rfqId = body.path("rfqId").asText();
+    HttpResponse<String> refused =
+        post(
+            "/api/v1/rfq/" + rfqId + "/elect",
+            session,
+            "{\"responseId\":\"" + quotes.get(0).path("responseId").asText() + "\"}");
+    assertThat(refused.statusCode()).isEqualTo(409);
+    assertThat(mapper.readTree(refused.body()).path("error").asText()).contains("not eligible");
+
+    // Electing the best ELIGIBLE quote executes.
+    HttpResponse<String> executed =
+        post(
+            "/api/v1/rfq/" + rfqId + "/elect",
+            session,
+            "{\"responseId\":\"" + quotes.get(1).path("responseId").asText() + "\"}");
+    assertThat(executed.statusCode()).isEqualTo(200);
+    assertThat(mapper.readTree(executed.body()).path("state").asText()).isEqualTo("EXECUTED");
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────────

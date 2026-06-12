@@ -368,6 +368,27 @@
         color: #e8a9a6;
       }
       #tk-feedback,
+      /* RFQ quote ladder (11.18): best-first, countdowns, ineligible greyed. */
+      #rfq-panel { display: flex; flex-direction: column; gap: 4px; }
+      #rfq-status { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; min-height: 13px; }
+      #rfq-ladder { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+      #rfq-ladder li {
+        display: flex; align-items: center; gap: 8px;
+        background: var(--bg); border: 1px solid var(--edge); border-radius: 4px;
+        padding: 5px 8px; font-size: 11px; font-variant-numeric: tabular-nums;
+      }
+      #rfq-ladder li.best { border-color: var(--accent); }
+      #rfq-ladder li.ineligible { opacity: 0.42; }
+      #rfq-ladder .rq-dealer { width: 46px; font-weight: 600; letter-spacing: 0.06em; }
+      #rfq-ladder .rq-px { width: 78px; text-align: right; font-size: 13px; }
+      #rfq-ladder .rq-qual { font-size: 9px; color: var(--warn); letter-spacing: 0.08em; }
+      #rfq-ladder .rq-ttl { margin-left: auto; color: var(--muted); font-size: 10px; width: 30px; text-align: right; }
+      #rfq-ladder button {
+        background: var(--edge); color: var(--text); border: none; border-radius: 3px;
+        padding: 3px 10px; font-size: 10px; letter-spacing: 0.08em; cursor: pointer;
+      }
+      #rfq-ladder button:disabled { opacity: 0.5; cursor: not-allowed; }
+      #rfq-ladder li.best button { background: var(--accent); color: #08110d; }
       #tk-result {
         font-size: 11px;
         margin: 0;
@@ -817,6 +838,12 @@
                 </div>
               </div>
               <p id="tk-result"></p>
+              <div class="tk-sep" id="rfq-sep">REQUEST FOR QUOTE</div>
+              <button id="rfq-fire" disabled title="Enabled for RFQ-traded instruments (bonds, ETF blocks)">REQUEST QUOTES</button>
+              <div id="rfq-panel" class="hidden">
+                <div id="rfq-status"></div>
+                <ol id="rfq-ladder"></ol>
+              </div>
               <div class="tk-sep">BASKET / PROGRAM</div>
               <div class="tk-grid">
                 <div>

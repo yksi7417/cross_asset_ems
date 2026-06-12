@@ -186,6 +186,24 @@ merged into a per-FIGI last-value image before `table.update`.
    appears in ROUTES. **AMEND** changes qty/px pre-route; **CANCEL** cancels. Fills on demo-bot
    orders keep flowing around yours; INFO fill notifications collapse with a ×count (throttling).
 
+### 4.4½ Request for quote (RFQ)
+
+Bonds and ETF blocks are **RFQ-traded** (11.18): look one up in the ticket (try the Apple '29
+corp `BBG00DEMOC29` or the SPDR ETF `BBG000BDTBL9`) and **REQUEST QUOTES** arms. Firing it
+solicits the demo dealer panel and renders the **quote ladder** — competing quotes sorted
+best-first for your side, each with dealer, price, FIRM/LAST LOOK badge, and a live countdown:
+
+- the **best eligible** quote is highlighted (green border, ACCEPT button);
+- **AXES** quotes tightest but shows greyed **NOT ELIGIBLE** — your account lacks the dealer
+  relationship; the better price you can't access stays visible on purpose (onboarding action);
+- **FADE** demonstrates last look: accept it and the quote fades — the RFQ drops back to ACTIVE,
+  the faded quote is demoted, and you elect another;
+- accepting a firm quote **books through the same OMS path as any order** — the fill lands in
+  the blotter, P&L and notifications like every other execution.
+
+Auto-execution exists at the API level (`autoEx` + `maxSpreadBp` on `POST /api/v1/rfq/request`):
+the best eligible quote inside the spread bar executes with no trader interaction.
+
 ### 4.5 Baskets / program trading
 
 1. In the ticket's **BASKET / PROGRAM** section: name `walkthrough`, choose

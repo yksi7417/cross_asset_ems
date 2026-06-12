@@ -23,6 +23,7 @@ import { initDocking } from "./docking";
 import { nameOf, nameOfSync, withInstrument } from "./instruments";
 import { attachColumnControls, setLayoutScope } from "./layout";
 import { reportStreamStatus } from "./recovery";
+import { initRfq } from "./rfq";
 import { attachGridInteractions, type GridRow } from "./grid-actions";
 
 const perspectiveReady = Promise.all([
@@ -880,6 +881,7 @@ async function start(session: Logon): Promise<void> {
   startNotifications(session);
   startEsp(session);
   initTicket(apiClient, () => [...liveOrders.values()], () => [...watchedSet]);
+  initRfq(session.sessionId, () => toast("RFQ executed — fill booked to blotter", true)); // 11.18
   const sessionId = session.sessionId;
   const blotters: Blotter[] = [
     {

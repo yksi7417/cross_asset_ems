@@ -66,13 +66,39 @@ export class ApiSeeder {
   }
 }
 
-/** A row of the given grid containing `text` is (eventually) rendered. */
+/**
+ * A row of the given grid containing `text` is (eventually) present. Queries the viewer's VIEW
+ * (all configured columns), not painted cells — the datagrid virtualizes columns horizontally,
+ * so off-screen cell text (orderId on a wide blotter) never reaches the DOM (TESTING.md rule).
+ */
 export async function expectRowContaining(
   page: Page,
   viewerId: string,
   text: string,
 ): Promise<void> {
-  await expect(page.locator(`#${viewerId} regular-table tbody`)).toContainText(text, {
-    timeout: 15_000,
-  });
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          async ([id, needle]) => {
+            const viewer = document.getElementById(id) as HTMLElement & {
+              getView(): Promise<{
+                num_rows(): Promise<number>;
+                to_json(o: object): Promise<Record<string, unknown>[]>;
+              }>;
+            };
+            if (!viewer) {
+              return false;
+            }
+            const view = await viewer.getView();
+            const rows = await view.to_json({ start_row: 0, end_row: await view.num_rows() });
+            return rows.some((row) =>
+              Object.values(row).some((v) => String(v).includes(needle)),
+            );
+          },
+          [viewerId, text] as const,
+        ),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
 }

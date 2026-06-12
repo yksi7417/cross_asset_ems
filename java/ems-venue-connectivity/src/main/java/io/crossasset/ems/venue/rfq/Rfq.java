@@ -47,6 +47,7 @@ public final class Rfq {
 
   private final String rfqId;
   private final long sessionId;
+  private final String account;
   private final String figi;
   private final int side;
   private final long qty;
@@ -60,6 +61,7 @@ public final class Rfq {
   Rfq(
       String rfqId,
       long sessionId,
+      String account,
       String figi,
       int side,
       long qty,
@@ -67,6 +69,7 @@ public final class Rfq {
       long expireAtMillis) {
     this.rfqId = Objects.requireNonNull(rfqId);
     this.sessionId = sessionId;
+    this.account = Objects.requireNonNull(account);
     this.figi = Objects.requireNonNull(figi);
     this.side = side;
     this.qty = qty;
@@ -80,6 +83,11 @@ public final class Rfq {
 
   public long sessionId() {
     return sessionId;
+  }
+
+  /** The trading account — eligibility is per account × dealer. */
+  public String account() {
+    return account;
   }
 
   public String figi() {

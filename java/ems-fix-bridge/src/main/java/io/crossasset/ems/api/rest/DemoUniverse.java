@@ -99,6 +99,11 @@ public final class DemoUniverse {
               core("BBG00DEMOSHL", "Shell plc", InstrumentType.COMMON_STOCK,
                   CurrencyCode.GBP, "GB", SettlementConvention.T_PLUS_2, LEI_SHELL),
               2650_5000L, 100L, List.of("XLON")),
+          // ETF (11.18): block liquidity trades RFQ (Tradeweb iETF-style) and on-exchange.
+          new DemoInstrument(
+              core("BBG000BDTBL9", "SPDR S&P 500 ETF", InstrumentType.ETF,
+                  CurrencyCode.USD, "US", SettlementConvention.T_PLUS_1, null),
+              5300_1000L, 100L, List.of("ARCX", "XNAS")),
           // ── Government bonds ───────────────────────────────────────────────────
           new DemoInstrument(
               core("BBG00DEMOT35", "US Treasury 4.25% 2035", InstrumentType.TREASURY,
@@ -199,6 +204,26 @@ public final class DemoUniverse {
       Map.of("EUR", 1_0842L, "GBP", 1_2710L, "JPY", 64L, "GBX", 127L);
 
   private DemoUniverse() {}
+
+  /** How an instrument trades (11.18): drives which workflow the ticket offers. */
+  public enum QuoteStyle {
+    ORDER_BOOK,
+    RFQ,
+    BOTH
+  }
+
+  /**
+   * Per-type quote style: bonds trade RFQ (the dominant electronic FI style); ETF blocks trade
+   * BOTH (RFQ for size, order book for small clips); everything else is order-book.
+   */
+  public static QuoteStyle quoteStyleOf(InstrumentCore core) {
+    return switch (core.instrumentType()) {
+      case TREASURY, CORPORATE_SENIOR, CORPORATE_SUBORDINATED, CONVERTIBLE, MUNICIPAL, AGENCY,
+          SUPRANATIONAL, COVERED, INDEX_LINKED, ABS -> QuoteStyle.RFQ;
+      case ETF -> QuoteStyle.BOTH;
+      default -> QuoteStyle.ORDER_BOOK;
+    };
+  }
 
   private static InstrumentCore core(
       String figi,

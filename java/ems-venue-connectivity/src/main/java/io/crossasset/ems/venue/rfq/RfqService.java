@@ -30,10 +30,37 @@ public final class RfqService {
     void book(Rfq rfq, Rfq.QuoteResponse winner);
   }
 
+  /**
+   * Counterparty eligibility (user requirement 2026-06-12): may {@code account} trade with
+   * {@code dealer}? Backed by onboarding reality — ISDA/CSA for OTC, prime relationships, credit
+   * lines. Ineligible quotes still SHOW on the ladder (the trader should see the better price
+   * they can't access — that's an onboarding action item) but can never execute.
+   */
+  @FunctionalInterface
+  public interface EligibilityCheck {
+    boolean eligible(String account, String dealer);
+  }
+
+  /**
+   * Auto-execution policy (user requirement 2026-06-12): after the panel quotes, execute without
+   * trader interaction when the best ELIGIBLE quote clears the bar — or return empty to leave
+   * the election to the trader. {@code maxSpreadBp} guards against auto-lifting a wide market.
+   */
+  public record AutoExPolicy(boolean enabled, long maxSpreadBp, long referencePx) {
+    public static AutoExPolicy traderDecides() {
+      return new AutoExPolicy(false, 0, 0);
+    }
+
+    public static AutoExPolicy within(long maxSpreadBp, long referencePx) {
+      return new AutoExPolicy(true, maxSpreadBp, referencePx);
+    }
+  }
+
   private final List<RfqDealer> panel = new ArrayList<>();
   private final Map<String, Rfq> rfqs = new LinkedHashMap<>();
   private final ExecutionBooker booker;
   private final Consumer<Rfq> events;
+  private final EligibilityCheck eligibility;
   private int seq = 0;
 
   /**
@@ -42,8 +69,18 @@ public final class RfqService {
    *     to the desktop's stream topic from here)
    */
   public RfqService(ExecutionBooker booker, Consumer<Rfq> events) {
+    this(booker, events, (account, dealer) -> true);
+  }
+
+  public RfqService(ExecutionBooker booker, Consumer<Rfq> events, EligibilityCheck eligibility) {
     this.booker = Objects.requireNonNull(booker, "booker");
     this.events = Objects.requireNonNull(events, "events");
+    this.eligibility = Objects.requireNonNull(eligibility, "eligibility");
+  }
+
+  /** Whether {@code account} may execute against {@code dealer} (the ladder's grey-out flag). */
+  public boolean eligible(String account, String dealer) {
+    return eligibility.eligible(account, dealer);
   }
 
   /** Add a dealer to the panel future RFQs are solicited from. */
@@ -59,16 +96,37 @@ public final class RfqService {
    */
   public Rfq request(
       long sessionId,
+      String account,
       String figi,
       int side,
       long qty,
       List<String> dealers,
       long ttlMillis,
       long nowMillis) {
+    return request(
+        sessionId, account, figi, side, qty, dealers, ttlMillis, nowMillis,
+        AutoExPolicy.traderDecides());
+  }
+
+  /**
+   * Fire an RFQ; with an enabled {@link AutoExPolicy}, the best ELIGIBLE quote inside the spread
+   * bar executes immediately after the panel answers — no trader interaction (the automation
+   * path); otherwise the ladder waits for a trader election.
+   */
+  public Rfq request(
+      long sessionId,
+      String account,
+      String figi,
+      int side,
+      long qty,
+      List<String> dealers,
+      long ttlMillis,
+      long nowMillis,
+      AutoExPolicy autoEx) {
     String rfqId = "RFQ-" + ++seq;
     List<String> invited =
         dealers.isEmpty() ? panel.stream().map(RfqDealer::dealer).toList() : List.copyOf(dealers);
-    Rfq rfq = new Rfq(rfqId, sessionId, figi, side, qty, invited, nowMillis + ttlMillis);
+    Rfq rfq = new Rfq(rfqId, sessionId, account, figi, side, qty, invited, nowMillis + ttlMillis);
     rfqs.put(rfqId, rfq);
     events.accept(rfq);
     int responseSeq = 0;
@@ -83,7 +141,27 @@ public final class RfqService {
         events.accept(rfq);
       }
     }
+    if (autoEx.enabled() && rfq.state() == Rfq.State.ACTIVE) {
+      bestEligible(rfq)
+          .filter(best -> withinBar(best, rfq.side(), autoEx))
+          .ifPresent(best -> elect(rfqId, best.responseId(), nowMillis));
+    }
     return rfq;
+  }
+
+  /** Best ELIGIBLE quote for the RFQ's side: lowest offer for buys, highest bid for sells. */
+  public Optional<Rfq.QuoteResponse> bestEligible(Rfq rfq) {
+    java.util.Comparator<Rfq.QuoteResponse> byPrice =
+        java.util.Comparator.comparingLong(Rfq.QuoteResponse::price);
+    return rfq.responses().stream()
+        .filter(r -> eligibility.eligible(rfq.account(), r.dealer()))
+        .min(rfq.side() == 1 ? byPrice : byPrice.reversed());
+  }
+
+  private static boolean withinBar(Rfq.QuoteResponse quote, int side, AutoExPolicy policy) {
+    long slip =
+        side == 1 ? quote.price() - policy.referencePx() : policy.referencePx() - quote.price();
+    return slip * 10_000 <= policy.maxSpreadBp() * policy.referencePx();
   }
 
   /**
@@ -100,6 +178,10 @@ public final class RfqService {
             .filter(r -> r.responseId().equals(responseId))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("unknown response " + responseId));
+    if (!eligibility.eligible(rfq.account(), response.dealer())) {
+      throw new IllegalStateException(
+          rfq.account() + " is not eligible to trade with " + response.dealer());
+    }
     rfq.elect(responseId);
     events.accept(rfq);
     if (response.validUntilMillis() < nowMillis) {

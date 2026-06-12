@@ -9,6 +9,7 @@
 // (stage / amend / cancel / mark-ready / route) is a batch envelope POST to /api/v1/{operation}.
 
 import { nameOfSync } from "./instruments";
+import { setQuoteStyle } from "./rfq";
 
 /** Fixed-point price scale used across the EMS (4 implied decimals). */
 const PRICE_SCALE = 10_000;
@@ -65,6 +66,7 @@ interface Instrument {
   assetClass: string;
   currency: string;
   settlement: string;
+  quoteStyle?: string;
   tradingCurrency?: string;
   tradingMinorUnit?: boolean;
   settlementCurrency?: string;
@@ -305,6 +307,7 @@ export function initTicket(
       pxLabel.textContent = instrument
         ? layout.px(instrument)
         : "PRICE (BLANK = MARKET)";
+      setQuoteStyle(instrument?.quoteStyle); // 11.18: arm REQUEST QUOTES for RFQ-traded names
       try {
         const results = await api.operation("preview_validate", [{ figi }]);
         const r = results[0];
