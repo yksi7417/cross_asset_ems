@@ -259,7 +259,7 @@ Inputs. ~2 weeks.
 Block-with-override + position-aware. ~3-4 weeks.
 
 - [x] **10.1** Compliance service per [[arch-compliance]] (sonnet) `(668a978)`
-- [ ] **10.2** Fat-finger check (netted-vs-unnetted) (sonnet) ← blocks: 10.1, 9.5
+- [x] **10.2** Fat-finger check (netted-vs-unnetted) (sonnet) ← blocks: 10.1, 9.5 — FatFingerCheck on the compliance gate: notional ceiling with netting relief (risk-reducing orders get headroom — blocking a trader closing a fat position is how fat positions stay fat), limit-px deviation band vs the 9.5 benchmark mid, block-on-no-reference policy, contract multipliers; supervisor override paths; 15c3-5 pack control flipped DEFERRED→IMPLEMENTED (no carve-out left)
 - [x] **10.3** Machine-gun rate limiter (sonnet) ← blocks: 10.1 `(fb4db51)`
 - [x] **10.4** Allow / restricted / watch list service (sonnet) ← blocks: 10.1 `(ea6f860)`
 - [x] **10.5** Override mechanics (tag-gated, time-bound) (sonnet) ← blocks: 10.1, 5.3 `(3dd4020)`

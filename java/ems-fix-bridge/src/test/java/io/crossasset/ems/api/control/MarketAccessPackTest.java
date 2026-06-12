@@ -62,7 +62,7 @@ class MarketAccessPackTest {
   }
 
   @Test
-  void canonicalMapping_namesEveryControl_fatFingerDeferredWithCompensating() {
+  void canonicalMapping_namesEveryControl_allImplemented() {
     assertThat(pack.controls())
         .extracting(MarketAccessPack.ControlMapping::controlId)
         .containsExactly(
@@ -73,15 +73,16 @@ class MarketAccessPackTest {
             "order-rate-limiter",
             "kill-switch");
 
+    // 10.2 went LIVE on 2026-06-12 (FatFingerCheck + 9.5 BenchmarkService): the pack
+    // attests a fully implemented control set — no DEFERRED carve-out left.
     MarketAccessPack.ControlMapping fatFinger = pack.controls().get(0);
-    assertThat(fatFinger.status()).isEqualTo(MarketAccessPack.ControlStatus.DEFERRED);
-    assertThat(fatFinger.deferralRationale()).contains("2026-06-10");
-    assertThat(fatFinger.compensatingControls()).contains("10.6").contains("10.3");
+    assertThat(fatFinger.status()).isEqualTo(MarketAccessPack.ControlStatus.IMPLEMENTED);
+    assertThat(fatFinger.implementedBy()).contains("FatFingerCheck").contains("BenchmarkService");
     assertThat(fatFinger.ruleCite()).isEqualTo("15c3-5(c)(1)(i)");
 
     assertThat(pack.controls())
         .filteredOn(c -> c.status() == MarketAccessPack.ControlStatus.IMPLEMENTED)
-        .hasSize(5);
+        .hasSize(6);
   }
 
   @Test
@@ -124,15 +125,13 @@ class MarketAccessPackTest {
   }
 
   @Test
-  void summary_countsDeferred_andNeverReadsComplete() {
+  void summary_allControlsImplemented_attestationReadsComplete() {
     JsonNode export = pack.attestationExport(0L);
     JsonNode summary = export.path("summary");
     assertThat(summary.path("controls").asInt()).isEqualTo(6);
-    assertThat(summary.path("implemented").asInt()).isEqualTo(5);
-    assertThat(summary.path("deferred").asInt()).isEqualTo(1);
-    assertThat(summary.path("attestationNote").asText())
-        .contains("DEFERRED")
-        .doesNotContain("All mapped controls implemented");
+    assertThat(summary.path("implemented").asInt()).isEqualTo(6);
+    assertThat(summary.path("deferred").asInt()).isEqualTo(0);
+    assertThat(summary.path("attestationNote").asText()).doesNotContain("DEFERRED");
   }
 
   @Test

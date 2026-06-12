@@ -40,16 +40,18 @@ public final class EmsMarketAccessControls {
             "erroneous-orders-fat-finger",
             "15c3-5(c)(1)(i)",
             "Erroneous order prevention (fat-finger, netted vs unnetted)",
-            MarketAccessPack.ControlStatus.DEFERRED,
-            "task 10.2 (returns with 9.5 real-time analytics)",
-            "Deferred with Phase 9 per user decision 2026-06-10: fat-finger reference pricing"
-                + " requires the real-time analytics fabric (9.5).",
-            "credit/capital limits (10.6), machine-gun rate limiter (10.3), validator qty/price"
-                + " bounds (Phase 6)",
+            MarketAccessPack.ControlStatus.IMPLEMENTED,
+            "FatFingerCheck (10.2) on the compliance gate — notional ceiling with netting"
+                + " relief for risk-reducing orders, limit-price deviation band vs the live"
+                + " benchmark mid (BenchmarkService 9.5), block-on-no-reference policy; each"
+                + " trip a supervisor-overridable BLOCK",
+            null,
+            null,
             () -> {
               ObjectNode evidence = mapper.createObjectNode();
-              evidence.put("deferredTask", "10.2");
-              evidence.put("blockedOn", "9.5");
+              evidence.put("check", "FatFingerCheck");
+              evidence.put("referencePricing", "BenchmarkService (9.5) mid");
+              evidence.put("overridePath", "#compliance-override-fat-finger");
               return evidence;
             }));
 
