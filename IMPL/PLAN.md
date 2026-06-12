@@ -308,7 +308,7 @@ STP and reporting. ~3-4 weeks.
 - [x] **12.12** [[finra|CAT]] submission — equities/options order-event reporting (16.1 already maps equity→CAT; this is the submission adapter, sibling of 12.6–12.9) (sonnet) ← blocks: 12.5
 - [x] **12.13** Commissions / fees / accrued-interest engine — per-broker + per-asset-class schedules, applied at allocation and carried onto confirms (a buyer expects net-money confirms, not clean qty×price) (sonnet) ← blocks: 12.1
 - [ ] **12.14** TCA per [[arch-tca]] — slippage vs arrival/VWAP/IS benchmarks, venue/broker league tables, exportable best-ex committee pack (sonnet) ← blocks: 9.5, 12.10
-- [ ] **12.15** Surveillance feed per [[arch-surveillance]] — order/exec event export + baseline alerts (layering, wash, spoof-pattern, fat-finger cluster) (sonnet) ← blocks: 3.3
+- [x] **12.15** Surveillance feed per [[arch-surveillance]] — order/exec event export + baseline alerts (layering, wash, spoof-pattern, fat-finger cluster) (sonnet) ← blocks: 3.3
 - [ ] **12.16** Client drop-copy service — real-time FIX drop of executions per client/desk/firm scope (sonnet) ← blocks: 8.2
 
 ## Phase 13 — Observability
