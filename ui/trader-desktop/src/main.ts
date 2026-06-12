@@ -19,6 +19,7 @@ import VIEWER_WASM_URL from "@finos/perspective-viewer/dist/wasm/perspective-vie
 import { ResumableStream, type StreamStatus } from "./stream";
 import { ApiClient, initTicket, type WorkingOrder } from "./ticket";
 import { attachMultiBadge } from "./aggregates";
+import { initDocking } from "./docking";
 import { nameOf, nameOfSync, withInstrument } from "./instruments";
 import { attachColumnControls, setLayoutScope } from "./layout";
 import { reportStreamStatus } from "./recovery";
@@ -799,6 +800,7 @@ function startEsp(session: Logon): void {
 async function start(session: Logon): Promise<void> {
   await perspectiveReady;
   setLayoutScope(session.user, session.desk); // 18.23: layouts persist per user/desk
+  initDocking(session.user, session.desk); // 18.24: VSCode-style dockable panels
   const worker = await perspective.worker();
   await startWatchlist(session, worker);
   const apiClient = apiFor(session);

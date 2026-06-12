@@ -92,6 +92,56 @@
         gap: 6px;
         min-height: 0;
       }
+      /* Dockable layout (18.24): dockview owns <main> once panels are adopted. */
+      main.docked {
+        display: block;
+        position: relative;
+      }
+      #dock-root {
+        height: 100%;
+        width: 100%;
+      }
+      .dock-section-host {
+        height: 100%;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden; /* never paint past the dock panel */
+      }
+      .dock-section-host > .panel {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      /* The "always" renderer hosts panel content in absolute overlays — they must clip, or a
+         tall panel (the ticket) bleeds under its neighbours and steals their pointer events. */
+      .dv-render-overlay {
+        overflow: hidden;
+      }
+      .dv-render-overlay > .dock-section-host {
+        height: 100%;
+      }
+      /* Dockview tabs carry the panel titles — hide the in-panel h2 ONLY where it is a pure
+         title; headers with live controls (chips, LINK, column buttons) stay. */
+      /* No tab close buttons: closing ORDER TICKET would delete it — panels dock, never die.
+         (!important: dockview's bundled stylesheet loads after this inline block.) */
+      .dockview-theme-abyss .dv-default-tab .dv-default-tab-action {
+        display: none !important;
+      }
+      .dockview-theme-abyss {
+        --dv-background-color: var(--bg);
+        --dv-group-view-background-color: var(--panel);
+        --dv-tabs-and-actions-container-background-color: var(--bg);
+        --dv-activegroup-visiblepanel-tab-background-color: var(--panel);
+        --dv-activegroup-visiblepanel-tab-color: var(--accent);
+        --dv-inactivegroup-visiblepanel-tab-background-color: var(--panel);
+        --dv-tabs-and-actions-container-font-size: 10px;
+        --dv-separator-border: var(--edge);
+        --dv-paneview-active-outline-color: var(--accent);
+      }
       #left-col {
         width: 330px;
         display: flex;
@@ -621,6 +671,7 @@
         <h1>CROSS-ASSET EMS</h1>
         <span class="desk" id="session-label">—</span>
         <span class="spacer"></span>
+        <button id="dock-reset" class="col-btn" title="Reset the panel layout to default">⟲ LAYOUT</button>
         <button id="kill-btn" title="Firm-wide kill switch">KILL</button>
         <span class="chip" id="chip-md"><i></i>MARKET DATA</span>
         <span class="chip" id="chip-orders"><i></i>ORDERS</span>
@@ -737,7 +788,7 @@
             <perspective-viewer id="orders-viewer"></perspective-viewer>
           </section>
           <div id="lower">
-            <section class="panel">
+            <section class="panel" id="routes-panel">
               <h2>
                 ROUTES
                 <span class="selchip" id="routes-selchip"></span>
@@ -745,7 +796,7 @@
               </h2>
               <perspective-viewer id="routes-viewer"></perspective-viewer>
             </section>
-            <section class="panel">
+            <section class="panel" id="fills-panel">
               <h2>
                 FILLS
                 <span class="linkchip hidden" id="fills-linkchip"></span>
@@ -753,11 +804,11 @@
               </h2>
               <perspective-viewer id="fills-viewer"></perspective-viewer>
             </section>
-            <section class="panel">
+            <section class="panel" id="baskets-panel">
               <h2>BASKETS</h2>
               <perspective-viewer id="baskets-viewer"></perspective-viewer>
             </section>
-            <section class="panel">
+            <section class="panel" id="pnl-panel">
               <h2>INTRADAY P&amp;L</h2>
               <perspective-viewer id="pnl-viewer"></perspective-viewer>
             </section>

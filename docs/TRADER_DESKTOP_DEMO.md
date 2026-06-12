@@ -113,7 +113,10 @@ see is a replayed projection, not a snapshot endpoint.
 ### 4.2 Read the screen
 
 Left column: **ORDER TICKET**, **CLICK TO TRADE**, **WATCHLIST**, **NOTIFICATIONS**. Right:
-**ORDER BLOTTER** on top; **ROUTES / FILLS / BASKETS / INTRADAY P&L** below. The demo bot stages,
+**ORDER BLOTTER** on top; **ROUTES / FILLS / BASKETS / INTRADAY P&L** below. The panels are
+**dockable, VSCode-style** (18.24): drag any tab to split, stack, or rearrange; drag splitters to
+resize. The arrangement persists per user/desk; **⟲ LAYOUT** in the top bar resets the default.
+(Stacked-away grids paint when their tab activates — Perspective renders only visible viewers.) The demo bot stages,
 routes and drip-fills orders continuously — rows appear, `cumQty`/`leavesQty` count up, states walk
 `NEW → ROUTING → PARTIALLY_FILLED → FILLED`. Rows show the **security name** everywhere (resolved
 from the security master and cached); the FIGI is demoted to an optional column.
