@@ -68,6 +68,16 @@ public final class RestEdgeBinding {
   private final @org.jspecify.annotations.Nullable EspClickService esp;
   private final @org.jspecify.annotations.Nullable DeskWatchlist watchlist;
 
+  /** LEI → issuer display name (18.29); a real deployment resolves against GLEIF. */
+  private java.util.function.Function<String, @org.jspecify.annotations.Nullable String>
+      issuerNames = lei -> null;
+
+  /** Wire an issuer directory so {@code /instruments/{figi}} can name the issuer (18.29). */
+  public void setIssuerNames(
+      java.util.function.Function<String, @org.jspecify.annotations.Nullable String> directory) {
+    this.issuerNames = directory;
+  }
+
   public RestEdgeBinding(AaaService aaa, ApiSurface api, SubscriptionRegistry subscriptions) {
     this(aaa, api, subscriptions, null, null);
   }
@@ -305,6 +315,13 @@ public final class RestEdgeBinding {
     out.put("type", instrument.core().instrumentType().name());
     out.put("currency", instrument.core().currency().name());
     out.put("settlement", instrument.core().settlementConvention().name());
+    // Issuer (18.29): group-by-issuer collapses a company's capital structure cross-asset.
+    String issuerLei = instrument.core().issuerLei();
+    if (issuerLei != null) {
+      out.put("issuerLei", issuerLei);
+      String issuerName = issuerNames.apply(issuerLei);
+      out.put("issuer", issuerName != null ? issuerName : issuerLei);
+    }
     return new HttpResult(200, out.toString());
   }
 

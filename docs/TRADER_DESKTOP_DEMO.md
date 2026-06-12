@@ -134,9 +134,12 @@ on routes. Results land as a toast, and the rows update through the stream like 
 
 ### 4.3 Watchlist + the cross-asset universe
 
-Thirteen instruments tick several times a second (bid/ask/last/volume) — the demo universe is
+Fifteen instruments tick several times a second (bid/ask/last/volume) — the demo universe is
 **cross-asset** (18.21), at least one US and one international name per supported class, each
-trading in its natural unit and routing to class-appropriate venues:
+trading in its natural unit and routing to class-appropriate venues. Securities carry their
+**issuer** (18.29): group the order blotter by `issuer` and Microsoft's stock, 0% 2030
+convertible and Sep26 450 call collapse into one capital-structure node (Apple likewise with its
+3.45% '29 bond); FX/IRS/index futures have no single issuer and bucket under blank:
 
 | Class | US | International | Qty unit | Venues |
 |---|---|---|---|---|

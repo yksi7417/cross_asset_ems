@@ -11,6 +11,8 @@
 export interface InstrumentInfo {
   name: string;
   assetClass: string;
+  /** Issuer display name (18.29) — empty for products with no single issuer (FX, IRS, index). */
+  issuer: string;
 }
 
 const cache = new Map<string, InstrumentInfo>();
@@ -31,11 +33,12 @@ export function infoOf(figi: string): Promise<InstrumentInfo> {
   if (!pending) {
     pending = fetch(`/api/v1/instruments/${encodeURIComponent(figi)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((body: { name?: string; assetClass?: string }) => ({
+      .then((body: { name?: string; assetClass?: string; issuer?: string }) => ({
         name: body.name || figi,
         assetClass: body.assetClass ?? "",
+        issuer: body.issuer ?? "",
       }))
-      .catch(() => ({ name: figi, assetClass: "" }))
+      .catch(() => ({ name: figi, assetClass: "", issuer: "" }))
       .then((info) => {
         cache.set(figi, info);
         inflight.delete(figi);

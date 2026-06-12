@@ -88,6 +88,39 @@ class DemoUniverseTest {
   }
 
   @Test
+  void issuerGroupingCollapsesACapitalStructure() {
+    // 18.29: Microsoft's stock, convertible and listed option share one issuer node.
+    List<DemoUniverse.DemoInstrument> msft =
+        DemoUniverse.INSTRUMENTS.stream()
+            .filter(i -> "LEI-DEMO-MSFT".equals(i.core().issuerLei()))
+            .toList();
+    Set<InstrumentType> msftTypes =
+        msft.stream().map(i -> i.core().instrumentType()).collect(Collectors.toSet());
+    assertTrue(
+        msftTypes.containsAll(
+            Set.of(
+                InstrumentType.COMMON_STOCK,
+                InstrumentType.CONVERTIBLE,
+                InstrumentType.LISTED_OPTION)),
+        "MSFT issuer groups stock + convertible + option, got " + msftTypes);
+
+    for (DemoUniverse.DemoInstrument inst : DemoUniverse.INSTRUMENTS) {
+      String lei = inst.core().issuerLei();
+      InstrumentType type = inst.core().instrumentType();
+      if (type == InstrumentType.FX_SPOT
+          || type == InstrumentType.FX_FORWARD
+          || type == InstrumentType.VANILLA_IRS) {
+        assertTrue(lei == null, inst.figi() + " has no single issuer — must carry none");
+      }
+      if (lei != null) {
+        assertTrue(
+            DemoUniverse.ISSUER_NAMES.containsKey(lei),
+            lei + " must resolve in the demo issuer directory");
+      }
+    }
+  }
+
+  @Test
   void everyNonUsdCurrencyHasAnFxRateForPnlConversion() {
     Set<String> nonUsd =
         DemoUniverse.CURRENCY_OF.values().stream()

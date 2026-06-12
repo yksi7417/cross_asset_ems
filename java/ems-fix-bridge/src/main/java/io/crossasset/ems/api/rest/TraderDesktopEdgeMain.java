@@ -264,21 +264,21 @@ public final class TraderDesktopEdgeMain {
               }
             });
 
-    RestHttpServer rest =
-        new RestHttpServer(
-            new RestEdgeBinding(
-                aaa,
-                api,
-                subscriptions,
-                secMaster,
-                baskets,
-                killSwitch,
-                notifications,
-                null,
-                null,
-                esp,
-                watchlist),
-            restPort);
+    RestEdgeBinding binding =
+        new RestEdgeBinding(
+            aaa,
+            api,
+            subscriptions,
+            secMaster,
+            baskets,
+            killSwitch,
+            notifications,
+            null,
+            null,
+            esp,
+            watchlist);
+    binding.setIssuerNames(DemoUniverse.ISSUER_NAMES::get); // 18.29: group-by-issuer
+    RestHttpServer rest = new RestHttpServer(binding, restPort);
     rest.start();
     WsEventStreamServer ws = new WsEventStreamServer(aaa, subscriptions, wsPort);
     ws.start();

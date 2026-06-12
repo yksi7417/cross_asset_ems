@@ -25,10 +25,34 @@ import java.util.stream.Collectors;
  * {@code venues} are the MICs the demo bot routes to. Prices are fixed-point 1e4 (182_4500 =
  * 182.45); for IRS the "price" is the fixed rate in percent (4_0250 = 4.0250%).
  *
+ * <p>Issuer (18.29): instruments carry {@code issuerLei} so group-by-issuer collapses one
+ * company's whole capital structure — Microsoft's stock, convertible and listed option group
+ * under the same node, Apple's equity with its '29 bond. Derivatives take the UNDERLYING's
+ * issuer; products without a single issuer (FX, IRS, index futures) carry none. {@code
+ * ISSUER_NAMES} is the demo LEI→name registry (a real deployment resolves against GLEIF).
+ *
  * <p>Equity FIGIs are real; non-equity identifiers are synthetic demo FIGIs (clearly so — bonds,
- * FX pairs and swaps don't ship real FIGIs in this repo's mock security master).
+ * FX pairs and swaps don't ship real FIGIs in this repo's mock security master). LEIs are
+ * synthetic demo identifiers too.
  */
 public final class DemoUniverse {
+
+  private static final String LEI_AAPL = "LEI-DEMO-AAPL";
+  private static final String LEI_MSFT = "LEI-DEMO-MSFT";
+  private static final String LEI_TOYOTA = "LEI-DEMO-TOYOTA";
+  private static final String LEI_VW = "LEI-DEMO-VW";
+  private static final String LEI_UST = "LEI-DEMO-UST";
+  private static final String LEI_UKGOV = "LEI-DEMO-UKGOV";
+
+  /** Demo LEI → issuer display name (the GLEIF stand-in). */
+  public static final Map<String, String> ISSUER_NAMES =
+      Map.of(
+          LEI_AAPL, "Apple Inc",
+          LEI_MSFT, "Microsoft Corp",
+          LEI_TOYOTA, "Toyota Motor Corp",
+          LEI_VW, "Volkswagen AG",
+          LEI_UST, "US Treasury",
+          LEI_UKGOV, "UK Government");
 
   /** One demo instrument: security-master core + trading conventions for the demo bot. */
   public record DemoInstrument(InstrumentCore core, long basePx, long lotQty, List<String> venues) {
@@ -50,60 +74,69 @@ public final class DemoUniverse {
           // ── Equity ──────────────────────────────────────────────────────────────
           new DemoInstrument(
               core("BBG000B9XRY4", "Apple Inc", InstrumentType.COMMON_STOCK, CurrencyCode.USD,
-                  "US", SettlementConvention.T_PLUS_1),
+                  "US", SettlementConvention.T_PLUS_1, LEI_AAPL),
               182_4500L, 100L, List.of("XNAS", "XNYS", "ARCX")),
           new DemoInstrument(
               core("BBG000BPH459", "Microsoft Corp", InstrumentType.COMMON_STOCK, CurrencyCode.USD,
-                  "US", SettlementConvention.T_PLUS_1),
+                  "US", SettlementConvention.T_PLUS_1, LEI_MSFT),
               415_1200L, 100L, List.of("XNAS", "XNYS", "ARCX")),
           new DemoInstrument(
               core("BBG000BCM915", "Toyota Motor Corp", InstrumentType.COMMON_STOCK,
-                  CurrencyCode.JPY, "JP", SettlementConvention.T_PLUS_2),
+                  CurrencyCode.JPY, "JP", SettlementConvention.T_PLUS_2, LEI_TOYOTA),
               2815_0000L, 100L, List.of("XTKS")),
           // ── Government bonds ───────────────────────────────────────────────────
           new DemoInstrument(
               core("BBG00DEMOT35", "US Treasury 4.25% 2035", InstrumentType.TREASURY,
-                  CurrencyCode.USD, "US", SettlementConvention.T_PLUS_1),
+                  CurrencyCode.USD, "US", SettlementConvention.T_PLUS_1, LEI_UST),
               98_7500L, 100L, List.of("BTEC", "DWFI")),
           new DemoInstrument(
               core("BBG00DEMOG34", "UK Gilt 4.5% 2034", InstrumentType.TREASURY,
-                  CurrencyCode.GBP, "GB", SettlementConvention.T_PLUS_1),
+                  CurrencyCode.GBP, "GB", SettlementConvention.T_PLUS_1, LEI_UKGOV),
               96_2000L, 100L, List.of("TWEU")),
-          // ── Corporate credit ───────────────────────────────────────────────────
+          // ── Corporate credit (incl. Microsoft's convertible — issuer story) ────
           new DemoInstrument(
               core("BBG00DEMOC29", "Apple Inc 3.45% 2029", InstrumentType.CORPORATE_SENIOR,
-                  CurrencyCode.USD, "US", SettlementConvention.T_PLUS_1),
+                  CurrencyCode.USD, "US", SettlementConvention.T_PLUS_1, LEI_AAPL),
               97_1000L, 100L, List.of("MKAX")),
           new DemoInstrument(
               core("BBG00DEMOC31", "Volkswagen 4.125% 2031", InstrumentType.CORPORATE_SENIOR,
-                  CurrencyCode.EUR, "DE", SettlementConvention.T_PLUS_2),
+                  CurrencyCode.EUR, "DE", SettlementConvention.T_PLUS_2, LEI_VW),
               99_4000L, 100L, List.of("MAEL")),
-          // ── FX (spot + forward) ────────────────────────────────────────────────
+          new DemoInstrument(
+              core("BBG00DEMOCV0", "Microsoft 0% 2030 Convertible", InstrumentType.CONVERTIBLE,
+                  CurrencyCode.USD, "US", SettlementConvention.T_PLUS_1, LEI_MSFT),
+              112_5000L, 100L, List.of("MKAX")),
+          // ── FX (spot + forward — no single issuer) ─────────────────────────────
           new DemoInstrument(
               core("BBG00DEMOFX1", "EUR/USD Spot", InstrumentType.FX_SPOT,
-                  CurrencyCode.USD, "US", SettlementConvention.T_PLUS_2),
+                  CurrencyCode.USD, "US", SettlementConvention.T_PLUS_2, null),
               1_0842L, 100_000L, List.of("FXAL", "EBSX")),
           new DemoInstrument(
               core("BBG00DEMOFX2", "USD/JPY 1M Forward", InstrumentType.FX_FORWARD,
-                  CurrencyCode.JPY, "JP", SettlementConvention.T_PLUS_2_AFTER_FIXING),
+                  CurrencyCode.JPY, "JP", SettlementConvention.T_PLUS_2_AFTER_FIXING, null),
               156_2500L, 100_000L, List.of("FXAL")),
-          // ── Listed derivatives ─────────────────────────────────────────────────
+          // ── Listed derivatives (single-name options take the UNDERLYING's issuer;
+          //    index futures have no single issuer) ─────────────────────────────────
           new DemoInstrument(
               core("BBG00DEMOES6", "E-mini S&P 500 Sep26", InstrumentType.LISTED_FUTURE,
-                  CurrencyCode.USD, "US", SettlementConvention.PER_CCP),
+                  CurrencyCode.USD, "US", SettlementConvention.PER_CCP, null),
               5300_2500L, 1L, List.of("XCME")),
           new DemoInstrument(
               core("BBG00DEMOSX6", "EURO STOXX 50 Sep26", InstrumentType.LISTED_FUTURE,
-                  CurrencyCode.EUR, "DE", SettlementConvention.PER_CCP),
+                  CurrencyCode.EUR, "DE", SettlementConvention.PER_CCP, null),
               4925_0000L, 1L, List.of("XEUR")),
-          // ── Rates (IRS) ────────────────────────────────────────────────────────
+          new DemoInstrument(
+              core("BBG00DEMOMO6", "MSFT Sep26 450 Call", InstrumentType.LISTED_OPTION,
+                  CurrencyCode.USD, "US", SettlementConvention.PER_CCP, LEI_MSFT),
+              12_6000L, 1L, List.of("XCBO")),
+          // ── Rates (IRS — no single issuer) ─────────────────────────────────────
           new DemoInstrument(
               core("BBG00DEMOIR5", "USD SOFR IRS 5Y", InstrumentType.VANILLA_IRS,
-                  CurrencyCode.USD, "US", SettlementConvention.PER_CCP),
+                  CurrencyCode.USD, "US", SettlementConvention.PER_CCP, null),
               4_0250L, 1_000_000L, List.of("TWSD")),
           new DemoInstrument(
               core("BBG00DEMOIR6", "EUR ESTR IRS 5Y", InstrumentType.VANILLA_IRS,
-                  CurrencyCode.EUR, "DE", SettlementConvention.PER_CCP),
+                  CurrencyCode.EUR, "DE", SettlementConvention.PER_CCP, null),
               2_6150L, 1_000_000L, List.of("BGCD")));
 
   /** figi → trade currency, for P&L conversion to the firm base currency. */
@@ -124,7 +157,8 @@ public final class DemoUniverse {
       InstrumentType type,
       CurrencyCode currency,
       String country,
-      SettlementConvention settlement) {
+      SettlementConvention settlement,
+      String issuerLei) {
     return new InstrumentCore(
         figi,
         "IID-" + figi,
@@ -134,7 +168,7 @@ public final class DemoUniverse {
         type,
         name,
         name,
-        null,
+        issuerLei,
         currency,
         country,
         null,
