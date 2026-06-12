@@ -356,6 +356,59 @@ class UiWorkflowContractTest {
         .isEqualTo(409);
   }
 
+  @Test
+  void auditTrail_orderHistoryIsTheFullTimelineInEventOrder() throws Exception {
+    String orderId = stage("HIST-1");
+    op("mark_ready", "[{\"orderId\":\"" + orderId + "\"}]");
+    JsonNode routed =
+        first(
+            op(
+                "route_orders",
+                "[{\"orderId\":\"" + orderId + "\",\"venueMic\":\"XNAS\",\"qty\":300}]"));
+    String routeId = routed.path("refId").asText();
+
+    HttpResponse<String> response =
+        client.send(
+            HttpRequest.newBuilder(URI.create(base + "/api/v1/orders/" + orderId + "/history"))
+                .header("X-EMS-Session", String.valueOf(session))
+                .GET()
+                .build(),
+            HttpResponse.BodyHandlers.ofString());
+    assertThat(response.statusCode()).isEqualTo(200);
+    JsonNode events = mapper.readTree(response.body()).path("events");
+    // staged + ready + routing images for the order, plus the route's SENT image.
+    assertThat(events.size()).isGreaterThanOrEqualTo(4);
+    assertThat(events.get(0).path("kind").asText()).isEqualTo("ORDER");
+    assertThat(events.get(0).path("row").path("subState").asText()).isEqualTo("NEW");
+    java.util.List<String> kinds = new java.util.ArrayList<>();
+    java.util.List<String> orderSubStates = new java.util.ArrayList<>();
+    for (JsonNode event : events) {
+      kinds.add(event.path("kind").asText());
+      if ("ORDER".equals(event.path("kind").asText())) {
+        orderSubStates.add(event.path("row").path("subState").asText());
+      }
+    }
+    assertThat(kinds).contains("ROUTE");
+    assertThat(orderSubStates).containsExactly("NEW", "READY", "ROUTING");
+
+    // The route's own timeline sees only that route (+ its fills).
+    HttpResponse<String> routeHistory =
+        client.send(
+            HttpRequest.newBuilder(URI.create(base + "/api/v1/routes/" + routeId + "/history"))
+                .header("X-EMS-Session", String.valueOf(session))
+                .GET()
+                .build(),
+            HttpResponse.BodyHandlers.ofString());
+    JsonNode routeEvents = mapper.readTree(routeHistory.body()).path("events");
+    assertThat(routeEvents.size()).isGreaterThanOrEqualTo(1);
+    for (JsonNode event : routeEvents) {
+      assertThat(event.path("row").path("routeId").asText()).isEqualTo(routeId);
+    }
+
+    // Session-gated like every other read.
+    assertThat(get("/api/v1/orders/" + orderId + "/history").statusCode()).isEqualTo(400);
+  }
+
   // ── helpers ──────────────────────────────────────────────────────────────────
 
   private String stage(String clOrdId) throws Exception {

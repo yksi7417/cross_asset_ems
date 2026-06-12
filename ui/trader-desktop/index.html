@@ -563,6 +563,82 @@
         color: var(--accent);
         border-color: var(--accent);
       }
+      /* Audit-trail modal (18.25) */
+      #history-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        background: rgba(4, 6, 10, 0.65);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #history-modal.hidden {
+        display: none;
+      }
+      #history-card {
+        width: min(720px, 90vw);
+        max-height: 80vh;
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+      }
+      #history-card h2 {
+        margin: 0;
+        padding: 8px 14px;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        color: var(--accent);
+        border-bottom: 1px solid var(--edge);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #history-card h2 button {
+        background: none;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 13px;
+      }
+      #history-list {
+        list-style: none;
+        margin: 0;
+        padding: 8px 14px;
+        overflow-y: auto;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      #history-list li {
+        display: flex;
+        gap: 10px;
+        padding: 4px 0;
+        border-bottom: 1px solid var(--edge);
+      }
+      #history-list .h-ts {
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      #history-list .h-kind {
+        width: 52px;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        white-space: nowrap;
+      }
+      #history-list .h-kind.ORDER {
+        color: var(--accent);
+      }
+      #history-list .h-kind.ROUTE {
+        color: var(--warn);
+      }
+      #history-list .h-kind.FILL {
+        color: #7fb3ff;
+      }
+      #history-list .h-what {
+        flex: 1;
+      }
       #ctx-menu {
         position: fixed;
         z-index: 50;
@@ -666,6 +742,13 @@
 
     <div id="ctx-menu" class="hidden"></div>
     <div id="toast"></div>
+    <!-- Audit-trail timeline (18.25): per-order/route message history from the event journal. -->
+    <div id="history-modal" class="hidden">
+      <div id="history-card">
+        <h2><span id="history-title">HISTORY</span><button id="history-close">✕</button></h2>
+        <ol id="history-list"></ol>
+      </div>
+    </div>
     <div id="app" class="hidden">
       <header>
         <h1>CROSS-ASSET EMS</h1>

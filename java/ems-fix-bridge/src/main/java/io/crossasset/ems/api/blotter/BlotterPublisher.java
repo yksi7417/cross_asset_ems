@@ -118,6 +118,7 @@ public final class BlotterPublisher {
     row.put("subState", order.subState().name());
     row.put("version", order.fsmContext().orderVersion());
     row.put("ts", order.stagedAtMicros());
+    row.put("asOf", nowMicros.getAsLong()); // event time — orders the audit timeline (18.25)
     subscriptions.publish(TOPIC_ORDERS, "OrderRow", order.orderId(), row.toString());
   }
 
@@ -142,6 +143,7 @@ public final class BlotterPublisher {
     }
     row.put("state", route.fsmState().name());
     row.put("ts", route.createdAtMicros());
+    row.put("asOf", nowMicros.getAsLong()); // event time — orders the audit timeline (18.25)
     subscriptions.publish(TOPIC_ROUTES, "RouteRow", route.routeId(), row.toString());
   }
 
@@ -156,7 +158,9 @@ public final class BlotterPublisher {
     row.put("side", route.fsmContext().side());
     row.put("lastQty", lastQty);
     row.put("lastPx", lastPx);
-    row.put("ts", nowMicros.getAsLong());
+    long now = nowMicros.getAsLong();
+    row.put("ts", now);
+    row.put("asOf", now);
     subscriptions.publish(TOPIC_FILLS, "FillRow", execId, row.toString());
   }
 }

@@ -454,6 +454,70 @@ function wireBlotterLinking(api: ApiClient): void {
 
   const ORDER_TERMINAL = (row: GridRow) => TERMINAL_STATES.has(row.state as string);
 
+  // ── Audit trail (18.25): per-order/route timeline from the event journal ─────
+  const fmtPx = (v: unknown) => (typeof v === "number" ? (v / PRICE_SCALE).toFixed(4) : "—");
+  const fmtTs = (micros: number) => new Date(micros / 1_000).toLocaleTimeString();
+  interface HistoryEvent {
+    kind: "ORDER" | "ROUTE" | "FILL";
+    asOf: number;
+    row: Record<string, unknown>;
+  }
+  function historyLine(event: HistoryEvent): string {
+    const r = event.row;
+    if (event.kind === "FILL") {
+      return `filled ${r.lastQty} @ ${fmtPx(r.lastPx)} on ${r.venueMic} (${r.execId})`;
+    }
+    if (event.kind === "ROUTE") {
+      return `${String(r.state).toLowerCase()} → ${r.venueMic} · cum ${r.cumQty}/${r.qty}` +
+        (r.avgPx != null ? ` · avg ${fmtPx(r.avgPx)}` : "") + ` (${r.routeId})`;
+    }
+    return `${r.state}·${r.subState} · cum ${r.cumQty}/${r.qty}` +
+      (r.avgPx != null ? ` · avg ${fmtPx(r.avgPx)}` : "") + ` · v${r.version}`;
+  }
+  function showHistory(kind: "orders" | "routes", row: GridRow): void {
+    const id = String(kind === "orders" ? row.orderId : row.routeId);
+    const modal = document.getElementById("history-modal")!;
+    const list = document.getElementById("history-list")!;
+    document.getElementById("history-title")!.textContent =
+      `HISTORY — ${row.name ?? ""} ${id}`;
+    list.replaceChildren();
+    modal.classList.remove("hidden");
+    fetch(`/api/v1/${kind}/${encodeURIComponent(id)}/history`, {
+      headers: { "X-EMS-Session": String(sharedSession!.sessionId) },
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((body: { events: HistoryEvent[] }) => {
+        for (const event of body.events) {
+          const li = document.createElement("li");
+          const ts = document.createElement("span");
+          ts.className = "h-ts";
+          ts.textContent = fmtTs(event.asOf);
+          const badge = document.createElement("span");
+          badge.className = `h-kind ${event.kind}`;
+          badge.textContent = event.kind;
+          const what = document.createElement("span");
+          what.className = "h-what";
+          what.textContent = historyLine(event);
+          li.append(ts, badge, what);
+          list.append(li);
+        }
+        if (body.events.length === 0) {
+          list.textContent = "no recorded events";
+        }
+      })
+      .catch((e: Error) => {
+        list.textContent = `history unavailable: ${e.message}`;
+      });
+  }
+  document.getElementById("history-close")!.addEventListener("click", () => {
+    document.getElementById("history-modal")!.classList.add("hidden");
+  });
+  document.getElementById("history-modal")!.addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) {
+      document.getElementById("history-modal")!.classList.add("hidden");
+    }
+  });
+
   attachGridInteractions("orders-viewer", {
     keyField: "orderId",
     chip: document.getElementById("orders-selchip")!,
@@ -501,6 +565,10 @@ function wireBlotterLinking(api: ApiClient): void {
         run: (rows) => batch("CANCEL", "cancel_orders", rows.map((r) => ({ orderId: r.orderId }))),
       },
       {
+        label: () => "View history",
+        run: (rows) => showHistory("orders", rows[0]),
+      },
+      {
         label: (n) => `Aggregate ${n} into a basket…`,
         applicable: (r) => !ORDER_TERMINAL(r),
         run: (rows) => {
@@ -539,6 +607,10 @@ function wireBlotterLinking(api: ApiClient): void {
         applicable: (r) => r.state === "WORKING" || r.state === "PARTIALLY_FILLED",
         run: (rows) =>
           batch("CANCEL ROUTE", "cancel_routes", rows.map((r) => ({ routeId: r.routeId }))),
+      },
+      {
+        label: () => "View history",
+        run: (rows) => showHistory("routes", rows[0]),
       },
     ],
   });

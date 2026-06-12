@@ -237,6 +237,22 @@ public final class RestEdgeBinding {
       if ("GET".equals(method) && path.startsWith("/api/v1/instruments/")) {
         return instrument(path.substring("/api/v1/instruments/".length()));
       }
+      if ("GET".equals(method)
+          && path.startsWith("/api/v1/orders/")
+          && path.endsWith("/history")) {
+        return history(
+            headers,
+            path.substring("/api/v1/orders/".length(), path.length() - "/history".length()),
+            true);
+      }
+      if ("GET".equals(method)
+          && path.startsWith("/api/v1/routes/")
+          && path.endsWith("/history")) {
+        return history(
+            headers,
+            path.substring("/api/v1/routes/".length(), path.length() - "/history".length()),
+            false);
+      }
       if (path.startsWith("/api/v1/baskets")) {
         return basketsRoute(method, path, headers, body);
       }
@@ -314,6 +330,53 @@ public final class RestEdgeBinding {
   }
 
   /** Instrument reference lookup for the ticket (18.2): asset class drives the field layout. */
+  /**
+   * Audit-trail timeline (18.25): every projection image ever published for one order (or one
+   * route) plus its routes and fills, merged in event-time order. The projection topics retain
+   * the full image history keyed by refId — the trader-visible face of the audit spine. Each
+   * entry: {@code {kind: ORDER|ROUTE|FILL, asOf, row}}.
+   */
+  private HttpResult history(Map<String, String> headers, String id, boolean isOrder)
+      throws Exception {
+    requireSession(headers);
+    record Entry(long asOf, long tieBreak, String kind, JsonNode row) {}
+    List<Entry> entries = new ArrayList<>();
+    java.util.function.BiConsumer<String, String> scan =
+        (topic, kind) -> {
+          for (ApiEvent event : subscriptions.fetch(topic, 1, 100_000)) {
+            try {
+              JsonNode row = mapper.readTree(event.payload());
+              boolean match =
+                  isOrder
+                      ? id.equals(row.path("orderId").asText())
+                      : id.equals(row.path("routeId").asText());
+              if (match) {
+                entries.add(new Entry(row.path("asOf").asLong(), event.seq(), kind, row));
+              }
+            } catch (Exception ignore) {
+              // non-row payloads on the topic are not part of the timeline
+            }
+          }
+        };
+    if (isOrder) {
+      scan.accept(io.crossasset.ems.api.blotter.BlotterPublisher.TOPIC_ORDERS, "ORDER");
+    }
+    scan.accept(io.crossasset.ems.api.blotter.BlotterPublisher.TOPIC_ROUTES, "ROUTE");
+    scan.accept(io.crossasset.ems.api.blotter.BlotterPublisher.TOPIC_FILLS, "FILL");
+    entries.sort(
+        java.util.Comparator.comparingLong(Entry::asOf).thenComparingLong(Entry::tieBreak));
+    ObjectNode out = mapper.createObjectNode();
+    out.put("id", id);
+    ArrayNode array = out.putArray("events");
+    for (Entry entry : entries) {
+      ObjectNode node = array.addObject();
+      node.put("kind", entry.kind());
+      node.put("asOf", entry.asOf());
+      node.set("row", entry.row());
+    }
+    return new HttpResult(200, out.toString());
+  }
+
   private HttpResult instrument(String figi) {
     if (secMaster == null) {
       return error(404, "Instrument lookup not configured on this edge.");

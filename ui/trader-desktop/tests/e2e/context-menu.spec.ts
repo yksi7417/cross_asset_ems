@@ -98,3 +98,28 @@ test("aggregate selection into a basket", async ({ page, request }) => {
   });
   await expectRowContaining(page, "baskets-viewer", "e2e-basket");
 });
+
+// 18.25: the audit trail — every lifecycle transition visible from a right-click.
+test("view history shows the order's lifecycle timeline", async ({ page, request }) => {
+  const seeder = new ApiSeeder(request);
+  await seeder.logon();
+  const { orderId } = await seeder.stageReadyRoute(`E2E-H1-${Date.now()}`);
+
+  await logonUi(page);
+  await expectRowContaining(page, "orders-viewer", orderId);
+  await page
+    .locator("#orders-viewer regular-table tbody tr", { hasText: orderId })
+    .first()
+    .locator("td")
+    .first()
+    .click({ button: "right" });
+  await page.locator("#ctx-menu button", { hasText: "View history" }).click();
+
+  await expect(page.locator("#history-modal")).toBeVisible();
+  await expect(page.locator("#history-title")).toContainText(orderId);
+  // staged (NEW) + READY + ROUTING order images, plus the route's SENT image.
+  await expect.poll(async () => page.locator("#history-list li").count()).toBeGreaterThanOrEqual(4);
+  await expect(page.locator("#history-list .h-kind.ROUTE").first()).toBeVisible();
+  await page.click("#history-close");
+  await expect(page.locator("#history-modal")).toBeHidden();
+});
