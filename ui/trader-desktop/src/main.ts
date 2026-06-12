@@ -20,6 +20,7 @@ import { ResumableStream, type StreamStatus } from "./stream";
 import { ApiClient, initTicket, type WorkingOrder } from "./ticket";
 import { attachMultiBadge } from "./aggregates";
 import { nameOf, nameOfSync, withInstrument } from "./instruments";
+import { reportStreamStatus } from "./recovery";
 import { attachGridInteractions, type GridRow } from "./grid-actions";
 
 const perspectiveReady = Promise.all([
@@ -186,6 +187,7 @@ function setChip(id: string, status: StreamStatus): void {
   if (status === "live") chip.classList.add("live");
   else if (status === "reconnecting" || status === "connecting") chip.classList.add("reconnecting");
   else chip.classList.add("down");
+  reportStreamStatus(id, status); // backend-restart watchdog (recovery.ts)
 }
 
 interface Logon {
@@ -873,13 +875,22 @@ async function start(session: Logon): Promise<void> {
 // ── Logon overlay ──────────────────────────────────────────────────────────────
 
 const form = document.getElementById("logon-form") as HTMLFormElement;
+let logonInflight = false;
 form.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (logonInflight) {
+    return;
+  }
+  logonInflight = true;
   const token = (document.getElementById("token") as HTMLInputElement).value.trim();
   const error = document.getElementById("logon-error")!;
   error.textContent = "";
   logon(token)
     .then((session) => {
+      // Remember the token for this tab: the recovery watchdog reloads the page when a
+      // RESTARTED backend comes back (dead session + reset cursors), and auto-logon below
+      // turns that reload into a seamless resume instead of a logon prompt.
+      sessionStorage.setItem("ems-token", token);
       document.getElementById("logon")!.classList.add("hidden");
       document.getElementById("app")!.classList.remove("hidden");
       document.getElementById("session-label")!.textContent =
@@ -888,5 +899,22 @@ form.addEventListener("submit", (event) => {
     })
     .catch((cause: Error) => {
       error.textContent = cause.message;
+    })
+    .finally(() => {
+      logonInflight = false;
     });
 });
+
+// Auto-logon (backend-restart recovery, with retry while the server is still coming up).
+const savedToken = sessionStorage.getItem("ems-token");
+if (savedToken) {
+  (document.getElementById("token") as HTMLInputElement).value = savedToken;
+  form.requestSubmit();
+  const retry = setInterval(() => {
+    if (!document.getElementById("app")!.classList.contains("hidden")) {
+      clearInterval(retry);
+      return;
+    }
+    form.requestSubmit();
+  }, 3_000);
+}
