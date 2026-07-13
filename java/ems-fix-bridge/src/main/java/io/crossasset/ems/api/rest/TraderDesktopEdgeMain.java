@@ -76,8 +76,16 @@ public final class TraderDesktopEdgeMain {
 
     // ── The real stack ──────────────────────────────────────────────────────────
     InMemoryAaaService aaa = new InMemoryAaaService(new InMemoryAaaEventLog());
-    aaa.registerCredential(
-        "trader-token", "firm-demo", "desk-1", "trader-1", Set.of("#kill-switch"));
+    // trader-1 is the demo supervisor: kill-switch plus the compliance override tags the
+    // 10.4/10.2 override paths demand (four-eyes still needs a second signer in production).
+    java.util.Set<String> overrideTags =
+        Set.of(
+            "#compliance-override-restricted-instrument",
+            "#compliance-override-add-to-allow-list",
+            "#compliance-override-fat-finger");
+    java.util.Set<String> traderTags = new java.util.HashSet<>(overrideTags);
+    traderTags.add("#kill-switch");
+    aaa.registerCredential("trader-token", "firm-demo", "desk-1", "trader-1", traderTags);
     aaa.registerCredential("demo-bot", "firm-demo", "desk-1", "demo-bot", Set.of());
 
     InMemorySecurityMasterService secMaster = new InMemorySecurityMasterService();
@@ -103,6 +111,8 @@ public final class TraderDesktopEdgeMain {
     KillSwitchState killState = new KillSwitchState();
     KillSwitchOrderGuard som = new KillSwitchOrderGuard(blotterSom, killState, aaa);
     io.crossasset.ems.oms.RouteManager complianceRoutes = blotterRoutes;
+    io.crossasset.ems.pretrade.compliance.ComplianceGate complianceGate = null;
+    io.crossasset.ems.pretrade.compliance.OverrideService complianceOverrides = null;
     if ("1".equals(System.getenv("EMS_COMPLIANCE_GATE"))) {
       // List gate (10.4): lists are compliance-authored reference data. The demo edge seeds
       // the firm restricted list from EMS_RESTRICTED_FIGIS (comma-separated) so a blocked
@@ -124,20 +134,27 @@ public final class TraderDesktopEdgeMain {
               null);
         }
       }
+      complianceGate =
+          new io.crossasset.ems.pretrade.compliance.ComplianceGate(
+              java.util.List.of(
+                  new io.crossasset.ems.pretrade.compliance.MachineGunCheck(
+                      new io.crossasset.ems.pretrade.compliance.MachineGunCheck.Policy(
+                          60_000L, 50, 1_000_000_000L, 20),
+                      System::currentTimeMillis),
+                  new io.crossasset.ems.pretrade.compliance.ListCheck(
+                      complianceLists, System::currentTimeMillis)));
+      // Override mechanics (10.5) over the same gate's block store. The demo tag checker
+      // consults the credential registrations above; production wires the 5.3 AND-gate.
+      java.util.Map<String, java.util.Set<String>> tagsByUser =
+          java.util.Map.of("trader-1", overrideTags);
+      complianceOverrides =
+          new io.crossasset.ems.pretrade.compliance.OverrideService(
+              complianceGate,
+              (firm, desk, user, tag) -> tagsByUser.getOrDefault(user, Set.of()).contains(tag),
+              System::currentTimeMillis);
       complianceRoutes =
           new io.crossasset.ems.api.control.ComplianceRouteGuard(
-              blotterRoutes,
-              new io.crossasset.ems.pretrade.compliance.ComplianceGate(
-                  java.util.List.of(
-                      new io.crossasset.ems.pretrade.compliance.MachineGunCheck(
-                          new io.crossasset.ems.pretrade.compliance.MachineGunCheck.Policy(
-                              60_000L, 50, 1_000_000_000L, 20),
-                          System::currentTimeMillis),
-                      new io.crossasset.ems.pretrade.compliance.ListCheck(
-                          complianceLists, System::currentTimeMillis))),
-              som,
-              "firm-demo",
-              "desk-1");
+              blotterRoutes, complianceGate, som, "firm-demo", "desk-1");
     }
     KillSwitchRouteGuard routes = new KillSwitchRouteGuard(complianceRoutes, killState, aaa, som);
     KillSwitchService killSwitch =
@@ -350,6 +367,9 @@ public final class TraderDesktopEdgeMain {
             null,
             esp,
             watchlist);
+    if (complianceGate != null && complianceOverrides != null) {
+      binding.setCompliance(complianceGate, complianceOverrides); // 10.5 override routes
+    }
     binding.setIssuerNames(DemoUniverse.ISSUER_NAMES::get); // 18.29: group-by-issuer
     binding.setCurrencyProfiles(DemoUniverse::profileOf); // 18.30: trading/settle/base/quote
     binding.setQuoteStyles(core -> DemoUniverse.quoteStyleOf(core).name()); // 11.18

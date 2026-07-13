@@ -127,6 +127,21 @@ public final class RestEdgeBinding {
     this.marketAccessClock = clock;
   }
 
+  /** Compliance override desk (10.5): pending blocks + approve/deny over the live gate. */
+  private io.crossasset.ems.pretrade.compliance.@org.jspecify.annotations.Nullable ComplianceGate
+      complianceGate;
+
+  private io.crossasset.ems.pretrade.compliance.@org.jspecify.annotations.Nullable OverrideService
+      complianceOverrides;
+
+  /** Wire the compliance gate + override service so the block desk is REST-served (10.5). */
+  public void setCompliance(
+      io.crossasset.ems.pretrade.compliance.ComplianceGate gate,
+      io.crossasset.ems.pretrade.compliance.OverrideService overrides) {
+    this.complianceGate = gate;
+    this.complianceOverrides = overrides;
+  }
+
   public RestEdgeBinding(AaaService aaa, ApiSurface api, SubscriptionRegistry subscriptions) {
     this(aaa, api, subscriptions, null, null);
   }
@@ -315,6 +330,10 @@ public final class RestEdgeBinding {
       }
       if ("GET".equals(method) && "/api/v1/market-access".equals(path)) {
         return marketAccessRoute(headers);
+      }
+      if ("/api/v1/compliance/blocks".equals(path)
+          || path.startsWith("/api/v1/compliance/blocks/")) {
+        return complianceRoute(method, path, headers, body);
       }
       if ("POST".equals(method)
           && path.startsWith("/api/v1/notifications/")
@@ -716,6 +735,91 @@ public final class RestEdgeBinding {
       return new HttpResult(200, out.toString());
     }
     return error(404, "Unknown kill route: " + method + " " + path);
+  }
+
+  /**
+   * Compliance override desk (10.5): {@code GET /api/v1/compliance/blocks} lists pending blocks;
+   * {@code POST /api/v1/compliance/blocks/{id}/approve|deny} with {@code {"rationale": "..."}}
+   * records a sign-off or a denial. The signer identity is the SESSION identity — the service
+   * enforces tag qualification, distinct-approver four-eyes, and time-bound release.
+   */
+  private HttpResult complianceRoute(
+      String method, String path, Map<String, String> headers, String body) throws Exception {
+    var gate = complianceGate;
+    var overrides = complianceOverrides;
+    if (gate == null || overrides == null) {
+      return error(404, "Compliance gate not configured on this edge.");
+    }
+    long sessionId = requireSession(headers);
+    if ("GET".equals(method) && "/api/v1/compliance/blocks".equals(path)) {
+      var identity = aaa.sessionInfo(sessionId).orElseThrow().identity();
+      ObjectNode out = mapper.createObjectNode();
+      ArrayNode blocks = out.putArray("blocks");
+      for (io.crossasset.ems.pretrade.compliance.PendingBlock b : gate.pendingBlocks()) {
+        if (!Objects.equals(b.operation().firm(), identity.firmId())
+            || !Objects.equals(b.operation().desk(), identity.deskId())) {
+          continue;
+        }
+        ObjectNode node = blocks.addObject();
+        node.put("blockId", b.blockId());
+        node.put("ruleId", b.ruleId());
+        node.put("rationale", b.rationale());
+        node.put("figi", b.operation().figi());
+        node.put("kind", b.operation().kind().name());
+        node.put("requiredSignoffs", b.overridePath().requiredSignoffs());
+        ArrayNode tags = node.putArray("requiredTags");
+        b.overridePath().requiredTags().forEach(tags::add);
+      }
+      return new HttpResult(200, out.toString());
+    }
+    if ("POST".equals(method)
+        && (path.endsWith("/approve") || path.endsWith("/deny"))
+        && path.startsWith("/api/v1/compliance/blocks/")) {
+      boolean approve = path.endsWith("/approve");
+      String blockId =
+          path.substring(
+              "/api/v1/compliance/blocks/".length(),
+              path.length() - (approve ? "/approve" : "/deny").length());
+      String rationale = mapper.readTree(body).path("rationale").asText("");
+      var identity = aaa.sessionInfo(sessionId).orElseThrow().identity();
+      var block = gate.findBlock(blockId).orElse(null);
+      if (block == null
+          || block.status() != io.crossasset.ems.pretrade.compliance.PendingBlock.Status.PENDING) {
+        return error(404, "Block unknown or not pending.");
+      }
+      if (!Objects.equals(block.operation().firm(), identity.firmId())
+          || !Objects.equals(block.operation().desk(), identity.deskId())) {
+        return error(403, "Block does not belong to your firm/desk.");
+      }
+      var result =
+          approve
+              ? overrides.approve(
+                  blockId, identity.firmId(), identity.deskId(), identity.userId(), rationale)
+              : overrides.deny(
+                  blockId, identity.firmId(), identity.deskId(), identity.userId(), rationale);
+      ObjectNode out = mapper.createObjectNode();
+      out.put("blockId", blockId);
+      switch (result) {
+        case io.crossasset.ems.pretrade.compliance.OverrideService.OverrideResult.Approved a -> {
+          out.put("status", "APPROVED");
+          out.put("signoffsSoFar", a.signoffsSoFar());
+          out.put("signoffsRequired", a.signoffsRequired());
+        }
+        case io.crossasset.ems.pretrade.compliance.OverrideService.OverrideResult.Released r -> {
+          out.put("status", "RELEASED");
+          out.put("validUntilMillis", r.validUntilMillis());
+        }
+        case io.crossasset.ems.pretrade.compliance.OverrideService.OverrideResult.Denied d ->
+            out.put("status", "DENIED");
+        case io.crossasset.ems.pretrade.compliance.OverrideService.OverrideResult.Rejected rj -> {
+          out.put("status", "REJECTED");
+          out.put("reason", rj.reason());
+          return new HttpResult(409, out.toString());
+        }
+      }
+      return new HttpResult(200, out.toString());
+    }
+    return error(404, "Unknown compliance route: " + method + " " + path);
   }
 
   /**
