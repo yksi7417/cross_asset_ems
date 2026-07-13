@@ -4,11 +4,11 @@
  */
 package io.crossasset.ems.oms;
 
-import java.util.List;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class AggregationEventResultTest {
 
@@ -54,10 +54,8 @@ class AggregationEventResultTest {
                 .collect(java.util.stream.Collectors.toMap(id -> id, id -> 0L)),
             0L,
             0L);
-    List<ChildAllocation> allocations =
-        List.of(new ChildAllocation("child-1", 100L, 5000L));
-    AggregationEventResult.Applied applied =
-        new AggregationEventResult.Applied(group, allocations);
+    List<ChildAllocation> allocations = List.of(new ChildAllocation("child-1", 100L, 5000L));
+    AggregationEventResult.Applied applied = new AggregationEventResult.Applied(group, allocations);
     assertNotNull(applied);
     assertEquals(group, applied.group());
     assertEquals(allocations, applied.allocations());

@@ -5,7 +5,6 @@
 package io.crossasset.ems.posttrade.confirmation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -71,7 +70,8 @@ class ConfirmationEventTest {
 
   @Test
   void affirmationRejectedFields() {
-    ConfirmationEvent.AffirmationRejected ev = new ConfirmationEvent.AffirmationRejected("id-1", "qty mismatch");
+    ConfirmationEvent.AffirmationRejected ev =
+        new ConfirmationEvent.AffirmationRejected("id-1", "qty mismatch");
     assertEquals("id-1", ev.id());
     assertEquals("qty mismatch", ev.reason());
   }

@@ -4,11 +4,11 @@
  */
 package io.crossasset.ems.oms;
 
-import java.util.List;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class AggregationRequestTest {
 
@@ -37,13 +37,7 @@ class AggregationRequestTest {
   void recordWithNullRounding() {
     AggregationRequest req =
         new AggregationRequest(
-            "req-1",
-            1000L,
-            "cl-1",
-            List.of("child-1"),
-            AllocationRule.SEQUENCED,
-            null,
-            "ACCT");
+            "req-1", 1000L, "cl-1", List.of("child-1"), AllocationRule.SEQUENCED, null, "ACCT");
     assertNotNull(req);
     assertEquals(null, req.rounding());
   }
@@ -52,22 +46,10 @@ class AggregationRequestTest {
   void recordEquality() {
     AggregationRequest r1 =
         new AggregationRequest(
-            "req-1",
-            1000L,
-            "cl-1",
-            List.of("child-1"),
-            AllocationRule.PRO_RATA,
-            null,
-            "ACCT");
+            "req-1", 1000L, "cl-1", List.of("child-1"), AllocationRule.PRO_RATA, null, "ACCT");
     AggregationRequest r2 =
         new AggregationRequest(
-            "req-1",
-            1000L,
-            "cl-1",
-            List.of("child-1"),
-            AllocationRule.PRO_RATA,
-            null,
-            "ACCT");
+            "req-1", 1000L, "cl-1", List.of("child-1"), AllocationRule.PRO_RATA, null, "ACCT");
     assertEquals(r1, r2);
     assertEquals(r1.hashCode(), r2.hashCode());
   }
