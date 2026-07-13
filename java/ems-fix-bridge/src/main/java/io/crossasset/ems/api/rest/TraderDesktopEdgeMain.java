@@ -490,6 +490,27 @@ public final class TraderDesktopEdgeMain {
     WsEventStreamServer ws = new WsEventStreamServer(aaa, subscriptions, wsPort);
     ws.start();
 
+    // ── Post-trade allocation (arch-allocation-service): every fill allocates through the
+    // order's template; the event-sourced results stream on blotter.allocations. The demo
+    // template splits pro-rata across two managed accounts with largest-remainder rounding —
+    // deterministic, so replay reproduces identical splits.
+    io.crossasset.ems.posttrade.allocation.AllocationTemplate demoTemplate =
+        io.crossasset.ems.posttrade.allocation.AllocationTemplate.of(
+            "TPL-DEMO-5050",
+            1L,
+            io.crossasset.ems.posttrade.allocation.AllocationPolicy.PRO_RATA,
+            io.crossasset.ems.posttrade.allocation.RoundingPolicy.DISTRIBUTE_RESIDUAL,
+            List.of(
+                new io.crossasset.ems.posttrade.allocation.AccountShare(
+                    "ACC-DEMO-A", "PB-1", 5_000L),
+                new io.crossasset.ems.posttrade.allocation.AccountShare(
+                    "ACC-DEMO-B", "PB-2", 5_000L)));
+    new io.crossasset.ems.api.blotter.AllocationBridge(
+            subscriptions,
+            new io.crossasset.ems.posttrade.allocation.InMemoryAllocationService(),
+            orderId -> demoTemplate)
+        .attach();
+
     // ── Intraday P&L (18.7): fills feed positions, md ticks feed marks ─────────
     PositionService positionService = new PositionService();
     PnlService pnlService =
