@@ -50,22 +50,33 @@ public final class AllocationBridge {
   }
 
   private void onFill(String payload) {
-    JsonNode row;
+    final JsonNode row;
     try {
       row = mapper.readTree(payload);
+
+      String execId = row.path("execId").asText(null);
+      String orderId = row.path("orderId").asText(null);
+      String routeId = row.path("routeId").asText(null);
+      long qty = row.path("lastQty").asLong(0L);
+      long px = row.path("lastPx").asLong(0L);
+
+      if (execId == null || execId.isBlank()
+          || orderId == null || orderId.isBlank()
+          || routeId == null || routeId.isBlank()
+          || qty <= 0) {
+        return;
+      }
+
+      Fill fill = new Fill(execId, orderId, routeId, qty, px);
+      AllocationTemplate template = templateForOrder.apply(fill.orderId());
+      if (template == null) {
+        return;
+      }
+      for (AllocationEvent event : allocations.allocate(fill, template)) {
+        publish(event);
+      }
     } catch (Exception e) {
-      return; // malformed row: blotter payloads are factory-shaped, never fatal here
-    }
-    Fill fill =
-        new Fill(
-            row.path("execId").asText(),
-            row.path("orderId").asText(),
-            row.path("routeId").asText(),
-            row.path("lastQty").asLong(),
-            row.path("lastPx").asLong());
-    AllocationTemplate template = templateForOrder.apply(fill.orderId());
-    for (AllocationEvent event : allocations.allocate(fill, template)) {
-      publish(event);
+      return; // never fail the fill stream on bad input
     }
   }
 
