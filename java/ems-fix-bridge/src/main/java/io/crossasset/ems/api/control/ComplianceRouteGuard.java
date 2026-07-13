@@ -23,14 +23,14 @@ import org.jspecify.annotations.Nullable;
 /**
  * Compliance gate on the route path: evaluates every {@link #route} request through the registered
  * pre-trade checks (machine-gun rate limiting first) before the venue dispatch. Sits INSIDE the
- * kill-switch route guard — a kill still overrides everything — and is only constructed when
- * {@code EMS_COMPLIANCE_GATE=1} (default off; see TraderDesktopEdgeMain).
+ * kill-switch route guard — a kill still overrides everything — and is only constructed when {@code
+ * EMS_COMPLIANCE_GATE=1} (default off; see TraderDesktopEdgeMain).
  *
- * <p>v1 scope: the actor key is derived from the staging session (firm/desk resolution arrives
- * with the AAA identity wiring); instrument identity (figi/side) is not available on this path
- * yet, so per-instrument signature keying degrades to per-actor counting — rule 1 (route count
- * per window) is the protection this guard delivers. Route-lifecycle events and queries pass
- * through untouched: compliance gates new exposure, never risk reduction.
+ * <p>v1 scope: the actor key is derived from the staging session (firm/desk resolution arrives with
+ * the AAA identity wiring); instrument identity (figi/side) is not available on this path yet, so
+ * per-instrument signature keying degrades to per-actor counting — rule 1 (route count per window)
+ * is the protection this guard delivers. Route-lifecycle events and queries pass through untouched:
+ * compliance gates new exposure, never risk reduction.
  */
 public final class ComplianceRouteGuard implements RouteManager {
 
@@ -47,8 +47,7 @@ public final class ComplianceRouteGuard implements RouteManager {
 
   @Override
   public RouteResult route(RouteRequest request) {
-    long sessionId =
-        orders.findOrder(request.orderId()).map(StagedOrder::sessionId).orElse(0L);
+    long sessionId = orders.findOrder(request.orderId()).map(StagedOrder::sessionId).orElse(0L);
     ComplianceOperation operation =
         new ComplianceOperation(
             ComplianceOperation.Kind.ROUTE,

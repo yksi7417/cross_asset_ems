@@ -176,8 +176,7 @@ class ComplianceRouteGuardTest {
 
   private static ComplianceRouteGuard guard(FakeRouteManager delegate, long[] clock) {
     MachineGunCheck.Policy policy = new MachineGunCheck.Policy(1000L, 2, 1_000_000_000L, 100);
-    ComplianceGate gate =
-        new ComplianceGate(List.of(new MachineGunCheck(policy, () -> clock[0])));
+    ComplianceGate gate = new ComplianceGate(List.of(new MachineGunCheck(policy, () -> clock[0])));
     return new ComplianceRouteGuard(delegate, gate, new FakeStagedOrderManager());
   }
 
