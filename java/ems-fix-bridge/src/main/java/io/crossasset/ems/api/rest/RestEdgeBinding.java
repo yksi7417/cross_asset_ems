@@ -331,7 +331,8 @@ public final class RestEdgeBinding {
       if ("GET".equals(method) && "/api/v1/market-access".equals(path)) {
         return marketAccessRoute(headers);
       }
-      if (path.startsWith("/api/v1/compliance/blocks")) {
+      if ("/api/v1/compliance/blocks".equals(path)
+          || path.startsWith("/api/v1/compliance/blocks/")) {
         return complianceRoute(method, path, headers, body);
       }
       if ("POST".equals(method)
