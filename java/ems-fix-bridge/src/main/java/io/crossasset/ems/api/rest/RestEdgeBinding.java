@@ -112,6 +112,19 @@ public final class RestEdgeBinding {
     this.currencyProfiles = profiles;
   }
 
+  /** 15c3-5 market-access pack (18.5): attestation export served at {@code /market-access}. */
+  private io.crossasset.ems.api.control.@org.jspecify.annotations.Nullable MarketAccessPack
+      marketAccess;
+
+  private java.util.function.LongSupplier marketAccessClock = System::currentTimeMillis;
+
+  /** Wire the market-access pack so the CCO's attestation export is one GET away (18.5). */
+  public void setMarketAccess(
+      io.crossasset.ems.api.control.MarketAccessPack pack, java.util.function.LongSupplier clock) {
+    this.marketAccess = pack;
+    this.marketAccessClock = clock;
+  }
+
   public RestEdgeBinding(AaaService aaa, ApiSurface api, SubscriptionRegistry subscriptions) {
     this(aaa, api, subscriptions, null, null);
   }
@@ -297,6 +310,9 @@ public final class RestEdgeBinding {
       }
       if (path.startsWith("/api/v1/kill")) {
         return killRoute(method, path, headers, body);
+      }
+      if ("GET".equals(method) && "/api/v1/market-access".equals(path)) {
+        return marketAccessRoute(headers);
       }
       if ("POST".equals(method)
           && path.startsWith("/api/v1/notifications/")
@@ -698,6 +714,20 @@ public final class RestEdgeBinding {
       return new HttpResult(200, out.toString());
     }
     return error(404, "Unknown kill route: " + method + " " + path);
+  }
+
+  /**
+   * 15c3-5 attestation export (18.5): {@code GET /api/v1/market-access} returns the pack's
+   * point-in-time evidence snapshot over the live services. Session-authenticated like every
+   * control route; the pack itself is read-only.
+   */
+  private HttpResult marketAccessRoute(Map<String, String> headers) {
+    if (marketAccess == null) {
+      return error(404, "Market-access pack not configured on this edge.");
+    }
+    requireSession(headers);
+    return new HttpResult(
+        200, marketAccess.attestationExport(marketAccessClock.getAsLong()).toString());
   }
 
   /** Acknowledge a notification (18.8); the acker is the session identity. */

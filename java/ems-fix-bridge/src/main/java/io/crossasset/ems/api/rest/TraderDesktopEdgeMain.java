@@ -330,6 +330,19 @@ public final class TraderDesktopEdgeMain {
     binding.setCurrencyProfiles(DemoUniverse::profileOf); // 18.30: trading/settle/base/quote
     binding.setQuoteStyles(core -> DemoUniverse.quoteStyleOf(core).name()); // 11.18
 
+    // ── 15c3-5 market-access pack (18.5): the canonical control mapping over the LIVE
+    // services — the pack the /market-access route exports and the pack the tests pin are
+    // the same object. Evidence (kill audit journal, risk-limit amendments, Reg SHO
+    // attestation) is pulled at export time, never hand-maintained.
+    io.crossasset.ems.pretrade.risk.RiskLimits riskLimits =
+        new io.crossasset.ems.pretrade.risk.RiskLimits();
+    io.crossasset.ems.pretrade.borrow.BorrowService borrowService =
+        new io.crossasset.ems.pretrade.borrow.BorrowService(60_000L);
+    binding.setMarketAccess(
+        io.crossasset.ems.api.control.EmsMarketAccessControls.standard(
+            "firm-demo", killSwitch, riskLimits, borrowService, System::currentTimeMillis),
+        System::currentTimeMillis);
+
     // ── RFQ workflow (11.18): mock dealer panel quoting around the demo base px ──
     // Eligibility (user requirement): AXES quotes TIGHTEST but only trades with institutional
     // accounts — for the demo's ACC-* accounts its quote shows greyed on the ladder, never
