@@ -97,6 +97,11 @@ class AllocationBridgeTest {
   void malformedFillRowIsIgnoredNotFatal() {
     new AllocationBridge(subscriptions, new InMemoryAllocationService(), o -> FIFTY_FIFTY).attach();
     subscriptions.publish(BlotterPublisher.TOPIC_FILLS, "FillRow", "junk", "{not json");
+    subscriptions.publish(
+        BlotterPublisher.TOPIC_FILLS,
+        "FillRow",
+        "missing-qty",
+        "{\"execId\":\"EX-3\",\"orderId\":\"O-3\",\"routeId\":\"RT-3\",\"lastPx\":1000}");
     assertThat(allocationRows).isEmpty();
   }
 }
