@@ -112,10 +112,14 @@ public final class TraderDesktopEdgeMain {
       String restrictedFigis = System.getenv("EMS_RESTRICTED_FIGIS");
       if (restrictedFigis != null && !restrictedFigis.isBlank()) {
         for (String figi : restrictedFigis.split(",")) {
+          String trimmed = figi.trim();
+          if (trimmed.isEmpty()) {
+            continue;
+          }
           complianceLists.add(
               io.crossasset.ems.pretrade.compliance.ComplianceListService.Kind.RESTRICTED,
               "firm-demo",
-              figi.trim(),
+              trimmed,
               0L,
               null);
         }
