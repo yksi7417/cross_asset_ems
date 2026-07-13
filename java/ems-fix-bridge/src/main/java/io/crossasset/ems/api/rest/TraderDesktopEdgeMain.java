@@ -331,9 +331,9 @@ public final class TraderDesktopEdgeMain {
     binding.setQuoteStyles(core -> DemoUniverse.quoteStyleOf(core).name()); // 11.18
 
     // ── 15c3-5 market-access pack (18.5): the canonical control mapping over the LIVE
-    // services — the pack the /market-access route exports and the pack the tests pin are
-    // the same object. Evidence (kill audit journal, risk-limit amendments, Reg SHO
-    // attestation) is pulled at export time, never hand-maintained.
+    // services — the pack the /api/v1/market-access route exports and the pack the tests pin
+    // are built from the same standard mapping. Evidence (kill audit journal, risk-limit
+    // amendments, Reg SHO attestation) is pulled at export time, never hand-maintained.
     io.crossasset.ems.pretrade.risk.RiskLimits riskLimits =
         new io.crossasset.ems.pretrade.risk.RiskLimits();
     io.crossasset.ems.pretrade.borrow.BorrowService borrowService =
