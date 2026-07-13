@@ -112,7 +112,7 @@ public final class RestEdgeBinding {
     this.currencyProfiles = profiles;
   }
 
-  /** 15c3-5 market-access pack (18.5): attestation export served at {@code /market-access}. */
+/** 15c3-5 market-access pack (18.5): attestation export served at {@code /api/v1/market-access}. */
   private io.crossasset.ems.api.control.@org.jspecify.annotations.Nullable MarketAccessPack
       marketAccess;
 
