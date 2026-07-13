@@ -19,7 +19,8 @@ class AllocationTemplateTest {
   void ofCreatesNonDeferredTemplate() {
     List<AccountShare> shares = List.of(new AccountShare("acct-1", "pb-1", 5000L));
     AllocationTemplate tmpl =
-        AllocationTemplate.of("tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, shares);
+        AllocationTemplate.of(
+            "tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, shares);
     assertEquals("tmpl-1", tmpl.templateId());
     assertEquals(1L, tmpl.version());
     assertEquals(AllocationPolicy.PRO_RATA, tmpl.policy());
@@ -32,7 +33,13 @@ class AllocationTemplateTest {
   @Test
   void ofWithLotSize() {
     AllocationTemplate tmpl =
-        AllocationTemplate.of("tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, List.of(), 10000L);
+        AllocationTemplate.of(
+            "tmpl-1",
+            1L,
+            AllocationPolicy.PRO_RATA,
+            RoundingPolicy.ROUND_HALF_UP,
+            List.of(),
+            10000L);
     assertEquals(10000L, tmpl.lotSize());
     assertFalse(tmpl.deferred());
   }
@@ -52,14 +59,16 @@ class AllocationTemplateTest {
     List<AccountShare> shares =
         List.of(new AccountShare("a", "pb", 3000L), new AccountShare("b", "pb", 7000L));
     AllocationTemplate tmpl =
-        AllocationTemplate.of("tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, shares);
+        AllocationTemplate.of(
+            "tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, shares);
     assertEquals(10000L, tmpl.totalWeightBps());
   }
 
   @Test
   void nullSharesTreatedAsEmpty() {
     AllocationTemplate tmpl =
-        AllocationTemplate.of("tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, null);
+        AllocationTemplate.of(
+            "tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, null);
     assertNotNull(tmpl.shares());
     assertTrue(tmpl.shares().isEmpty());
   }
@@ -70,7 +79,13 @@ class AllocationTemplateTest {
         IllegalArgumentException.class,
         () ->
             new AllocationTemplate(
-                "tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, List.of(), false, 0L));
+                "tmpl-1",
+                1L,
+                AllocationPolicy.PRO_RATA,
+                RoundingPolicy.ROUND_HALF_UP,
+                List.of(),
+                false,
+                0L));
   }
 
   @Test

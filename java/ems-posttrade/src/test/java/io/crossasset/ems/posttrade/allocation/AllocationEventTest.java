@@ -5,7 +5,6 @@
 package io.crossasset.ems.posttrade.allocation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +14,13 @@ class AllocationEventTest {
   void allocationRequestedFields() {
     AllocationEvent.AllocationRequested ev =
         new AllocationEvent.AllocationRequested(
-            "fill-1", "order-1", "route-1", "tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP);
+            "fill-1",
+            "order-1",
+            "route-1",
+            "tmpl-1",
+            1L,
+            AllocationPolicy.PRO_RATA,
+            RoundingPolicy.ROUND_HALF_UP);
     assertEquals("fill-1", ev.fillId());
     assertEquals("order-1", ev.orderId());
     assertEquals("route-1", ev.routeId());
@@ -28,7 +33,8 @@ class AllocationEventTest {
   @Test
   void allocationAppliedFields() {
     AllocationEvent.AllocationApplied ev =
-        new AllocationEvent.AllocationApplied("alloc-1", "fill-1", "acct-1", "pb-1", 100L, 50L, "pb-1");
+        new AllocationEvent.AllocationApplied(
+            "alloc-1", "fill-1", "acct-1", "pb-1", 100L, 50L, "pb-1");
     assertEquals("alloc-1", ev.allocationId());
     assertEquals("fill-1", ev.fillId());
     assertEquals("acct-1", ev.account());
@@ -40,7 +46,8 @@ class AllocationEventTest {
 
   @Test
   void allocationDeferredFields() {
-    AllocationEvent.AllocationDeferred ev = new AllocationEvent.AllocationDeferred("fill-1", "missing mapping");
+    AllocationEvent.AllocationDeferred ev =
+        new AllocationEvent.AllocationDeferred("fill-1", "missing mapping");
     assertEquals("fill-1", ev.fillId());
     assertEquals("missing mapping", ev.reason());
   }

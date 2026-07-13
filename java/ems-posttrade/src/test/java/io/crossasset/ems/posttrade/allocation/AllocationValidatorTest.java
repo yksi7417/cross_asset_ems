@@ -18,7 +18,8 @@ class AllocationValidatorTest {
     AllocationValidator v = AllocationValidator.permissive();
     assertNotNull(v);
     AllocationTemplate tmpl =
-        AllocationTemplate.of("tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, List.of());
+        AllocationTemplate.of(
+            "tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, List.of());
     AccountShare share = new AccountShare("acct-1", "pb-1", 5000L);
     assertNull(v.rejectionReason(share, tmpl));
   }
@@ -27,7 +28,8 @@ class AllocationValidatorTest {
   void customRejects() {
     AllocationValidator v = (share, template) -> "not allowed";
     AllocationTemplate tmpl =
-        AllocationTemplate.of("tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, List.of());
+        AllocationTemplate.of(
+            "tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, List.of());
     AccountShare share = new AccountShare("acct-1", "pb-1", 5000L);
     assertEquals("not allowed", v.rejectionReason(share, tmpl));
   }

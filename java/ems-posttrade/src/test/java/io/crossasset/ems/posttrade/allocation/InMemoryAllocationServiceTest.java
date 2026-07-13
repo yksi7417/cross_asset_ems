@@ -36,9 +36,12 @@ class InMemoryAllocationServiceTest {
     AllocationTemplate deferred = AllocationTemplate.deferred("order-1");
     svc.allocate(fill, deferred);
 
-    List<AccountShare> shares = List.of(new AccountShare("acct-1", "pb-1", 5000L), new AccountShare("acct-2", "pb-1", 5000L));
+    List<AccountShare> shares =
+        List.of(
+            new AccountShare("acct-1", "pb-1", 5000L), new AccountShare("acct-2", "pb-1", 5000L));
     AllocationTemplate real =
-        AllocationTemplate.of("tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, shares);
+        AllocationTemplate.of(
+            "tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, shares);
     List<AllocationEvent> events = svc.setAllocationTemplate("order-1", real);
     assertTrue(events.size() >= 2);
   }
@@ -49,7 +52,8 @@ class InMemoryAllocationServiceTest {
     Fill fill = new Fill("fill-1", "order-1", "route-1", 1000L, 50L);
     List<AccountShare> shares = List.of(new AccountShare("acct-1", "pb-1", 10000L));
     AllocationTemplate tmpl =
-        AllocationTemplate.of("tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, shares);
+        AllocationTemplate.of(
+            "tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, shares);
     List<AllocationEvent> allocEvents = svc.allocate(fill, tmpl);
     assertTrue(allocEvents.stream().anyMatch(e -> e instanceof AllocationEvent.AllocationApplied));
 
@@ -81,7 +85,8 @@ class InMemoryAllocationServiceTest {
     Fill fill = new Fill("fill-1", "order-1", "route-1", 1000L, 50L);
     List<AccountShare> shares = List.of(new AccountShare("acct-1", "pb-1", 10000L));
     AllocationTemplate tmpl =
-        AllocationTemplate.of("tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, shares);
+        AllocationTemplate.of(
+            "tmpl-1", 1L, AllocationPolicy.PRO_RATA, RoundingPolicy.ROUND_HALF_UP, shares);
     svc.allocate(fill, tmpl);
     List<AllocationEvent.AllocationApplied> applied = svc.appliedFor("fill-1");
     assertEquals(1, applied.size());

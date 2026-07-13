@@ -14,7 +14,8 @@ class ConfirmationNetworkTest {
 
   @Test
   void affirmationResponseAccepted() {
-    ConfirmationNetwork.AffirmationResponse resp = ConfirmationNetwork.AffirmationResponse.accepted();
+    ConfirmationNetwork.AffirmationResponse resp =
+        ConfirmationNetwork.AffirmationResponse.accepted();
     assertNotNull(resp);
     assertTrue(resp.affirmed());
     assertEquals(null, resp.reason());
@@ -22,7 +23,8 @@ class ConfirmationNetworkTest {
 
   @Test
   void affirmationResponseRejected() {
-    ConfirmationNetwork.AffirmationResponse resp = ConfirmationNetwork.AffirmationResponse.rejected("bad qty");
+    ConfirmationNetwork.AffirmationResponse resp =
+        ConfirmationNetwork.AffirmationResponse.rejected("bad qty");
     assertNotNull(resp);
     assertEquals(false, resp.affirmed());
     assertEquals("bad qty", resp.reason());

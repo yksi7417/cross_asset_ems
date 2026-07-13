@@ -4,10 +4,10 @@
  */
 package io.crossasset.ems.oms;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import org.junit.jupiter.api.Test;
 
 class AmendResultTest {
 
@@ -23,10 +23,8 @@ class AmendResultTest {
 
   @Test
   void rejectedRecordEquality() {
-    AmendResult.Rejected r1 =
-        new AmendResult.Rejected("ord-1", "EMS-ORD-5003", "msg");
-    AmendResult.Rejected r2 =
-        new AmendResult.Rejected("ord-1", "EMS-ORD-5003", "msg");
+    AmendResult.Rejected r1 = new AmendResult.Rejected("ord-1", "EMS-ORD-5003", "msg");
+    AmendResult.Rejected r2 = new AmendResult.Rejected("ord-1", "EMS-ORD-5003", "msg");
     assertEquals(r1, r2);
     assertEquals(r1.hashCode(), r2.hashCode());
   }
@@ -37,7 +35,6 @@ class AmendResultTest {
         new AmendResult.Rejected("ord-1", "EMS-ORD-5003", "test rejection");
     String str = rejected.toString();
     assertNotNull(str);
-    assertEquals(
-        "Rejected[orderId=ord-1, rejectCode=EMS-ORD-5003, message=test rejection]", str);
+    assertEquals("Rejected[orderId=ord-1, rejectCode=EMS-ORD-5003, message=test rejection]", str);
   }
 }

@@ -4,17 +4,16 @@
  */
 package io.crossasset.ems.oms;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import org.junit.jupiter.api.Test;
 
 class AutomationActionTest {
 
   @Test
   void routeOrdersWithPrice() {
-    AutomationAction.RouteOrders action =
-        new AutomationAction.RouteOrders("VENUE-1", 5000L);
+    AutomationAction.RouteOrders action = new AutomationAction.RouteOrders("VENUE-1", 5000L);
     assertNotNull(action);
     assertEquals("VENUE-1", action.venueMic());
     assertEquals(5000L, action.price());
@@ -51,10 +50,8 @@ class AutomationActionTest {
 
   @Test
   void routeOrdersRecordEquality() {
-    AutomationAction.RouteOrders r1 =
-        new AutomationAction.RouteOrders("VENUE-1", 5000L);
-    AutomationAction.RouteOrders r2 =
-        new AutomationAction.RouteOrders("VENUE-1", 5000L);
+    AutomationAction.RouteOrders r1 = new AutomationAction.RouteOrders("VENUE-1", 5000L);
+    AutomationAction.RouteOrders r2 = new AutomationAction.RouteOrders("VENUE-1", 5000L);
     assertEquals(r1, r2);
     assertEquals(r1.hashCode(), r2.hashCode());
   }
