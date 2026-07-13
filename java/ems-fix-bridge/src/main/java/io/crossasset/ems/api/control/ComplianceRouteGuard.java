@@ -26,10 +26,10 @@ import org.jspecify.annotations.Nullable;
  * kill-switch route guard — a kill still overrides everything — and is only constructed when {@code
  * EMS_COMPLIANCE_GATE=1} (default off; see TraderDesktopEdgeMain).
  *
- * <p>v1 scope: the actor key is derived from the staging session (firm/desk resolution arrives with
- * the AAA identity wiring); instrument identity (figi/side) is not available on this path yet, so
- * per-instrument signature keying degrades to per-actor counting — rule 1 (route count per window)
- * is the protection this guard delivers. Route-lifecycle events and queries pass through untouched:
+ * <p>v2 scope: instrument identity (figi/side/account) is resolved from the staged order's FSM
+ * context, so per-instrument checks (list gate 10.4, machine-gun per-signature keying) evaluate the
+ * real instrument; firm/desk are the edge's configured identity (per-session firm/desk resolution
+ * arrives with the AAA identity wiring). Route-lifecycle events and queries pass through untouched:
  * compliance gates new exposure, never risk reduction.
  */
 public final class ComplianceRouteGuard implements RouteManager {
@@ -37,30 +37,40 @@ public final class ComplianceRouteGuard implements RouteManager {
   private final RouteManager delegate;
   private final ComplianceGate gate;
   private final StagedOrderManager orders;
+  private final String firm;
+  private final String desk;
 
   public ComplianceRouteGuard(
-      RouteManager delegate, ComplianceGate gate, StagedOrderManager orders) {
+      RouteManager delegate,
+      ComplianceGate gate,
+      StagedOrderManager orders,
+      String firm,
+      String desk) {
     this.delegate = Objects.requireNonNull(delegate, "delegate");
     this.gate = Objects.requireNonNull(gate, "gate");
     this.orders = Objects.requireNonNull(orders, "orders");
+    this.firm = Objects.requireNonNull(firm, "firm");
+    this.desk = Objects.requireNonNull(desk, "desk");
   }
 
   @Override
   public RouteResult route(RouteRequest request) {
-    long sessionId = orders.findOrder(request.orderId()).map(StagedOrder::sessionId).orElse(0L);
+    Optional<StagedOrder> order = orders.findOrder(request.orderId());
+    long sessionId = order.map(StagedOrder::sessionId).orElse(0L);
+    var context = order.map(StagedOrder::fsmContext).orElse(null);
     ComplianceOperation operation =
         new ComplianceOperation(
             ComplianceOperation.Kind.ROUTE,
             sessionId,
-            "firm-" + sessionId,
-            "desk-" + sessionId,
+            firm,
+            desk,
             "session-" + sessionId,
             request.orderId(),
-            "?",
-            0,
+            context != null ? context.instrumentId() : "?",
+            context != null ? context.side() : 0,
             request.qty(),
             request.price(),
-            "?");
+            context != null ? context.account() : "?");
     ComplianceDecision decision = gate.evaluate(operation);
     if (decision.outcome() == ComplianceOutcome.BLOCK) {
       String rationale =

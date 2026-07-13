@@ -104,6 +104,22 @@ public final class TraderDesktopEdgeMain {
     KillSwitchOrderGuard som = new KillSwitchOrderGuard(blotterSom, killState, aaa);
     io.crossasset.ems.oms.RouteManager complianceRoutes = blotterRoutes;
     if ("1".equals(System.getenv("EMS_COMPLIANCE_GATE"))) {
+      // List gate (10.4): lists are compliance-authored reference data. The demo edge seeds
+      // the firm restricted list from EMS_RESTRICTED_FIGIS (comma-separated) so a blocked
+      // route is one env var away; empty lists mean the check allows everything.
+      io.crossasset.ems.pretrade.compliance.ComplianceListService complianceLists =
+          new io.crossasset.ems.pretrade.compliance.ComplianceListService();
+      String restrictedFigis = System.getenv("EMS_RESTRICTED_FIGIS");
+      if (restrictedFigis != null && !restrictedFigis.isBlank()) {
+        for (String figi : restrictedFigis.split(",")) {
+          complianceLists.add(
+              io.crossasset.ems.pretrade.compliance.ComplianceListService.Kind.RESTRICTED,
+              "firm-demo",
+              figi.trim(),
+              0L,
+              null);
+        }
+      }
       complianceRoutes =
           new io.crossasset.ems.api.control.ComplianceRouteGuard(
               blotterRoutes,
@@ -112,8 +128,12 @@ public final class TraderDesktopEdgeMain {
                       new io.crossasset.ems.pretrade.compliance.MachineGunCheck(
                           new io.crossasset.ems.pretrade.compliance.MachineGunCheck.Policy(
                               60_000L, 50, 1_000_000_000L, 20),
-                          System::currentTimeMillis))),
-              som);
+                          System::currentTimeMillis),
+                      new io.crossasset.ems.pretrade.compliance.ListCheck(
+                          complianceLists, System::currentTimeMillis))),
+              som,
+              "firm-demo",
+              "desk-1");
     }
     KillSwitchRouteGuard routes = new KillSwitchRouteGuard(complianceRoutes, killState, aaa, som);
     KillSwitchService killSwitch =

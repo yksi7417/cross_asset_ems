@@ -8,12 +8,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.crossasset.ems.fsm.generated.OrderFsmContext;
 import io.crossasset.ems.fsm.generated.OrderFsmEvent;
+import io.crossasset.ems.fsm.generated.OrderFsmState;
 import io.crossasset.ems.oms.AmendFields;
 import io.crossasset.ems.oms.AmendResult;
 import io.crossasset.ems.oms.CancelResult;
 import io.crossasset.ems.oms.MarkReadyResult;
 import io.crossasset.ems.oms.OrderRequest;
+import io.crossasset.ems.oms.OrderSubState;
 import io.crossasset.ems.oms.Route;
 import io.crossasset.ems.oms.RouteEventResult;
 import io.crossasset.ems.oms.RouteManager;
@@ -23,13 +26,16 @@ import io.crossasset.ems.oms.StageResult;
 import io.crossasset.ems.oms.StagedOrder;
 import io.crossasset.ems.oms.StagedOrderManager;
 import io.crossasset.ems.pretrade.compliance.ComplianceGate;
+import io.crossasset.ems.pretrade.compliance.ComplianceListService;
+import io.crossasset.ems.pretrade.compliance.ListCheck;
 import io.crossasset.ems.pretrade.compliance.MachineGunCheck;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** ComplianceRouteGuard: machine-gun engagement on route(), pass-through everywhere else. */
+/** ComplianceRouteGuard: machine-gun + list engagement on route(), pass-through everywhere else. */
 class ComplianceRouteGuardTest {
 
   /** Records invocations; every mutator returns a canned Rejected so no Route is needed. */
@@ -128,7 +134,7 @@ class ComplianceRouteGuardTest {
   }
 
   /** findOrder returns empty (guard defaults sessionId to 0); everything else is inert. */
-  static final class FakeStagedOrderManager implements StagedOrderManager {
+  static class FakeStagedOrderManager implements StagedOrderManager {
     @Override
     public StageResult stage(OrderRequest request) {
       return new StageResult.Rejected(request.requestId(), "FAKE", "x");
@@ -174,10 +180,42 @@ class ComplianceRouteGuardTest {
     }
   }
 
+  /** findOrder returns one staged order with real instrument identity in its FSM context. */
+  static final class OneOrderStagedOrderManager extends FakeStagedOrderManager {
+    private final StagedOrder order;
+
+    OneOrderStagedOrderManager(String orderId, String figi, String account) {
+      this.order =
+          new StagedOrder(
+              orderId,
+              "CL-1",
+              7L,
+              OrderFsmState.NEW,
+              new OrderFsmContext(
+                  orderId, "CL-1", null, figi, 1, 100L, null, 0L, 100L, account, 0, "CL-1", orderId,
+                  1L, null, null),
+              OrderSubState.READY,
+              Set.of(),
+              1_000L);
+    }
+
+    @Override
+    public Optional<StagedOrder> findOrder(String orderId) {
+      return order.orderId().equals(orderId) ? Optional.of(order) : Optional.empty();
+    }
+  }
+
   private static ComplianceRouteGuard guard(FakeRouteManager delegate, long[] clock) {
     MachineGunCheck.Policy policy = new MachineGunCheck.Policy(1000L, 2, 1_000_000_000L, 100);
     ComplianceGate gate = new ComplianceGate(List.of(new MachineGunCheck(policy, () -> clock[0])));
-    return new ComplianceRouteGuard(delegate, gate, new FakeStagedOrderManager());
+    return new ComplianceRouteGuard(
+        delegate, gate, new FakeStagedOrderManager(), "firm-1", "desk-1");
+  }
+
+  private static ComplianceRouteGuard listGuard(
+      FakeRouteManager delegate, ComplianceListService lists, StagedOrderManager orders) {
+    ComplianceGate gate = new ComplianceGate(List.of(new ListCheck(lists, () -> 5_000L)));
+    return new ComplianceRouteGuard(delegate, gate, orders, "firm-1", "desk-1");
   }
 
   private static RouteRequest req(String id) {
@@ -211,6 +249,58 @@ class ComplianceRouteGuardTest {
     clock[0] += 10_000L; // window expired
     guard.route(req("R4"));
     assertEquals(List.of("route:R1", "route:R2", "route:R4"), delegate.calls);
+  }
+
+  @Test
+  void restrictedInstrumentIsBlockedWithTheRealFigi() {
+    FakeRouteManager delegate = new FakeRouteManager();
+    ComplianceListService lists = new ComplianceListService();
+    lists.add(ComplianceListService.Kind.RESTRICTED, "firm-1", "BBG000BLNNH6", 0L, null);
+    ComplianceRouteGuard guard =
+        listGuard(delegate, lists, new OneOrderStagedOrderManager("O1", "BBG000BLNNH6", "ACC-1"));
+
+    RouteResult result = guard.route(req("R1"));
+    RouteResult.Rejected rejected = assertInstanceOf(RouteResult.Rejected.class, result);
+    assertEquals("EMS-CMP-9701", rejected.rejectCode());
+    assertTrue(rejected.message().contains("instrument_on_restricted_list"));
+    assertTrue(rejected.message().contains("BBG000BLNNH6")); // figi came from the staged order
+    assertEquals(List.of(), delegate.calls); // never reached the venue path
+  }
+
+  @Test
+  void unlistedInstrumentRoutesThrough() {
+    FakeRouteManager delegate = new FakeRouteManager();
+    ComplianceListService lists = new ComplianceListService();
+    lists.add(ComplianceListService.Kind.RESTRICTED, "firm-1", "BBG000OTHER1", 0L, null);
+    ComplianceRouteGuard guard =
+        listGuard(delegate, lists, new OneOrderStagedOrderManager("O1", "BBG000BLNNH6", "ACC-1"));
+
+    guard.route(req("R1"));
+    assertEquals(List.of("route:R1"), delegate.calls);
+  }
+
+  @Test
+  void watchListedInstrumentWarnsButStillRoutes() {
+    FakeRouteManager delegate = new FakeRouteManager();
+    ComplianceListService lists = new ComplianceListService();
+    lists.add(ComplianceListService.Kind.WATCH, "firm-1", "BBG000BLNNH6", 0L, null);
+    ComplianceRouteGuard guard =
+        listGuard(delegate, lists, new OneOrderStagedOrderManager("O1", "BBG000BLNNH6", "ACC-1"));
+
+    guard.route(req("R1"));
+    assertEquals(List.of("route:R1"), delegate.calls); // WARN gates nothing
+  }
+
+  @Test
+  void unknownOrderFallsBackToPlaceholderIdentityAndRoutes() {
+    FakeRouteManager delegate = new FakeRouteManager();
+    ComplianceListService lists = new ComplianceListService();
+    lists.add(ComplianceListService.Kind.RESTRICTED, "firm-1", "BBG000BLNNH6", 0L, null);
+    // findOrder empty -> figi "?" -> restricted entry cannot match
+    ComplianceRouteGuard guard = listGuard(delegate, lists, new FakeStagedOrderManager());
+
+    guard.route(req("R1"));
+    assertEquals(List.of("route:R1"), delegate.calls);
   }
 
   @Test
