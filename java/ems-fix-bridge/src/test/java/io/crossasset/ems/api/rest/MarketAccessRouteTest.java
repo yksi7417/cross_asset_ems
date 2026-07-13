@@ -104,6 +104,7 @@ class MarketAccessRouteTest {
     binding.setMarketAccess(onePackControl(), () -> 9_000L);
     RestEdgeBinding.HttpResult result =
         binding.handle("GET", "/api/v1/market-access", Map.of(), Map.of(), "");
-    assertThat(result.status()).isNotEqualTo(200); // no X-EMS-Session header -> refused
+    assertThat(result.status()).isEqualTo(400);
+    assertThat(result.body()).contains("X-EMS-Session");
   }
 }
