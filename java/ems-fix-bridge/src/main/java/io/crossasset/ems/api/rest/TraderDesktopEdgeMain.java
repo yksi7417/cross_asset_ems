@@ -102,7 +102,20 @@ public final class TraderDesktopEdgeMain {
     // Kill-switch guards are outermost (18.4): every surface constructs against them.
     KillSwitchState killState = new KillSwitchState();
     KillSwitchOrderGuard som = new KillSwitchOrderGuard(blotterSom, killState, aaa);
-    KillSwitchRouteGuard routes = new KillSwitchRouteGuard(blotterRoutes, killState, aaa, som);
+    io.crossasset.ems.oms.RouteManager complianceRoutes = blotterRoutes;
+    if ("1".equals(System.getenv("EMS_COMPLIANCE_GATE"))) {
+      complianceRoutes =
+          new io.crossasset.ems.api.control.ComplianceRouteGuard(
+              blotterRoutes,
+              new io.crossasset.ems.pretrade.compliance.ComplianceGate(
+                  java.util.List.of(
+                      new io.crossasset.ems.pretrade.compliance.MachineGunCheck(
+                          new io.crossasset.ems.pretrade.compliance.MachineGunCheck.Policy(
+                              60_000L, 50, 1_000_000_000L, 20),
+                          System::currentTimeMillis))),
+              som);
+    }
+    KillSwitchRouteGuard routes = new KillSwitchRouteGuard(complianceRoutes, killState, aaa, som);
     KillSwitchService killSwitch =
         new KillSwitchService(
             aaa, som, routes, killState, subscriptions, System::currentTimeMillis);
