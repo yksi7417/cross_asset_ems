@@ -752,9 +752,14 @@ public final class RestEdgeBinding {
     }
     long sessionId = requireSession(headers);
     if ("GET".equals(method) && "/api/v1/compliance/blocks".equals(path)) {
+      var identity = aaa.sessionInfo(sessionId).orElseThrow().identity();
       ObjectNode out = mapper.createObjectNode();
       ArrayNode blocks = out.putArray("blocks");
       for (io.crossasset.ems.pretrade.compliance.PendingBlock b : gate.pendingBlocks()) {
+        if (!Objects.equals(b.operation().firm(), identity.firmId())
+            || !Objects.equals(b.operation().desk(), identity.deskId())) {
+          continue;
+        }
         ObjectNode node = blocks.addObject();
         node.put("blockId", b.blockId());
         node.put("ruleId", b.ruleId());
