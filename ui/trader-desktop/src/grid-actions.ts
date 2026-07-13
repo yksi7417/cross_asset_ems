@@ -27,6 +27,8 @@ export interface GridAction {
   label: (n: number) => string;
   /** State filter: which selected rows this action can act on (18.18: state-aware menus). */
   applicable?: (row: GridRow) => boolean;
+  /** When true, prompts the user with a confirmation dialog before running. */
+  destructive?: boolean;
   run: (rows: GridRow[]) => void | Promise<void>;
 }
 
@@ -362,6 +364,19 @@ export function attachGridInteractions(
           // Visible but inert: the user learns WHY nothing would happen instead of a 0/N toast.
           item.disabled = true;
           item.textContent += " — no applicable rows";
+        } else if (action.destructive) {
+          item.addEventListener("click", () => {
+            closeMenu();
+            const label = action.label(rows.length).replace(/\s*\(.*\)\s*$/, "");
+            if (
+              !window.confirm(
+                `Are you sure you want to ${label.toLowerCase()} ${rows.length} order${rows.length === 1 ? "" : "s"}? This action cannot be undone.`,
+              )
+            ) {
+              return;
+            }
+            void action.run(rows);
+          });
         } else {
           item.addEventListener("click", () => {
             closeMenu();
