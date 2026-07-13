@@ -782,6 +782,15 @@ public final class RestEdgeBinding {
               path.length() - (approve ? "/approve" : "/deny").length());
       String rationale = mapper.readTree(body).path("rationale").asText("");
       var identity = aaa.sessionInfo(sessionId).orElseThrow().identity();
+      var block = gate.findBlock(blockId).orElse(null);
+      if (block == null
+          || block.status() != io.crossasset.ems.pretrade.compliance.PendingBlock.Status.PENDING) {
+        return error(404, "Block unknown or not pending.");
+      }
+      if (!Objects.equals(block.operation().firm(), identity.firmId())
+          || !Objects.equals(block.operation().desk(), identity.deskId())) {
+        return error(403, "Block does not belong to your firm/desk.");
+      }
       var result =
           approve
               ? overrides.approve(
