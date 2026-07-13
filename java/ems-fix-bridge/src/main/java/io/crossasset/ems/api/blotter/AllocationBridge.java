@@ -60,9 +60,12 @@ public final class AllocationBridge {
       long qty = row.path("lastQty").asLong(0L);
       long px = row.path("lastPx").asLong(0L);
 
-      if (execId == null || execId.isBlank()
-          || orderId == null || orderId.isBlank()
-          || routeId == null || routeId.isBlank()
+      if (execId == null
+          || execId.isBlank()
+          || orderId == null
+          || orderId.isBlank()
+          || routeId == null
+          || routeId.isBlank()
           || qty <= 0) {
         return;
       }
