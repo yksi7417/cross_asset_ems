@@ -61,6 +61,9 @@ async function fire(): Promise<void> {
   const side = Number(el<HTMLSelectElement>("tk-side").value);
   const qty = Number(el<HTMLInputElement>("tk-qty").value);
   const account = el<HTMLInputElement>("tk-account").value.trim();
+  if (!window.confirm(`Fire RFQ for ${qty} units? This will request quotes from multiple dealers.`)) {
+    return;
+  }
   const response = await fetch("/api/v1/rfq/request", {
     method: "POST",
     headers: sessionHeader,
@@ -104,6 +107,12 @@ async function refresh(): Promise<void> {
 
 async function accept(responseId: string): Promise<void> {
   if (!current) {
+    return;
+  }
+  const quote = current.quotes.find((q) => q.responseId === responseId);
+  const qty = quote?.qty ?? 0;
+  const dealer = quote?.dealer ?? "unknown";
+  if (!window.confirm(`Accept quote from ${dealer} for ${qty} units? This will book the execution.`)) {
     return;
   }
   const response = await fetch(`/api/v1/rfq/${encodeURIComponent(current.rfqId)}/elect`, {
