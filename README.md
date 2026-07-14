@@ -55,11 +55,14 @@ are optional for app work and documented in the same file — the demo does not 
 
 ---
 
-## Current status (2026-06-11)
+## Current status (2026-07-14)
 
-**143 of 179 plan tasks complete (≈80%).** MVP v0, Phase 16 cross-asset coverage, the v1
-build-out, and Phase 18 (trader desktop & buyer-readiness) are all done; the full suite was green
-at goal close.
+**Plan fully complete — 195/195 tasks (100%).** MVP v0, Phase 16 cross-asset coverage, the v1
+build-out, Phase 18 (trader desktop & buyer-readiness), and the regulatory/routing-intelligence
+batches (CAT, commissions, TCA, surveillance, drop-copy, SOR/algo wheel, RFQ) are all done; the
+full suite is green. An overnight fix-factory also runs against the repo, opening gated,
+mechanically-verified PRs for coverage gaps and previously-unwired components — every such PR
+carries its own gate evidence (build, tests, effectiveness, no-regression) in the description.
 
 | Area | State |
 |---|---|
@@ -67,12 +70,15 @@ at goal close.
 | Core spine: FSMs, Aeron/SBE transport, event sourcing, reference data, AAA, validator | ✅ |
 | OMS: staged orders, router, automation, multi-leg, aggregation, FX netting | ✅ |
 | Edges: client + venue FIX gateways, typed API surface, REST/WS binding, bulk CSV I/O, FIX venue simulator | ✅ |
-| Pre-trade: compliance gate, lists/overrides, rate limiter, positions, risk, pricing, analytics, borrow/locate (Reg SHO) | ✅ |
-| Post-trade (MVP scope): allocation, STP, confirmation, regulatory reporting, TRACE-mock | ✅ |
+| Pre-trade: compliance gate (rate limiter, restricted/allow/watch lists, fat-finger), override desk (four-eyes release/deny over REST), positions, risk, pricing, analytics, borrow/locate (Reg SHO) | ✅ |
+| Post-trade: allocation (event-sourced, live off the fill stream), STP, confirmation, regulatory reporting, TRACE-mock | ✅ |
+| Routing intelligence: SOR, algo wheel, RFQ-to-N workflow, broker algos (FIXatdl) | ✅ |
+| Regulatory: CAT submission, commissions/fees, TCA + best-ex audit, surveillance feed, client drop-copy | ✅ |
+| 15c3-5 market-access attestation pack — REST-exported, evidence pulled from the live services | ✅ |
 | End-to-end proof: 7 asset classes, single trace ID, byte-identical replay; FIX-wire smoke | ✅ |
 | Ops: introspection, admin console, blue/green switchover, cluster lease, failover drills | ✅ |
-| **Trader desktop**: Perspective blotter/watchlist/ticket/baskets/P&L/notifications, ESP click-to-trade, kill switch, maker-checker, SSO/SCIM, 15c3-5 attestation pack, runnable demo + video | ✅ |
-| Next: CAT submission, commissions, TCA, surveillance, drop-copy (12.12–12.16); real venue adapters (11.3–11.14); internal market-data fabric (Phase 9, deferred) | 🚧 |
+| **Trader desktop**: Perspective blotter/watchlist/ticket/baskets/P&L/notifications, ESP click-to-trade, kill switch, maker-checker, SSO/SCIM, dockable VSCode-style layout, audit-trail viewer, runnable demo + video | ✅ |
+| Post-MVP: real venue adapters (11.3–11.14); internal market-data fabric (Phase 9, deferred by design) | 🚧 |
 
 ---
 
