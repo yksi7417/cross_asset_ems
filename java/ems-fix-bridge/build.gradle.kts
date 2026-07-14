@@ -39,3 +39,18 @@ tasks.register<JavaExec>("runFixSimulator") {
     mainClass.set("io.crossasset.ems.fix.sim.FixSimulatorMain")
     args(project.findProperty("simPort")?.toString() ?: "9876")
 }
+
+// Client-side sibling of runFixSimulator (tasks 11.3-11.10 dialect catalogue, wired 2026-07-14):
+// connects to a running FixSimulator with a real VenueDialects entry installed.
+//   ./gradlew :ems-fix-bridge:runFixSimulator -PsimPort=9876          # one terminal
+//   ./gradlew :ems-fix-bridge:runVenueGateway -PsimPort=9876 -Pdialect=brokertec  # another
+tasks.register<JavaExec>("runVenueGateway") {
+    group = "application"
+    description = "Connect a VenueDialects-equipped FixVenueGateway to a running FIX simulator"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("io.crossasset.ems.fix.venue.VenueGatewayMain")
+    args(
+        project.findProperty("simPort")?.toString() ?: "9876",
+        project.findProperty("dialect")?.toString() ?: "us-equity",
+    )
+}
