@@ -1,0 +1,66 @@
+name: Auto-format main
+
+# Squash-merge combinations can land formatting drift on main even when
+# every PR was green individually (2026-07-13: #20+#21, then #25+#26 both
+# drifted TraderDesktopEdgeMain). This job runs after every push to main:
+# if spotlessCheck would fail, it commits `spotlessApply` straight back to
+# main so the next CI run is green — no human, no factory heal PR needed.
+#
+# Safety:
+#   - pushes from this job use the default GITHUB_TOKEN and do not re-trigger
+#     workflows, so non-empty formatting fixes don't loop.
+#   - spotlessApply on an already-formatted tree is an empty diff → no push.
+#   - concurrency serializes runs; if a newer commit lands first, this run's
+#     push can fail non-fast-forward and the job fails.
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: format-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  format:
+    name: spotlessApply on main
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          # default GITHUB_TOKEN: pushes from this job do NOT re-trigger
+          # workflows, so the loop terminates even on a non-empty fix
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/wrapper-validation@v4
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: spotlessApply
+        run: ./gradlew --no-daemon spotlessApply
+
+      - name: Commit and push the fix (empty diff = no-op)
+        run: |
+          if git diff --quiet; then
+            echo "main already formatted — nothing to do"
+            exit 0
+          fi
+          git config user.name  "format-bot"
+          git config user.email "format-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "style: auto-format main (post-merge spotlessApply)"
+          git push origin HEAD:main || {
+            echo "push rejected (likely non-fast-forward); next main push will re-run formatting"
+            exit 0
+          }
