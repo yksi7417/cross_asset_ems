@@ -7,10 +7,11 @@ name: Auto-format main
 # main so the next CI run is green — no human, no factory heal PR needed.
 #
 # Safety:
-#   - [skip-format] / bot-authored format commits never re-trigger a loop:
-#     spotlessApply on an already-formatted tree is an empty diff → no push.
-#   - concurrency serializes runs; a race with a newer push just no-ops
-#     (push --ff-only fails silently and the next run picks it up).
+#   - pushes from this job use the default GITHUB_TOKEN and do not re-trigger
+#     workflows, so non-empty formatting fixes don't loop.
+#   - spotlessApply on an already-formatted tree is an empty diff → no push.
+#   - concurrency serializes runs; if a newer commit lands first, this run's
+#     push can fail non-fast-forward and the job fails.
 on:
   push:
     branches: [main]
