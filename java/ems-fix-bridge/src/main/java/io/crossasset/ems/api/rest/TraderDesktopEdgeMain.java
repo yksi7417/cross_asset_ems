@@ -511,6 +511,20 @@ public final class TraderDesktopEdgeMain {
             orderId -> demoTemplate)
         .attach();
 
+    // ── Client drop-copy (12.16): read-only ExecutionReport mirror, always on -- a drop
+    // copy can never originate or block an order, so unlike the compliance gate there is no
+    // flag here. Demo subscribes one firm-level session (a risk desk watching all of
+    // firm-demo's flow); real deployments subscribe per client/desk/firm as onboarded.
+    io.crossasset.ems.fix.dropcopy.DropCopyService dropCopy =
+        new io.crossasset.ems.fix.dropcopy.DropCopyService("EMS");
+    dropCopy.subscribe(
+        io.crossasset.ems.fix.dropcopy.DropCopyService.ScopeKind.FIRM,
+        "firm-demo",
+        "RISK-DESK",
+        (subscriptionId, seqNum, rawFix) ->
+            System.out.println("[drop-copy] " + subscriptionId + " seq=" + seqNum + " " + rawFix));
+    new io.crossasset.ems.api.blotter.DropCopyBridge(subscriptions, som, aaa, dropCopy).attach();
+
     // ── Intraday P&L (18.7): fills feed positions, md ticks feed marks ─────────
     PositionService positionService = new PositionService();
     PnlService pnlService =
