@@ -866,7 +866,7 @@ public final class RestEdgeBinding {
     String csv =
         io.crossasset.ems.bulk.BlotterExporter.toCsv(
             ownOrders, io.crossasset.ems.bulk.ExportTemplate.DEFAULT_BLOTTER);
-    return new HttpResult(200, csv, "text/csv");
+    return new HttpResult(200, csv, "text/csv; charset=utf-8");
   }
 
   /** Acknowledge a notification (18.8); the acker is the session identity. */

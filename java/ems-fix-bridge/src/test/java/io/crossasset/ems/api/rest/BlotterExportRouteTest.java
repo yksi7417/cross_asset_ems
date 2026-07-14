@@ -162,7 +162,7 @@ class BlotterExportRouteTest {
             Map.of("x-ems-session", String.valueOf(sessionA)),
             "");
     assertThat(result.status()).isEqualTo(200);
-    assertThat(result.contentType()).isEqualTo("text/csv");
+    assertThat(result.contentType()).isEqualTo("text/csv; charset=utf-8");
     assertThat(result.body()).contains("O-A").contains("ACC-A");
     assertThat(result.body()).doesNotContain("O-B").doesNotContain("ACC-B");
   }
