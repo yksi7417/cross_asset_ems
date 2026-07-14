@@ -60,7 +60,7 @@ public final class RestHttpServer {
               headers,
               body);
       byte[] payload = result.body().getBytes(StandardCharsets.UTF_8);
-      exchange.getResponseHeaders().set("Content-Type", "application/json");
+      exchange.getResponseHeaders().set("Content-Type", result.contentType());
       exchange.sendResponseHeaders(result.status(), payload.length);
       try (OutputStream out = exchange.getResponseBody()) {
         out.write(payload);
