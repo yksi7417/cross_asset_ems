@@ -397,6 +397,9 @@ export function initTicket(
   });
 
   el<HTMLButtonElement>("tk-cancel").addEventListener("click", () => {
+    if (!window.confirm("Cancel 1 order? This action cannot be undone.")) {
+      return;
+    }
     void act("CANCEL", () => api.operation("cancel_orders", [{ orderId: orderSelect.value }]));
   });
 
