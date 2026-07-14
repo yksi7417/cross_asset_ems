@@ -60,4 +60,7 @@ jobs:
           git config user.email "format-bot@users.noreply.github.com"
           git add -A
           git commit -m "style: auto-format main (post-merge spotlessApply)"
-          git push origin HEAD:main
+          git push origin HEAD:main || {
+            echo "push rejected (likely non-fast-forward); next main push will re-run formatting"
+            exit 0
+          }
