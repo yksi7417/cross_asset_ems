@@ -56,30 +56,57 @@ public final class DropCopyBridge {
     } catch (Exception e) {
       return; // malformed row: blotter payloads are factory-shaped, never fatal here
     }
-    String orderId = row.path("orderId").asText();
+    String orderId = row.path("orderId").asText(null);
+    String execId = row.path("execId").asText(null);
+    String figi = row.path("figi").asText(null);
+    int side = row.path("side").asInt(0);
+    long lastQty = row.path("lastQty").asLong(0L);
+    long lastPx = row.path("lastPx").asLong(0L);
+    long ts = row.path("ts").asLong(0L);
+
+    if (orderId == null
+        || orderId.isBlank()
+        || execId == null
+        || execId.isBlank()
+        || figi == null
+        || figi.isBlank()
+        || lastQty <= 0
+        || (side != 1 && side != 2)
+        || ts <= 0) {
+      return;
+    }
+
     Optional<StagedOrder> order = orders.findOrder(orderId);
     if (order.isEmpty()) {
-      return; // fill arrived for an order this bridge can't resolve context for -- skip, don't
-      // guess
+      return; // fill arrived for an order this bridge can't resolve context for -- skip, don't guess
     }
     var context = order.get().fsmContext();
+    String account = context.account();
     var identity = aaa.sessionInfo(order.get().sessionId()).map(s -> s.identity()).orElse(null);
-    if (identity == null) {
-      return; // session gone (logged off) -- no firm/desk to scope the copy by
+    String firm = identity != null ? identity.firmId() : null;
+    String desk = identity != null ? identity.deskId() : null;
+    if (account == null
+        || account.isBlank()
+        || firm == null
+        || firm.isBlank()
+        || desk == null
+        || desk.isBlank()) {
+      return; // no firm/desk/account to scope the copy by
     }
+
     dropCopy.onExecution(
         new DropCopyService.Execution(
-            row.path("execId").asText(),
+            execId,
             orderId,
-            context.account(),
-            identity.deskId(),
-            identity.firmId(),
-            row.path("figi").asText(),
-            row.path("side").asInt(),
-            row.path("lastQty").asLong(),
-            row.path("lastPx").asLong(),
+            account,
+            desk,
+            firm,
+            figi,
+            side,
+            lastQty,
+            lastPx,
             context.cumQty(),
             context.leavesQty(),
-            row.path("ts").asLong()));
+            ts));
   }
 }
