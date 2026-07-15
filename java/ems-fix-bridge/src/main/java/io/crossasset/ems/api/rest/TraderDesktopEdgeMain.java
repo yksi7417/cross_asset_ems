@@ -82,7 +82,9 @@ public final class TraderDesktopEdgeMain {
         Set.of(
             "#compliance-override-restricted-instrument",
             "#compliance-override-add-to-allow-list",
-            "#compliance-override-fat-finger");
+            "#compliance-override-fat-finger",
+            io.crossasset.ems.pretrade.borrow.ShortSaleLocateCheck.HTB_TAG,
+            io.crossasset.ems.pretrade.borrow.ShortSaleLocateCheck.NAKED_SHORT_OVERRIDE_TAG);
     java.util.Set<String> traderTags = new java.util.HashSet<>(overrideTags);
     traderTags.add("#kill-switch");
     aaa.registerCredential("trader-token", "firm-demo", "desk-1", "trader-1", traderTags);
@@ -113,6 +115,10 @@ public final class TraderDesktopEdgeMain {
     io.crossasset.ems.oms.RouteManager complianceRoutes = blotterRoutes;
     io.crossasset.ems.pretrade.compliance.ComplianceGate complianceGate = null;
     io.crossasset.ems.pretrade.compliance.OverrideService complianceOverrides = null;
+    // Shared with the 15c3-5 pack below (18.5): one borrow journal, so the Reg SHO
+    // attestation evidence reflects the SAME locates the short-sale gate actually took.
+    io.crossasset.ems.pretrade.borrow.BorrowService borrowService =
+        new io.crossasset.ems.pretrade.borrow.BorrowService(60_000L);
     if ("1".equals(System.getenv("EMS_COMPLIANCE_GATE"))) {
       // List gate (10.4): lists are compliance-authored reference data. The demo edge seeds
       // the firm restricted list from EMS_RESTRICTED_FIGIS (comma-separated) so a blocked
@@ -134,6 +140,11 @@ public final class TraderDesktopEdgeMain {
               null);
         }
       }
+      // Override mechanics (10.5) tag checker; the gate and ShortSaleLocateCheck (18.6) both
+      // consult it, so it's built before the gate. Demo consults the credential registrations
+      // above; production wires the 5.3 AND-gate.
+      java.util.Map<String, java.util.Set<String>> tagsByUser =
+          java.util.Map.of("trader-1", overrideTags);
       complianceGate =
           new io.crossasset.ems.pretrade.compliance.ComplianceGate(
               java.util.List.of(
@@ -142,11 +153,11 @@ public final class TraderDesktopEdgeMain {
                           60_000L, 50, 1_000_000_000L, 20),
                       System::currentTimeMillis),
                   new io.crossasset.ems.pretrade.compliance.ListCheck(
-                      complianceLists, System::currentTimeMillis)));
-      // Override mechanics (10.5) over the same gate's block store. The demo tag checker
-      // consults the credential registrations above; production wires the 5.3 AND-gate.
-      java.util.Map<String, java.util.Set<String>> tagsByUser =
-          java.util.Map.of("trader-1", overrideTags);
+                      complianceLists, System::currentTimeMillis),
+                  new io.crossasset.ems.pretrade.borrow.ShortSaleLocateCheck(
+                      borrowService,
+                      user -> tagsByUser.getOrDefault(user, Set.of()),
+                      System::currentTimeMillis)));
       complianceOverrides =
           new io.crossasset.ems.pretrade.compliance.OverrideService(
               complianceGate,
@@ -370,6 +381,7 @@ public final class TraderDesktopEdgeMain {
     if (complianceGate != null && complianceOverrides != null) {
       binding.setCompliance(complianceGate, complianceOverrides); // 10.5 override routes
     }
+    binding.setBlotterExport(som); // 8.7: GET /api/v1/blotter/export.csv
     binding.setIssuerNames(DemoUniverse.ISSUER_NAMES::get); // 18.29: group-by-issuer
     binding.setCurrencyProfiles(DemoUniverse::profileOf); // 18.30: trading/settle/base/quote
     binding.setQuoteStyles(core -> DemoUniverse.quoteStyleOf(core).name()); // 11.18
@@ -380,8 +392,6 @@ public final class TraderDesktopEdgeMain {
     // amendments, Reg SHO attestation) is pulled at export time, never hand-maintained.
     io.crossasset.ems.pretrade.risk.RiskLimits riskLimits =
         new io.crossasset.ems.pretrade.risk.RiskLimits();
-    io.crossasset.ems.pretrade.borrow.BorrowService borrowService =
-        new io.crossasset.ems.pretrade.borrow.BorrowService(60_000L);
     binding.setMarketAccess(
         io.crossasset.ems.api.control.EmsMarketAccessControls.standard(
             "firm-demo", killSwitch, riskLimits, borrowService, System::currentTimeMillis),

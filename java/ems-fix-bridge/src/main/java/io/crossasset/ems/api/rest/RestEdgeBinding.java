@@ -52,8 +52,12 @@ import java.util.Objects;
  */
 public final class RestEdgeBinding {
 
-  /** Minimal HTTP response: status code + JSON body. */
-  public record HttpResult(int status, String body) {}
+  /** Minimal HTTP response: status code + body, JSON unless a route says otherwise. */
+  public record HttpResult(int status, String body, String contentType) {
+    public HttpResult(int status, String body) {
+      this(status, body, "application/json");
+    }
+  }
 
   private final ObjectMapper mapper = new ObjectMapper();
   private final AaaService aaa;
@@ -125,6 +129,14 @@ public final class RestEdgeBinding {
       io.crossasset.ems.api.control.MarketAccessPack pack, java.util.function.LongSupplier clock) {
     this.marketAccess = pack;
     this.marketAccessClock = clock;
+  }
+
+  /** Blotter CSV export (8.7): {@code GET /api/v1/blotter/export.csv}, own orders only. */
+  private io.crossasset.ems.oms.@org.jspecify.annotations.Nullable StagedOrderManager exportOrders;
+
+  /** Wire the staged order manager so {@code /api/v1/blotter/export.csv} has orders to render. */
+  public void setBlotterExport(io.crossasset.ems.oms.StagedOrderManager orders) {
+    this.exportOrders = orders;
   }
 
   /** Compliance override desk (10.5): pending blocks + approve/deny over the live gate. */
@@ -330,6 +342,9 @@ public final class RestEdgeBinding {
       }
       if ("GET".equals(method) && "/api/v1/market-access".equals(path)) {
         return marketAccessRoute(headers);
+      }
+      if ("GET".equals(method) && "/api/v1/blotter/export.csv".equals(path)) {
+        return blotterExportRoute(headers);
       }
       if ("/api/v1/compliance/blocks".equals(path)
           || path.startsWith("/api/v1/compliance/blocks/")) {
@@ -834,6 +849,24 @@ public final class RestEdgeBinding {
     requireSession(headers);
     return new HttpResult(
         200, marketAccess.attestationExport(marketAccessClock.getAsLong()).toString());
+  }
+
+  /**
+   * Blotter CSV export (task 8.7): {@code GET /api/v1/blotter/export.csv} renders the session's OWN
+   * active orders under the default template -- exports are always permission-scoped at the row
+   * level, per {@link io.crossasset.ems.bulk.BlotterExporter}'s own contract.
+   */
+  private HttpResult blotterExportRoute(Map<String, String> headers) {
+    if (exportOrders == null) {
+      return error(404, "Blotter export not configured on this edge.");
+    }
+    long sessionId = requireSession(headers);
+    List<io.crossasset.ems.oms.StagedOrder> ownOrders =
+        exportOrders.activeOrders().stream().filter(o -> o.sessionId() == sessionId).toList();
+    String csv =
+        io.crossasset.ems.bulk.BlotterExporter.toCsv(
+            ownOrders, io.crossasset.ems.bulk.ExportTemplate.DEFAULT_BLOTTER);
+    return new HttpResult(200, csv, "text/csv; charset=utf-8");
   }
 
   /** Acknowledge a notification (18.8); the acker is the session identity. */
