@@ -4,8 +4,8 @@
  */
 package io.crossasset.ems.fix.sim;
 
+import io.crossasset.ems.fix.FixWireFraming;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -57,21 +57,6 @@ public final class FixSimulatorMain {
               }
             });
 
-    InputStream in = socket.getInputStream();
-    StringBuilder buffer = new StringBuilder();
-    int c;
-    while ((c = in.read()) >= 0) {
-      buffer.append((char) c);
-      // A FIX message ends with the checksum field: "10=NNN<SOH>".
-      int len = buffer.length();
-      if (c == '\u0001'
-          && len >= 7
-          && buffer.charAt(len - 7) == '1'
-          && buffer.charAt(len - 6) == '0'
-          && buffer.charAt(len - 5) == '=') {
-        simulator.onInbound(buffer.toString());
-        buffer.setLength(0);
-      }
-    }
+    FixWireFraming.readFrames(socket.getInputStream(), simulator::onInbound);
   }
 }

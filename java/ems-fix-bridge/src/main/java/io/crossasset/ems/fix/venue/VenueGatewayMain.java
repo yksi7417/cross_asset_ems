@@ -4,6 +4,7 @@
  */
 package io.crossasset.ems.fix.venue;
 
+import io.crossasset.ems.fix.FixWireFraming;
 import io.crossasset.ems.fix.OutboundSink;
 import io.crossasset.ems.fix.venue.dialects.VenueDialects;
 import io.crossasset.ems.transport.session.SequenceRecoveryService;
@@ -12,11 +13,15 @@ import io.crossasset.ems.venue.VenueEventSink;
 import io.crossasset.ems.venue.VenueRef;
 import io.crossasset.ems.venue.VenueRouteRequest;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Standalone TCP client for {@link FixVenueGateway} (tasks 11.3–11.10, wired 2026-07-14): connects
@@ -33,11 +38,14 @@ import java.util.EnumSet;
  * ./gradlew :ems-fix-bridge:runVenueGateway -PsimPort=9876 -Pdialect=brokertec
  * }</pre>
  *
- * <p>{@code -Pdialect} selects a {@link VenueDialects} factory by key: {@code us-equity} (default,
- * MIC XNAS), {@code brokertec}, {@code tradeweb}. All three take limit/RFQ orders only except
- * us-equity, so the default order is a limit at 100.00.
+ * <p>{@code -Pdialect} selects which {@link VenueDialects} factory to install: {@code us-equity}
+ * (default -- {@link VenueDialects#usEquityExchange}, whose own id is {@code us-equity-xnas}),
+ * {@code brokertec}, {@code tradeweb}. All three take limit/RFQ orders only except us-equity, so
+ * the default order is a limit at 100.00.
  */
 public final class VenueGatewayMain {
+
+  private static final long TERMINAL_WAIT_S = 5;
 
   private VenueGatewayMain() {}
 
@@ -59,11 +67,12 @@ public final class VenueGatewayMain {
             }
           };
 
+      CountDownLatch terminal = new CountDownLatch(1);
       FixVenueGateway gateway =
           new FixVenueGateway(
               new VenueRef(dialect.id(), micFor(dialectId), Dialect.FIX),
               EnumSet.copyOf(dialect.capabilities()),
-              loggingSink(),
+              loggingSink(terminal),
               false,
               new SequenceRecoveryService(() -> 0L),
               1L,
@@ -82,29 +91,21 @@ public final class VenueGatewayMain {
       gateway.submit(request);
       System.out.println("[venue-gw] submitted " + request);
 
-      Thread.sleep(1_500); // let the venue's async ExecutionReport arrive and print
+      // Bounded wait for a terminal venue event (FILLED/REJECTED/...) instead of a fixed
+      // sleep: exits the instant the fill (or synchronous local-validation reject) lands,
+      // and still terminates deterministically if the venue only ever partial-fills.
+      if (!terminal.await(TERMINAL_WAIT_S, TimeUnit.SECONDS)) {
+        System.out.println(
+            "[venue-gw] no terminal event within " + TERMINAL_WAIT_S + "s (partial fills only?)");
+      }
       // socket.close() (try-with-resources) ends the reader's blocking read next
     }
   }
 
-  /** Frame SOH-terminated FIX messages off the socket, same convention as FixSimulatorMain. */
+  /** Frame SOH-terminated FIX messages off the socket and feed them to the gateway. */
   private static void readInbound(Socket socket, FixVenueGateway gateway) {
     try {
-      InputStream in = socket.getInputStream();
-      StringBuilder buffer = new StringBuilder();
-      int c;
-      while ((c = in.read()) >= 0) {
-        buffer.append((char) c);
-        int len = buffer.length();
-        if (c == '\u0001'
-            && len >= 7
-            && buffer.charAt(len - 7) == '1'
-            && buffer.charAt(len - 6) == '0'
-            && buffer.charAt(len - 5) == '=') {
-          gateway.onInbound(buffer.toString());
-          buffer.setLength(0);
-        }
-      }
+      FixWireFraming.readFrames(socket.getInputStream(), gateway::onInbound);
     } catch (IOException e) {
       System.out.println("[venue-gw] reader ended: " + e.getMessage());
     }
@@ -113,14 +114,15 @@ public final class VenueGatewayMain {
   private static VenueDialect dialectById(String id) {
     return switch (id) {
       case "brokertec" -> VenueDialects.brokerTec();
-      case "tradeweb" ->
-          VenueDialects.tradeweb(
-              java.time.LocalDate.now(java.time.ZoneOffset.UTC)
-                  .plusDays(1)
-                  .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE));
+      case "tradeweb" -> VenueDialects.tradeweb(tomorrowLocalMktDate());
       case "us-equity" -> VenueDialects.usEquityExchange("XNAS", "STP-1", false);
       default -> throw new IllegalArgumentException("unknown -Pdialect=" + id);
     };
+  }
+
+  /** SettlDate (tag 64) is a FIX LocalMktDate, {@code yyyyMMdd} -- never a dashed ISO date. */
+  private static String tomorrowLocalMktDate() {
+    return LocalDate.now(ZoneOffset.UTC).plusDays(1).format(DateTimeFormatter.BASIC_ISO_DATE);
   }
 
   /** One valid order per dialect's own local rules (BrokerTec/EBS: $1M-face increments). */
@@ -137,7 +139,11 @@ public final class VenueGatewayMain {
     };
   }
 
-  private static VenueEventSink loggingSink() {
+  /**
+   * Logs every venue event; counts down {@code terminal} on the events that end this one order's
+   * lifecycle so the caller can stop waiting the instant one arrives.
+   */
+  private static VenueEventSink loggingSink(CountDownLatch terminal) {
     return new VenueEventSink() {
       @Override
       public void acknowledged(String routeId) {
@@ -152,6 +158,7 @@ public final class VenueGatewayMain {
       @Override
       public void rejected(String routeId, String venueReason) {
         System.out.println("[venue-gw] REJECTED " + routeId + " " + venueReason);
+        terminal.countDown();
       }
 
       @Override
@@ -163,26 +170,31 @@ public final class VenueGatewayMain {
       @Override
       public void filled(String routeId, long lastQty, long lastPx, String execId) {
         System.out.println("[venue-gw] FILLED " + routeId + " qty=" + lastQty + " px=" + lastPx);
+        terminal.countDown();
       }
 
       @Override
       public void canceled(String routeId) {
         System.out.println("[venue-gw] CANCELED " + routeId);
+        terminal.countDown();
       }
 
       @Override
       public void cancelRejected(String routeId, int cxlRejReason) {
         System.out.println("[venue-gw] CANCEL_REJECTED " + routeId + " reason=" + cxlRejReason);
+        terminal.countDown();
       }
 
       @Override
       public void replaced(String routeId) {
         System.out.println("[venue-gw] REPLACED " + routeId);
+        terminal.countDown();
       }
 
       @Override
       public void replaceRejected(String routeId, int cxlRejReason) {
         System.out.println("[venue-gw] REPLACE_REJECTED " + routeId + " reason=" + cxlRejReason);
+        terminal.countDown();
       }
     };
   }

@@ -6,15 +6,18 @@ package io.crossasset.ems.fix.venue;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.crossasset.ems.fix.FixWireFraming;
 import io.crossasset.ems.fix.sim.FixVenueSimulator;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
 /**
  * End-to-end over a REAL socket (not the in-process wire the unit tests use): a background thread
@@ -25,8 +28,9 @@ import java.nio.charset.StandardCharsets;
  */
 class VenueGatewayMainTest {
 
-  @org.junit.jupiter.api.Test
-  @org.junit.jupiter.api.parallel.ResourceLock(org.junit.jupiter.api.parallel.Resources.SYSTEM_OUT)
+  /** main() captures the process-wide System.out; serialize against anything else that does. */
+  @Test
+  @ResourceLock(Resources.SYSTEM_OUT)
   void brokerTecOrderFillsOverARealSocket() throws Exception {
     try (ServerSocket server = new ServerSocket(0)) {
       int port = server.getLocalPort();
@@ -67,23 +71,9 @@ class VenueGatewayMainTest {
                   throw new RuntimeException(e);
                 }
               });
-      InputStream in = socket.getInputStream();
-      StringBuilder buffer = new StringBuilder();
-      int c;
-      while ((c = in.read()) >= 0) {
-        buffer.append((char) c);
-        int len = buffer.length();
-        if (c == '\u0001'
-            && len >= 7
-            && buffer.charAt(len - 7) == '1'
-            && buffer.charAt(len - 6) == '0'
-            && buffer.charAt(len - 5) == '=') {
-          simulator.onInbound(buffer.toString());
-          buffer.setLength(0);
-        }
-      }
+      FixWireFraming.readFrames(socket.getInputStream(), simulator::onInbound);
     } catch (IOException e) {
-      // client closed the socket at the end of the 1.5s window -- expected teardown
+      // client closed the socket once its terminal event landed -- expected teardown
     }
   }
 }
