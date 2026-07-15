@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 class VenueGatewayMainTest {
 
   @org.junit.jupiter.api.Test
+  @org.junit.jupiter.api.parallel.ResourceLock(org.junit.jupiter.api.parallel.Resources.SYSTEM_OUT)
   void brokerTecOrderFillsOverARealSocket() throws Exception {
     try (ServerSocket server = new ServerSocket(0)) {
       int port = server.getLocalPort();
