@@ -113,7 +113,11 @@ public final class VenueGatewayMain {
   private static VenueDialect dialectById(String id) {
     return switch (id) {
       case "brokertec" -> VenueDialects.brokerTec();
-      case "tradeweb" -> VenueDialects.tradeweb("2026-07-16");
+      case "tradeweb" ->
+          VenueDialects.tradeweb(
+              java.time.LocalDate.now(java.time.ZoneOffset.UTC)
+                  .plusDays(1)
+                  .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE));
       case "us-equity" -> VenueDialects.usEquityExchange("XNAS", "STP-1", false);
       default -> throw new IllegalArgumentException("unknown -Pdialect=" + id);
     };
