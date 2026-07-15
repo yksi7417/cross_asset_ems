@@ -33,9 +33,9 @@ import java.util.EnumSet;
  * ./gradlew :ems-fix-bridge:runVenueGateway -PsimPort=9876 -Pdialect=brokertec
  * }</pre>
  *
- * <p>{@code -Pdialect} selects a {@link VenueDialects} factory by key:
- * {@code us-equity} (default, MIC XNAS), {@code brokertec}, {@code tradeweb}. All three take
- * limit/RFQ orders only except us-equity, so the default order is a limit at 100.00.
+ * <p>{@code -Pdialect} selects a {@link VenueDialects} factory by key: {@code us-equity} (default,
+ * MIC XNAS), {@code brokertec}, {@code tradeweb}. All three take limit/RFQ orders only except
+ * us-equity, so the default order is a limit at 100.00.
  */
 public final class VenueGatewayMain {
 
