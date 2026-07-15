@@ -78,7 +78,8 @@ public final class DropCopyBridge {
 
     Optional<StagedOrder> order = orders.findOrder(orderId);
     if (order.isEmpty()) {
-      return; // fill arrived for an order this bridge can't resolve context for -- skip, don't guess
+      return; // fill arrived for an order this bridge can't resolve context for -- skip, don't
+      // guess
     }
     var context = order.get().fsmContext();
     String account = context.account();
