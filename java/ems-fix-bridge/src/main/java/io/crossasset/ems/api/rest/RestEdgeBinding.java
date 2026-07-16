@@ -892,7 +892,7 @@ public final class RestEdgeBinding {
     requireSession(headers);
     String broker = query.get("broker");
     if (broker == null || broker.isBlank()) {
-      return error(400, "?broker= is required.");
+      throw new BadRequest("Query param 'broker' is required.");
     }
     ArrayNode out = mapper.createArrayNode();
     for (io.crossasset.ems.fix.algo.AlgoStrategy strategy : algoCatalog.strategies(broker)) {
