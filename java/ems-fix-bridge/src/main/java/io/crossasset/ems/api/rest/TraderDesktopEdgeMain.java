@@ -382,6 +382,16 @@ public final class TraderDesktopEdgeMain {
       binding.setCompliance(complianceGate, complianceOverrides); // 10.5 override routes
     }
     binding.setBlotterExport(som); // 8.7: GET /api/v1/blotter/export.csv
+
+    // ── Pre-trade analytics (10.9): the sqrt-impact reference model proves the SPI shape
+    // for equities; the fuller per-asset-class library (Almgren-Chriss, FX/rates models)
+    // registers alongside as it lands. Advisory only -- never gates a route.
+    io.crossasset.ems.pretrade.analytics.PreTradeAnalytics preTradeAnalytics =
+        new io.crossasset.ems.pretrade.analytics.PreTradeAnalytics();
+    preTradeAnalytics.register(
+        new io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.SquareRootImpactModel(
+            java.util.Set.of(io.crossasset.ems.instrument.AssetClass.EQUITY)));
+    binding.setPreTradeAnalytics(preTradeAnalytics); // POST /api/v1/pretrade-analytics/recommend
     binding.setIssuerNames(DemoUniverse.ISSUER_NAMES::get); // 18.29: group-by-issuer
     binding.setCurrencyProfiles(DemoUniverse::profileOf); // 18.30: trading/settle/base/quote
     binding.setQuoteStyles(core -> DemoUniverse.quoteStyleOf(core).name()); // 11.18

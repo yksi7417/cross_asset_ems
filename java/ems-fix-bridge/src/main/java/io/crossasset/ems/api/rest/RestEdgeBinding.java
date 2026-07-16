@@ -131,6 +131,16 @@ public final class RestEdgeBinding {
     this.marketAccessClock = clock;
   }
 
+  /** Pre-trade analytics (10.9): advisory cost/strategy recommendations, never blocking. */
+  private io.crossasset.ems.pretrade.analytics.@org.jspecify.annotations.Nullable PreTradeAnalytics
+      preTradeAnalytics;
+
+  /** Wire the analytics registry so the ticket's pre-flight panel has advice to show. */
+  public void setPreTradeAnalytics(
+      io.crossasset.ems.pretrade.analytics.PreTradeAnalytics analytics) {
+    this.preTradeAnalytics = analytics;
+  }
+
   /** Blotter CSV export (8.7): {@code GET /api/v1/blotter/export.csv}, own orders only. */
   private io.crossasset.ems.oms.@org.jspecify.annotations.Nullable StagedOrderManager exportOrders;
 
@@ -378,6 +388,9 @@ public final class RestEdgeBinding {
       }
       if (path.startsWith("/scim/v2/Users")) {
         return scimRoute(method, path, headers, body);
+      }
+      if ("POST".equals(method) && "/api/v1/pretrade-analytics/recommend".equals(path)) {
+        return preTradeAnalyticsRoute(headers, body);
       }
       if ("POST".equals(method) && path.startsWith("/api/v1/")) {
         return operation(path.substring("/api/v1/".length()), headers, body);
@@ -849,6 +862,69 @@ public final class RestEdgeBinding {
     requireSession(headers);
     return new HttpResult(
         200, marketAccess.attestationExport(marketAccessClock.getAsLong()).toString());
+  }
+
+  /**
+   * Pre-trade analytics (task 10.9): {@code POST /api/v1/pretrade-analytics/recommend} -- the
+   * caller's market snapshot in, an advisory {@link
+   * io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.Recommendation} out. Advisory only: this
+   * route never blocks an order, unlike the compliance gate.
+   */
+  private HttpResult preTradeAnalyticsRoute(Map<String, String> headers, String body)
+      throws Exception {
+    if (preTradeAnalytics == null) {
+      return error(404, "Pre-trade analytics not configured on this edge.");
+    }
+    requireSession(headers);
+    JsonNode json = mapper.readTree(body);
+    String figi = requireText(json, "figi");
+    if (secMaster == null) {
+      return error(404, "Instrument lookup not configured on this edge.");
+    }
+    var found = secMaster.currentSnapshot().lookup(figi);
+    if (found.isEmpty()) {
+      return error(404, "Unknown instrument: " + figi);
+    }
+    var intent =
+        new io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.OrderIntent(
+            figi,
+            found.get().core().assetClass(),
+            json.path("side").asInt(),
+            json.path("qty").asLong(),
+            io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.Urgency.valueOf(
+                json.path("urgency").asText("MEDIUM")),
+            requireText(json, "account"));
+    var snapshot =
+        new io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.MarketSnapshot(
+            optionalLong(json, "markPx"),
+            optionalLong(json, "adv"),
+            json.hasNonNull("volatilityBps") ? json.get("volatilityBps").asDouble() : null,
+            json.hasNonNull("spreadBps") ? json.get("spreadBps").asDouble() : null,
+            System.currentTimeMillis());
+    var recommendation = preTradeAnalytics.recommend(intent, snapshot, System.currentTimeMillis());
+    if (recommendation.isEmpty()) {
+      return error(404, "No pre-trade model registered for " + intent.assetClass());
+    }
+    var rec = recommendation.get();
+    ObjectNode out = mapper.createObjectNode();
+    out.put("modelId", rec.modelId());
+    out.put("modelVersion", rec.modelVersion());
+    if (rec.costEstimateBps() != null) {
+      out.put("costEstimateBps", rec.costEstimateBps());
+    }
+    ArrayNode advice = out.putArray("strategyAdvice");
+    for (var a : rec.strategyAdvice()) {
+      ObjectNode an = advice.addObject();
+      an.put("strategy", a.strategy());
+      an.put("score", a.score());
+      if (a.expectedCostBps() != null) {
+        an.put("expectedCostBps", a.expectedCostBps());
+      }
+      an.put("rationale", a.rationale());
+    }
+    ArrayNode cautions = out.putArray("cautions");
+    rec.cautions().forEach(cautions::add);
+    return new HttpResult(200, out.toString());
   }
 
   /**
