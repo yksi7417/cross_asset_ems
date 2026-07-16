@@ -131,7 +131,7 @@ public final class RestEdgeBinding {
     this.marketAccessClock = clock;
   }
 
-  /** Maker-checker approvals (18.10): the pending queue + approve/deny over REST. */
+  /** Maker-checker approvals (18.10): the pending queue + approve/reject over REST. */
   private io.crossasset.ems.api.control.@org.jspecify.annotations.Nullable ApprovalWorkflow
       approvals;
 
@@ -883,8 +883,7 @@ public final class RestEdgeBinding {
       var result =
           approve
               ? workflow.approve(proposalId, sessionId)
-              : workflow.reject(
-                  proposalId, sessionId, mapper.readTree(body).path("reason").asText(""));
+              : workflow.reject(proposalId, sessionId, optionalReason(body));
       return switch (result) {
         case io.crossasset.ems.api.control.ApprovalWorkflow.Result.Ok ok ->
             new HttpResult(200, proposalJson(ok.proposal()).toString());
@@ -897,6 +896,18 @@ public final class RestEdgeBinding {
       };
     }
     return error(404, "Unknown approvals route: " + method + " " + path);
+  }
+
+  /** {@code /reject}'s reason is optional -- blank body means "no reason given", never a 500. */
+  private String optionalReason(String body) {
+    if (body == null || body.isBlank()) {
+      return "";
+    }
+    try {
+      return mapper.readTree(body).path("reason").asText("");
+    } catch (Exception e) {
+      throw new BadRequest("Malformed JSON body: " + e.getMessage());
+    }
   }
 
   private ObjectNode proposalJson(io.crossasset.ems.api.control.ApprovalWorkflow.Proposal p) {

@@ -399,6 +399,20 @@ public final class TraderDesktopEdgeMain {
         new io.crossasset.ems.api.control.ApprovalWorkflow(
             aaa, subscriptions, System::currentTimeMillis, 15 * 60_000L);
     binding.setApprovals(approvalWorkflow); // GET/POST /api/v1/approvals...
+    // sweepExpired only runs when called; a stale PENDING proposal never expires on its own.
+    Thread.ofVirtual()
+        .name("approvals-ttl-sweep")
+        .start(
+            () -> {
+              while (true) {
+                try {
+                  Thread.sleep(60_000);
+                  approvalWorkflow.sweepExpired(System.currentTimeMillis());
+                } catch (InterruptedException e) {
+                  return;
+                }
+              }
+            });
     binding.setIssuerNames(DemoUniverse.ISSUER_NAMES::get); // 18.29: group-by-issuer
     binding.setCurrencyProfiles(DemoUniverse::profileOf); // 18.30: trading/settle/base/quote
     binding.setQuoteStyles(core -> DemoUniverse.quoteStyleOf(core).name()); // 11.18

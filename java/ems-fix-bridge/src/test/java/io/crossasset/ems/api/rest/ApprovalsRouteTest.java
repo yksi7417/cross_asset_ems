@@ -180,6 +180,23 @@ class ApprovalsRouteTest {
   }
 
   @Test
+  void rejectWithAnEmptyBodyIsNoReasonNeverA500() throws Exception {
+    String proposalId = proposeOne();
+    RestEdgeBinding.HttpResult result =
+        call("POST", "/api/v1/approvals/" + proposalId + "/reject", checkerSession, "");
+    assertThat(result.status()).isEqualTo(200);
+    assertThat(mapper.readTree(result.body()).path("status").asText()).isEqualTo("REJECTED");
+  }
+
+  @Test
+  void rejectWithMalformedJsonIs400NotA500() throws Exception {
+    String proposalId = proposeOne();
+    RestEdgeBinding.HttpResult result =
+        call("POST", "/api/v1/approvals/" + proposalId + "/reject", checkerSession, "{not json");
+    assertThat(result.status()).isEqualTo(400);
+  }
+
+  @Test
   void missingConfigurationIs404() throws Exception {
     InMemoryAaaService aaa = new InMemoryAaaService(new InMemoryAaaEventLog());
     aaa.registerCredential("tok-x", "firm-a", "desk-1", "x", Set.of());
