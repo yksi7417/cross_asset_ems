@@ -131,6 +131,15 @@ public final class RestEdgeBinding {
     this.marketAccessClock = clock;
   }
 
+  /** Maker-checker approvals (18.10): the pending queue + approve/deny over REST. */
+  private io.crossasset.ems.api.control.@org.jspecify.annotations.Nullable ApprovalWorkflow
+      approvals;
+
+  /** Wire the approval workflow so the supervisor queue is REST-served (18.10). */
+  public void setApprovals(io.crossasset.ems.api.control.ApprovalWorkflow approvals) {
+    this.approvals = approvals;
+  }
+
   /** Blotter CSV export (8.7): {@code GET /api/v1/blotter/export.csv}, own orders only. */
   private io.crossasset.ems.oms.@org.jspecify.annotations.Nullable StagedOrderManager exportOrders;
 
@@ -349,6 +358,9 @@ public final class RestEdgeBinding {
       if ("/api/v1/compliance/blocks".equals(path)
           || path.startsWith("/api/v1/compliance/blocks/")) {
         return complianceRoute(method, path, headers, body);
+      }
+      if ("/api/v1/approvals".equals(path) || path.startsWith("/api/v1/approvals/")) {
+        return approvalsRoute(method, path, headers, body);
       }
       if ("POST".equals(method)
           && path.startsWith("/api/v1/notifications/")
@@ -835,6 +847,73 @@ public final class RestEdgeBinding {
       return new HttpResult(200, out.toString());
     }
     return error(404, "Unknown compliance route: " + method + " " + path);
+  }
+
+  /**
+   * Maker-checker approvals (task 18.10): {@code GET /api/v1/approvals} lists the pending queue;
+   * {@code POST /api/v1/approvals/{id}/approve} applies the change (checker tag required, distinct
+   * from the maker); {@code POST /api/v1/approvals/{id}/reject} with {@code {"reason": "..."}}
+   * refuses it. The signer is always the session identity -- {@link
+   * io.crossasset.ems.api.control.ApprovalWorkflow} itself enforces the author/approver tags and
+   * the distinct-identity rule.
+   */
+  private HttpResult approvalsRoute(
+      String method, String path, Map<String, String> headers, String body) throws Exception {
+    var workflow = approvals;
+    if (workflow == null) {
+      return error(404, "Approval workflow not configured on this edge.");
+    }
+    long sessionId = requireSession(headers);
+    if ("GET".equals(method) && "/api/v1/approvals".equals(path)) {
+      ObjectNode out = mapper.createObjectNode();
+      ArrayNode queue = out.putArray("pending");
+      for (var proposal : workflow.pending()) {
+        queue.add(proposalJson(proposal));
+      }
+      return new HttpResult(200, out.toString());
+    }
+    if ("POST".equals(method)
+        && (path.endsWith("/approve") || path.endsWith("/reject"))
+        && path.startsWith("/api/v1/approvals/")) {
+      boolean approve = path.endsWith("/approve");
+      String proposalId =
+          path.substring(
+              "/api/v1/approvals/".length(),
+              path.length() - (approve ? "/approve" : "/reject").length());
+      var result =
+          approve
+              ? workflow.approve(proposalId, sessionId)
+              : workflow.reject(
+                  proposalId, sessionId, mapper.readTree(body).path("reason").asText(""));
+      return switch (result) {
+        case io.crossasset.ems.api.control.ApprovalWorkflow.Result.Ok ok ->
+            new HttpResult(200, proposalJson(ok.proposal()).toString());
+        case io.crossasset.ems.api.control.ApprovalWorkflow.Result.Refused refused -> {
+          ObjectNode out = mapper.createObjectNode();
+          out.put("code", refused.code());
+          out.put("message", refused.message());
+          yield new HttpResult(409, out.toString());
+        }
+      };
+    }
+    return error(404, "Unknown approvals route: " + method + " " + path);
+  }
+
+  private ObjectNode proposalJson(io.crossasset.ems.api.control.ApprovalWorkflow.Proposal p) {
+    ObjectNode node = mapper.createObjectNode();
+    node.put("proposalId", p.proposalId());
+    node.put("category", p.category().name());
+    node.put("description", p.description());
+    node.put("makerUser", p.makerUser());
+    node.put("proposedAtMillis", p.proposedAtMillis());
+    node.put("status", p.status().name());
+    if (p.checkerUser() != null) {
+      node.put("checkerUser", p.checkerUser());
+    }
+    if (p.resolution() != null) {
+      node.put("resolution", p.resolution());
+    }
+    return node;
   }
 
   /**
