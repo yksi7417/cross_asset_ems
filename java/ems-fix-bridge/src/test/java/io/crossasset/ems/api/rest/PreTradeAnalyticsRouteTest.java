@@ -140,6 +140,61 @@ class PreTradeAnalyticsRouteTest {
   }
 
   @Test
+  void invalidUrgencyIs400NotA500() throws Exception {
+    RestEdgeBinding.HttpResult result =
+        recommend(
+            """
+            {"figi":"%s","side":1,"qty":100,"urgency":"URGENT","account":"ACC-1"}
+            """
+                .formatted(EQUITY_FIGI));
+    assertThat(result.status()).isEqualTo(400);
+  }
+
+  @Test
+  void missingSideIs400() throws Exception {
+    RestEdgeBinding.HttpResult result =
+        recommend(
+            """
+            {"figi":"%s","qty":100,"account":"ACC-1"}
+            """
+                .formatted(EQUITY_FIGI));
+    assertThat(result.status()).isEqualTo(400);
+  }
+
+  @Test
+  void nonNumericSideIs400NotSilentlyZero() throws Exception {
+    RestEdgeBinding.HttpResult result =
+        recommend(
+            """
+            {"figi":"%s","side":"buy","qty":100,"account":"ACC-1"}
+            """
+                .formatted(EQUITY_FIGI));
+    assertThat(result.status()).isEqualTo(400);
+  }
+
+  @Test
+  void missingQtyIs400() throws Exception {
+    RestEdgeBinding.HttpResult result =
+        recommend(
+            """
+            {"figi":"%s","side":1,"account":"ACC-1"}
+            """
+                .formatted(EQUITY_FIGI));
+    assertThat(result.status()).isEqualTo(400);
+  }
+
+  @Test
+  void zeroOrNegativeQtyIs400() throws Exception {
+    RestEdgeBinding.HttpResult result =
+        recommend(
+            """
+            {"figi":"%s","side":1,"qty":0,"account":"ACC-1"}
+            """
+                .formatted(EQUITY_FIGI));
+    assertThat(result.status()).isEqualTo(400);
+  }
+
+  @Test
   void unknownInstrumentIs404() throws Exception {
     RestEdgeBinding.HttpResult result =
         recommend(

@@ -885,23 +885,39 @@ public final class RestEdgeBinding {
     if (found.isEmpty()) {
       return error(404, "Unknown instrument: " + figi);
     }
+    int side = requireInt(json, "side");
+    if (side != 1 && side != 2) {
+      throw new BadRequest("Field 'side' must be 1 (buy) or 2 (sell), got " + side);
+    }
+    long qty = requireLong(json, "qty");
+    if (qty <= 0) {
+      throw new BadRequest("Field 'qty' must be > 0, got " + qty);
+    }
+    io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.Urgency urgency;
+    String urgencyText = json.path("urgency").asText("MEDIUM");
+    try {
+      urgency = io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.Urgency.valueOf(urgencyText);
+    } catch (IllegalArgumentException e) {
+      throw new BadRequest(
+          "Field 'urgency' must be one of LOW/MEDIUM/HIGH, got '" + urgencyText + "'");
+    }
     var intent =
         new io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.OrderIntent(
             figi,
             found.get().core().assetClass(),
-            json.path("side").asInt(),
-            json.path("qty").asLong(),
-            io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.Urgency.valueOf(
-                json.path("urgency").asText("MEDIUM")),
+            side,
+            qty,
+            urgency,
             requireText(json, "account"));
+    long nowMillis = System.currentTimeMillis();
     var snapshot =
         new io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.MarketSnapshot(
             optionalLong(json, "markPx"),
             optionalLong(json, "adv"),
             json.hasNonNull("volatilityBps") ? json.get("volatilityBps").asDouble() : null,
             json.hasNonNull("spreadBps") ? json.get("spreadBps").asDouble() : null,
-            System.currentTimeMillis());
-    var recommendation = preTradeAnalytics.recommend(intent, snapshot, System.currentTimeMillis());
+            nowMillis);
+    var recommendation = preTradeAnalytics.recommend(intent, snapshot, nowMillis);
     if (recommendation.isEmpty()) {
       return error(404, "No pre-trade model registered for " + intent.assetClass());
     }
@@ -1233,6 +1249,22 @@ public final class RestEdgeBinding {
   private static Long optionalLong(JsonNode node, String field) {
     JsonNode value = node.path(field);
     return value.isMissingNode() || value.isNull() ? null : value.asLong();
+  }
+
+  private int requireInt(JsonNode node, String field) {
+    JsonNode value = node.path(field);
+    if (value.isMissingNode() || value.isNull() || !value.isNumber()) {
+      throw new BadRequest("Field '" + field + "' is required and must be a number.");
+    }
+    return value.asInt();
+  }
+
+  private long requireLong(JsonNode node, String field) {
+    JsonNode value = node.path(field);
+    if (value.isMissingNode() || value.isNull() || !value.isNumber()) {
+      throw new BadRequest("Field '" + field + "' is required and must be a number.");
+    }
+    return value.asLong();
   }
 
   private HttpResult error(int status, String message) {
