@@ -382,6 +382,40 @@ public final class TraderDesktopEdgeMain {
       binding.setCompliance(complianceGate, complianceOverrides); // 10.5 override routes
     }
     binding.setBlotterExport(som); // 8.7: GET /api/v1/blotter/export.csv
+
+    // ── Broker algo catalog (11.16): EMSX's two headline strategies, programmatically
+    // registered -- ingestFixatdl exists for the real broker XML when a UAT feed is wired.
+    io.crossasset.ems.fix.algo.AlgoCatalog algoCatalog =
+        new io.crossasset.ems.fix.algo.AlgoCatalog();
+    algoCatalog.register(
+        new io.crossasset.ems.fix.algo.AlgoStrategy(
+            "EMSX",
+            "VWAP",
+            "VWAP",
+            java.util.List.of(
+                new io.crossasset.ems.fix.algo.AlgoStrategy.Parameter(
+                    "ParticipationRate",
+                    io.crossasset.ems.fix.algo.AlgoStrategy.ValueType.PERCENTAGE,
+                    true,
+                    1L,
+                    100L,
+                    java.util.List.of(),
+                    "10"))));
+    algoCatalog.register(
+        new io.crossasset.ems.fix.algo.AlgoStrategy(
+            "EMSX",
+            "TWAP",
+            "TWAP",
+            java.util.List.of(
+                new io.crossasset.ems.fix.algo.AlgoStrategy.Parameter(
+                    "EndTime",
+                    io.crossasset.ems.fix.algo.AlgoStrategy.ValueType.UTC_TIME,
+                    true,
+                    null,
+                    null,
+                    java.util.List.of(),
+                    null))));
+    binding.setAlgoCatalog(algoCatalog); // GET /api/v1/algos?broker=EMSX
     binding.setIssuerNames(DemoUniverse.ISSUER_NAMES::get); // 18.29: group-by-issuer
     binding.setCurrencyProfiles(DemoUniverse::profileOf); // 18.30: trading/settle/base/quote
     binding.setQuoteStyles(core -> DemoUniverse.quoteStyleOf(core).name()); // 11.18
