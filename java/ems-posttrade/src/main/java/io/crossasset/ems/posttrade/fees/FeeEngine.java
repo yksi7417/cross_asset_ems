@@ -73,7 +73,7 @@ public final class FeeEngine {
   /**
    * Compute the money decomposition of one allocation, with an explicit contract multiplier for
    * listed futures/options (e.g. an index future at 50x). Fixed-income has no contract multiplier —
-   * bonds always use {@code face × px / 100} regardless of this argument.
+   * bonds always use {@code face × px / 100}; `contractMultiplier` is validated but not applied to gross.
    *
    * @param side FIX side: 1 = buy; everything else treats charges as sale-side
    * @param qty units (shares/contracts) or face for FI
