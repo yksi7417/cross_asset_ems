@@ -79,7 +79,8 @@ public final class FeeEngine {
    * @param qty units (shares/contracts) or face for FI
    * @param price fixed-point 1e4; clean-per-100 when {@code fixedIncome}
    * @param accruedInterest pre-computed accrued (see {@link AccruedInterest}), 0 for non-FI
-   * @param contractMultiplier units per contract for listed derivatives (>= 1); ignored for FI
+   * @param contractMultiplier units per contract for listed derivatives (>= 1). Not applied when
+   *     {@code fixedIncome} is true.
    */
   public NetMoney compute(
       String broker,
