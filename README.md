@@ -88,7 +88,7 @@ distinguishes the two honestly, because an institutional evaluation will. Legend
 | Routing intelligence: SOR, algo wheel, sweep, broker algos (FIXatdl) | 📚 live edge routes single-destination |
 | Regulatory: CAT submission, commissions/fees/net-money, TCA + best-ex audit, surveillance feed | 📚 no live order/fill event reaches these |
 | Regulatory: jurisdiction router (MiFID RTS 22), IOI, quote multicast | 📚 not wired |
-| 15c3-5 market-access attestation pack — REST-exported | ✅ status **derived from live wiring** (implemented controls attest IMPLEMENTED; unwired controls attest DEFERRED with rationale)¹ |
+| 15c3-5 market-access attestation pack — REST-exported | 📚 mapping/status currently hardcoded (not derived from live wiring)¹ |
 | End-to-end proof: FIX-wire + cross-asset smoke, single trace ID, byte-identical replay | ✅ (exercises equity, fixed income, FX, listed derivatives — 4 families²) |
 | Ops: introspection, admin console, blue/green switchover, cluster lease, failover drills | ✅ |
 | **Trader desktop**: Perspective blotter/watchlist/ticket/baskets/P&L/notifications, ESP click-to-trade, kill switch, maker-checker, SSO/SCIM, dockable layout, audit-trail viewer, runnable demo | ✅ |
