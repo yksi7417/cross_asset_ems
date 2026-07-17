@@ -23,10 +23,12 @@ public final class EmsMarketAccessControls {
   private EmsMarketAccessControls() {}
 
   /**
-   * Build the standard pack over the live services. Each control's status reflects what is actually
-   * enforced when the pack is built: {@code fatFingerWired} is the live compliance-gate flag (the
-   * fat-finger control only attests IMPLEMENTED when the gate that runs it is actually built), so
-   * the attestation can never drift back to claiming a control that is switched off.
+   * Build the standard pack over the live services.
+   *
+   * <p>Each control's status should reflect what is actually enforced in the running edge. {@code
+   * fatFingerWired} indicates whether fat-finger checks are reachable end-to-end (i.e., a stage-path
+   * compliance guard is wired so STAGE/AMEND operations are evaluated by {@code FatFingerCheck}), so
+   * the attestation cannot claim fat-finger as IMPLEMENTED until it can actually fire.
    */
   public static MarketAccessPack standard(
       String firm,
