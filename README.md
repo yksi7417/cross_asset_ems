@@ -1,10 +1,17 @@
 # Cross-Asset EMS
 
-A green-field institutional Execution Management System: every asset class through one platform —
-cash equity, fixed income, FX, rates, credit, commodities, crypto. Java + C++ on SBE/Aeron with
-full event sourcing, a single distributed trace ID through every order, and **byte-identical
-replay** of any log slice. Phase 18 adds the trader-facing desktop: a Perspective (WASM) blotter,
-ticket, baskets, click-to-trade, and the attestable controls a desk buys.
+A green-field institutional Execution Management System built on a **cross-asset architecture** —
+one platform designed to carry cash equity, fixed income, FX, rates, credit, commodities and
+crypto. Java + C++ on SBE/Aeron with full event sourcing, a single distributed trace ID through
+every order, and **byte-identical replay** of any log slice. Phase 18 adds the trader-facing
+desktop: a Perspective (WASM) blotter, ticket, baskets, click-to-trade, and a kill-switch-guarded
+order path.
+
+**Runtime maturity today: cash equity and FX are trading-complete; fixed income has a live
+venue/post-trade edge with equity-shaped order entry; rates is partial; credit, commodities and
+crypto are architecture + schema (no live order path yet).** See the
+[asset-class maturity matrix](#asset-class-maturity) below — the design vault describes all seven,
+the runtime does not yet, and this README distinguishes the two on purpose.
 
 **Demo: [`DEMO.md`](DEMO.md)** (26-second video + frame-by-frame tour) ·
 Walkthrough: [`docs/TRADER_DESKTOP_DEMO.md`](docs/TRADER_DESKTOP_DEMO.md) ·
@@ -55,14 +62,16 @@ are optional for app work and documented in the same file — the demo does not 
 
 ---
 
-## Current status (2026-07-14)
+## Current status (2026-07-17)
 
-**Plan fully complete — 195/195 tasks (100%).** MVP v0, Phase 16 cross-asset coverage, the v1
-build-out, Phase 18 (trader desktop & buyer-readiness), and the regulatory/routing-intelligence
-batches (CAT, commissions, TCA, surveillance, drop-copy, SOR/algo wheel, RFQ) are all done; the
-full suite is green. An overnight fix-factory also runs against the repo, opening gated,
-mechanically-verified PRs for coverage gaps and previously-unwired components — every such PR
-carries its own gate evidence (build, tests, effectiveness, no-regression) in the description.
+The 195-task plan is code-complete and the full suite is green, but "code-complete" is measured
+per task and means *built and unit-tested* — **not** *wired into the live order path*. This table
+distinguishes the two honestly, because an institutional evaluation will. Legend:
+
+- ✅ **wired** — instantiated from a live composition root (`TraderDesktopEdgeMain` / the FIX Mains) and exercised end-to-end.
+- 📚 **library** — built and unit-tested, but **not reachable from any runtime** (no `Main` constructs it). Real code, not yet a running feature.
+- 🚧 **partial** — wired but incomplete (e.g. equity-shaped for a non-equity class).
+- 🗺️ **roadmap** — architecture/schema only; no implementation.
 
 | Area | State |
 |---|---|
@@ -70,15 +79,44 @@ carries its own gate evidence (build, tests, effectiveness, no-regression) in th
 | Core spine: FSMs, Aeron/SBE transport, event sourcing, reference data, AAA, validator | ✅ |
 | OMS: staged orders, router, automation, multi-leg, aggregation, FX netting | ✅ |
 | Edges: client + venue FIX gateways, typed API surface, REST/WS binding, bulk CSV I/O, FIX venue simulator | ✅ |
-| Pre-trade: compliance gate (rate limiter, restricted/allow/watch lists, fat-finger), override desk (four-eyes release/deny over REST), positions, risk, pricing, analytics, borrow/locate (Reg SHO) | ✅ |
-| Post-trade: allocation (event-sourced, live off the fill stream), STP, confirmation, regulatory reporting, TRACE-mock | ✅ |
-| Routing intelligence: SOR, algo wheel, RFQ-to-N workflow, broker algos (FIXatdl) | ✅ |
-| Regulatory: CAT submission, commissions/fees, TCA + best-ex audit, surveillance feed, client drop-copy | ✅ |
-| 15c3-5 market-access attestation pack — REST-exported, evidence pulled from the live services | ✅ |
-| End-to-end proof: 7 asset classes, single trace ID, byte-identical replay; FIX-wire smoke | ✅ |
+| Pre-trade: compliance gate (rate limiter, restricted/allow/watch lists), override desk (four-eyes), positions, pricing, analytics, borrow/locate (Reg SHO) | ✅ enforced by default¹ |
+| Pre-trade: fat-finger / erroneous-order notional + price-band check | ✅ (wired into the gate)¹ |
+| Pre-trade: credit & capital limits (RiskEngine pre-trade check) | 📚 not yet wired to the order path |
+| Post-trade: allocation + client drop-copy (live off the fill stream) | ✅ |
+| Post-trade: STP, confirmation, regulatory reporting, TRACE-mock | 📚 reachable only from the FIX-wire smoke, not the live edge |
+| Routing intelligence: RFQ-to-N workflow | ✅ |
+| Routing intelligence: SOR, algo wheel, sweep, broker algos (FIXatdl) | 📚 live edge routes single-destination |
+| Regulatory: CAT submission, commissions/fees/net-money, TCA + best-ex audit, surveillance feed | 📚 no live order/fill event reaches these |
+| Regulatory: jurisdiction router (MiFID RTS 22), IOI, quote multicast | 📚 not wired |
+| 15c3-5 market-access attestation pack — REST-exported | ✅ status **derived from live wiring** (implemented controls attest IMPLEMENTED; unwired controls attest DEFERRED with rationale)¹ |
+| End-to-end proof: FIX-wire + cross-asset smoke, single trace ID, byte-identical replay | ✅ (exercises equity, fixed income, FX, listed derivatives — 4 families²) |
 | Ops: introspection, admin console, blue/green switchover, cluster lease, failover drills | ✅ |
-| **Trader desktop**: Perspective blotter/watchlist/ticket/baskets/P&L/notifications, ESP click-to-trade, kill switch, maker-checker, SSO/SCIM, dockable VSCode-style layout, audit-trail viewer, runnable demo + video | ✅ |
-| Post-MVP: real venue adapters (11.3–11.14); internal market-data fabric (Phase 9, deferred by design) | 🚧 |
+| **Trader desktop**: Perspective blotter/watchlist/ticket/baskets/P&L/notifications, ESP click-to-trade, kill switch, maker-checker, SSO/SCIM, dockable layout, audit-trail viewer, runnable demo | ✅ |
+| Real venue adapters (11.3–11.14); internal market-data fabric (Phase 9) | 🚧 |
+
+¹ Delivered by the compliance-enforcement PR (`fix/compliance-on-by-default`); see [`AUDIT_2026-07-17.md`](AUDIT_2026-07-17.md) L1.
+² Four asset *families* span seven instrument *labels*; the "seven asset classes" figure counts the design target, not the runtime proof (see matrix).
+
+<a name="asset-class-maturity"></a>
+
+### Asset-class maturity
+
+Built from the runtime code (not the design vault). "Validation" = asset-class-specific rules
+enforced at order time; today the validator's asset-class layer is a stub for **all** classes
+(the per-class rule files are loaded only by a consistency test), so no row claims it yet.
+
+| Class | Instrument model | Order entry / OMS | Venue connectivity | Pricing / MD | Overall |
+|---|---|---|---|---|---|
+| **Cash equity** | ✅ | ✅ | ✅ | ✅ | **trading-complete** |
+| **FX** (spot) | ✅ identity | 🚧 no tenor/value-date field at entry | ✅ | 🚧 scalar quote | **spot usable; fwd/swap/NDF not** |
+| **Fixed income** | 🚧 identity only (no coupon/maturity in the security master) | 🚧 equity-shaped scalar (no yield/dirty/accrued at entry) | ✅ (MarketAxess is a mock) | 📚 post-trade only | **partial** |
+| **Rates** (IRS) | 🚧 fixed rate stuffed into the price scalar | 🚧 no leg economics | 🚧 generic SEF tags | 🗺️ no curve/DV01 | **partial** |
+| **Credit** (CDS) | 🗺️ enum + uncompiled SBE schema | 🗺️ | 🗺️ | 🗺️ | **roadmap** |
+| **Commodities** | 🗺️ enum + uncompiled SBE schema | 🗺️ | 🗺️ | 🗺️ | **roadmap** |
+| **Crypto** | 🗺️ enum + uncompiled SBE schema | 🗺️ | 🗺️ | 🗺️ | **roadmap** |
+
+A production-readiness audit of the gap between claims and runtime — and the prioritized fix
+program closing it — is in **[`AUDIT_2026-07-17.md`](AUDIT_2026-07-17.md)**.
 
 ---
 
