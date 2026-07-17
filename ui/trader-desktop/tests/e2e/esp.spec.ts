@@ -64,11 +64,16 @@ test("double-clicking an ESP tile yields exactly one order POST", async ({ page 
     });
   });
 
+  const response = page.waitForResponse("**/api/v1/esp/click");
+
   await buy.click(); // POST #1 fires; both buttons disable; response held open
   // A real second click on a now-disabled button dispatches no click event — force past
   // actionability to prove the disabled guard, not Playwright's own wait, is what blocks it.
   await buy.click({ force: true, timeout: 1_500 }).catch(() => {});
   await page.waitForTimeout(500);
-  expect(posts).toBe(1);
-  release();
-});
+  try {
+    expect(posts).toBe(1);
+  } finally {
+    release();
+  }
+  await response;
