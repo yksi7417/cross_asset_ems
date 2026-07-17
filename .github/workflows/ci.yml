@@ -31,6 +31,11 @@ jobs:
     name: Java build + unit tests
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    # Coverage comment on PRs needs write access to pull requests; keep the
+    # default contents:read otherwise.
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,6 +61,45 @@ jobs:
       - name: Unit tests
         run: ./gradlew --no-daemon allTests
 
+      # Aggregate every module's JaCoCo exec data into one report. Reuses the
+      # test results from the step above (no second test run).
+      - name: Aggregate coverage
+        if: always()
+        run: ./gradlew --no-daemon jacocoRootReport
+
+      # PR-only: post/update a coverage comment and a check. Report-only for
+      # now (min-coverage-* = 0) — this adds visibility, not a hard gate.
+      - name: Coverage comment (PR)
+        if: github.event_name == 'pull_request'
+        uses: madrapps/jacoco-report@v1.7.2
+        with:
+          paths: ${{ github.workspace }}/build/reports/jacoco/aggregate/jacocoRootReport.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 0
+          min-coverage-changed-files: 0
+          title: "Test coverage"
+
+      # Visible on every run (pushes included): total line coverage in the job
+      # summary. Robust — never fails the build if the xml is missing/malformed.
+      - name: Coverage job summary
+        if: always()
+        run: |
+          xml=build/reports/jacoco/aggregate/jacocoRootReport.xml
+          if [ ! -f "$xml" ]; then
+            echo "Coverage report not found ($xml)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Last top-level LINE counter is the report total.
+          line=$(grep -o '<counter type="LINE" missed="[0-9]*" covered="[0-9]*"/>' "$xml" | tail -1)
+          missed=$(echo "$line" | sed -n 's/.*missed="\([0-9]*\)".*/\1/p')
+          covered=$(echo "$line" | sed -n 's/.*covered="\([0-9]*\)".*/\1/p')
+          if [ -n "$missed" ] && [ -n "$covered" ] && [ "$((missed + covered))" -gt 0 ]; then
+            pct=$(awk "BEGIN { printf \"%.1f\", 100 * $covered / ($covered + $missed) }")
+            echo "**Line coverage: ${pct}%** (${covered} covered / $((covered + missed)) lines)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Coverage report present but no LINE counter found." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       # Verify committed FSM sources match what the codegen script would produce.
       # pyyaml is available on ubuntu-24.04 runners as a system package.
       - name: FSM sources sync check
@@ -75,6 +119,14 @@ jobs:
         with:
           name: java-test-reports
           path: '**/build/reports/tests/**'
+          retention-days: 7
+
+      - name: Upload coverage HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build/reports/jacoco/aggregate/html/**
           retention-days: 7
 
   # ---- Phase-0 smoke gate -----------------------------------------------------
