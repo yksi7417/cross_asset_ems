@@ -131,6 +131,16 @@ public final class RestEdgeBinding {
     this.marketAccessClock = clock;
   }
 
+  /** Pre-trade analytics (10.9): advisory cost/strategy recommendations, never blocking. */
+  private io.crossasset.ems.pretrade.analytics.@org.jspecify.annotations.Nullable PreTradeAnalytics
+      preTradeAnalytics;
+
+  /** Wire the analytics registry so the ticket's pre-flight panel has advice to show. */
+  public void setPreTradeAnalytics(
+      io.crossasset.ems.pretrade.analytics.PreTradeAnalytics analytics) {
+    this.preTradeAnalytics = analytics;
+  }
+
   /** Maker-checker approvals (18.10): the pending queue + approve/reject over REST. */
   private io.crossasset.ems.api.control.@org.jspecify.annotations.Nullable ApprovalWorkflow
       approvals;
@@ -401,6 +411,9 @@ public final class RestEdgeBinding {
       }
       if (path.startsWith("/scim/v2/Users")) {
         return scimRoute(method, path, headers, body);
+      }
+      if ("POST".equals(method) && "/api/v1/pretrade-analytics/recommend".equals(path)) {
+        return preTradeAnalyticsRoute(headers, body);
       }
       if ("POST".equals(method) && path.startsWith("/api/v1/")) {
         return operation(path.substring("/api/v1/".length()), headers, body);
@@ -953,6 +966,85 @@ public final class RestEdgeBinding {
   }
 
   /**
+   * Pre-trade analytics (task 10.9): {@code POST /api/v1/pretrade-analytics/recommend} -- the
+   * caller's market snapshot in, an advisory {@link
+   * io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.Recommendation} out. Advisory only: this
+   * route never blocks an order, unlike the compliance gate.
+   */
+  private HttpResult preTradeAnalyticsRoute(Map<String, String> headers, String body)
+      throws Exception {
+    if (preTradeAnalytics == null) {
+      return error(404, "Pre-trade analytics not configured on this edge.");
+    }
+    requireSession(headers);
+    JsonNode json = mapper.readTree(body);
+    String figi = requireText(json, "figi");
+    if (secMaster == null) {
+      return error(404, "Instrument lookup not configured on this edge.");
+    }
+    var found = secMaster.currentSnapshot().lookup(figi);
+    if (found.isEmpty()) {
+      return error(404, "Unknown instrument: " + figi);
+    }
+    int side = requireInt(json, "side");
+    if (side != 1 && side != 2) {
+      throw new BadRequest("Field 'side' must be 1 (buy) or 2 (sell), got " + side);
+    }
+    long qty = requireLong(json, "qty");
+    if (qty <= 0) {
+      throw new BadRequest("Field 'qty' must be > 0, got " + qty);
+    }
+    io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.Urgency urgency;
+    String urgencyText = json.path("urgency").asText("MEDIUM");
+    try {
+      urgency = io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.Urgency.valueOf(urgencyText);
+    } catch (IllegalArgumentException e) {
+      throw new BadRequest(
+          "Field 'urgency' must be one of LOW/MEDIUM/HIGH, got '" + urgencyText + "'");
+    }
+    var intent =
+        new io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.OrderIntent(
+            figi,
+            found.get().core().assetClass(),
+            side,
+            qty,
+            urgency,
+            requireText(json, "account"));
+    long nowMillis = System.currentTimeMillis();
+    var snapshot =
+        new io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.MarketSnapshot(
+            optionalLong(json, "markPx"),
+            optionalLong(json, "adv"),
+            json.hasNonNull("volatilityBps") ? json.get("volatilityBps").asDouble() : null,
+            json.hasNonNull("spreadBps") ? json.get("spreadBps").asDouble() : null,
+            nowMillis);
+    var recommendation = preTradeAnalytics.recommend(intent, snapshot, nowMillis);
+    if (recommendation.isEmpty()) {
+      return error(404, "No pre-trade model registered for " + intent.assetClass());
+    }
+    var rec = recommendation.get();
+    ObjectNode out = mapper.createObjectNode();
+    out.put("modelId", rec.modelId());
+    out.put("modelVersion", rec.modelVersion());
+    if (rec.costEstimateBps() != null) {
+      out.put("costEstimateBps", rec.costEstimateBps());
+    }
+    ArrayNode advice = out.putArray("strategyAdvice");
+    for (var a : rec.strategyAdvice()) {
+      ObjectNode an = advice.addObject();
+      an.put("strategy", a.strategy());
+      an.put("score", a.score());
+      if (a.expectedCostBps() != null) {
+        an.put("expectedCostBps", a.expectedCostBps());
+      }
+      an.put("rationale", a.rationale());
+    }
+    ArrayNode cautions = out.putArray("cautions");
+    rec.cautions().forEach(cautions::add);
+    return new HttpResult(200, out.toString());
+  }
+
+  /**
    * Blotter CSV export (task 8.7): {@code GET /api/v1/blotter/export.csv} renders the session's OWN
    * active orders under the default template -- exports are always permission-scoped at the row
    * level, per {@link io.crossasset.ems.bulk.BlotterExporter}'s own contract.
@@ -1301,6 +1393,22 @@ public final class RestEdgeBinding {
   private static Long optionalLong(JsonNode node, String field) {
     JsonNode value = node.path(field);
     return value.isMissingNode() || value.isNull() ? null : value.asLong();
+  }
+
+  private int requireInt(JsonNode node, String field) {
+    JsonNode value = node.path(field);
+    if (value.isMissingNode() || value.isNull() || !value.isNumber()) {
+      throw new BadRequest("Field '" + field + "' is required and must be a number.");
+    }
+    return value.asInt();
+  }
+
+  private long requireLong(JsonNode node, String field) {
+    JsonNode value = node.path(field);
+    if (value.isMissingNode() || value.isNull() || !value.isNumber()) {
+      throw new BadRequest("Field '" + field + "' is required and must be a number.");
+    }
+    return value.asLong();
   }
 
   private HttpResult error(int status, String message) {

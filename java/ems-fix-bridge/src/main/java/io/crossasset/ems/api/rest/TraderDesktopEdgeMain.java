@@ -418,6 +418,16 @@ public final class TraderDesktopEdgeMain {
     }
     binding.setBlotterExport(som); // 8.7: GET /api/v1/blotter/export.csv
 
+    // ── Pre-trade analytics (10.9): the sqrt-impact reference model proves the SPI shape
+    // for equities; the fuller per-asset-class library (Almgren-Chriss, FX/rates models)
+    // registers alongside as it lands. Advisory only -- never gates a route.
+    io.crossasset.ems.pretrade.analytics.PreTradeAnalytics preTradeAnalytics =
+        new io.crossasset.ems.pretrade.analytics.PreTradeAnalytics();
+    preTradeAnalytics.register(
+        new io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.SquareRootImpactModel(
+            java.util.Set.of(io.crossasset.ems.instrument.AssetClass.EQUITY)));
+    binding.setPreTradeAnalytics(preTradeAnalytics); // POST /api/v1/pretrade-analytics/recommend
+
     // ── Maker-checker approvals (18.10): 15-minute TTL on pending proposals; every
     // transition also publishes on control.approvals for a live supervisor queue.
     io.crossasset.ems.api.control.ApprovalWorkflow approvalWorkflow =
