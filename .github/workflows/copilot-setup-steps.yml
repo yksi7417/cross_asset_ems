@@ -13,6 +13,8 @@ on:
   pull_request:
     paths:
       - .github/workflows/copilot-setup-steps.yml
+permissions:
+  contents: read
 
 jobs:
   # MUST be named exactly `copilot-setup-steps` for the coding agent to pick it up.
