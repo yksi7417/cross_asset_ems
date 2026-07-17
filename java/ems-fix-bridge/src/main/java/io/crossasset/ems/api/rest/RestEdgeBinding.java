@@ -138,6 +138,8 @@ public final class RestEdgeBinding {
   /** Wire the approval workflow so the supervisor queue is REST-served (18.10). */
   public void setApprovals(io.crossasset.ems.api.control.ApprovalWorkflow approvals) {
     this.approvals = approvals;
+  }
+
   /** Broker algo catalog (11.16): {@code GET /api/v1/algos?broker=X} for the ticket dropdown. */
   private io.crossasset.ems.fix.algo.@org.jspecify.annotations.Nullable AlgoCatalog algoCatalog;
 
