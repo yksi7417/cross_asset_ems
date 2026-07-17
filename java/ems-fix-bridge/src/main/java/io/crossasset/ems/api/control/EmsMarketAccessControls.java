@@ -22,12 +22,18 @@ public final class EmsMarketAccessControls {
 
   private EmsMarketAccessControls() {}
 
-  /** Build the standard pack over the live services. */
+  /**
+   * Build the standard pack over the live services. Each control's status reflects what is actually
+   * enforced when the pack is built: {@code fatFingerWired} is the live compliance-gate flag (the
+   * fat-finger control only attests IMPLEMENTED when the gate that runs it is actually built), so
+   * the attestation can never drift back to claiming a control that is switched off.
+   */
   public static MarketAccessPack standard(
       String firm,
       KillSwitchService killSwitch,
       RiskLimits riskLimits,
       BorrowService borrow,
+      boolean fatFingerWired,
       LongSupplier nowMillis) {
     Objects.requireNonNull(killSwitch, "killSwitch");
     Objects.requireNonNull(riskLimits, "riskLimits");
@@ -40,13 +46,18 @@ public final class EmsMarketAccessControls {
             "erroneous-orders-fat-finger",
             "15c3-5(c)(1)(i)",
             "Erroneous order prevention (fat-finger, netted vs unnetted)",
-            MarketAccessPack.ControlStatus.IMPLEMENTED,
+            fatFingerWired
+                ? MarketAccessPack.ControlStatus.IMPLEMENTED
+                : MarketAccessPack.ControlStatus.DEFERRED,
             "FatFingerCheck (10.2) on the compliance gate — notional ceiling with netting"
                 + " relief for risk-reducing orders, limit-price deviation band vs the live"
                 + " benchmark mid (BenchmarkService 9.5), block-on-no-reference policy; each"
                 + " trip a supervisor-overridable BLOCK",
-            null,
-            null,
+            fatFingerWired
+                ? null
+                : "Compliance gate disabled (EMS_COMPLIANCE_GATE=0) — FatFingerCheck is not"
+                    + " wired into the live order path in this deployment.",
+            fatFingerWired ? null : "kill switch; manual desk review",
             () -> {
               ObjectNode evidence = mapper.createObjectNode();
               evidence.put("check", "FatFingerCheck");
@@ -76,10 +87,14 @@ public final class EmsMarketAccessControls {
             "credit-capital-limits",
             "15c3-5(c)(1)(ii)",
             "Credit and capital thresholds",
-            MarketAccessPack.ControlStatus.IMPLEMENTED,
+            MarketAccessPack.ControlStatus.DEFERRED,
             "task 10.6 — RiskEngine pre-trade check over versioned RiskLimits",
-            null,
-            null,
+            "RiskEngine pre-trade credit/capital check is not yet wired into the live order"
+                + " path; versioned RiskLimits carry the calibrated thresholds and their"
+                + " amendment journal, but no gate consults them before an order routes."
+                + " Tracked as a follow-up.",
+            "Fat-finger notional ceiling caps single-order exposure (erroneous-orders-fat-finger);"
+                + " firm/desk/venue kill switch halts access on breach (kill-switch).",
             () -> {
               ObjectNode evidence = mapper.createObjectNode();
               evidence.put("limitsVersion", riskLimits.version());
