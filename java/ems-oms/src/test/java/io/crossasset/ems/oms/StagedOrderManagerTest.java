@@ -11,6 +11,8 @@ import io.crossasset.ems.aaa.InMemoryAaaEventLog;
 import io.crossasset.ems.aaa.InMemoryAaaService;
 import io.crossasset.ems.aaa.LogonCredentials;
 import io.crossasset.ems.aaa.LogonOutcome;
+import io.crossasset.ems.fsm.generated.OrderFsmEvent;
+import io.crossasset.ems.fsm.generated.OrderFsmPayloads;
 import io.crossasset.ems.fsm.generated.OrderFsmState;
 import io.crossasset.ems.instrument.AssetClass;
 import io.crossasset.ems.instrument.CurrencyCode;
@@ -25,7 +27,13 @@ import io.crossasset.ems.instrument.SecurityMasterSnapshot;
 import io.crossasset.ems.instrument.SettlementConvention;
 import io.crossasset.ems.validator.LayeredValidatorPipeline;
 import io.crossasset.ems.validator.ValidatorPipeline;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -169,6 +177,102 @@ class StagedOrderManagerTest {
     assertEquals("EMS-ORD-3001", ((AmendResult.Rejected) result).rejectCode());
   }
 
+  @Test
+  void amend_qtyBelowCumQty_rejectsEmsOrd2002AndNeverGoesNegative() {
+    // Order for 1000, partially filled 600 -> leaves 400.
+    String orderId = stageAndGetId("req-10a", 1000L);
+    manager.applyOrderFsmEvent(
+        orderId,
+        OrderFsmEvent.PartialFill,
+        new OrderFsmPayloads.PartialFillPayload(600L, 100L, "exec-1"));
+    StagedOrder afterFill = manager.findOrder(orderId).orElseThrow();
+    assertEquals(600L, afterFill.fsmContext().cumQty());
+    assertEquals(400L, afterFill.fsmContext().leavesQty());
+
+    // Amend to 500 (< cumQty 600) must be rejected, not accepted with a negative leavesQty.
+    AmendResult result = manager.amend(orderId, new AmendFields(500L, null), sessionId);
+    assertInstanceOf(AmendResult.Rejected.class, result);
+    assertEquals("EMS-ORD-2002", ((AmendResult.Rejected) result).rejectCode());
+
+    // Order state must be unchanged — no negative leavesQty ever observed.
+    StagedOrder unchanged = manager.findOrder(orderId).orElseThrow();
+    assertEquals(1000L, unchanged.fsmContext().orderQty());
+    assertEquals(600L, unchanged.fsmContext().cumQty());
+    assertEquals(400L, unchanged.fsmContext().leavesQty());
+    assertTrue(unchanged.fsmContext().leavesQty() >= 0);
+  }
+
+  @Test
+  void amend_qtyEqualToCumQty_isAccepted() {
+    // Reducing exactly to the filled quantity is a valid amend (leavesQty becomes 0).
+    String orderId = stageAndGetId("req-10b", 1000L);
+    manager.applyOrderFsmEvent(
+        orderId,
+        OrderFsmEvent.PartialFill,
+        new OrderFsmPayloads.PartialFillPayload(600L, 100L, "exec-2"));
+    AmendResult result = manager.amend(orderId, new AmendFields(600L, null), sessionId);
+    assertInstanceOf(AmendResult.Amended.class, result);
+    StagedOrder updated = ((AmendResult.Amended) result).order();
+    assertEquals(0L, updated.fsmContext().leavesQty());
+  }
+
+  @Test
+  void amend_concurrentWithPartialFill_neverLosesTheFill() throws InterruptedException {
+    String orderId = stageAndGetId("req-10c", 1000L);
+    int threadCount = 8;
+    ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+    CountDownLatch ready = new CountDownLatch(threadCount);
+    CountDownLatch start = new CountDownLatch(1);
+    AtomicBoolean sawNegativeLeaves = new AtomicBoolean(false);
+    List<Runnable> tasks = new java.util.ArrayList<>();
+    for (int i = 0; i < threadCount; i++) {
+      final int idx = i;
+      tasks.add(
+          () -> {
+            ready.countDown();
+            awaitUninterruptibly(start);
+            if (idx % 2 == 0) {
+              manager.applyOrderFsmEvent(
+                  orderId,
+                  OrderFsmEvent.PartialFill,
+                  new OrderFsmPayloads.PartialFillPayload(10L, 100L, "exec-conc-" + idx));
+            } else {
+              manager.amend(orderId, new AmendFields(null, 5000L + idx), sessionId);
+            }
+            StagedOrder snapshot = manager.findOrder(orderId).orElseThrow();
+            if (snapshot.fsmContext().leavesQty() < 0) {
+              sawNegativeLeaves.set(true);
+            }
+          });
+    }
+    tasks.forEach(pool::execute);
+    assertTrue(
+        ready.await(5, TimeUnit.SECONDS), "timed out waiting for all worker threads to be ready");
+    start.countDown();
+    pool.shutdown();
+    assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS));
+
+    assertFalse(sawNegativeLeaves.get(), "leavesQty must never go negative under concurrency");
+    StagedOrder finalOrder = manager.findOrder(orderId).orElseThrow();
+    int fillCount = threadCount / 2;
+    assertEquals(
+        10L * fillCount,
+        finalOrder.fsmContext().cumQty(),
+        "every concurrent partial fill must be reflected in cumQty (no lost update)");
+    assertEquals(
+        finalOrder.fsmContext().orderQty() - finalOrder.fsmContext().cumQty(),
+        finalOrder.fsmContext().leavesQty());
+  }
+
+  private static void awaitUninterruptibly(CountDownLatch latch) {
+    try {
+      latch.await();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException(e);
+    }
+  }
+
   // --- cancel() ---
 
   @Test
@@ -267,6 +371,14 @@ class StagedOrderManagerTest {
 
   private String stageAndGetId(String requestId) {
     StageResult r = manager.stage(validRequest(requestId));
+    return ((StageResult.Accepted) r).order().orderId();
+  }
+
+  private String stageAndGetId(String requestId, long qty) {
+    OrderRequest req =
+        new OrderRequest(
+            requestId, sessionId, "CL-" + requestId, FIGI, SIDE_BUY, qty, null, "ACC-1", TIF_DAY);
+    StageResult r = manager.stage(req);
     return ((StageResult.Accepted) r).order().orderId();
   }
 
