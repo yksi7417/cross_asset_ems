@@ -87,8 +87,18 @@ public final class TraderDesktopEdgeMain {
             io.crossasset.ems.pretrade.borrow.ShortSaleLocateCheck.NAKED_SHORT_OVERRIDE_TAG);
     java.util.Set<String> traderTags = new java.util.HashSet<>(overrideTags);
     traderTags.add("#kill-switch");
+    // Maker-checker (18.10): trader-1 may PROPOSE a restricted-list change; approval needs a
+    // DIFFERENT identity holding the approver tag -- self-approval is refused by the workflow
+    // itself, so a second demo user is required, not optional.
+    traderTags.add("#config-author-restricted_list");
     aaa.registerCredential("trader-token", "firm-demo", "desk-1", "trader-1", traderTags);
     aaa.registerCredential("demo-bot", "firm-demo", "desk-1", "demo-bot", Set.of());
+    aaa.registerCredential(
+        "supervisor-token",
+        "firm-demo",
+        "desk-1",
+        "supervisor-1",
+        Set.of("#config-approver-restricted_list"));
 
     InMemorySecurityMasterService secMaster = new InMemorySecurityMasterService();
     SecurityMasterSnapshot snapshot = SecurityMasterSnapshot.EMPTY;
@@ -119,7 +129,18 @@ public final class TraderDesktopEdgeMain {
     // attestation evidence reflects the SAME locates the short-sale gate actually took.
     io.crossasset.ems.pretrade.borrow.BorrowService borrowService =
         new io.crossasset.ems.pretrade.borrow.BorrowService(60_000L);
-    if ("1".equals(System.getenv("EMS_COMPLIANCE_GATE"))) {
+    // 9.5 benchmarks + 18.7 positions are constructed here (ahead of the gate) so the
+    // fat-finger check below can read a live reference mid and the running net position;
+    // both keep their downstream wiring (feed consumers, P&L) unchanged.
+    io.crossasset.ems.md.analytics.BenchmarkService benchmarks =
+        new io.crossasset.ems.md.analytics.BenchmarkService();
+    PositionService positionService = new PositionService();
+    // 15c3-5 controls run by DEFAULT (this is the shipped attestation): the gate builds
+    // unless a demo explicitly opts out with EMS_COMPLIANCE_GATE=0. `complianceGateOn`
+    // also feeds the market-access pack so the fat-finger control's attested status is
+    // derived from whether it is actually wired, never a bare literal.
+    boolean complianceGateOn = !"0".equals(System.getenv("EMS_COMPLIANCE_GATE"));
+    if (complianceGateOn) {
       // List gate (10.4): lists are compliance-authored reference data. The demo edge seeds
       // the firm restricted list from EMS_RESTRICTED_FIGIS (comma-separated) so a blocked
       // route is one env var away; empty lists mean the check allows everything.
@@ -152,6 +173,21 @@ public final class TraderDesktopEdgeMain {
                       new io.crossasset.ems.pretrade.compliance.MachineGunCheck.Policy(
                           60_000L, 50, 1_000_000_000L, 20),
                       System::currentTimeMillis),
+                  // Erroneous-order prevention (10.2): notional ceiling with netting relief +
+                  // limit-price deviation band vs the live benchmark mid (9.5). The ceiling sits
+                  // well above any demo notional so normal flow passes, but an exploded order
+                  // (extra zeros) trips a supervisor-overridable BLOCK. block-on-no-reference is
+                  // false so demo market orders without a live mid are not blocked.
+                  new io.crossasset.ems.pretrade.compliance.FatFingerCheck(
+                      new io.crossasset.ems.pretrade.compliance.FatFingerCheck.Policy(
+                          10_000_000_000_000L, 5_000, 2, false),
+                      figi ->
+                          benchmarks
+                              .benchmarks(figi)
+                              .map(b -> java.util.OptionalLong.of(b.mid()))
+                              .orElse(java.util.OptionalLong.empty()),
+                      (account, figi) -> positionService.position(account, figi, null).netQty(),
+                      figi -> 1L),
                   new io.crossasset.ems.pretrade.compliance.ListCheck(
                       complianceLists, System::currentTimeMillis),
                   new io.crossasset.ems.pretrade.borrow.ShortSaleLocateCheck(
@@ -201,8 +237,7 @@ public final class TraderDesktopEdgeMain {
     }
 
     // ── Backend market-data consumers on the SAME feed (9.1/9.3/9.5) ───────────
-    io.crossasset.ems.md.analytics.BenchmarkService benchmarks =
-        new io.crossasset.ems.md.analytics.BenchmarkService();
+    // (benchmarks constructed above so the compliance gate can read a live reference mid)
     io.crossasset.ems.md.quote.QuoteServer quoteServer =
         new io.crossasset.ems.md.quote.QuoteServer(
             new io.crossasset.ems.md.quote.SubscriberRegistry());
@@ -392,6 +427,40 @@ public final class TraderDesktopEdgeMain {
         new io.crossasset.ems.pretrade.analytics.PreTradeAnalytics.SquareRootImpactModel(
             java.util.Set.of(io.crossasset.ems.instrument.AssetClass.EQUITY)));
     binding.setPreTradeAnalytics(preTradeAnalytics); // POST /api/v1/pretrade-analytics/recommend
+
+    // ── Maker-checker approvals (18.10): 15-minute TTL on pending proposals; every
+    // transition also publishes on control.approvals for a live supervisor queue.
+    io.crossasset.ems.api.control.ApprovalWorkflow approvalWorkflow =
+        new io.crossasset.ems.api.control.ApprovalWorkflow(
+            aaa, subscriptions, System::currentTimeMillis, 15 * 60_000L);
+    java.util.concurrent.ScheduledExecutorService approvalsSweeper =
+        java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
+            r -> {
+              Thread t = new Thread(r, "approvals-sweeper");
+              t.setDaemon(true);
+              return t;
+            });
+    approvalsSweeper.scheduleAtFixedRate(
+        () -> approvalWorkflow.sweepExpired(System.currentTimeMillis()),
+        1,
+        1,
+        java.util.concurrent.TimeUnit.MINUTES);
+    Runtime.getRuntime().addShutdownHook(new Thread(approvalsSweeper::shutdownNow));
+    binding.setApprovals(approvalWorkflow); // GET/POST /api/v1/approvals...
+    // sweepExpired only runs when called; a stale PENDING proposal never expires on its own.
+    Thread.ofVirtual()
+        .name("approvals-ttl-sweep")
+        .start(
+            () -> {
+              while (true) {
+                try {
+                  Thread.sleep(60_000);
+                  approvalWorkflow.sweepExpired(System.currentTimeMillis());
+                } catch (InterruptedException e) {
+                  return;
+                }
+              }
+            });
     // ── Broker algo catalog (11.16): EMSX's two headline strategies, programmatically
     // registered -- ingestFixatdl exists for the real broker XML when a UAT feed is wired.
     io.crossasset.ems.fix.algo.AlgoCatalog algoCatalog =
@@ -437,7 +506,17 @@ public final class TraderDesktopEdgeMain {
         new io.crossasset.ems.pretrade.risk.RiskLimits();
     binding.setMarketAccess(
         io.crossasset.ems.api.control.EmsMarketAccessControls.standard(
-            "firm-demo", killSwitch, riskLimits, borrowService, System::currentTimeMillis),
+            "firm-demo",
+            killSwitch,
+            riskLimits,
+            borrowService,
+            complianceGateOn,
+            // Fat-finger attests IMPLEMENTED only when it fires end-to-end. FatFingerCheck
+            // evaluates STAGE/AMEND ops, but the edge presents orders to the gate only on the
+            // ROUTE path (ComplianceRouteGuard), so it does not yet fire. DEFERRED until a
+            // stage-path compliance guard is wired (tracked in AUDIT_2026-07-17.md).
+            false,
+            System::currentTimeMillis),
         System::currentTimeMillis);
 
     // ── RFQ workflow (11.18): mock dealer panel quoting around the demo base px ──
@@ -579,7 +658,7 @@ public final class TraderDesktopEdgeMain {
     new io.crossasset.ems.api.blotter.DropCopyBridge(subscriptions, som, aaa, dropCopy).attach();
 
     // ── Intraday P&L (18.7): fills feed positions, md ticks feed marks ─────────
-    PositionService positionService = new PositionService();
+    // (positionService constructed above so the compliance gate can read net positions)
     PnlService pnlService =
         new PnlService(
             positionService,

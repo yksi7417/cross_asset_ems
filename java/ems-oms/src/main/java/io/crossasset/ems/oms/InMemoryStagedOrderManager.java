@@ -99,58 +99,98 @@ public final class InMemoryStagedOrderManager implements StagedOrderManager {
 
   @Override
   public AmendResult amend(String orderId, AmendFields fields, long sessionId) {
-    StagedOrder order = orders.get(orderId);
-    if (order == null) {
+    StagedOrder existing = orders.get(orderId);
+    if (existing == null) {
       return new AmendResult.Rejected(orderId, "EMS-ORD-4001", "Order " + orderId + " not found.");
     }
-    if (order.isTerminal()) {
+    if (existing.isTerminal()) {
       return new AmendResult.Rejected(
           orderId,
           "EMS-ORD-3001",
-          "Order " + orderId + " is in terminal state " + order.fsmState() + ".");
+          "Order " + orderId + " is in terminal state " + existing.fsmState() + ".");
     }
     ValidationResult vr =
         validatorPipeline.validate(new ValidationRequest(orderId, sessionId, null, null));
     if (vr instanceof ValidationResult.Reject reject) {
       return new AmendResult.Rejected(orderId, reject.code(), reject.message());
     }
-    OrderFsmContext ctx = order.fsmContext();
-    long newQty = fields.qty() != null ? fields.qty() : ctx.orderQty();
-    Long newPrice = fields.price() != null ? fields.price() : ctx.price();
-    if (newQty <= 0) {
-      return new AmendResult.Rejected(orderId, "EMS-ORD-2001", "OrderQty must be > 0.");
-    }
-    long newLeavesQty = newQty - ctx.cumQty();
-    OrderFsmContext updatedCtx =
-        ctx.with(
-            ctx.orderId(),
-            ctx.clOrdId(),
-            ctx.origClOrdId(),
-            ctx.instrumentId(),
-            ctx.side(),
-            newQty,
-            newPrice,
-            ctx.cumQty(),
-            newLeavesQty,
-            ctx.account(),
-            ctx.tif(),
-            ctx.initialClOrdId(),
-            ctx.chainId(),
-            ctx.orderVersion() + 1,
-            ctx.preCancelStatus(),
-            ctx.preReplaceStatus());
-    StagedOrder updated =
-        new StagedOrder(
-            order.orderId(),
-            order.clOrdId(),
-            order.sessionId(),
-            order.fsmState(),
-            updatedCtx,
-            order.subState(),
-            order.pendingActions(),
-            order.stagedAtMicros());
-    orders.put(orderId, updated);
-    return new AmendResult.Amended(updated);
+    // Read-derive-write is done atomically inside compute() so a concurrent fill or cancel
+    // landing between the initial lookups above and this section can never be silently
+    // overwritten by a stale cumQty (Bug L2-5).
+    AtomicReference<AmendResult> result = new AtomicReference<>();
+    orders.compute(
+        orderId,
+        (id, order) -> {
+          if (order == null) {
+            result.set(
+                new AmendResult.Rejected(
+                    orderId, "EMS-ORD-4001", "Order " + orderId + " not found."));
+            return null;
+          }
+          if (order.isTerminal()) {
+            result.set(
+                new AmendResult.Rejected(
+                    orderId,
+                    "EMS-ORD-3001",
+                    "Order " + orderId + " is in terminal state " + order.fsmState() + "."));
+            return order;
+          }
+          OrderFsmContext ctx = order.fsmContext();
+          long newQty = fields.qty() != null ? fields.qty() : ctx.orderQty();
+          Long newPrice = fields.price() != null ? fields.price() : ctx.price();
+          if (newQty <= 0) {
+            result.set(new AmendResult.Rejected(orderId, "EMS-ORD-2001", "OrderQty must be > 0."));
+            return order;
+          }
+          // FIX cancel/replace semantics: OrderQty can never be reduced below the quantity
+          // already executed (Bug L2-1) — doing so would drive leavesQty negative.
+          if (newQty < ctx.cumQty()) {
+            result.set(
+                new AmendResult.Rejected(
+                    orderId,
+                    "EMS-ORD-2002",
+                    "OrderQty "
+                        + newQty
+                        + " is below already-filled cumQty "
+                        + ctx.cumQty()
+                        + " for order "
+                        + orderId
+                        + "."));
+            return order;
+          }
+          long newLeavesQty = newQty - ctx.cumQty();
+          OrderFsmContext updatedCtx =
+              ctx.with(
+                  ctx.orderId(),
+                  ctx.clOrdId(),
+                  ctx.origClOrdId(),
+                  ctx.instrumentId(),
+                  ctx.side(),
+                  newQty,
+                  newPrice,
+                  ctx.cumQty(),
+                  newLeavesQty,
+                  ctx.account(),
+                  ctx.tif(),
+                  ctx.initialClOrdId(),
+                  ctx.chainId(),
+                  ctx.orderVersion() + 1,
+                  ctx.preCancelStatus(),
+                  ctx.preReplaceStatus());
+          StagedOrder updated =
+              new StagedOrder(
+                  order.orderId(),
+                  order.clOrdId(),
+                  order.sessionId(),
+                  order.fsmState(),
+                  updatedCtx,
+                  order.subState(),
+                  order.pendingActions(),
+                  order.stagedAtMicros());
+          result.set(new AmendResult.Amended(updated));
+          return updated;
+        });
+    return result.get();
   }
 
   @Override
