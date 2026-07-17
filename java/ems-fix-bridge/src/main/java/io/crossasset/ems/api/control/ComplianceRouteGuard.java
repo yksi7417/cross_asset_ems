@@ -23,8 +23,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * Compliance gate on the route path: evaluates every {@link #route} request through the registered
  * pre-trade checks (machine-gun rate limiting first) before the venue dispatch. Sits INSIDE the
- * kill-switch route guard — a kill still overrides everything — and is only constructed when {@code
- * EMS_COMPLIANCE_GATE=1} (default off; see TraderDesktopEdgeMain).
+ * kill-switch route guard — a kill still overrides everything — and is constructed by default (opt
+ * out with {@code EMS_COMPLIANCE_GATE=0}; see TraderDesktopEdgeMain).
  *
  * <p>v2 scope: instrument identity (figi/side/account) is resolved from the staged order's FSM
  * context, so per-instrument checks (list gate 10.4, machine-gun per-signature keying) evaluate the
