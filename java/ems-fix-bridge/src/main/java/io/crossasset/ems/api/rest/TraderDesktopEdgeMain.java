@@ -423,6 +423,7 @@ public final class TraderDesktopEdgeMain {
             killSwitch,
             riskLimits,
             borrowService,
+            complianceGateOn,
             // Fat-finger attests IMPLEMENTED only when it fires end-to-end. FatFingerCheck
             // evaluates STAGE/AMEND ops, but the edge presents orders to the gate only on the
             // ROUTE path (ComplianceRouteGuard), so it does not yet fire. DEFERRED until a

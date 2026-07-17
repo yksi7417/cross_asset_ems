@@ -26,15 +26,18 @@ public final class EmsMarketAccessControls {
    * Build the standard pack over the live services.
    *
    * <p>Each control's status should reflect what is actually enforced in the running edge. {@code
-   * fatFingerWired} indicates whether fat-finger checks are reachable end-to-end (i.e., a stage-path
-   * compliance guard is wired so STAGE/AMEND operations are evaluated by {@code FatFingerCheck}), so
-   * the attestation cannot claim fat-finger as IMPLEMENTED until it can actually fire.
+   * complianceGateWired} indicates whether the route-path compliance gate is enforced in the running
+   * edge. {@code fatFingerWired} indicates whether fat-finger checks are reachable end-to-end (i.e.,
+   * a stage-path compliance guard is wired so STAGE/AMEND operations are evaluated by {@code
+   * FatFingerCheck}), so the attestation cannot claim fat-finger as IMPLEMENTED until it can
+   * actually fire.
    */
   public static MarketAccessPack standard(
       String firm,
       KillSwitchService killSwitch,
       RiskLimits riskLimits,
       BorrowService borrow,
+      boolean complianceGateWired,
       boolean fatFingerWired,
       LongSupplier nowMillis) {
     Objects.requireNonNull(killSwitch, "killSwitch");
@@ -125,10 +128,18 @@ public final class EmsMarketAccessControls {
             "regulatory-pre-trade",
             "15c3-5(c)(2)",
             "Regulatory pre-trade compliance (lists, overrides, Reg SHO locates)",
-            MarketAccessPack.ControlStatus.IMPLEMENTED,
+            complianceGateWired
+                ? MarketAccessPack.ControlStatus.IMPLEMENTED
+                : MarketAccessPack.ControlStatus.DEFERRED,
             "tasks 10.1 ComplianceGate, 10.4 lists, 10.5 overrides, 18.6 borrow/locate",
-            null,
-            null,
+            complianceGateWired
+                ? null
+                : "ComplianceGate-backed checks are disabled in this runtime config"
+                    + " (EMS_COMPLIANCE_GATE=0), so pre-trade lists/overrides/Reg SHO gate"
+                    + " enforcement is not active on the route path.",
+            complianceGateWired
+                ? null
+                : "kill switch; manual desk review",
             () -> {
               BorrowService.RegShoAttestation attestation =
                   borrow.regShoAttestation(nowMillis.getAsLong());
@@ -146,10 +157,17 @@ public final class EmsMarketAccessControls {
             "order-rate-limiter",
             "15c3-5(c)(1)(i)",
             "Machine-gun order rate limiting",
-            MarketAccessPack.ControlStatus.IMPLEMENTED,
+            complianceGateWired
+                ? MarketAccessPack.ControlStatus.IMPLEMENTED
+                : MarketAccessPack.ControlStatus.DEFERRED,
             "task 10.3 — machine-gun check in the compliance gate",
-            null,
-            null,
+            complianceGateWired
+                ? null
+                : "ComplianceGate is disabled in this runtime config (EMS_COMPLIANCE_GATE=0),"
+                    + " so machine-gun rate limiting is not enforced on the route path.",
+            complianceGateWired
+                ? null
+                : "kill switch; manual desk review",
             () -> {
               ObjectNode evidence = mapper.createObjectNode();
               evidence.put("rule", "machine-gun-count in the 10.1 gate, per-session rate window");

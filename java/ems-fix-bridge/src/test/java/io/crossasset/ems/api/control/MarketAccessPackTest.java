@@ -70,7 +70,7 @@ class MarketAccessPackTest {
     // end-to-end enforced — the attestation must carry it DEFERRED, not IMPLEMENTED.
     pack =
         EmsMarketAccessControls.standard(
-            "firm-a", killSwitch, riskLimits, borrow, false, () -> 9_000L);
+            "firm-a", killSwitch, riskLimits, borrow, true, false, () -> 9_000L);
   }
 
   @Test
@@ -117,7 +117,7 @@ class MarketAccessPackTest {
     // Not end-to-end enforced today (no stage-path guard): DEFERRED with the stage-path rationale.
     MarketAccessPack notEnforced =
         EmsMarketAccessControls.standard(
-            "firm-a", killSwitch, riskLimits, borrow, false, () -> 9_000L);
+            "firm-a", killSwitch, riskLimits, borrow, true, false, () -> 9_000L);
     MarketAccessPack.ControlMapping deferred = notEnforced.controls().get(0);
     assertThat(deferred.status()).isEqualTo(MarketAccessPack.ControlStatus.DEFERRED);
     assertThat(deferred.deferralRationale()).contains("stage-path");
@@ -126,9 +126,21 @@ class MarketAccessPackTest {
     // IMPLEMENTED — the follow-up PR flips one flag, no attestation edit needed.
     MarketAccessPack enforced =
         EmsMarketAccessControls.standard(
-            "firm-a", killSwitch, riskLimits, borrow, true, () -> 9_000L);
+            "firm-a", killSwitch, riskLimits, borrow, true, true, () -> 9_000L);
     assertThat(enforced.controls().get(0).status())
         .isEqualTo(MarketAccessPack.ControlStatus.IMPLEMENTED);
+  }
+
+  @Test
+  void complianceGateBackedControls_deferredWhenGateDisabled() {
+    MarketAccessPack gateDisabled =
+        EmsMarketAccessControls.standard(
+            "firm-a", killSwitch, riskLimits, borrow, false, false, () -> 9_000L);
+
+    assertThat(controlById(gateDisabled, "regulatory-pre-trade").status())
+        .isEqualTo(MarketAccessPack.ControlStatus.DEFERRED);
+    assertThat(controlById(gateDisabled, "order-rate-limiter").status())
+        .isEqualTo(MarketAccessPack.ControlStatus.DEFERRED);
   }
 
   @Test
@@ -259,7 +271,12 @@ class MarketAccessPackTest {
   }
 
   private MarketAccessPack.ControlMapping controlById(String controlId) {
-    return pack.controls().stream()
+    return controlById(pack, controlId);
+  }
+
+  private static MarketAccessPack.ControlMapping controlById(
+      MarketAccessPack sourcePack, String controlId) {
+    return sourcePack.controls().stream()
         .filter(c -> controlId.equals(c.controlId()))
         .findFirst()
         .orElseThrow(() -> new AssertionError("control not in pack: " + controlId));
