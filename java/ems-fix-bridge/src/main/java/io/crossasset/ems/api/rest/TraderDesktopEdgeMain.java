@@ -398,6 +398,19 @@ public final class TraderDesktopEdgeMain {
     io.crossasset.ems.api.control.ApprovalWorkflow approvalWorkflow =
         new io.crossasset.ems.api.control.ApprovalWorkflow(
             aaa, subscriptions, System::currentTimeMillis, 15 * 60_000L);
+    java.util.concurrent.ScheduledExecutorService approvalsSweeper =
+        java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
+            r -> {
+              Thread t = new Thread(r, "approvals-sweeper");
+              t.setDaemon(true);
+              return t;
+            });
+    approvalsSweeper.scheduleAtFixedRate(
+        () -> approvalWorkflow.sweepExpired(System.currentTimeMillis()),
+        1,
+        1,
+        java.util.concurrent.TimeUnit.MINUTES);
+    Runtime.getRuntime().addShutdownHook(new Thread(approvalsSweeper::shutdownNow));
     binding.setApprovals(approvalWorkflow); // GET/POST /api/v1/approvals...
     // sweepExpired only runs when called; a stale PENDING proposal never expires on its own.
     Thread.ofVirtual()
