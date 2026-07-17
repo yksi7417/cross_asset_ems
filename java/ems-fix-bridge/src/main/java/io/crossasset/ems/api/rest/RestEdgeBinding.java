@@ -139,6 +139,12 @@ public final class RestEdgeBinding {
   public void setPreTradeAnalytics(
       io.crossasset.ems.pretrade.analytics.PreTradeAnalytics analytics) {
     this.preTradeAnalytics = analytics;
+  /** Broker algo catalog (11.16): {@code GET /api/v1/algos?broker=X} for the ticket dropdown. */
+  private io.crossasset.ems.fix.algo.@org.jspecify.annotations.Nullable AlgoCatalog algoCatalog;
+
+  /** Wire the algo catalog so the ticket can list a broker's strategies. */
+  public void setAlgoCatalog(io.crossasset.ems.fix.algo.AlgoCatalog catalog) {
+    this.algoCatalog = catalog;
   }
 
   /** Blotter CSV export (8.7): {@code GET /api/v1/blotter/export.csv}, own orders only. */
@@ -355,6 +361,9 @@ public final class RestEdgeBinding {
       }
       if ("GET".equals(method) && "/api/v1/blotter/export.csv".equals(path)) {
         return blotterExportRoute(headers);
+      }
+      if ("GET".equals(method) && "/api/v1/algos".equals(path)) {
+        return algosRoute(query, headers);
       }
       if ("/api/v1/compliance/blocks".equals(path)
           || path.startsWith("/api/v1/compliance/blocks/")) {
@@ -959,6 +968,49 @@ public final class RestEdgeBinding {
         io.crossasset.ems.bulk.BlotterExporter.toCsv(
             ownOrders, io.crossasset.ems.bulk.ExportTemplate.DEFAULT_BLOTTER);
     return new HttpResult(200, csv, "text/csv; charset=utf-8");
+  }
+
+  /**
+   * Broker algo catalog (task 11.16): {@code GET /api/v1/algos?broker=X} lists that broker's
+   * strategies, definition order, for the ticket's algo dropdown. Session-authenticated like every
+   * ticket-facing route; the catalog itself is read-only reference data.
+   */
+  private HttpResult algosRoute(Map<String, String> query, Map<String, String> headers) {
+    if (algoCatalog == null) {
+      return error(404, "Algo catalog not configured on this edge.");
+    }
+    requireSession(headers);
+    String broker = query.get("broker");
+    if (broker == null || broker.isBlank()) {
+      throw new BadRequest("Query param 'broker' is required.");
+    }
+    ArrayNode out = mapper.createArrayNode();
+    for (io.crossasset.ems.fix.algo.AlgoStrategy strategy : algoCatalog.strategies(broker)) {
+      ObjectNode node = out.addObject();
+      node.put("wireValue", strategy.wireValue());
+      node.put("name", strategy.name());
+      ArrayNode params = node.putArray("parameters");
+      for (io.crossasset.ems.fix.algo.AlgoStrategy.Parameter p : strategy.parameters()) {
+        ObjectNode pn = params.addObject();
+        pn.put("name", p.name());
+        pn.put("type", p.type().name());
+        pn.put("required", p.required());
+        if (p.minValue() != null) {
+          pn.put("minValue", p.minValue());
+        }
+        if (p.maxValue() != null) {
+          pn.put("maxValue", p.maxValue());
+        }
+        if (p.defaultValue() != null) {
+          pn.put("defaultValue", p.defaultValue());
+        }
+        if (!p.enumValues().isEmpty()) {
+          ArrayNode enums = pn.putArray("enumValues");
+          p.enumValues().forEach(enums::add);
+        }
+      }
+    }
+    return new HttpResult(200, out.toString());
   }
 
   /** Acknowledge a notification (18.8); the acker is the session identity. */
