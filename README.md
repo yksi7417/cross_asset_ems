@@ -94,7 +94,7 @@ distinguishes the two honestly, because an institutional evaluation will. Legend
 | **Trader desktop**: Perspective blotter/watchlist/ticket/baskets/P&L/notifications, ESP click-to-trade, kill switch, maker-checker, SSO/SCIM, dockable layout, audit-trail viewer, runnable demo | ✅ |
 | Real venue adapters (11.3–11.14); internal market-data fabric (Phase 9) | 🚧 |
 
-¹ Current main: `TraderDesktopEdgeMain` enables the `ComplianceGate` only when `EMS_COMPLIANCE_GATE=1`, and `EmsMarketAccessControls` hardcodes several control statuses (see [`AUDIT_2026-07-17.md`](AUDIT_2026-07-17.md) L1).
+¹ Current main: `TraderDesktopEdgeMain` enables the `ComplianceGate` only when `EMS_COMPLIANCE_GATE=1`, and `EmsMarketAccessControls` hardcodes several control statuses (see [`audits/AUDIT_2026-07-17.md`](audits/AUDIT_2026-07-17.md) L1).
 ² Four asset *families* span seven instrument *labels*; the "seven asset classes" figure counts the design target, not the runtime proof (see matrix).
 
 <a name="asset-class-maturity"></a>
@@ -116,7 +116,7 @@ enforced at order time; today the validator's asset-class layer is a stub for **
 | **Crypto** | 🗺️ enum + uncompiled SBE schema | 🗺️ | 🗺️ | 🗺️ | **roadmap** |
 
 A production-readiness audit of the gap between claims and runtime — and the prioritized fix
-program closing it — is in **[`AUDIT_2026-07-17.md`](AUDIT_2026-07-17.md)**.
+program closing it — is in **[`audits/AUDIT_2026-07-17.md`](audits/AUDIT_2026-07-17.md)**.
 
 ---
 
