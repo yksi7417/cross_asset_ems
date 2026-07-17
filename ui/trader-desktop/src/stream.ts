@@ -12,14 +12,19 @@ export interface ApiEvent {
   payload: string;
 }
 
+interface HeartbeatFrame {
+  topic: string;
+  seq: number;
+  type: "heartbeat";
+  refId: string;
+  payload: string;
+}
+
 export type StreamStatus = "connecting" | "live" | "reconnecting" | "down";
 
-// L3-1: WsEventStreamServer (java/ems-fix-bridge) has no server-initiated heartbeat frame — it
-// only pongs a client-sent WS ping, which browsers issue at the protocol level and never surface
-// to JS — so a half-open socket (backend hung, TCP still up) never fires onclose/onerror and
-// `onopen` alone cannot tell "live" from "frozen". Absent a heartbeat to key off, the fallback is
-// a plain elapsed-time watchdog: if no frame has arrived within STALE_MS of the last one, treat
-// the stream as no longer live and force a reconnect through the existing backoff path.
+// L3-1: WsEventStreamServer emits an application-level heartbeat on idle sockets, so "stale" now
+// means neither business data nor heartbeats have arrived within STALE_MS. That still catches a
+// half-open/frozen transport (backend hung, TCP still up) that never fires onclose/onerror.
 const STALE_MS = 10_000;
 const STALE_CHECK_MS = 2_000;
 
@@ -64,7 +69,10 @@ export class ResumableStream {
     };
     socket.onmessage = (message) => {
       this.lastMessageAt = Date.now();
-      const event = JSON.parse(message.data as string) as ApiEvent;
+      const event = JSON.parse(message.data as string) as ApiEvent | HeartbeatFrame;
+      if (event.type === "heartbeat") {
+        return;
+      }
       if (event.seq <= this.lastSeq) {
         return; // duplicate at a reconnect boundary
       }

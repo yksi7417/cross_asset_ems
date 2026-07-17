@@ -70,6 +70,7 @@ class WsEventStreamServerTest {
 
     WsClient(int port, String pathAndQuery) throws IOException {
       socket = new Socket("127.0.0.1", port);
+      socket.setSoTimeout(7_000);
       in = socket.getInputStream();
       out = socket.getOutputStream();
       out.write(
@@ -169,6 +170,16 @@ class WsEventStreamServerTest {
       assertThat(live.get("seq").asLong()).isEqualTo(3);
       assertThat(live.get("type").asText()).isEqualTo("OrderRow");
       assertThat(live.get("payload").asText()).isEqualTo("{\"orderId\":\"ORD-3\"}");
+    }
+  }
+
+  @Test
+  void idleStream_emitsHeartbeatFrame() throws Exception {
+    try (WsClient client = new WsClient(server.port(), wsPath("md", 1))) {
+      JsonNode heartbeat = mapper.readTree(client.readTextFrame());
+      assertThat(heartbeat.get("topic").asText()).isEqualTo("md");
+      assertThat(heartbeat.get("seq").asLong()).isEqualTo(0);
+      assertThat(heartbeat.get("type").asText()).isEqualTo("heartbeat");
     }
   }
 

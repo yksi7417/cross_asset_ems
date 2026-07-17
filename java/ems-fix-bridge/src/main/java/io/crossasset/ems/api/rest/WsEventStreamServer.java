@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class WsEventStreamServer implements AutoCloseable {
 
   private static final String WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+  private static final long HEARTBEAT_MS = 2_000L;
 
   private final AaaService aaa;
   private final SubscriptionRegistry subscriptions;
@@ -101,6 +102,8 @@ public final class WsEventStreamServer implements AutoCloseable {
 
   private void serve(Socket socket) {
     String subscriptionId = null;
+    AtomicBoolean streaming = new AtomicBoolean(false);
+    Thread heartbeat = null;
     try (socket) {
       InputStream in = new BufferedInputStream(socket.getInputStream());
       OutputStream out = socket.getOutputStream();
@@ -132,15 +135,21 @@ public final class WsEventStreamServer implements AutoCloseable {
 
       writeHandshake(out, request.headers.get("sec-websocket-key"));
 
-      FrameSink sink = new FrameSink(out);
+      FrameSink sink = new FrameSink(out, renderHeartbeat(topic));
       subscriptionId =
           subscriptions.subscribe(
               sessionId, topic, from, (sid, subId, event) -> sink.send(event.seq(), render(event)));
+      streaming.set(true);
+      heartbeat = startHeartbeatLoop(streaming, sink);
 
       readLoop(in, out);
     } catch (IOException e) {
       // Connection dropped — the unsubscribe in finally is the cleanup.
     } finally {
+      streaming.set(false);
+      if (heartbeat != null) {
+        heartbeat.interrupt();
+      }
       if (subscriptionId != null) {
         subscriptions.unsubscribe(subscriptionId);
       }
@@ -328,6 +337,35 @@ public final class WsEventStreamServer implements AutoCloseable {
     return node.toString();
   }
 
+  private String renderHeartbeat(String topic) {
+    ObjectNode node = mapper.createObjectNode();
+    node.put("topic", topic);
+    node.put("seq", 0);
+    node.put("type", "heartbeat");
+    node.put("refId", "");
+    node.put("payload", "");
+    return node.toString();
+  }
+
+  private Thread startHeartbeatLoop(AtomicBoolean streaming, FrameSink sink) {
+    return Thread.ofVirtual()
+        .name("ws-heartbeat")
+        .start(
+            () -> {
+              while (streaming.get()) {
+                try {
+                  Thread.sleep(HEARTBEAT_MS);
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                  return;
+                }
+                if (streaming.get()) {
+                  sink.sendHeartbeat();
+                }
+              }
+            });
+  }
+
   private static long parseLongOrDefault(String value, long fallback) {
     if (value == null || value.isBlank()) {
       return fallback;
@@ -345,10 +383,12 @@ public final class WsEventStreamServer implements AutoCloseable {
    */
   private static final class FrameSink {
     private final OutputStream out;
+    private final String heartbeat;
     private long lastSeqSent;
 
-    FrameSink(OutputStream out) {
+    FrameSink(OutputStream out, String heartbeat) {
       this.out = out;
+      this.heartbeat = heartbeat;
     }
 
     synchronized void send(long seq, String json) {
@@ -358,6 +398,15 @@ public final class WsEventStreamServer implements AutoCloseable {
       lastSeqSent = seq;
       try {
         out.write(frame((byte) 0x1, json.getBytes(StandardCharsets.UTF_8)));
+        out.flush();
+      } catch (IOException e) {
+        // Connection dropped; the read loop notices and unsubscribes.
+      }
+    }
+
+    synchronized void sendHeartbeat() {
+      try {
+        out.write(frame((byte) 0x1, heartbeat.getBytes(StandardCharsets.UTF_8)));
         out.flush();
       } catch (IOException e) {
         // Connection dropped; the read loop notices and unsubscribes.
