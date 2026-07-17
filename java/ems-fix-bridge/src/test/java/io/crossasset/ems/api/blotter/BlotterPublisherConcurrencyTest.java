@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
  */
 final class BlotterPublisherConcurrencyTest {
 
-  private static final long PX = 100_00L; // $100.0000, fixed-point 1e4 — the single booked price
+  private static final long PX = 100_0000L; // $100.0000, fixed-point 1e4 — the single booked price
   private static final Pattern AVG_PX = Pattern.compile("\"avgPx\":(-?\\d+)");
 
   @Test
