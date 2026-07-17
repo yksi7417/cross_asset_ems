@@ -146,7 +146,7 @@ class FeeEngineTest {
     long price = 45_000_000L; // $4,500.00 in 1e4
     long multiplier = 50L;
     NetMoney buy = engine.compute("MS", "LISTED_FUTURE", 1, qty, price, false, 0, multiplier);
-    long expectedGross = qty * price * multiplier;
+    long expectedGross = Math.multiplyExact(Math.multiplyExact(qty, price), multiplier);
     assertThat(buy.gross()).isEqualTo(expectedGross); // 10 × 45,000,000 × 50 = 22,500,000,000
     // commission scales off the multiplied gross: 5bp of 22,500,000,000 = 11,250,000.
     assertThat(buy.commission()).isEqualTo(11_250_000L);
