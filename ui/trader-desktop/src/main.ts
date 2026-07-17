@@ -574,7 +574,7 @@ function startEsp(session: Logon): void {
     const click = (side: number, expected: () => number) => {
       sellButton.disabled = true;
       buyButton.disabled = true;
-      fetch("/api/v1/esp/click", {
+      void fetch("/api/v1/esp/click", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-EMS-Session": String(session.sessionId) },
         body: JSON.stringify({
