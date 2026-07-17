@@ -84,8 +84,11 @@ final class BlotterPublisherConcurrencyTest {
     pool.submit(
         () -> {
           awaitQuietly(start);
-          while (done.getCount() > 0) {
+          while (done.getCount() > 0
+              && tornValue.get() == null
+              && !Thread.currentThread().isInterrupted()) {
             publisher.publishOrder(order);
+            Thread.onSpinWait();
           }
           for (int i = 0; i < 50; i++) {
             publisher.publishOrder(order); // drain a few after writers finish
