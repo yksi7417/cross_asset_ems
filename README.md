@@ -80,7 +80,7 @@ distinguishes the two honestly, because an institutional evaluation will. Legend
 | OMS: staged orders, router, automation, multi-leg, aggregation, FX netting | ✅ |
 | Edges: client + venue FIX gateways, typed API surface, REST/WS binding, bulk CSV I/O, FIX venue simulator | ✅ |
 | Pre-trade: compliance gate (rate limiter, restricted/allow/watch lists), override desk (four-eyes), positions, pricing, analytics, borrow/locate (Reg SHO) | 🚧 opt-in (default off)¹ |
-| Pre-trade: fat-finger / erroneous-order notional + price-band check | ✅ (wired into the gate)¹ |
+| Pre-trade: fat-finger / erroneous-order notional + price-band check | 📚 implemented in library/tests, not wired into live gate¹ |
 | Pre-trade: credit & capital limits (RiskEngine pre-trade check) | 📚 not yet wired to the order path |
 | Post-trade: allocation + client drop-copy (live off the fill stream) | ✅ |
 | Post-trade: STP, confirmation, regulatory reporting, TRACE-mock | 📚 reachable only from the FIX-wire smoke, not the live edge |
