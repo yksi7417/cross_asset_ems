@@ -65,10 +65,12 @@ class MarketAccessPackTest {
             () -> 5_000L);
     riskLimits = new RiskLimits();
     borrow = new BorrowService(60_000L);
-    // fatFingerWired=true: the compliance gate is on by default, so FatFingerCheck is live.
+    // fatFingerWired=false: the gate is on by default, but FatFingerCheck fires only on
+    // STAGE/AMEND and the edge presents only ROUTE ops to the gate, so it is not yet
+    // end-to-end enforced — the attestation must carry it DEFERRED, not IMPLEMENTED.
     pack =
         EmsMarketAccessControls.standard(
-            "firm-a", killSwitch, riskLimits, borrow, true, () -> 9_000L);
+            "firm-a", killSwitch, riskLimits, borrow, false, () -> 9_000L);
   }
 
   @Test
@@ -83,11 +85,13 @@ class MarketAccessPackTest {
             "order-rate-limiter",
             "kill-switch");
 
-    // Fat-finger is genuinely wired into the live compliance gate (10.2 FatFingerCheck +
-    // 9.5 BenchmarkService), so it attests IMPLEMENTED.
+    // Fat-finger evaluates only STAGE/AMEND, but the edge presents only ROUTE ops to the
+    // gate, so it does not yet fire end-to-end — the attestation carries it DEFERRED with a
+    // rationale that names the stage-path gap, never a false IMPLEMENTED.
     MarketAccessPack.ControlMapping fatFinger = pack.controls().get(0);
-    assertThat(fatFinger.status()).isEqualTo(MarketAccessPack.ControlStatus.IMPLEMENTED);
+    assertThat(fatFinger.status()).isEqualTo(MarketAccessPack.ControlStatus.DEFERRED);
     assertThat(fatFinger.implementedBy()).contains("FatFingerCheck").contains("BenchmarkService");
+    assertThat(fatFinger.deferralRationale()).contains("STAGE/AMEND").contains("ROUTE");
     assertThat(fatFinger.ruleCite()).isEqualTo("15c3-5(c)(1)(i)");
 
     // Credit/capital limits (RiskEngine) are NOT wired into the live order path — the
@@ -96,24 +100,35 @@ class MarketAccessPackTest {
     MarketAccessPack.ControlMapping credit = controlById("credit-capital-limits");
     assertThat(credit.status()).isEqualTo(MarketAccessPack.ControlStatus.DEFERRED);
     assertThat(credit.deferralRationale()).contains("not yet wired");
-    assertThat(credit.compensatingControls()).contains("kill switch").contains("Fat-finger");
+    assertThat(credit.compensatingControls()).contains("kill switch").contains("rate limiter");
 
+    // The two unwired controls (fat-finger end-to-end, credit/capital) attest DEFERRED; the
+    // four genuinely-enforced controls attest IMPLEMENTED.
     assertThat(pack.controls())
         .filteredOn(c -> c.status() == MarketAccessPack.ControlStatus.IMPLEMENTED)
-        .hasSize(5);
+        .hasSize(4);
     assertThat(pack.controls())
         .filteredOn(c -> c.status() == MarketAccessPack.ControlStatus.DEFERRED)
-        .hasSize(1);
+        .hasSize(2);
   }
 
   @Test
-  void fatFingerDeferredWhenGateOff() {
-    MarketAccessPack off =
+  void fatFingerDeferredPendingStageGuard_butImplementedOnceEnforced() {
+    // Not end-to-end enforced today (no stage-path guard): DEFERRED with the stage-path rationale.
+    MarketAccessPack notEnforced =
         EmsMarketAccessControls.standard(
             "firm-a", killSwitch, riskLimits, borrow, false, () -> 9_000L);
-    MarketAccessPack.ControlMapping fatFinger = off.controls().get(0);
-    assertThat(fatFinger.status()).isEqualTo(MarketAccessPack.ControlStatus.DEFERRED);
-    assertThat(fatFinger.deferralRationale()).contains("EMS_COMPLIANCE_GATE=0");
+    MarketAccessPack.ControlMapping deferred = notEnforced.controls().get(0);
+    assertThat(deferred.status()).isEqualTo(MarketAccessPack.ControlStatus.DEFERRED);
+    assertThat(deferred.deferralRationale()).contains("stage-path");
+
+    // Once a stage-path guard makes FatFingerCheck fire (fatFingerWired=true), it attests
+    // IMPLEMENTED — the follow-up PR flips one flag, no attestation edit needed.
+    MarketAccessPack enforced =
+        EmsMarketAccessControls.standard(
+            "firm-a", killSwitch, riskLimits, borrow, true, () -> 9_000L);
+    assertThat(enforced.controls().get(0).status())
+        .isEqualTo(MarketAccessPack.ControlStatus.IMPLEMENTED);
   }
 
   @Test
@@ -160,9 +175,10 @@ class MarketAccessPackTest {
     JsonNode export = pack.attestationExport(0L);
     JsonNode summary = export.path("summary");
     assertThat(summary.path("controls").asInt()).isEqualTo(6);
-    assertThat(summary.path("implemented").asInt()).isEqualTo(5);
-    assertThat(summary.path("deferred").asInt()).isEqualTo(1);
-    // The gap (credit-capital-limits) must be visible in the attestation, not papered over.
+    assertThat(summary.path("implemented").asInt()).isEqualTo(4);
+    assertThat(summary.path("deferred").asInt()).isEqualTo(2);
+    // The gaps (fat-finger end-to-end, credit-capital-limits) must be visible in the
+    // attestation, not papered over.
     assertThat(summary.path("attestationNote").asText()).contains("DEFERRED");
 
     JsonNode credit = controlNode(export, "credit-capital-limits");
@@ -193,13 +209,13 @@ class MarketAccessPackTest {
   }
 
   /**
-   * The fix's core proof: with the gate at its DEFAULT (on) wiring, an exploded order (an extra few
-   * zeros on the quantity) presented to the compliance gate is BLOCKED — the fat-finger control the
-   * pack attests as IMPLEMENTED actually executes — while the attestation reports fat-finger
-   * IMPLEMENTED and the un-wired credit/capital control DEFERRED.
+   * Proves FatFingerCheck itself is correct: an exploded order (an extra few zeros on the quantity)
+   * presented to the compliance gate on a STAGE op is BLOCKED. The check works — but because the
+   * live edge presents only ROUTE ops to the gate, the attestation honestly reports fat-finger
+   * DEFERRED (pending a stage-path guard), alongside the un-wired credit/capital control DEFERRED.
    */
   @Test
-  void absurdOrderBlockedByGate_andAttestationMatches() {
+  void absurdOrderBlockedByGate_butAttestationHonestlyDeferred() {
     // The gate exactly as TraderDesktopEdgeMain builds it by default (Policy 1e13 ceiling,
     // 5000bp band, 2x netting relief, no block-on-no-reference), with a live $100 mid.
     long mid = 100_0000L; // $100.00, fixed-point 1e4
@@ -219,9 +235,10 @@ class MarketAccessPackTest {
     ComplianceDecision absurd = gate.evaluate(stageOp(2_000_000_000L, mid));
     assertThat(absurd.outcome()).isEqualTo(ComplianceOutcome.BLOCK);
 
-    // And the shipped attestation is truthful about both controls.
+    // The check blocks in isolation, but the shipped attestation is honest that it does not
+    // yet fire on the live (ROUTE-only) edge path: both unwired controls read DEFERRED.
     assertThat(controlById("erroneous-orders-fat-finger").status())
-        .isEqualTo(MarketAccessPack.ControlStatus.IMPLEMENTED);
+        .isEqualTo(MarketAccessPack.ControlStatus.DEFERRED);
     assertThat(controlById("credit-capital-limits").status())
         .isEqualTo(MarketAccessPack.ControlStatus.DEFERRED);
   }

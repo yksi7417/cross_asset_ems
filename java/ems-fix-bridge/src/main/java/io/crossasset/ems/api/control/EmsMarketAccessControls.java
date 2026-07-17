@@ -55,9 +55,14 @@ public final class EmsMarketAccessControls {
                 + " trip a supervisor-overridable BLOCK",
             fatFingerWired
                 ? null
-                : "Compliance gate disabled (EMS_COMPLIANCE_GATE=0) — FatFingerCheck is not"
-                    + " wired into the live order path in this deployment.",
-            fatFingerWired ? null : "kill switch; manual desk review",
+                : "FatFingerCheck (10.2) is implemented and installed on the compliance gate, but"
+                    + " it evaluates only STAGE/AMEND operations; the live edge presents orders to"
+                    + " the gate only on the ROUTE path (ComplianceRouteGuard), so fat-finger does"
+                    + " not yet fire end-to-end. DEFERRED pending a stage-path compliance guard.",
+            fatFingerWired
+                ? null
+                : "kill switch; machine-gun rate limiter and restricted/allow/watch-list gate"
+                    + " enforce on the route path by default; manual desk review",
             () -> {
               ObjectNode evidence = mapper.createObjectNode();
               evidence.put("check", "FatFingerCheck");
@@ -93,8 +98,8 @@ public final class EmsMarketAccessControls {
                 + " path; versioned RiskLimits carry the calibrated thresholds and their"
                 + " amendment journal, but no gate consults them before an order routes."
                 + " Tracked as a follow-up.",
-            "Fat-finger notional ceiling caps single-order exposure (erroneous-orders-fat-finger);"
-                + " firm/desk/venue kill switch halts access on breach (kill-switch).",
+            "Firm/desk/venue kill switch halts access on breach (kill-switch); machine-gun rate"
+                + " limiter and restricted-list gate enforce on the route path by default.",
             () -> {
               ObjectNode evidence = mapper.createObjectNode();
               evidence.put("limitsVersion", riskLimits.version());
