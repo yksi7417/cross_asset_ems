@@ -5,6 +5,7 @@
 package io.crossasset.ems.posttrade.fees;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
@@ -132,6 +133,78 @@ class FeeEngineTest {
             theirs,
             io.crossasset.ems.posttrade.confirmation.MatchTolerance.corpBond(2_500L, 100L));
     assertThat(result.matched()).isTrue();
+  }
+
+  @Test
+  void listedFuture_contractMultiplierScalesGrossAndFees() {
+    FeeEngine engine = new FeeEngine();
+    // 0.5bp commission, 1bp reg fee (sell-side only) — the point is gross scaling, not the rates.
+    engine.register("MS", "LISTED_FUTURE", new FeeSchedule(5, 0, 0, 0, 10, true));
+
+    // BUY 10 index-future contracts @ 4,500.00, multiplier 50: gross = qty × price × multiplier.
+    long qty = 10L;
+    long price = 45_000_000L; // $4,500.00 in 1e4
+    long multiplier = 50L;
+    NetMoney buy = engine.compute("MS", "LISTED_FUTURE", 1, qty, price, false, 0, multiplier);
+    long expectedGross = qty * price * multiplier;
+    assertThat(buy.gross()).isEqualTo(expectedGross); // 10 × 45,000,000 × 50 = 22,500,000,000
+    // commission scales off the multiplied gross: 5bp of 22,500,000,000 = 11,250,000.
+    assertThat(buy.commission()).isEqualTo(11_250_000L);
+    assertThat(buy.fees()).isZero(); // reg fee is sell-side only, this is a buy
+    assertThat(buy.netMoney()).isEqualTo(expectedGross + 11_250_000L);
+
+    NetMoney sell = engine.compute("MS", "LISTED_FUTURE", 2, qty, price, false, 0, multiplier);
+    // sell-side reg fee = 10bp of the same multiplied gross.
+    assertThat(sell.fees()).isEqualTo(22_500_000L);
+    assertThat(sell.netMoney()).isEqualTo(expectedGross - 11_250_000L - 22_500_000L);
+  }
+
+  @Test
+  void sevenArgOverload_stillDefaultsToMultiplierOne_cashEquityUnchanged() {
+    FeeEngine engine = new FeeEngine();
+    engine.register("GS", "US_EQUITY", FeeSchedule.perShare(50L, 1L));
+
+    // Same fixture as usEquity_centsPerShare_secFeeOnSellsOnly: the pre-existing 7-arg call
+    // must still yield gross = qty × price (multiplier 1), unaffected by the new overload.
+    NetMoney buy = engine.compute("GS", "US_EQUITY", 1, 500, 1_824_500L, false, 0);
+    assertThat(buy.gross()).isEqualTo(500L * 1_824_500L);
+    assertThat(buy.gross())
+        .isEqualTo(engine.compute("GS", "US_EQUITY", 1, 500, 1_824_500L, false, 0, 1L).gross());
+  }
+
+  @Test
+  void fixedIncome_ignoresContractMultiplier() {
+    FeeEngine engine = new FeeEngine();
+    engine.register("JPM", "US_IG_CORP", FeeSchedule.bps(5));
+    long face = 100_000L;
+    long expectedGross = face * 971_000L / 100L; // FI convention: face × px / 100
+
+    // Any contractMultiplier — even a large one a fat-fingered future-style call might pass —
+    // must not perturb bond gross; bonds have no contract multiplier.
+    NetMoney money = engine.compute("JPM", "US_IG_CORP", 1, face, 971_000L, true, 0, 50L);
+    assertThat(money.gross()).isEqualTo(expectedGross);
+  }
+
+  @Test
+  void contractMultiplier_belowOneRejected() {
+    FeeEngine engine = new FeeEngine();
+    engine.register("MS", "LISTED_FUTURE", FeeSchedule.bps(5));
+    assertThatThrownBy(
+            () -> engine.compute("MS", "LISTED_FUTURE", 1, 10, 45_000_000L, false, 0, 0L))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void contractMultiplier_overflowThrowsRatherThanWrapping() {
+    FeeEngine engine = new FeeEngine();
+    engine.register("MS", "LISTED_FUTURE", FeeSchedule.bps(5));
+    // qty × price × multiplier overflows long — must throw (ArithmeticException from
+    // Math.multiplyExact), not silently wrap like the old `qty * price`.
+    assertThatThrownBy(
+            () ->
+                engine.compute(
+                    "MS", "LISTED_FUTURE", 1, Long.MAX_VALUE / 2, 1_000_000L, false, 0, 1_000_000L))
+        .isInstanceOf(ArithmeticException.class);
   }
 
   @Test

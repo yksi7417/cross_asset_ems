@@ -19,7 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Money math is all fixed-point 1e4, integer, round-half-up on each component's final division —
  * deterministic for replay. Bond gross uses the FI convention (clean price per 100 face): {@code
- * gross = face × px / 100}; everything else {@code gross = qty × px}.
+ * gross = face × px / 100}; everything else {@code gross = qty × px × contractMultiplier} (cash
+ * equities/FX use multiplier 1; listed futures/options carry a per-contract multiplier).
  */
 public final class FeeEngine {
 
@@ -49,7 +50,9 @@ public final class FeeEngine {
   }
 
   /**
-   * Compute the money decomposition of one allocation.
+   * Compute the money decomposition of one allocation. Cash equities and FX (contract multiplier 1)
+   * — delegates to the 8-arg overload for listed futures/options, which carry a per-contract
+   * multiplier (e.g. an index future at 50x).
    *
    * @param side FIX side: 1 = buy; everything else treats charges as sale-side
    * @param qty units (shares/contracts) or face for FI
@@ -64,9 +67,40 @@ public final class FeeEngine {
       long price,
       boolean fixedIncome,
       long accruedInterest) {
+    return compute(broker, assetClass, side, qty, price, fixedIncome, accruedInterest, 1L);
+  }
+
+  /**
+   * Compute the money decomposition of one allocation, with an explicit contract multiplier for
+   * listed futures/options (e.g. an index future at 50x). Fixed-income has no contract multiplier —
+   * bonds always use {@code face × px / 100} regardless of this argument.
+   *
+   * @param side FIX side: 1 = buy; everything else treats charges as sale-side
+   * @param qty units (shares/contracts) or face for FI
+   * @param price fixed-point 1e4; clean-per-100 when {@code fixedIncome}
+   * @param accruedInterest pre-computed accrued (see {@link AccruedInterest}), 0 for non-FI
+   * @param contractMultiplier units per contract for listed derivatives (>= 1); ignored for FI
+   */
+  public NetMoney compute(
+      String broker,
+      String assetClass,
+      int side,
+      long qty,
+      long price,
+      boolean fixedIncome,
+      long accruedInterest,
+      long contractMultiplier) {
+    if (contractMultiplier < 1) {
+      throw new IllegalArgumentException("contractMultiplier must be >= 1");
+    }
     FeeSchedule schedule = scheduleFor(broker, assetClass);
-    // FI gross = face × px/100 (clean price per 100); everything else qty × px. Both stay 1e4.
-    long gross = fixedIncome ? mulDivRound(qty, price, 100) : qty * price;
+    // FI gross = face × px/100 (clean price per 100); everything else qty × px × multiplier
+    // (listed futures/options carry a per-contract multiplier, e.g. an index future at 50x).
+    // Both stay 1e4. multiplyExact throws on overflow rather than silently wrapping.
+    long gross =
+        fixedIncome
+            ? mulDivRound(qty, price, 100)
+            : Math.multiplyExact(Math.multiplyExact(qty, price), contractMultiplier);
 
     long commission =
         mulDivRound(gross, schedule.commissionBps(), 10_000) + qty * schedule.perUnitFee();
