@@ -246,7 +246,8 @@ class StagedOrderManagerTest {
           });
     }
     tasks.forEach(pool::execute);
-assertTrue(ready.await(5, TimeUnit.SECONDS), "timed out waiting for all worker threads to be ready");
+    assertTrue(
+        ready.await(5, TimeUnit.SECONDS), "timed out waiting for all worker threads to be ready");
     start.countDown();
     pool.shutdown();
     assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS));
