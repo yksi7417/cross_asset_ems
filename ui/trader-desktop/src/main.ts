@@ -554,7 +554,9 @@ function startEsp(session: Logon): void {
     const buyButton = document.createElement("button"); buyButton.className = "esp-buy";
     buyButton.innerHTML = `<span class="esp-label">BUY (ASK)</span><span class="esp-px">—</span>`;
     const controls = document.createElement("div"); controls.className = "esp-controls";
-    const qty = document.createElement("input"); qty.type = "number"; qty.value = "1000000"; qty.title = "Quantity";
+    const qty = document.createElement("input"); qty.type = "number";
+    // TODO(config): source the default click-to-trade size from firm/desk config, not a literal.
+    qty.value = "1000000"; qty.title = "Quantity";
     const guard = document.createElement("input"); guard.type = "number"; guard.value = "5"; guard.title = "Max slippage (bp)";
     controls.append(qty, guard);
     const result = document.createElement("div"); result.className = "esp-result";
@@ -566,7 +568,12 @@ function startEsp(session: Logon): void {
     };
     tileByFigi.set(figi, tile);
 
+    // L3-6: in-flight lock — both buttons are disabled the instant either is clicked so a
+    // double-click (or a click on BUY+SELL together) can never yield a second POST while the
+    // first order is still outstanding; they re-enable only once the request settles either way.
     const click = (side: number, expected: () => number) => {
+      sellButton.disabled = true;
+      buyButton.disabled = true;
       void fetch("/api/v1/esp/click", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-EMS-Session": String(session.sessionId) },
@@ -580,6 +587,15 @@ function startEsp(session: Logon): void {
         tile!.result.textContent = ok
           ? `FILLED ${body.qty} @ ${(body.px as number) / PRICE_SCALE} on ${body.venueMic} (accept ${(body.venueAcceptRateBp as number) / 100}%)`
           : `${body.reason}: ${body.detail}`;
+      }).catch((error: unknown) => {
+        // L3-3: no silent failure — a dead/half-open backend must never leave the trader
+        // guessing whether a (possibly large) order reached the market.
+        tile!.result.className = "esp-result err";
+        const message = error instanceof Error ? error.message : String(error);
+        tile!.result.textContent = `ESP click failed: ${message}`;
+      }).finally(() => {
+        sellButton.disabled = false;
+        buyButton.disabled = false;
       });
     };
     sellButton.addEventListener("click", () => click(2, () => tile!.px.bid));

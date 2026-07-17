@@ -12,7 +12,21 @@ export interface ApiEvent {
   payload: string;
 }
 
+interface HeartbeatFrame {
+  topic: string;
+  seq: number;
+  type: "heartbeat";
+  refId: string;
+  payload: string;
+}
+
 export type StreamStatus = "connecting" | "live" | "reconnecting" | "down";
+
+// L3-1: WsEventStreamServer emits an application-level heartbeat on idle sockets, so "stale" now
+// means neither business data nor heartbeats have arrived within STALE_MS. That still catches a
+// half-open/frozen transport (backend hung, TCP still up) that never fires onclose/onerror.
+const STALE_MS = 10_000;
+const STALE_CHECK_MS = 2_000;
 
 /**
  * Resumable topic stream over the 8.10/18.1 WS edge. The client owns the cursor: every delivered
@@ -25,6 +39,8 @@ export class ResumableStream {
   private attempts = 0;
   private closed = false;
   private socket: WebSocket | null = null;
+  private lastMessageAt = 0;
+  private staleTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly topic: string,
@@ -47,23 +63,64 @@ export class ResumableStream {
 
     socket.onopen = () => {
       this.attempts = 0;
+      this.lastMessageAt = Date.now();
+      this.armStaleWatchdog();
       this.onStatus("live");
     };
     socket.onmessage = (message) => {
-      const event = JSON.parse(message.data as string) as ApiEvent;
+      this.lastMessageAt = Date.now();
+      const event = JSON.parse(message.data as string) as ApiEvent | HeartbeatFrame;
+      if (event.type === "heartbeat") {
+        return;
+      }
       if (event.seq <= this.lastSeq) {
         return; // duplicate at a reconnect boundary
       }
       this.lastSeq = event.seq;
       this.onEvent(event);
     };
-    socket.onclose = () => this.scheduleReconnect();
+    socket.onclose = () => {
+      this.disarmStaleWatchdog();
+      this.scheduleReconnect();
+    };
     socket.onerror = () => socket.close();
   }
 
   close(): void {
     this.closed = true;
+    this.disarmStaleWatchdog();
     this.socket?.close();
+  }
+
+  private armStaleWatchdog(): void {
+    this.disarmStaleWatchdog();
+    this.staleTimer = setInterval(() => this.checkStale(), STALE_CHECK_MS);
+  }
+
+  private disarmStaleWatchdog(): void {
+    if (this.staleTimer !== null) {
+      clearInterval(this.staleTimer);
+      this.staleTimer = null;
+    }
+  }
+
+  private checkStale(): void {
+    if (Date.now() - this.lastMessageAt < STALE_MS) {
+      return;
+    }
+    this.disarmStaleWatchdog();
+    // A half-open socket never fires close/error on its own — sever it ourselves so the chip
+    // leaves "live" immediately and the existing backoff/reconnect path (plus recovery.ts'
+    // not-live health poll) takes over from here, same as a hard disconnect would.
+    const stale = this.socket;
+    this.socket = null;
+    if (stale) {
+      stale.onclose = null;
+      stale.onerror = null;
+      stale.onmessage = null;
+      stale.close();
+    }
+    this.scheduleReconnect();
   }
 
   private scheduleReconnect(): void {
