@@ -87,8 +87,18 @@ public final class TraderDesktopEdgeMain {
             io.crossasset.ems.pretrade.borrow.ShortSaleLocateCheck.NAKED_SHORT_OVERRIDE_TAG);
     java.util.Set<String> traderTags = new java.util.HashSet<>(overrideTags);
     traderTags.add("#kill-switch");
+    // Maker-checker (18.10): trader-1 may PROPOSE a restricted-list change; approval needs a
+    // DIFFERENT identity holding the approver tag -- self-approval is refused by the workflow
+    // itself, so a second demo user is required, not optional.
+    traderTags.add("#config-author-restricted_list");
     aaa.registerCredential("trader-token", "firm-demo", "desk-1", "trader-1", traderTags);
     aaa.registerCredential("demo-bot", "firm-demo", "desk-1", "demo-bot", Set.of());
+    aaa.registerCredential(
+        "supervisor-token",
+        "firm-demo",
+        "desk-1",
+        "supervisor-1",
+        Set.of("#config-approver-restricted_list"));
 
     InMemorySecurityMasterService secMaster = new InMemorySecurityMasterService();
     SecurityMasterSnapshot snapshot = SecurityMasterSnapshot.EMPTY;
@@ -383,6 +393,39 @@ public final class TraderDesktopEdgeMain {
     }
     binding.setBlotterExport(som); // 8.7: GET /api/v1/blotter/export.csv
 
+    // ── Maker-checker approvals (18.10): 15-minute TTL on pending proposals; every
+    // transition also publishes on control.approvals for a live supervisor queue.
+    io.crossasset.ems.api.control.ApprovalWorkflow approvalWorkflow =
+        new io.crossasset.ems.api.control.ApprovalWorkflow(
+            aaa, subscriptions, System::currentTimeMillis, 15 * 60_000L);
+    java.util.concurrent.ScheduledExecutorService approvalsSweeper =
+        java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
+            r -> {
+              Thread t = new Thread(r, "approvals-sweeper");
+              t.setDaemon(true);
+              return t;
+            });
+    approvalsSweeper.scheduleAtFixedRate(
+        () -> approvalWorkflow.sweepExpired(System.currentTimeMillis()),
+        1,
+        1,
+        java.util.concurrent.TimeUnit.MINUTES);
+    Runtime.getRuntime().addShutdownHook(new Thread(approvalsSweeper::shutdownNow));
+    binding.setApprovals(approvalWorkflow); // GET/POST /api/v1/approvals...
+    // sweepExpired only runs when called; a stale PENDING proposal never expires on its own.
+    Thread.ofVirtual()
+        .name("approvals-ttl-sweep")
+        .start(
+            () -> {
+              while (true) {
+                try {
+                  Thread.sleep(60_000);
+                  approvalWorkflow.sweepExpired(System.currentTimeMillis());
+                } catch (InterruptedException e) {
+                  return;
+                }
+              }
+            });
     // ── Broker algo catalog (11.16): EMSX's two headline strategies, programmatically
     // registered -- ingestFixatdl exists for the real broker XML when a UAT feed is wired.
     io.crossasset.ems.fix.algo.AlgoCatalog algoCatalog =
