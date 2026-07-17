@@ -68,10 +68,13 @@ public final class BlotterPublisher {
     map.compute(
         key,
         (k, acc) -> {
-          long[] next = acc == null ? new long[2] : acc;
-          next[0] += qty;
-          next[1] += qty * px;
-          return next;
+          // Copy-on-write (L4-6): return a FRESH array rather than mutating `acc` in place, so a
+          // concurrent averagePx() holding a previously-published reference always reads a
+          // consistent (cumQty, cumNotional) pair — never a torn read (qty from before an update,
+          // notional from after). compute() is atomic per key, so the accumulation stays correct.
+          long cumQty = acc == null ? 0 : acc[0];
+          long cumNotional = acc == null ? 0 : acc[1];
+          return new long[] {cumQty + qty, cumNotional + qty * px};
         });
   }
 
