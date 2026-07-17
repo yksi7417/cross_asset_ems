@@ -96,10 +96,17 @@ final class BlotterPublisherConcurrencyTest {
         });
 
     start.countDown();
-    assertThat(done.await(30, TimeUnit.SECONDS)).isTrue();
-    pool.shutdown();
-    assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
-
+    boolean writersFinished = done.await(30, TimeUnit.SECONDS);
+    try {
+      assertThat(writersFinished).isTrue();
+    } finally {
+      if (writersFinished) {
+        pool.shutdown();
+      } else {
+        pool.shutdownNow();
+      }
+      assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+    }
     assertThat(tornValue.get())
         .as("published avgPx must always equal the single booked price %s (no torn read)", PX)
         .isNull();
