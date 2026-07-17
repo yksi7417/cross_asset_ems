@@ -1,0 +1,70 @@
+name: Auto-format PR
+
+# Copilot (and humans) frequently open PRs that are functionally correct but not
+# Spotless-formatted, so the CI spotlessCheck fails. This job runs spotlessApply
+# on the PR head and pushes the fix straight back to the PR branch — the branch
+# self-heals instead of bouncing the contributor.
+#
+# Safety (mirrors format-main.yml):
+#   - Only runs for SAME-REPO branches (a fork PR has no write token; the guard
+#     skips it so the job can't fail on a permission error). Copilot's coding
+#     agent pushes same-repo `copilot/*` branches, so it is covered.
+#   - Pushes use the default GITHUB_TOKEN, which does NOT re-trigger workflows,
+#     so a non-empty fix does not loop; spotlessApply on an already-formatted
+#     tree is an empty diff → no push.
+#   - concurrency serializes runs per PR.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: format-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  format:
+    name: spotlessApply on the PR branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # Same-repo only: a cross-fork PR head repo differs from the base repo.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Check out the PR branch itself (not the merge ref) so we can push back.
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 1
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/wrapper-validation@v4
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: spotlessApply
+        run: ./gradlew --no-daemon spotlessApply
+
+      - name: Commit and push the fix (empty diff = no-op)
+        run: |
+          if git diff --quiet; then
+            echo "PR branch already formatted — nothing to do"
+            exit 0
+          fi
+          git config user.name  "format-bot"
+          git config user.email "format-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "style: auto-format PR branch (spotlessApply)"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }} || {
+            echo "push rejected (likely non-fast-forward); a newer PR update is already being processed"
+            exit 0
+          }
