@@ -62,17 +62,20 @@ class WashTradeDetectorTest {
   }
 
   @Test
-  void differentActors_noAlert() {
+  void differentActorsOrInstruments_noAlert() {
     var buy =
         new SurveillanceEvent(
             "E1", SurveillanceEvent.Type.EXECUTION, "trader-A", "BBG1", 1, 100L, 10_000L, 1_000L);
-    var sell =
+
+    var sellDifferentActor =
         new SurveillanceEvent(
             "E2", SurveillanceEvent.Type.EXECUTION, "trader-B", "BBG1", 2, 100L, 10_003L, 2_000L);
+    assertThat(detector.evaluate(List.of(buy, sellDifferentActor))).isEmpty();
 
-    List<Alert> alerts = detector.evaluate(List.of(buy, sell));
-
-    assertThat(alerts).isEmpty();
+    var sellDifferentInstrument =
+        new SurveillanceEvent(
+            "E3", SurveillanceEvent.Type.EXECUTION, "trader-A", "BBG2", 2, 100L, 10_003L, 2_000L);
+    assertThat(detector.evaluate(List.of(buy, sellDifferentInstrument))).isEmpty();
   }
 
   @Test
