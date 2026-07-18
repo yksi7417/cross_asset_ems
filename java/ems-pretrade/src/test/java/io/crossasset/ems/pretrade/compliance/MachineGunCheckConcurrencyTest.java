@@ -63,6 +63,7 @@ class MachineGunCheckConcurrencyTest {
     } finally {
       pool.shutdownNow();
     }
+  }
 
   private static ComplianceOperation route() {
     return new ComplianceOperation(
