@@ -64,7 +64,10 @@ public final class DropCopyService {
 
   private final String senderCompId;
   private final List<Subscription> subscriptions = new CopyOnWriteArrayList<>();
-  private final Map<String, long[]> deliveredCounts = new ConcurrentHashMap<>();
+  // AtomicLong per subscription: onExecution runs concurrently, so the delivered counter must be
+  // atomic. A plain long[]{}[0]++ here loses increments under contention (the seq AtomicLong stays
+  // correct, but this separate counter undercounts) — caught by DropCopyServiceConcurrencyTest.
+  private final Map<String, AtomicLong> deliveredCounts = new ConcurrentHashMap<>();
 
   /**
    * @param senderCompId this EMS's CompID on every drop session
@@ -104,15 +107,17 @@ public final class DropCopyService {
         subscription
             .sink()
             .deliver(subscription.subscriptionId(), seq, encode(execution, subscription, seq));
-        deliveredCounts.computeIfAbsent(subscription.subscriptionId(), k -> new long[1])[0]++;
+        deliveredCounts
+            .computeIfAbsent(subscription.subscriptionId(), k -> new AtomicLong())
+            .incrementAndGet();
       }
     }
   }
 
   /** Copies delivered per subscription (ops introspection). */
   public long deliveredCount(String subscriptionId) {
-    long[] count = deliveredCounts.get(subscriptionId);
-    return count == null ? 0 : count[0];
+    AtomicLong count = deliveredCounts.get(subscriptionId);
+    return count == null ? 0 : count.get();
   }
 
   private static boolean matches(Subscription subscription, Execution execution) {
