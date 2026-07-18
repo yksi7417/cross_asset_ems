@@ -52,14 +52,17 @@ class MachineGunCheckConcurrencyTest {
           });
     }
 
-    startLatch.countDown();
+    try {
+      startLatch.countDown();
 
-    pool.shutdown();
-    Assertions.assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+      pool.shutdown();
+      Assertions.assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
 
-    Assertions.assertThat(admitted.get()).isEqualTo(50);
-    Assertions.assertThat(blocked.get()).isEqualTo(n - 50);
-  }
+      Assertions.assertThat(admitted.get()).isEqualTo(50);
+      Assertions.assertThat(blocked.get()).isEqualTo(n - 50);
+    } finally {
+      pool.shutdownNow();
+    }
 
   private static ComplianceOperation route() {
     return new ComplianceOperation(
