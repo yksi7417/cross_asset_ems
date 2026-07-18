@@ -119,9 +119,7 @@ public final class TraderDesktopEdgeMain {
         new BlotterStagedOrderManager(new InMemoryStagedOrderManager(pipeline), blotter);
     BlotterRouteManager blotterRoutes =
         new BlotterRouteManager(new InMemoryRouteManager(blotterSom), blotter);
-    // Kill-switch guards are outermost (18.4): every surface constructs against them.
     KillSwitchState killState = new KillSwitchState();
-    KillSwitchOrderGuard som = new KillSwitchOrderGuard(blotterSom, killState, aaa);
     io.crossasset.ems.oms.RouteManager complianceRoutes = blotterRoutes;
     io.crossasset.ems.pretrade.compliance.ComplianceGate complianceGate = null;
     io.crossasset.ems.pretrade.compliance.OverrideService complianceOverrides = null;
@@ -140,6 +138,43 @@ public final class TraderDesktopEdgeMain {
     // also feeds the market-access pack so the fat-finger control's attested status is
     // derived from whether it is actually wired, never a bare literal.
     boolean complianceGateOn = !"0".equals(System.getenv("EMS_COMPLIANCE_GATE"));
+    // Erroneous-order prevention (10.2): notional ceiling with netting relief + limit-price
+    // deviation band vs the live benchmark mid (9.5). Built ONCE here and shared by both the
+    // stage gate (where it fires end-to-end, see ComplianceStageGuard) and the route gate below.
+    // FatFingerCheck is a stateless sizing check, so the SAME instance in both gates is correct
+    // and keeps a single policy. The ceiling sits well above any demo notional so normal flow
+    // passes; an exploded order (extra zeros) trips a supervisor-overridable BLOCK.
+    // block-on-no-reference is false so demo market orders without a live mid are not blocked.
+    io.crossasset.ems.pretrade.compliance.FatFingerCheck fatFingerCheck =
+        new io.crossasset.ems.pretrade.compliance.FatFingerCheck(
+            new io.crossasset.ems.pretrade.compliance.FatFingerCheck.Policy(
+                10_000_000_000_000L, 5_000, 2, false),
+            figi ->
+                benchmarks
+                    .benchmarks(figi)
+                    .map(b -> java.util.OptionalLong.of(b.mid()))
+                    .orElse(java.util.OptionalLong.empty()),
+            (account, figi) -> positionService.position(account, figi, null).netQty(),
+            figi -> 1L);
+    // Stage-path compliance guard (18.5, INSIDE the kill switch): a stage-scoped gate carrying
+    // ONLY the idempotent fat-finger sizing check, so STAGE ops are actually evaluated and the
+    // control fires end-to-end. The stateful, consumption-counting checks — MachineGunCheck
+    // (per-window route/replace counting) and ShortSaleLocateCheck (locate reservation) — are
+    // DELIBERATELY omitted here and stay ROUTE-only, so staging then routing the same order never
+    // double-counts a route nor double-consumes a locate.
+    io.crossasset.ems.oms.StagedOrderManager stageManager = blotterSom;
+    if (complianceGateOn) {
+      io.crossasset.ems.pretrade.compliance.ComplianceGate stageGate =
+          new io.crossasset.ems.pretrade.compliance.ComplianceGate(
+              java.util.List.of(fatFingerCheck));
+      stageManager =
+          new io.crossasset.ems.api.control.ComplianceStageGuard(
+              blotterSom, stageGate, "firm-demo", "desk-1");
+    }
+    // Kill-switch guards are outermost (18.4): every surface constructs against them, so an
+    // engaged scope locks out staging everywhere at once — checked BEFORE the compliance stage
+    // gate inside it.
+    KillSwitchOrderGuard som = new KillSwitchOrderGuard(stageManager, killState, aaa);
     if (complianceGateOn) {
       // List gate (10.4): lists are compliance-authored reference data. The demo edge seeds
       // the firm restricted list from EMS_RESTRICTED_FIGIS (comma-separated) so a blocked
@@ -173,21 +208,10 @@ public final class TraderDesktopEdgeMain {
                       new io.crossasset.ems.pretrade.compliance.MachineGunCheck.Policy(
                           60_000L, 50, 1_000_000_000L, 20),
                       System::currentTimeMillis),
-                  // Erroneous-order prevention (10.2): notional ceiling with netting relief +
-                  // limit-price deviation band vs the live benchmark mid (9.5). The ceiling sits
-                  // well above any demo notional so normal flow passes, but an exploded order
-                  // (extra zeros) trips a supervisor-overridable BLOCK. block-on-no-reference is
-                  // false so demo market orders without a live mid are not blocked.
-                  new io.crossasset.ems.pretrade.compliance.FatFingerCheck(
-                      new io.crossasset.ems.pretrade.compliance.FatFingerCheck.Policy(
-                          10_000_000_000_000L, 5_000, 2, false),
-                      figi ->
-                          benchmarks
-                              .benchmarks(figi)
-                              .map(b -> java.util.OptionalLong.of(b.mid()))
-                              .orElse(java.util.OptionalLong.empty()),
-                      (account, figi) -> positionService.position(account, figi, null).netQty(),
-                      figi -> 1L),
+                  // Erroneous-order prevention (10.2): the SAME stateless fat-finger check the
+                  // stage gate above uses — sizing is idempotent, so evaluating it at stage and
+                  // again at route is safe and never double-counts (unlike machine-gun/locate).
+                  fatFingerCheck,
                   new io.crossasset.ems.pretrade.compliance.ListCheck(
                       complianceLists, System::currentTimeMillis),
                   new io.crossasset.ems.pretrade.borrow.ShortSaleLocateCheck(
@@ -512,10 +536,11 @@ public final class TraderDesktopEdgeMain {
             borrowService,
             complianceGateOn,
             // Fat-finger attests IMPLEMENTED only when it fires end-to-end. FatFingerCheck
-            // evaluates STAGE/AMEND ops, but the edge presents orders to the gate only on the
-            // ROUTE path (ComplianceRouteGuard), so it does not yet fire. DEFERRED until a
-            // stage-path compliance guard is wired (tracked in AUDIT_2026-07-17.md).
-            false,
+            // evaluates STAGE/AMEND ops, and the ComplianceStageGuard wired above (inside the
+            // kill switch, when complianceGateOn) now presents every STAGE op to a stage-scoped
+            // gate carrying that check — so it fires end-to-end. IMPLEMENTED whenever the gate is
+            // on.
+            complianceGateOn,
             System::currentTimeMillis),
         System::currentTimeMillis);
 
