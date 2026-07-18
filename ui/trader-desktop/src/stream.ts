@@ -3,6 +3,8 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
+import { TRADING_DEFAULTS } from "./trading-config";
+
 /** One ApiEvent as framed by the WS edge (WsEventStreamServer). */
 export interface ApiEvent {
   topic: string;
@@ -25,7 +27,7 @@ export type StreamStatus = "connecting" | "live" | "reconnecting" | "down";
 // L3-1: WsEventStreamServer emits an application-level heartbeat on idle sockets, so "stale" now
 // means neither business data nor heartbeats have arrived within STALE_MS. That still catches a
 // half-open/frozen transport (backend hung, TCP still up) that never fires onclose/onerror.
-const STALE_MS = 10_000;
+const STALE_MS = TRADING_DEFAULTS.streamStaleMs;
 const STALE_CHECK_MS = 2_000;
 
 /**

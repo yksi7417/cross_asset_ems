@@ -10,6 +10,7 @@ import "@finos/perspective-viewer/dist/css/themes.css";
 import SERVER_WASM_URL from "@finos/perspective/dist/wasm/perspective-server.wasm?url";
 import VIEWER_WASM_URL from "@finos/perspective-viewer/dist/wasm/perspective-viewer.wasm?url";
 import { ResumableStream, type StreamStatus } from "./stream";
+import { TRADING_DEFAULTS } from "./trading-config";
 import { ApiClient, initTicket, type WorkingOrder } from "./ticket";
 import { attachMultiBadge } from "./aggregates";
 import { initDocking } from "./docking";
@@ -555,9 +556,8 @@ function startEsp(session: Logon): void {
     buyButton.innerHTML = `<span class="esp-label">BUY (ASK)</span><span class="esp-px">—</span>`;
     const controls = document.createElement("div"); controls.className = "esp-controls";
     const qty = document.createElement("input"); qty.type = "number";
-    // TODO(config): source the default click-to-trade size from firm/desk config, not a literal.
-    qty.value = "1000000"; qty.title = "Quantity";
-    const guard = document.createElement("input"); guard.type = "number"; guard.value = "5"; guard.title = "Max slippage (bp)";
+    qty.value = String(TRADING_DEFAULTS.espClickQty); qty.title = "Quantity";
+    const guard = document.createElement("input"); guard.type = "number"; guard.value = String(TRADING_DEFAULTS.espMaxSlippageBp); guard.title = "Max slippage (bp)";
     controls.append(qty, guard);
     const result = document.createElement("div"); result.className = "esp-result";
     root.append(pair, sellButton, buyButton, controls, result);
