@@ -68,6 +68,16 @@ public final class TraderDesktopEdgeMain {
   // international), each carrying its own lot/venue conventions. Defined in DemoUniverse.
   private static final List<DemoUniverse.DemoInstrument> INSTRUMENTS = DemoUniverse.INSTRUMENTS;
 
+  // Compliance override tags trader-1 carries (10.4/10.2 override paths). Shared by the AAA
+  // credential seeding (buildDemoAaa) and the override-desk wiring below, so it is one constant.
+  private static final java.util.Set<String> DEMO_OVERRIDE_TAGS =
+      Set.of(
+          "#compliance-override-restricted-instrument",
+          "#compliance-override-add-to-allow-list",
+          "#compliance-override-fat-finger",
+          io.crossasset.ems.pretrade.borrow.ShortSaleLocateCheck.HTB_TAG,
+          io.crossasset.ems.pretrade.borrow.ShortSaleLocateCheck.NAKED_SHORT_OVERRIDE_TAG);
+
   private TraderDesktopEdgeMain() {}
 
   public static void main(String[] args) throws Exception {
@@ -75,41 +85,8 @@ public final class TraderDesktopEdgeMain {
     int wsPort = args.length > 1 ? Integer.parseInt(args[1]) : 8485;
 
     // ── The real stack ──────────────────────────────────────────────────────────
-    InMemoryAaaService aaa = new InMemoryAaaService(new InMemoryAaaEventLog());
-    // trader-1 is the demo supervisor: kill-switch plus the compliance override tags the
-    // 10.4/10.2 override paths demand (four-eyes still needs a second signer in production).
-    java.util.Set<String> overrideTags =
-        Set.of(
-            "#compliance-override-restricted-instrument",
-            "#compliance-override-add-to-allow-list",
-            "#compliance-override-fat-finger",
-            io.crossasset.ems.pretrade.borrow.ShortSaleLocateCheck.HTB_TAG,
-            io.crossasset.ems.pretrade.borrow.ShortSaleLocateCheck.NAKED_SHORT_OVERRIDE_TAG);
-    java.util.Set<String> traderTags = new java.util.HashSet<>(overrideTags);
-    traderTags.add("#kill-switch");
-    // Maker-checker (18.10): trader-1 may PROPOSE a restricted-list change; approval needs a
-    // DIFFERENT identity holding the approver tag -- self-approval is refused by the workflow
-    // itself, so a second demo user is required, not optional.
-    traderTags.add("#config-author-restricted_list");
-    aaa.registerCredential("trader-token", "firm-demo", "desk-1", "trader-1", traderTags);
-    aaa.registerCredential("demo-bot", "firm-demo", "desk-1", "demo-bot", Set.of());
-    aaa.registerCredential(
-        "supervisor-token",
-        "firm-demo",
-        "desk-1",
-        "supervisor-1",
-        Set.of("#config-approver-restricted_list"));
-
-    InMemorySecurityMasterService secMaster = new InMemorySecurityMasterService();
-    SecurityMasterSnapshot snapshot = SecurityMasterSnapshot.EMPTY;
-    long version = 1;
-    for (DemoUniverse.DemoInstrument inst : INSTRUMENTS) {
-      snapshot =
-          snapshot.apply(
-              new SecurityMasterEvent.InstrumentCreated(
-                  new InstrumentVersioned(inst.core(), null), version++));
-    }
-    secMaster.publish(snapshot);
+    InMemoryAaaService aaa = buildDemoAaa();
+    InMemorySecurityMasterService secMaster = buildDemoSecurityMaster();
 
     SubscriptionRegistry subscriptions = new SubscriptionRegistry();
     BlotterPublisher blotter =
@@ -200,7 +177,7 @@ public final class TraderDesktopEdgeMain {
       // consult it, so it's built before the gate. Demo consults the credential registrations
       // above; production wires the 5.3 AND-gate.
       java.util.Map<String, java.util.Set<String>> tagsByUser =
-          java.util.Map.of("trader-1", overrideTags);
+          java.util.Map.of("trader-1", DEMO_OVERRIDE_TAGS);
       complianceGate =
           new io.crossasset.ems.pretrade.compliance.ComplianceGate(
               java.util.List.of(
@@ -765,6 +742,43 @@ public final class TraderDesktopEdgeMain {
   }
 
   /** A scripted trading session: staged orders, routes, dripped fills, ticking quotes. */
+  /** Demo AAA: the trader/supervisor/bot credentials + override tags the demo edge logs on with. */
+  private static InMemoryAaaService buildDemoAaa() {
+    InMemoryAaaService aaa = new InMemoryAaaService(new InMemoryAaaEventLog());
+    // trader-1 is the demo supervisor: kill-switch plus the compliance override tags the
+    // 10.4/10.2 override paths demand (four-eyes still needs a second signer in production).
+    java.util.Set<String> traderTags = new java.util.HashSet<>(DEMO_OVERRIDE_TAGS);
+    traderTags.add("#kill-switch");
+    // Maker-checker (18.10): trader-1 may PROPOSE a restricted-list change; approval needs a
+    // DIFFERENT identity holding the approver tag -- self-approval is refused by the workflow
+    // itself, so a second demo user is required, not optional.
+    traderTags.add("#config-author-restricted_list");
+    aaa.registerCredential("trader-token", "firm-demo", "desk-1", "trader-1", traderTags);
+    aaa.registerCredential("demo-bot", "firm-demo", "desk-1", "demo-bot", Set.of());
+    aaa.registerCredential(
+        "supervisor-token",
+        "firm-demo",
+        "desk-1",
+        "supervisor-1",
+        Set.of("#config-approver-restricted_list"));
+    return aaa;
+  }
+
+  /** Demo security master: seed the cross-asset instrument universe as a versioned snapshot. */
+  private static InMemorySecurityMasterService buildDemoSecurityMaster() {
+    InMemorySecurityMasterService secMaster = new InMemorySecurityMasterService();
+    SecurityMasterSnapshot snapshot = SecurityMasterSnapshot.EMPTY;
+    long version = 1;
+    for (DemoUniverse.DemoInstrument inst : INSTRUMENTS) {
+      snapshot =
+          snapshot.apply(
+              new SecurityMasterEvent.InstrumentCreated(
+                  new InstrumentVersioned(inst.core(), null), version++));
+    }
+    secMaster.publish(snapshot);
+    return secMaster;
+  }
+
   private static void runDemoScript(
       InMemoryAaaService aaa,
       io.crossasset.ems.oms.StagedOrderManager som,
