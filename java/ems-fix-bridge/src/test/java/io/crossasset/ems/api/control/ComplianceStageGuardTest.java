@@ -181,8 +181,10 @@ class ComplianceStageGuardTest {
     guard.amend("O1", new AmendFields(200L, null), 7L);
     guard.cancel("O1", 7L);
     guard.markReady("O1", 7L);
+    guard.setPendingActionDone("O1", "A1");
     guard.findOrder("O1");
     guard.activeOrders();
+    guard.applyOrderFsmEvent("O1", OrderFsmEvent.ValidationPassed, null);
     guard.markRouting("O1");
 
     assertThat(delegate.calls)
@@ -190,8 +192,10 @@ class ComplianceStageGuardTest {
             "amend:O1",
             "cancel:O1",
             "markReady:O1",
+            "setPendingActionDone:O1",
             "findOrder:O1",
             "activeOrders",
+            "applyOrderFsmEvent:O1",
             "markRouting:O1");
   }
 }
