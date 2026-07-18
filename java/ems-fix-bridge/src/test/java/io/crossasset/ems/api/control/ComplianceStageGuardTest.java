@@ -157,19 +157,31 @@ class ComplianceStageGuardTest {
 
   @Test
   void stageGateCarriesFatFingerButNotMachineGun() {
-    // The stage gate is built (by construction, in TraderDesktopEdgeMain) from the idempotent
-    // sizing check only — never the stateful machine-gun counter, whose per-window count would be
-    // double-incremented if evaluated at both stage and route. This test pins that intent.
-    List<ComplianceCheck> stageChecks =
-        List.of(
-            new FatFingerCheck(
-                new FatFingerCheck.Policy(10_000_000_000L, 5_000, 1, false),
-                figi -> OptionalLong.empty(),
-                (account, figi) -> 0L,
-                figi -> 1L));
+    ComplianceGate stageGate =
+        new ComplianceGate(
+            List.of(
+                new FatFingerCheck(
+                    new FatFingerCheck.Policy(10_000_000_000L, 5_000, 1, false),
+                    figi -> OptionalLong.empty(),
+                    (account, figi) -> 0L,
+                    figi -> 1L)));
 
-    assertThat(stageChecks).anyMatch(c -> c instanceof FatFingerCheck);
-    assertThat(stageChecks).noneMatch(c -> c instanceof MachineGunCheck);
+    io.crossasset.ems.pretrade.compliance.ComplianceDecision decision =
+        stageGate.evaluate(
+            new io.crossasset.ems.pretrade.compliance.ComplianceOperation(
+                io.crossasset.ems.pretrade.compliance.ComplianceOperation.Kind.ROUTE,
+                7L,
+                "firm-a",
+                "desk-1",
+                "user-1",
+                "O1",
+                "BBG000B9XRY4",
+                1,
+                1L,
+                100_0000L,
+                "ACC-1"));
+
+    assertThat(decision.ruleResults()).extracting(r -> r.ruleId()).containsExactly("fat-finger");
   }
 
   @Test
