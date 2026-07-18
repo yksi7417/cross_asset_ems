@@ -741,7 +741,7 @@ public final class TraderDesktopEdgeMain {
     }
   }
 
-/** Demo AAA: the trader/supervisor/bot credentials + override tags the demo edge logs on with. */
+  /** Demo AAA: the trader/supervisor/bot credentials + override tags the demo edge logs on with. */
   private static InMemoryAaaService buildDemoAaa() {
     InMemoryAaaService aaa = new InMemoryAaaService(new InMemoryAaaEventLog());
     // trader-1 is the demo supervisor: kill-switch plus the compliance override tags the
