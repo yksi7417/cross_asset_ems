@@ -169,7 +169,7 @@ public final class TraderDesktopEdgeMain {
               java.util.List.of(fatFingerCheck));
       stageManager =
           new io.crossasset.ems.api.control.ComplianceStageGuard(
-              blotterSom, stageGate, "firm-demo", "desk-1");
+              stageManager, stageGate, "firm-demo", "desk-1");
     }
     // Kill-switch guards are outermost (18.4): every surface constructs against them, so an
     // engaged scope locks out staging everywhere at once — checked BEFORE the compliance stage
