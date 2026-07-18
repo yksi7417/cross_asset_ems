@@ -10,11 +10,12 @@
 
 import { nameOfSync } from "./instruments";
 import { setQuoteStyle } from "./rfq";
+import { TRADING_DEFAULTS } from "./trading-config";
 
 /** Fixed-point price scale used across the EMS (4 implied decimals). */
 const PRICE_SCALE = 10_000;
 
-const VENUES = ["XNAS", "XNYS", "ARCX"];
+const VENUES = TRADING_DEFAULTS.routableVenues;
 
 const TIFS: [string, number][] = [
   ["DAY", 0],

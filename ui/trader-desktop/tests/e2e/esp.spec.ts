@@ -77,3 +77,4 @@ test("double-clicking an ESP tile yields exactly one order POST", async ({ page 
     release();
   }
   await response;
+});
