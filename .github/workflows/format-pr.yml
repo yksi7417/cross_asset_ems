@@ -36,7 +36,7 @@ jobs:
     # Same-repo only: a cross-fork PR head repo differs from the base repo.
     if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Check out the PR branch itself (not the merge ref) so we can push back.
           ref: ${{ github.event.pull_request.head.ref }}
