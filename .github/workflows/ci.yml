@@ -71,7 +71,7 @@ jobs:
       # now (min-coverage-* = 0) — this adds visibility, not a hard gate.
       - name: Coverage comment (PR)
         if: github.event_name == 'pull_request'
-        uses: madrapps/jacoco-report@v1.7.2
+        uses: madrapps/jacoco-report@v1.8.0
         with:
           paths: ${{ github.workspace }}/build/reports/jacoco/aggregate/jacocoRootReport.xml
           token: ${{ secrets.GITHUB_TOKEN }}
