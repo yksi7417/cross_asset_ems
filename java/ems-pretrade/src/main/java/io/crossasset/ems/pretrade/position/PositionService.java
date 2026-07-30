@@ -80,6 +80,11 @@ public final class PositionService {
       return java.util.Optional.empty();
     }
     Book book = books.get(key);
+    if (book == null) {
+      // execIdToKey held a key with no book behind it — treat it as unknown
+      // rather than dereferencing null. NullAway caught this.
+      return java.util.Optional.empty();
+    }
     synchronized (book) {
       book.fills.removeIf(f -> f.execId().equals(execId));
       Position rebuilt = Position.flat(book.position.account(), book.position.figi());

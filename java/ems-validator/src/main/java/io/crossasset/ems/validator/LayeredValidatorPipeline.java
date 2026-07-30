@@ -13,6 +13,7 @@ import io.crossasset.ems.instrument.InstrumentVersioned;
 import io.crossasset.ems.instrument.SecurityMasterService;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Concrete {@link ValidatorPipeline} that runs the eight fixed evaluation layers per
@@ -31,14 +32,14 @@ import java.util.Optional;
 public final class LayeredValidatorPipeline implements ValidatorPipeline {
 
   private final AaaService aaaService;
-  private final SecurityMasterService securityMasterService; // nullable
-  private final TagPermissionEvaluator tagPermissionEvaluator; // nullable
+  private final @Nullable SecurityMasterService securityMasterService;
+  private final @Nullable TagPermissionEvaluator tagPermissionEvaluator;
 
   /** Full constructor — all four active layers enabled. */
   public LayeredValidatorPipeline(
       AaaService aaaService,
-      SecurityMasterService securityMasterService,
-      TagPermissionEvaluator tagPermissionEvaluator) {
+      @Nullable SecurityMasterService securityMasterService,
+      @Nullable TagPermissionEvaluator tagPermissionEvaluator) {
     this.aaaService = Objects.requireNonNull(aaaService, "aaaService");
     this.securityMasterService = securityMasterService;
     this.tagPermissionEvaluator = tagPermissionEvaluator;
@@ -126,8 +127,8 @@ public final class LayeredValidatorPipeline implements ValidatorPipeline {
       String category,
       ValidationLayer layer,
       String message,
-      String adminHint,
-      String field) {
+      @Nullable String adminHint,
+      @Nullable String field) {
     return new ValidationResult.Reject(requestId, code, category, layer, message, adminHint, field);
   }
 }

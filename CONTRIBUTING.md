@@ -42,6 +42,30 @@ Sessions wrap up gracefully when commit-count or context thresholds are hit. The
 
 ---
 
+## Before you push: one command
+
+```bash
+scripts/ci/gate.sh fast
+```
+
+That is the same script CI runs, and `.githooks/pre-push` runs it for you. There is no separate
+list of "things CI checks" to keep in your head — if the gate is green, the fast lane in CI is
+green. Run `scripts/ci/gate.sh full` to also cover what a PR to `main` will run.
+
+Full reference: [`docs/polyglot/gate.md`](docs/polyglot/gate.md).
+
+---
+
+## The polyglot port
+
+The cash-equity order path is being reimplemented in Rust and C++ alongside the Java reference,
+with a byte-exact conformance gate proving the three behave identically. If you are picking that
+work up, start at [`docs/polyglot/README.md`](docs/polyglot/README.md) — it carries the scope, the
+sub-project sequence, the plans and the open questions. Its work is tracked there, not in
+`IMPL/PLAN.md`.
+
+---
+
 ## Commit conventions
 
 Pre-commit and commit-msg hooks enforce **Conventional Commits**:

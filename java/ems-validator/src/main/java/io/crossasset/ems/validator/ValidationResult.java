@@ -4,6 +4,8 @@
  */
 package io.crossasset.ems.validator;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Outcome of a validation pass. Sealed so callers must handle both variants.
  *
@@ -30,7 +32,7 @@ public sealed interface ValidationResult permits ValidationResult.Pass, Validati
       String category,
       ValidationLayer layer,
       String message,
-      String adminHint,
-      String field)
+      @Nullable String adminHint,
+      @Nullable String field)
       implements ValidationResult {}
 }

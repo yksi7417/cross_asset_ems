@@ -1,0 +1,21 @@
+# Packages that declare themselves null-correct with JSpecify's @NullMarked.
+#
+# NullAway runs in OnlyNullMarked mode, so this list is exactly the set of
+# packages it enforces. scripts/ci/checks/nullmarked_ratchet.py keeps the list
+# and the source in agreement in both directions: a package here that loses its
+# annotation fails the build, and a package that gains one without being listed
+# fails too. Coverage therefore only moves one way, and moving it is a visible
+# edit to this file.
+#
+# Adding a package:
+#   1. Add package-info.java with @NullMarked.
+#   2. Fix what NullAway reports. Annotate genuinely-nullable references
+#      @Nullable — do not delete the @NullMarked to make the build pass.
+#   3. Add the package name here.
+#
+# Every module ported for the polyglot cash-equity slice is @NullMarked from its
+# first commit: the Rust and C++ ports have to reproduce the Java null contract,
+# and Option<T> / std::optional<T> are not guesses.
+# See docs/decisions/0004-defensive-gate-stack.md.
+
+io.crossasset.ems.validator

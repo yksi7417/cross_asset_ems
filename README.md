@@ -138,6 +138,8 @@ program closing it — is in **[`audits/AUDIT_2026-07-17.md`](audits/AUDIT_2026-
 | **[KNOWLEDGE_BASE.md](KNOWLEDGE_BASE.md)** | Design knowledge base — architecture, asset classes, venues, regulatory |
 | **[00_index/HOME.md](00_index/HOME.md)** | Design vault entry point — navigate the architecture spine |
 | **[IMPL/PLAN.md](IMPL/PLAN.md)** | Implementation task queue + current goal |
+| **[docs/polyglot/README.md](docs/polyglot/README.md)** | The Java/Rust/C++ port — scope, sequencing, plans, and the conformance gate that proves the three behave identically |
+| **[docs/polyglot/gate.md](docs/polyglot/gate.md)** | The single quality gate: `scripts/ci/gate.sh`, its lanes, and how to reproduce any CI failure locally |
 
 ---
 

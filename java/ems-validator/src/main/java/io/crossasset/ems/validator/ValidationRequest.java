@@ -5,6 +5,7 @@
 package io.crossasset.ems.validator;
 
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Input to the validator pipeline for a single operation. Fields are restricted to what layers 1–4
@@ -18,9 +19,9 @@ public record ValidationRequest(
     String requestId,
     long sessionId,
     /** Permission tag required for this action. Null skips the permission layer. */
-    String tag,
+    @Nullable String tag,
     /** Canonical FIGI for the instrument. Null skips the reference-data layer. */
-    String figi) {
+    @Nullable String figi) {
 
   public ValidationRequest {
     Objects.requireNonNull(requestId, "requestId");
