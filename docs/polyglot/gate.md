@@ -39,6 +39,7 @@ it was skipped.
 
 | Step | fast | full | nightly | What it runs |
 |---|:--:|:--:|:--:|---|
+| `exec-bits` | ✔ | ✔ | ✔ | Every tracked `*.sh` outside a `lib/` and every hook is mode `100755` |
 | `shellcheck` | ✔ | ✔ | ✔ | `shellcheck` over `scripts/**/*.sh` and `.githooks/*` |
 | `ci-check-tests` | ✔ | ✔ | ✔ | `python3 -m unittest discover -s scripts/ci/checks` — the gate's own checks are tested |
 | `fsm-sync` | ✔ | ✔ | ✔ | Regenerate FSMs (Java + C++, Rust when present), `git diff --exit-code` |

@@ -32,6 +32,7 @@ CPP_MSAN_DIR=build/cpp-msan
 # ── lanes ────────────────────────────────────────────────────────────────────
 
 FAST_STEPS=(
+    exec-bits
     shellcheck
     ci-check-tests
     fsm-sync
@@ -118,6 +119,24 @@ do_shellcheck() {
     shellcheck "${scripts[@]}"
 }
 
+do_exec_bits() {
+    # A script committed without its executable bit fails only in CI, where
+    # nothing has already chmod'd it locally. Caught here instead.
+    #
+    # Files under a lib/ directory are exempt: they are sourced, not run, and
+    # marking them executable would advertise an entry point they do not have.
+    local offenders
+    offenders=$(git ls-files -s scripts .githooks conformance 2>/dev/null \
+        | awk '$1 != "100755" && $4 !~ /\/lib\// && ($4 ~ /\.sh$/ || $4 ~ /^\.githooks\//) { print $4 }')
+    if [ -n "$offenders" ]; then
+        echo "not executable (git mode is not 100755):" >&2
+        echo "$offenders" >&2
+        echo "fix with: git update-index --chmod=+x <path>" >&2
+        return 1
+    fi
+    return 0
+}
+
 do_ci_check_tests() {
     python3 -m unittest discover -s scripts/ci/checks -p 'test_*.py'
 }
@@ -183,6 +202,8 @@ do_study_guide() {
 
 run_step() {
     case "$1" in
+    exec-bits)
+        step_run exec-bits do_exec_bits ;;
     shellcheck)
         step_needs_tool shellcheck shellcheck 'shellcheck not installed' -- do_shellcheck ;;
     ci-check-tests)
