@@ -1,23 +1,54 @@
 #!/usr/bin/env bash
-# Pre-commit hook: (1) regenerate FSM Java from YAML, (2) apply spotless formatting.
-# Prevents CI failures for both fsm-drift and spotlessCheck.
+#
+# Pre-commit hook — a fast auto-fixer, not a gate.
+#
+#   1. Regenerate FSM sources from YAML (Java and C++; Rust from sub-project 3).
+#   2. Apply formatting: spotless (Java), clang-format (C++), cargo fmt (Rust).
+#   3. Re-stage whatever those steps touched.
+#
+# It deliberately does NOT call scripts/ci/gate.sh. A commit hook that runs
+# sanitizers is a commit hook developers disable. The gate runs on push
+# (.githooks/pre-push) and in CI.
 #
 # Install (once per clone):
 #   git config core.hooksPath .githooks
+#
+# See docs/polyglot/gate.md.
+
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
 
-# 1. Regenerate FSM Java — fast (<1s), avoids stale-generated CI failures.
-if command -v python3 &>/dev/null && [[ -f "$REPO_ROOT/tools/codegen/fsm_codegen.py" ]]; then
-  python3 "$REPO_ROOT/tools/codegen/fsm_codegen.py" --java-only >/dev/null
-  git add "$REPO_ROOT/java/ems-fsm/src/main/generated/"
+# 1. Regenerate FSM sources — fast (<1s), avoids stale-generated CI failures.
+if command -v python3 >/dev/null 2>&1 && [ -f tools/codegen/fsm_codegen.py ]; then
+    python3 tools/codegen/fsm_codegen.py --java-only >/dev/null
+    git add java/ems-fsm/src/main/generated/
+
+    python3 tools/codegen/fsm_codegen.py --cpp-only >/dev/null
+    git add cpp/fsm/generated/
 fi
 
-# 2. Apply spotless to all staged Java files (google-java-format).
-# spotlessApply auto-formats; we then re-stage any files it touched.
-cd "$REPO_ROOT"
+# 2a. Java — spotlessApply auto-formats; re-stage what it reformatted.
 ./gradlew spotlessApply --quiet
-# Re-stage any Java files that spotless reformatted.
-# grep exits 1 when no .java files changed; the subshell absorbs that so set -e doesn't kill us.
+# grep exits 1 when no .java files changed; the subshell absorbs that so set -e
+# does not kill us.
 git diff --name-only | { grep '\.java$' || true; } | xargs --no-run-if-empty git add
+
+# 2b. C++ — format staged sources in place, then re-stage.
+if command -v clang-format >/dev/null 2>&1; then
+    mapfile -t cpp_staged < <(
+        git diff --cached --name-only --diff-filter=ACM \
+            | { grep -E '\.(cpp|cc|cxx|hpp|hh|h)$' || true; }
+    )
+    if [ "${#cpp_staged[@]}" -gt 0 ]; then
+        clang-format -i "${cpp_staged[@]}"
+        git add "${cpp_staged[@]}"
+    fi
+fi
+
+# 2c. Rust — cargo fmt over the workspace, then re-stage.
+if [ -f rust/Cargo.toml ] && command -v cargo >/dev/null 2>&1; then
+    cargo fmt --manifest-path rust/Cargo.toml --all
+    git diff --name-only | { grep '\.rs$' || true; } | xargs --no-run-if-empty git add
+fi
