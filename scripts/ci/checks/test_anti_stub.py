@@ -132,5 +132,45 @@ class TestAntiStub(unittest.TestCase):
         self.assertEqual(check(tree({}), {}), [])
 
 
+class TestInlineRustTests(unittest.TestCase):
+    """Rust puts unit tests in the file they test; the check must accept that."""
+
+    def test_inline_cfg_test_module_counts_as_a_test(self):
+        root = tree(
+            {
+                "rust/ems-slice/src/main.rs": (
+                    "fn run() -> u8 { 1 }\n"
+                    "#[cfg(test)]\n"
+                    "mod tests {\n"
+                    "    #[test]\n"
+                    "    fn t() { assert_eq!(super::run(), 1); }\n"
+                    "}\n"
+                )
+            }
+        )
+        self.assertEqual(check(root, {"rust": {"ems-slice": "done"}}), [])
+
+    def test_cfg_test_module_without_an_assertion_does_not_count(self):
+        root = tree(
+            {
+                "rust/ems-slice/src/main.rs": (
+                    "fn run() -> u8 { 1 }\n"
+                    "#[cfg(test)]\n"
+                    "mod tests {\n"
+                    "    #[test]\n"
+                    "    fn t() { super::run(); }\n"
+                    "}\n"
+                )
+            }
+        )
+        errors = check(root, {"rust": {"ems-slice": "done"}})
+        self.assertTrue(any("no test that asserts" in e for e in errors), errors)
+
+    def test_source_without_any_cfg_test_still_needs_a_test_file(self):
+        root = tree({"rust/ems-oms/src/lib.rs": "pub fn f() -> u8 { 1 }\n"})
+        errors = check(root, {"rust": {"ems-oms": "done"}})
+        self.assertTrue(any("no test that asserts" in e for e in errors), errors)
+
+
 if __name__ == "__main__":
     unittest.main()

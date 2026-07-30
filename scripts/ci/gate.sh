@@ -154,7 +154,11 @@ do_exec_bits() {
 }
 
 do_ci_check_tests() {
-    python3 -m unittest discover -s scripts/ci/checks -p 'test_*.py'
+    python3 -m unittest discover -s scripts/ci/checks -p 'test_*.py' || return 1
+    if [ -d conformance/harness ]; then
+        python3 -m unittest discover -s conformance/harness -p 'test_*.py' || return 1
+    fi
+    return 0
 }
 
 do_fsm_sync() {
@@ -248,6 +252,20 @@ do_cpp_test() {
     # --no-tests=error is the whole point: a green ctest over zero tests is
     # exactly the failure mode this repo already demonstrates in cpp/.
     ctest --test-dir "$dir" --output-on-failure --no-tests=error
+}
+
+# The conformance harness runs three binaries. Build whichever ones this
+# checkout can build — the harness itself reports any it could not find, and
+# fails outright if none exist.
+do_conformance() {
+    gradle :ems-it:installDist || return 1
+    if have_tool cmake; then
+        do_cpp_configure_build "$CPP_BUILD_DIR" || return 1
+    fi
+    if have_rust_tree && have_tool cargo; then
+        cargo build --manifest-path rust/Cargo.toml --release || return 1
+    fi
+    conformance/harness/run.sh
 }
 
 do_anti_stub() {
@@ -371,7 +389,7 @@ run_step() {
         step_run study-guide do_study_guide ;;
     conformance)
         if have_conformance; then
-            step_run conformance conformance/harness/run.sh
+            step_run conformance do_conformance
         else
             step_skip conformance 'conformance harness not present — sub-project 2'
         fi ;;
@@ -379,7 +397,7 @@ run_step() {
         if [ -f conformance/harness/fsm_coverage.py ]; then
             step_run fsm-coverage python3 conformance/harness/fsm_coverage.py
         else
-            step_skip fsm-coverage 'conformance corpus not present — sub-project 2'
+            step_skip fsm-coverage 'no FSM in the slice yet — lands with the order FSM component'
         fi ;;
     fuzz-long)
         step_skip fuzz-long 'no fuzz targets yet — sub-projects 4 and 5' ;;

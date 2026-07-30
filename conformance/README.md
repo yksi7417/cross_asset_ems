@@ -3,10 +3,16 @@
 This directory is how "the three implementations are the same system" becomes a testable claim
 instead of a sentence in a README.
 
-**Status: contract only.** The corpus and harness land in sub-project 2. This document is the
-specification they are built to — written first on purpose, so the gate is not shaped to fit
-whatever got built. See [`docs/polyglot/README.md`](../docs/polyglot/README.md) and
-[ADR 0003](../docs/decisions/0003-shared-schemas-corpus-harness.md).
+**Status: live, and narrow.** The harness, the differ and the first corpus case exist, and
+`scripts/ci/gate.sh full` runs them against all three implementations. What is narrow is the
+*slice*: `ems-slice` currently implements the journal codec and deterministic identifiers only.
+Coverage grows one component at a time — see [`docs/polyglot/README.md`](../docs/polyglot/README.md)
+and [ADR 0003](../docs/decisions/0003-shared-schemas-corpus-harness.md).
+
+```bash
+conformance/harness/run.sh          # every case, every implementation
+conformance/harness/run.sh --list   # what would run, and what is not built
+```
 
 ---
 
@@ -24,9 +30,12 @@ input journal to output journal.
 
 | Implementation | Binary | Built by |
 |---|---|---|
-| Java | `java/ems-it` → `ems-slice` launcher | Gradle |
-| Rust | `rust/ems-slice` | Cargo |
-| C++ | `cpp/ems-it` → `ems-slice` | CMake |
+| Java | `java/ems-it/build/install/ems-slice/bin/ems-slice` | `./gradlew :ems-it:installDist` |
+| Rust | `rust/target/release/ems-slice` | `cargo build --manifest-path rust/Cargo.toml --release` |
+| C++ | `build/cpp/ems-it/ems-slice` | `cmake --build build/cpp` |
+
+The `conformance` gate step builds all three before running, so `scripts/ci/gate.sh full` needs no
+preparation.
 
 ## Layout
 
@@ -39,8 +48,11 @@ conformance/
   harness/
     run.sh           runs every case against every available implementation
     differ.py        byte-exact comparison, human-readable failure output
-    fsm_coverage.py  asserts every FSM transition is reached by ≥1 case
+    test_differ.py   unit tests for the differ, run by the gate's ci-check-tests step
+    fsm_coverage.py  asserts every FSM transition is reached by ≥1 case (lands with the FSM)
 ```
+
+A case may also contain a `seed` file — a single integer passed to `--seed`. Absent means 0.
 
 Cases are versioned in git and reviewed like source.
 

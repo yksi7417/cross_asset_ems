@@ -60,11 +60,11 @@ Six sub-projects. Each has its own plan and its own PR; each ends with the full 
 | # | Sub-project | Delivers | Depends on | Status |
 |---|---|---|---|---|
 | 1 | **[Gate skeleton](../superpowers/plans/2026-07-30-polyglot-01-gate-skeleton.md)** | `scripts/ci/gate.sh`, hooks rewired, CI restructured to call it, anti-stub and study-guide checks, ErrorProne/NullAway on Java. No new language code. | — | **complete** |
-| 2 | **[Conformance harness + corpus](../superpowers/plans/2026-07-30-polyglot-02-conformance-harness.md)** | `conformance/`, the `ems-slice` CLI contract, harness, differ, first corpus cases generated from Java. | 1 | not started |
+| 2 | **[Conformance harness + corpus](../superpowers/plans/2026-07-30-polyglot-02-conformance-harness.md)** | `conformance/`, the `ems-slice` CLI contract, harness, differ, first corpus cases generated from Java. | 1 | **harness + differ + first case live**; corpus grows per component |
 | 3 | **[Rust codegen emitter](../superpowers/plans/2026-07-30-polyglot-03-rust-codegen-emitter.md)** | Rust emitter in `fsm_codegen.py`, three-way sync check, `rust/` workspace with `ems-fsm` only. | 1 | not started |
-| 4 | **[Rust slice](../superpowers/plans/2026-07-30-polyglot-04-rust-slice.md)** | Full slice in Rust. Rust gate + conformance green. | 2, 3 | not started |
-| 5 | **[C++ slice](../superpowers/plans/2026-07-30-polyglot-05-cpp-slice.md)** | Full slice in C++, replacing the stubs. C++ gate + conformance green. | 2 | not started |
-| 6 | **[Study guide](../superpowers/plans/2026-07-30-polyglot-06-study-guide.md)** | `70_concepts/idioms/`, notes for every idiom found in 4 and 5, integrity check. | 4, 5 | not started |
+| 4 | **[Rust slice](../superpowers/plans/2026-07-30-polyglot-04-rust-slice.md)** | Full slice in Rust. Rust gate + conformance green. | 2, 3 | **in progress** — `ems-core`, `ems-slice` |
+| 5 | **[C++ slice](../superpowers/plans/2026-07-30-polyglot-05-cpp-slice.md)** | Full slice in C++, replacing the stubs. C++ gate + conformance green. | 2 | **in progress** — `ems-core`, `ems-it` |
+| 6 | **[Study guide](../superpowers/plans/2026-07-30-polyglot-06-study-guide.md)** | `70_concepts/idioms/`, notes for every idiom found in 4 and 5, integrity check. | 4, 5 | **4 notes written**; index and completeness check outstanding |
 
 **Rust before C++ is deliberate.** Rust's compiler catches at build time the class of error the
 C++ sanitizer matrix catches at run time. Doing Rust first surfaces the design's aliasing and
@@ -82,7 +82,7 @@ schemas/               # unchanged — single source of truth for wire + FSM
 tools/codegen/         # fsm_codegen.py; gains a Rust emitter (--rust-only) in sub-project 3
 java/                  # unchanged. Reference implementation.
 cpp/                   # existing 15 stubs; slice modules gain real source in sub-project 5
-rust/                  # NEW cargo workspace, module names 1:1 with java/ and cpp/
+rust/                  # cargo workspace: ems-core, ems-slice (grows one crate at a time)
 conformance/           # NEW — corpus + harness + differ
   corpus/<case>/       #   input.jsonl, expected.jsonl, case.md
   harness/             #   language-agnostic runner + differ
@@ -116,7 +116,15 @@ rather than implying otherwise.
 3. Run `scripts/ci/gate.sh fast` to see where the tree stands. It takes ~3 minutes cold and tells
    you, step by step, what is enforced and what is still skipping.
 4. Find the first sub-project in the table above that is not done, open its plan, and execute it
-   task by task. Sub-project 2 is next.
+   task by task.
+
+**Working order in practice.** The plans are written per sub-project, but the tree is being built
+**one component at a time across all three languages at once**: Java first (it generates the
+expectation), then Rust, then C++, then a corpus case that proves the three agree byte-for-byte
+before the next component starts. That is a deliberate departure from executing plans 2→3→4→5 in
+sequence — it keeps the differential gate honest at every step instead of at the end, and it means
+no language accumulates a backlog of unverified code. Component 1 (journal codec + deterministic
+identifiers) is done in all three; the order FSM is next.
 
 Each plan is written for someone with zero context on this codebase: exact files, exact commands,
 test-first steps, and a commit at the end of every task.

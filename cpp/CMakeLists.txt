@@ -60,7 +60,49 @@ if(NOT EMS_SANITIZER STREQUAL "none")
     message(STATUS "EMS sanitizer build: ${EMS_SANITIZER}")
 endif()
 
-# Modules — same layering as the Java tree. Stubs populate when task 1.7 codegen lands.
+# ── GoogleTest ───────────────────────────────────────────────────────────────
+#
+# FIND_PACKAGE_ARGS makes CMake prefer a system GTest and only fall back to
+# fetching one, so a machine with the distro package installed builds offline.
+# The tag is pinned: an unpinned test framework is a build that can start
+# failing without anything in this repository changing.
+include(FetchContent)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG v1.15.2
+    GIT_SHALLOW TRUE
+    FIND_PACKAGE_ARGS NAMES GTest
+)
+FetchContent_MakeAvailable(googletest)
+
+# GoogleTest is not held to this repository's warning set — it is third-party
+# code and -Wold-style-cast/-Wconversion fire inside it.
+foreach(gtest_target gtest gtest_main gmock gmock_main)
+    if(TARGET ${gtest_target})
+        target_compile_options(${gtest_target} PRIVATE -w)
+    endif()
+endforeach()
+
+enable_testing()
+
+# ems_add_test(<name> SOURCES ... LIBS ...)
+# Registers a GoogleTest executable. Wrapped so a module cannot pick up test
+# infrastructure by copy-paste drift, and so every test target is registered
+# with ctest — an unregistered test binary is a test that never runs.
+function(ems_add_test name)
+    cmake_parse_arguments(ARG "" "" "SOURCES;LIBS" ${ARGN})
+    if(NOT ARG_SOURCES)
+        message(FATAL_ERROR "ems_add_test(${name}) requires SOURCES")
+    endif()
+    add_executable(${name} ${ARG_SOURCES})
+    target_link_libraries(${name} PRIVATE ${ARG_LIBS} GTest::gtest_main)
+    add_test(NAME ${name} COMMAND ${name})
+endfunction()
+
+# Modules — same layering as the Java tree.
 add_subdirectory(ems-core)
 add_subdirectory(ems-fsm)
 add_subdirectory(ems-transport)

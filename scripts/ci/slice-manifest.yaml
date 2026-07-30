@@ -20,7 +20,7 @@
 
 cpp:
   # Modules the cash-equity slice will port (sub-project 5).
-  ems-core: stub
+  ems-core: done
   ems-fsm: stub
   ems-transport: stub
   ems-aaa: stub
@@ -36,9 +36,11 @@ cpp:
   ems-observability: stub
   ems-ops: stub
   ems-bench: stub
-  ems-it: stub
+  ems-it: done
 
-# No entries until sub-project 3 creates the workspace. Unlike cpp/, no empty
-# module stubs are committed — a directory appears when it has behaviour and
-# tests. See docs/decisions/0001-reinstate-rust-three-language-port.md.
-rust: {}
+# Unlike cpp/, no empty module stubs are committed here — a directory appears
+# when it has behaviour and tests, never before.
+# See docs/decisions/0001-reinstate-rust-three-language-port.md.
+rust:
+  ems-core: done
+  ems-slice: done

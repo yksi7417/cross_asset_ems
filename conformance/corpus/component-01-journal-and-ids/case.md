@@ -1,0 +1,32 @@
+# component-01-journal-and-ids
+
+**Covers:** the first component of the slice — the JSONL journal codec and deterministic identifier
+generation — end to end through the `ems-slice` binary in all three languages.
+
+**Why it exists:** it is the smallest case that can fail for a byte-level reason. Every later case
+inherits the codec, so if this one diverges nothing after it can be trusted. It deliberately
+exercises the parts of the format where three independent JSON writers are most likely to disagree:
+
+| Input line | What it proves |
+|---|---|
+| 1, 2 | `OrderNew` → `OrderAccepted` with `ORD-0000000001`, `ORD-0000000002` — the identifier format and its ordering |
+| 3 | a non-order event passes through with only its sequence renumbered |
+| 4 | the `ignored` field is **not** echoed — only the agreed field list crosses to the output, so a stray field cannot diverge on some other language's map ordering |
+| 5 | UTF-8 (`café — ☕`) is emitted raw, while `"` and `\` are escaped — the two rules that a "just use the JSON library" implementation gets wrong in opposite directions |
+| all | output keys are lexicographic at both levels; the final line is `\n`-terminated |
+
+The trailing `RunSummary` puts the input size and the seed in the journal itself, so a case that
+silently read zero events cannot pass by producing an empty file.
+
+**Seed:** 0 (see `seed`).
+
+**Scope, stated plainly:** there is no validation, no FSM, no routing and no venue in this case,
+because none of that is implemented yet. The `OrderNew` → `OrderAccepted` transformation is a
+placeholder that exercises the codec and the identifier generator; it is not a claim about the
+order path. When the validator and FSM land, this case's expectation changes and that change is
+reviewed like any other.
+
+**Reviewed against:** nothing in `schemas/` constrains this case yet — it predates the FSM and
+reject-code paths. Its expectation was read line by line against the codec contract in
+`conformance/README.md` and the assertions in `JournalCodecTest`, `journal_test.rs` and
+`journal_test.cpp`, which all three implementations pass independently.
