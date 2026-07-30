@@ -11,8 +11,8 @@ name = "ems-slice"
 path = "src/main.rs"
 
 [dependencies]
-ems-core = { path = "../ems-core" }
-ems-transport = { path = "../ems-transport" }
+ems-core = { path = "../ems-core", version = "0.1.0" }
+ems-transport = { path = "../ems-transport", version = "0.1.0" }
 
 [lints]
 workspace = true

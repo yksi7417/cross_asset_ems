@@ -7,7 +7,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-ems-core = { path = "../ems-core" }
+ems-core = { path = "../ems-core", version = "0.1.0" }
 
 [lints]
 workspace = true
