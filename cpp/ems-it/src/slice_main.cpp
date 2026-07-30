@@ -24,6 +24,7 @@
 #include "ems_core/ids.hpp"
 #include "ems_core/journal.hpp"
 #include "ems_it/slice_runner.hpp"
+#include "ems_transport/journal_transport.hpp"
 
 namespace {
 
@@ -138,7 +139,13 @@ int main(int argc, char** argv) {
         return usage(error);
     }
 
-    auto events = ems::core::read_journal(args->input);
+    // The slice talks to a Transport, not to files. JournalTransport is the
+    // deterministic implementation the conformance gate runs; an Aeron-backed
+    // one is the live path, and nothing here can tell them apart.
+    // See docs/decisions/0006-abstract-transport-journal-first.md.
+    ems::transport::JournalTransport transport(args->input, args->output);
+
+    auto events = transport.drain();
     if (!events) {
         // No stack unwind noise: a malformed input journal is a data problem,
         // and the line number in the message is what actually helps.
@@ -147,9 +154,11 @@ int main(int argc, char** argv) {
     }
 
     ems::core::DeterministicIds ids{args->seed};
-    const auto output = ems::it::run_slice(events.value(), ids);
+    for (auto& event : ems::it::run_slice(events.value(), ids)) {
+        transport.publish(std::move(event));
+    }
 
-    if (auto status = ems::core::write_journal(args->output, output); !status) {
+    if (auto status = transport.flush(); !status) {
         std::cerr << "ems-slice: " << status.error().to_string() << '\n';
         return kExitInputError;
     }

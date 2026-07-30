@@ -12,21 +12,25 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use ems_core::journal::{decode, read_journal, write_journal, JournalError, JournalEvent};
 
 fn tmp_dir() -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("ems-core-journal-test-{}", unique()));
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    // Process id as well as a counter, and the directory is cleared: reusing a
+    // fixed name across runs meant a previous run's out.jsonl was still there,
+    // and `publish_before_flush_writes_nothing` failed on a file it did not
+    // create. Wall-clock is not an option — the port bans it.
+    let dir = std::env::temp_dir().join(format!(
+        "ems-{}-{}-{}",
+        env!("CARGO_PKG_NAME"),
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    ));
+    let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).expect("create temp dir");
     dir
-}
-
-/// Monotonic counter — `Math.random`-free by policy, and the tests must not
-/// depend on wall-clock either.
-fn unique() -> u64 {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-    COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
 fn event(seq: u64, event_type: &str, fields: &[(&str, &str)]) -> JournalEvent {

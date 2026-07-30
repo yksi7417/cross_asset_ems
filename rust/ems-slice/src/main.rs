@@ -16,7 +16,8 @@ mod runner;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use ems_core::{read_journal, write_journal, DeterministicIds};
+use ems_core::DeterministicIds;
+use ems_transport::{JournalTransport, Transport};
 
 const EXIT_OK: u8 = 0;
 const EXIT_INPUT_ERROR: u8 = 1;
@@ -52,7 +53,13 @@ fn main() -> ExitCode {
         }
     };
 
-    let events = match read_journal(&args.input) {
+    // The slice talks to a Transport, not to files. JournalTransport is the
+    // deterministic implementation the conformance gate runs; an Aeron-backed
+    // one is the live path, and nothing here can tell them apart.
+    // See docs/decisions/0006-abstract-transport-journal-first.md.
+    let mut transport = JournalTransport::new(&args.input, &args.output);
+
+    let events = match transport.drain() {
         Ok(events) => events,
         Err(e) => {
             // No backtrace: a malformed input journal is a data problem, and
@@ -63,9 +70,11 @@ fn main() -> ExitCode {
     };
 
     let mut ids = DeterministicIds::new(args.seed);
-    let output = runner::run(&events, &mut ids);
+    for event in runner::run(&events, &mut ids) {
+        transport.publish(event);
+    }
 
-    if let Err(e) = write_journal(&args.output, &output) {
+    if let Err(e) = transport.flush() {
         eprintln!("ems-slice: {e}");
         return ExitCode::from(EXIT_INPUT_ERROR);
     }

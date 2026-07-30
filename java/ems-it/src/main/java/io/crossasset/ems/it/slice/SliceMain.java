@@ -5,11 +5,12 @@
 package io.crossasset.ems.it.slice;
 
 import io.crossasset.ems.core.journal.DeterministicIds;
-import io.crossasset.ems.core.journal.JournalCodec;
 import io.crossasset.ems.core.journal.JournalEvent;
 import io.crossasset.ems.core.journal.MalformedJournalException;
-import java.io.IOException;
+import io.crossasset.ems.transport.journal.JournalTransport;
+import io.crossasset.ems.transport.journal.Transport;
 import java.io.PrintStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -90,17 +91,23 @@ public final class SliceMain {
       return usage(err, "--output is required");
     }
 
-    try {
-      List<JournalEvent> events = JournalCodec.read(input);
-      List<JournalEvent> result = new SliceRunner(new DeterministicIds(seed)).run(events);
-      JournalCodec.write(output, result);
+    // The slice talks to a Transport, not to files. JournalTransport is the
+    // deterministic implementation the conformance gate runs; an Aeron-backed
+    // one is the live path, and nothing here can tell them apart.
+    // See docs/decisions/0006-abstract-transport-journal-first.md.
+    try (Transport transport = new JournalTransport(input, output)) {
+      List<JournalEvent> events = transport.drain();
+      for (JournalEvent event : new SliceRunner(new DeterministicIds(seed)).run(events)) {
+        transport.publish(event);
+      }
+      transport.flush();
       return EXIT_OK;
     } catch (MalformedJournalException e) {
       // No stack trace: a malformed input journal is a data problem, and a
       // stack trace here would bury the line number that actually helps.
       err.println("ems-slice: malformed input journal: " + e.getMessage());
       return EXIT_INPUT_ERROR;
-    } catch (IOException e) {
+    } catch (UncheckedIOException e) {
       err.println("ems-slice: " + e.getMessage());
       return EXIT_INPUT_ERROR;
     }

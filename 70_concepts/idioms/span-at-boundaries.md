@@ -2,7 +2,7 @@
 type: idiom
 status: draft
 language: cpp
-anchor: cpp/ems-it/src/slice_main.cpp:57
+anchor: cpp/ems-it/src/slice_main.cpp:58
 tags: [concept/idioms, lang/cpp, theme/memory-safety]
 ---
 
@@ -52,7 +52,7 @@ protection comes from using `.size()`, or `.subspan()`, or a range-for — not f
 
 ## Where it lives
 
-`cpp/ems-it/src/slice_main.cpp:57` — `parse_args(std::span<const char* const> argv, …)`, with the
+`cpp/ems-it/src/slice_main.cpp:58` — `parse_args(std::span<const char* const> argv, …)`, with the
 `argc`/`argv` conversion confined to `main`.
 
 ## Cross-language contrast

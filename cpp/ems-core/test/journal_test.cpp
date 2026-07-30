@@ -15,6 +15,10 @@
 #include <string>
 #include <vector>
 
+// POSIX getpid(). The CI runners and the devcontainer are both Linux; if this
+// tree ever targets Windows, swap it for std::this_thread::get_id().
+#include <unistd.h>
+
 namespace {
 
 using ems::core::decode;
@@ -26,7 +30,12 @@ using ems::core::write_journal;
 std::filesystem::path temp_file(const std::string& name) {
     static int counter = 0;
     const auto dir = std::filesystem::temp_directory_path() /
-                     ("ems-core-journal-test-" + std::to_string(++counter));
+                     ("ems-core-journal-test-" + std::to_string(::getpid()) + "-" +
+                      std::to_string(++counter));
+    // Process id as well as a counter: a fixed name is reused across runs, so
+    // a previous run's output file was still present and a test asserting
+    // "this file must not exist yet" failed on a file it did not create.
+    std::filesystem::remove_all(dir);
     std::filesystem::create_directories(dir);
     return dir / name;
 }

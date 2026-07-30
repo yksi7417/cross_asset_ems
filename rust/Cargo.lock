@@ -11,4 +11,12 @@ name = "ems-slice"
 version = "0.1.0"
 dependencies = [
  "ems-core",
+ "ems-transport",
+]
+
+[[package]]
+name = "ems-transport"
+version = "0.1.0"
+dependencies = [
+ "ems-core",
 ]

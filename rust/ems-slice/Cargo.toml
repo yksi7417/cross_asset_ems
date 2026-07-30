@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 ems-core = { path = "../ems-core" }
+ems-transport = { path = "../ems-transport" }
 
 [lints]
 workspace = true

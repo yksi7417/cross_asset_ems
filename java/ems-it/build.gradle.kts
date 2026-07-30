@@ -19,6 +19,7 @@ application {
 
 dependencies {
     implementation(project(":ems-core"))
+    implementation(project(":ems-transport"))
 
     testImplementation(project(":ems-core"))
     testImplementation(project(":ems-fsm"))

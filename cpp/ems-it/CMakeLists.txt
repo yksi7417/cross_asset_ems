@@ -12,6 +12,6 @@ target_compile_features(ems-it PUBLIC cxx_std_20)
 target_link_libraries(ems-it PUBLIC ems-core ems-fsm ems-transport)
 
 add_executable(ems-slice src/slice_main.cpp)
-target_link_libraries(ems-slice PRIVATE ems-it)
+target_link_libraries(ems-slice PRIVATE ems-it ems-transport)
 
 ems_add_test(ems-it-slice-runner-test SOURCES test/slice_runner_test.cpp LIBS ems-it)

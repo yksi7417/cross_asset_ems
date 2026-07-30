@@ -22,7 +22,7 @@ cpp:
   # Modules the cash-equity slice will port (sub-project 5).
   ems-core: done
   ems-fsm: stub
-  ems-transport: stub
+  ems-transport: done
   ems-aaa: stub
   ems-validator: stub
   ems-oms: stub
@@ -43,4 +43,5 @@ cpp:
 # See docs/decisions/0001-reinstate-rust-three-language-port.md.
 rust:
   ems-core: done
+  ems-transport: done
   ems-slice: done

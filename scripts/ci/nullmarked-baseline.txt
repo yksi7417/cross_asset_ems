@@ -21,3 +21,4 @@
 io.crossasset.ems.validator
 io.crossasset.ems.core.journal
 io.crossasset.ems.it.slice
+io.crossasset.ems.transport.journal

@@ -1,0 +1,13 @@
+[package]
+name = "ems-transport"
+description = "Transport seam: the deterministic journal-file implementation the conformance gate runs."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ems-core = { path = "../ems-core" }
+
+[lints]
+workspace = true
