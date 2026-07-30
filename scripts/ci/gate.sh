@@ -158,8 +158,9 @@ do_study_guide() {
 # ── dispatch ─────────────────────────────────────────────────────────────────
 #
 # Steps whose subject does not exist yet skip with the sub-project that will
-# deliver them named in the reason. Under EMS_GATE_STRICT=1 (CI) a skip is a
-# failure, so a lane can never silently do nothing.
+# deliver them named in the reason — that skip is honest and is never a
+# failure. A step skipped because a TOOL is missing is different: tolerable on a
+# laptop, unacceptable in CI, so EMS_GATE_STRICT=1 turns it into a failure.
 
 run_step() {
     case "$1" in
@@ -280,7 +281,8 @@ usage: scripts/ci/gate.sh {fast|full|nightly} [--list]
   --list   print the steps the lane would run, then exit
 
 env:
-  EMS_GATE_STRICT=1  a skipped step is a failure (set automatically when CI is set)
+  EMS_GATE_STRICT=1  a step skipped for a MISSING TOOL is a failure
+                     (set automatically when CI is set)
   EMS_MSAN_LIBCXX    path to an MSan-instrumented libc++, enables the cpp-msan step
 
 docs: docs/polyglot/gate.md

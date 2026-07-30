@@ -1,6 +1,9 @@
 {
   "name": "Cross-Asset EMS",
-  "image": "mcr.microsoft.com/devcontainers/java:21-noble",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "remoteUser": "vscode",
   "customizations": {
@@ -10,7 +13,10 @@
         "vscjava.vscode-gradle",
         "ms-python.python",
         "twxs.cmake",
-        "ms-vscode.cpptools"
+        "ms-vscode.cpptools",
+        "rust-lang.rust-analyzer",
+        "llvm-vs-code-extensions.vscode-clangd",
+        "timonwong.shellcheck"
       ]
     }
   }

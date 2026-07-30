@@ -67,22 +67,36 @@ step_run() {
 }
 
 # step_skip NAME REASON
-# Records a skip — or a failure when EMS_GATE_STRICT=1.
+# Records a skip for a step whose SUBJECT does not exist yet — a language tree
+# or a harness a later sub-project will deliver. Never a failure: the repo
+# genuinely has nothing to check, and the summary says so out loud.
 step_skip() {
     local name=$1 reason=$2
+    printf '%s⊘ %s%s %s(%s)%s\n\n' "$C_YELLOW" "$name" "$C_RESET" "$C_DIM" "$reason" "$C_RESET"
+    _step_record "$name" SKIP 0 "$reason"
+    return 0
+}
+
+# step_skip_tool NAME REASON
+# Records a skip caused by a MISSING TOOL. That is tolerable on a developer
+# laptop and unacceptable in CI, so under EMS_GATE_STRICT=1 it is a failure —
+# otherwise a CI image losing a package would quietly stop enforcing a check.
+step_skip_tool() {
+    local name=$1 reason=$2
     if [ "$EMS_GATE_STRICT" = "1" ]; then
-        printf '%s✘ %s%s %s(skipped in strict mode: %s)%s\n\n' \
+        printf '%s✘ %s%s %s(strict mode: %s)%s\n\n' \
             "$C_RED" "$name" "$C_RESET" "$C_DIM" "$reason" "$C_RESET"
         _step_record "$name" FAIL 0 "strict: $reason"
     else
-        printf '%s⊘ %s%s %s(%s)%s\n\n' "$C_YELLOW" "$name" "$C_RESET" "$C_DIM" "$reason" "$C_RESET"
+        printf '%s⊘ %s%s %s(%s — install it, or CI will)%s\n\n' \
+            "$C_YELLOW" "$name" "$C_RESET" "$C_DIM" "$reason" "$C_RESET"
         _step_record "$name" SKIP 0 "$reason"
     fi
     return 0
 }
 
 # step_needs_tool NAME TOOL REASON -- CMD [ARGS...]
-# Runs CMD when TOOL is present, otherwise skips with REASON.
+# Runs CMD when TOOL is present, otherwise records a missing-tool skip.
 step_needs_tool() {
     local name=$1 tool=$2 reason=$3
     shift 3
@@ -90,7 +104,7 @@ step_needs_tool() {
     if have_tool "$tool"; then
         step_run "$name" "$@"
     else
-        step_skip "$name" "$reason"
+        step_skip_tool "$name" "$reason"
     fi
 }
 

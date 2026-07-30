@@ -1,13 +1,20 @@
 name: CI
 
-# Hybrid fast/full model:
-#   - Push to a feature branch  → FAST lane: compile + unit tests only (java, cpp).
-#   - Pull request → main        → FULL gate: + spotless, lint, schema, sbom (and
-#                                  CodeQL via codeql.yml).
-#   - Push to main               → FULL gate (post-merge safety net).
-# Full-gate jobs/steps are guarded by:
-#   github.event_name != 'push' || github.ref == 'refs/heads/main'
-# i.e. everything runs EXCEPT on a push to a non-main branch, which is fast-only.
+# Every job in this file invokes scripts/ci/gate.sh and nothing else. That is
+# the rule, not a style preference: .githooks/pre-push runs the same script, so
+# a CI failure is reproducible locally with one command, and adding a language
+# cannot reopen the local/CI divergence gap.
+#
+#   push to a feature branch  → FAST lane   (compile + unit tests + fmt/lint)
+#   pull request → main       → FULL lane   (+ sanitizers, conformance, study guide)
+#   push to main              → FULL lane   (post-merge safety net)
+#   schedule                  → see nightly.yml
+#
+# One documented exception: phase0-smoke runs Gradle directly. It needs a live
+# Aeron media driver, which the gate deliberately excludes — the gate's steps
+# have to be runnable on a laptop without one.
+#
+# See docs/polyglot/gate.md and docs/decisions/0004-defensive-gate-stack.md.
 on:
   push:
     branches: ['**']
@@ -24,15 +31,51 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  # A step skipped because a tool is missing is a failure in CI. A step skipped
+  # because its sub-project has not landed yet is not — scripts/ci/lib/steps.sh.
+  EMS_GATE_STRICT: '1'
 
 jobs:
-  # ---- Java multi-module Gradle build ----------------------------------------
-  java:
-    name: Java build + unit tests
+  # ---- FAST lane: feature-branch pushes --------------------------------------
+  gate-fast:
+    name: Gate — fast
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    # Coverage comment on PRs needs write access to pull requests; keep the
-    # default contents:read otherwise.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/wrapper-validation@v4
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install toolchain
+        run: scripts/ci/install-toolchain.sh --profile base
+
+      - name: Gate (fast)
+        run: scripts/ci/gate.sh fast
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-test-reports
+          path: '**/build/reports/tests/**'
+          retention-days: 7
+
+  # ---- FULL lane: PRs to main, and pushes to main ----------------------------
+  gate-full:
+    name: Gate — full
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     permissions:
       contents: read
       pull-requests: write
@@ -46,29 +89,20 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      # Verify the committed gradle-wrapper.jar matches a known-good Gradle
-      # release checksum before we execute it.
       - uses: gradle/actions/wrapper-validation@v4
 
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
 
-      # Fast lane: compile + unit tests always run (feature pushes included).
-      - name: Compile
-        run: ./gradlew --no-daemon assemble
+      - name: Install toolchain
+        run: scripts/ci/install-toolchain.sh --profile full
 
-      - name: Unit tests
-        run: ./gradlew --no-daemon allTests
+      - name: Gate (full)
+        run: scripts/ci/gate.sh full
 
-      # Aggregate every module's JaCoCo exec data into one report. Reuses the
-      # test results from the step above (no second test run).
-      - name: Aggregate coverage
-        if: always()
-        run: ./gradlew --no-daemon jacocoRootReport
-
-      # PR-only: post/update a coverage comment and a check. Report-only for
-      # now (min-coverage-* = 0) — this adds visibility, not a hard gate.
+      # Coverage reporting consumes what the gate's java-coverage step produced.
+      # Report-only (min-coverage-* = 0): visibility, not a hard gate.
       - name: Coverage comment (PR)
         if: github.event_name == 'pull_request'
         uses: madrapps/jacoco-report@v1.7.2
@@ -79,8 +113,6 @@ jobs:
           min-coverage-changed-files: 0
           title: "Test coverage"
 
-      # Visible on every run (pushes included): total line coverage in the job
-      # summary. Robust — never fails the build if the xml is missing/malformed.
       - name: Coverage job summary
         if: always()
         run: |
@@ -100,24 +132,11 @@ jobs:
             echo "Coverage report present but no LINE counter found." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # Verify committed FSM sources match what the codegen script would produce.
-      # pyyaml is available on ubuntu-24.04 runners as a system package.
-      - name: FSM sources sync check
-        if: github.event_name != 'push' || github.ref == 'refs/heads/main'
-        run: |
-          python3 tools/codegen/fsm_codegen.py --java-only
-          git diff --exit-code java/ems-fsm/src/main/generated/
-
-      # Full gate only: skip on feature-branch pushes for fast feedback.
-      - name: Spotless check
-        if: github.event_name != 'push' || github.ref == 'refs/heads/main'
-        run: ./gradlew --no-daemon spotlessCheck
-
       - name: Upload test reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: java-test-reports
+          name: full-test-reports
           path: '**/build/reports/tests/**'
           retention-days: 7
 
@@ -130,9 +149,10 @@ jobs:
           retention-days: 7
 
   # ---- Phase-0 smoke gate -----------------------------------------------------
-  # Runs the Aeron Cluster + Archive round-trip tagged "phase0-smoke".
-  # Separate job so Phase-0 regression is visible as its own check, not buried
-  # inside the full allTests sweep. Runs on every branch + PR.
+  # Documented exception to "every job invokes gate.sh": this runs the Aeron
+  # Cluster + Archive round-trip, which needs a live media driver. The gate's
+  # steps must be runnable on a laptop without one, so this stays separate and
+  # stays visible as its own check.
   phase0-smoke:
     name: Phase-0 smoke (Aeron Cluster + Archive)
     runs-on: ubuntu-24.04
@@ -164,62 +184,8 @@ jobs:
           path: '**/build/reports/tests/phase0Smoke/**'
           retention-days: 7
 
-  # ---- C++ CMake build --------------------------------------------------------
-  cpp:
-    name: C++ build + unit tests
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install build tools
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq cmake ninja-build g++-14
-
-      - name: cmake configure
-        run: cmake -S cpp -B build/cpp -G Ninja -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_COMPILER=g++-14
-
-      - name: cmake build
-        run: cmake --build build/cpp
-
-      - name: ctest
-        run: ctest --test-dir build/cpp --output-on-failure
-
-  # ---- Schema lint + reject-code catalog -------------------------------------
-  schemas:
-    name: Schema lint
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install yamllint
-        run: pip install -q yamllint
-      - name: Lint FSM YAML
-        run: 'yamllint -d "{rules: {line-length: {max: 200}, indentation: {spaces: 2}}}" schemas/fsm/ || true'
-      - name: Lint SBE XML (xmllint)
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq libxml2-utils
-          find schemas/sbe -name '*.xml' -print0 \
-            | xargs -0 -r -I{} xmllint --noout --schema schemas/sbe/sbe.xsd {} || true
-
-  # ---- Shell lint ------------------------------------------------------------
-  lint:
-    name: Lint (shell)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - name: shellcheck
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          find scripts .githooks -type f \( -name '*.sh' -o -name '*.bash' \) -print0 \
-            | xargs -0 -r shellcheck
-
-  # SBOM + dependency-review job dropped for now. dependency-review-action
-  # requires GitHub Advanced Security on private repos (free only on public),
-  # so it would fail the first PR. Re-add when GHAS is enabled or the repo is
-  # public; CycloneDX SBOM generation (anchore/sbom-action) can be restored
-  # independently as it works on private repos.
+# SBOM + dependency-review job dropped for now. dependency-review-action
+# requires GitHub Advanced Security on private repos (free only on public),
+# so it would fail the first PR. Re-add when GHAS is enabled or the repo is
+# public; CycloneDX SBOM generation (anchore/sbom-action) can be restored
+# independently as it works on private repos.
