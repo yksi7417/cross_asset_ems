@@ -12,7 +12,7 @@ Rust, and C++ — and a byte-exact conformance gate proves the three behave iden
 | Gate reference | [`docs/polyglot/gate.md`](gate.md) |
 | Conformance corpus | [`conformance/README.md`](../../conformance/README.md) |
 | Study guide | [`70_concepts/idioms/`](../../70_concepts/idioms/) |
-| Plans | [`docs/superpowers/plans/2026-07-30-polyglot-*.md`](../superpowers/plans/) |
+| Plans | [`docs/superpowers/plans/`](../superpowers/plans/README.md) — one per sub-project, indexed |
 
 ---
 
@@ -59,12 +59,12 @@ Six sub-projects. Each has its own plan and its own PR; each ends with the full 
 
 | # | Sub-project | Delivers | Depends on | Status |
 |---|---|---|---|---|
-| 1 | **Gate skeleton** | `scripts/ci/gate.sh`, container image, hooks rewired, CI restructured to call it, anti-stub check, ErrorProne/NullAway on Java. No new language code. | — | **in progress** |
-| 2 | **Conformance harness + corpus** | `conformance/`, the `ems-slice` CLI contract, harness, differ, first corpus cases generated from Java. | 1 | not started |
-| 3 | **Rust codegen emitter** | Rust emitter in `fsm_codegen.py`, three-way sync check, `rust/` workspace with `ems-fsm` only. | 1 | not started |
-| 4 | **Rust slice** | Full slice in Rust. Rust gate + conformance green. | 2, 3 | not started |
-| 5 | **C++ slice** | Full slice in C++, replacing the stubs. C++ gate + conformance green. | 2 | not started |
-| 6 | **Study guide** | `70_concepts/idioms/`, notes for every idiom found in 4 and 5, integrity check. | 4, 5 | not started |
+| 1 | **[Gate skeleton](../superpowers/plans/2026-07-30-polyglot-01-gate-skeleton.md)** | `scripts/ci/gate.sh`, hooks rewired, CI restructured to call it, anti-stub and study-guide checks, ErrorProne/NullAway on Java. No new language code. | — | **complete** |
+| 2 | **[Conformance harness + corpus](../superpowers/plans/2026-07-30-polyglot-02-conformance-harness.md)** | `conformance/`, the `ems-slice` CLI contract, harness, differ, first corpus cases generated from Java. | 1 | not started |
+| 3 | **[Rust codegen emitter](../superpowers/plans/2026-07-30-polyglot-03-rust-codegen-emitter.md)** | Rust emitter in `fsm_codegen.py`, three-way sync check, `rust/` workspace with `ems-fsm` only. | 1 | not started |
+| 4 | **[Rust slice](../superpowers/plans/2026-07-30-polyglot-04-rust-slice.md)** | Full slice in Rust. Rust gate + conformance green. | 2, 3 | not started |
+| 5 | **[C++ slice](../superpowers/plans/2026-07-30-polyglot-05-cpp-slice.md)** | Full slice in C++, replacing the stubs. C++ gate + conformance green. | 2 | not started |
+| 6 | **[Study guide](../superpowers/plans/2026-07-30-polyglot-06-study-guide.md)** | `70_concepts/idioms/`, notes for every idiom found in 4 and 5, integrity check. | 4, 5 | not started |
 
 **Rust before C++ is deliberate.** Rust's compiler catches at build time the class of error the
 C++ sanitizer matrix catches at run time. Doing Rust first surfaces the design's aliasing and
@@ -101,8 +101,11 @@ the slice touches are created.
 `scripts/ci/gate.sh <lane>` is the only gate. `fast` is compile + unit tests + format/lint across
 all three languages and is what `.githooks/pre-push` runs. `full` adds sanitizers, conformance and
 the study-guide check, and is what PR CI runs. `nightly` adds MSan, Valgrind and long fuzz. CI and
-the hook run the same script with the same dependency set in the same container image, so a CI
-failure is reproducible locally by running one command. Details in [`gate.md`](gate.md).
+the hook run the same script with the same dependency set — installed by one script,
+`scripts/ci/install-toolchain.sh`, that both the devcontainer image and every CI job run — so a CI
+failure is reproducible locally by running one command. The design spec asks for a digest-pinned
+container image on both sides; that is not yet built, and [`gate.md`](gate.md) records the gap
+rather than implying otherwise.
 
 ## How to pick this up
 
@@ -110,9 +113,10 @@ failure is reproducible locally by running one command. Details in [`gate.md`](g
    end. It is the source of everything else here.
 2. Read [ADR 0001](../decisions/0001-reinstate-rust-three-language-port.md) for why Rust came back,
    and skim 0002–0006 for the shape of each decision.
-3. Run `scripts/ci/gate.sh fast` to see where the tree stands.
-4. Find the first sub-project in the table above that is not done, open its plan under
-   `docs/superpowers/plans/`, and execute it task by task.
+3. Run `scripts/ci/gate.sh fast` to see where the tree stands. It takes ~3 minutes cold and tells
+   you, step by step, what is enforced and what is still skipping.
+4. Find the first sub-project in the table above that is not done, open its plan, and execute it
+   task by task. Sub-project 2 is next.
 
 Each plan is written for someone with zero context on this codebase: exact files, exact commands,
 test-first steps, and a commit at the end of every task.
