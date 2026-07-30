@@ -108,6 +108,20 @@ tests/
 
 ## Common commands
 
+### The gate — one command, the same one CI runs
+
+```bash
+scripts/ci/gate.sh fast          # compile + unit tests + fmt/lint, all languages
+scripts/ci/gate.sh full          # + sanitizers, conformance, study-guide check
+scripts/ci/gate.sh fast --list   # what the lane would run, without running it
+```
+
+`.githooks/pre-push` runs `fast`, and every CI job runs one of these lanes and nothing else — so a
+CI failure is reproducible locally by running the same command. Full reference:
+[`docs/polyglot/gate.md`](docs/polyglot/gate.md).
+
+The individual commands below are what the gate calls; reach for them when you want one piece.
+
 ### Build + test
 
 ```bash
@@ -219,11 +233,12 @@ Pre-commit + commit-msg hooks enforce:
 
 Bypass with `git commit --no-verify` only after explicit review.
 
-A **pre-push** hook runs `shellcheck` on all shell scripts (the same check as
-CI's full-gate `Lint` job) so failures are caught locally before they reach CI.
-It uses `shellcheck` if on PATH, else a `podman`/`docker` shellcheck image, and
-skips with a warning if neither is available. Bypass once with
-`git push --no-verify`. Install all hooks with `./scripts/dev/install-hooks.sh`.
+A **pre-push** hook runs `scripts/ci/gate.sh fast` — the same script CI runs, so
+whatever CI's fast lane would say, you hear it before pushing. It reports every
+failing step rather than stopping at the first, and prints the command to
+reproduce. Shell linting inside it uses `shellcheck` if on PATH, else a
+`podman`/`docker` shellcheck image. Bypass once with `git push --no-verify`.
+Install all hooks with `./scripts/dev/install-hooks.sh`.
 
 ## Implementation plan + the /goal loop
 

@@ -53,10 +53,10 @@ it was skipped.
 | `rust-lint` | ✔ | ✔ | ✔ | `cargo clippy --all-targets -- -D warnings` |
 | `rust-test` | ✔ | ✔ | ✔ | `cargo test --all` |
 | `anti-stub` | ✔ | ✔ | ✔ | `scripts/ci/checks/anti_stub.py` (see below) |
-| `schema-lint` | | ✔ | ✔ | yamllint over `schemas/fsm/`, xmllint over `schemas/sbe/` |
+| `schema-lint` | | ✔ | ✔ | yamllint over `schemas/fsm/`; xmllint well-formedness over `schemas/sbe/` (XSD validation only when `schemas/sbe/sbe.xsd` is present — see below) |
 | `java-coverage` | | ✔ | ✔ | `./gradlew jacocoRootReport` |
-| `cpp-asan-ubsan` | | ✔ | ✔ | Separate build with `-fsanitize=address,undefined -fno-sanitize-recover=all` |
-| `cpp-tsan` | | ✔ | ✔ | Separate build with `-fsanitize=thread` |
+| `cpp-asan-ubsan` | | ✔ | ✔ | Separate build **and `ctest` run** with `-fsanitize=address,undefined -fno-sanitize-recover=all` |
+| `cpp-tsan` | | ✔ | ✔ | Separate build **and `ctest` run** with `-fsanitize=thread` |
 | `rust-deny` | | ✔ | ✔ | `cargo deny check` — advisories, licenses, duplicate versions |
 | `conformance` | | ✔ | ✔ | Every corpus case against every implementation, byte-exact |
 | `fsm-coverage` | | ✔ | ✔ | Every FSM transition reached by ≥1 corpus case |
@@ -81,6 +81,16 @@ yet. They skip with the sub-project that will deliver them named in the reason:
 | `conformance`, `fsm-coverage` | `conformance/harness/` does not exist | sub-project 2 |
 | `cpp-valgrind`, `fuzz-long` | there is no slice binary or fuzz target to run | sub-projects 4, 5 |
 | `cpp-msan` | no MSan-instrumented libc++ (`EMS_MSAN_LIBCXX` unset) | open question — see the hub |
+| `cpp-asan-ubsan`, `cpp-tsan` | the toolchain has the compiler but not the runtime (`libasan`, `libtsan`) | a missing-tool skip: local nudge, CI failure |
+
+**Two known gaps the gate states rather than hides:**
+
+- `schemas/sbe/sbe.xsd` is not vendored, so SBE XML is checked for well-formedness but **not**
+  validated against the SBE schema. The step prints this on every run. The previous CI job hid the
+  same gap behind `|| true`.
+- The sanitizer steps probe whether the toolchain can actually *link* a sanitized binary before
+  running. A distro that ships `g++` without `libasan` would otherwise produce a link error that
+  reads like a code defect.
 
 A skip is always visible in the summary. The gate never reports having run something it did not.
 

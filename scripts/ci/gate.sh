@@ -169,14 +169,36 @@ do_fsm_sync() {
 
 do_schema_lint() {
     local rc=0
+
     if have_tool yamllint; then
         yamllint -d "{rules: {line-length: {max: 200}, indentation: {spaces: 2}}}" \
             schemas/fsm/ || rc=1
+    else
+        echo "schema-lint: yamllint not installed — FSM YAML not linted" >&2
+        rc=1
     fi
+
     if have_tool xmllint; then
+        # Well-formedness always. This is blocking and always has been checkable.
         find schemas/sbe -name '*.xml' -print0 \
-            | xargs -0 -r -I{} xmllint --noout --schema schemas/sbe/sbe.xsd {} || rc=1
+            | xargs -0 -r -I{} xmllint --noout {} || rc=1
+
+        # Validation against the SBE XSD only when the schema is present.
+        # schemas/sbe/sbe.xsd is not vendored in this repo, so this half is
+        # currently not running — said out loud rather than passed over. The
+        # previous CI job hid the same gap behind `|| true`.
+        if [ -f schemas/sbe/sbe.xsd ]; then
+            find schemas/sbe -name '*.xml' -print0 \
+                | xargs -0 -r -I{} xmllint --noout --schema schemas/sbe/sbe.xsd {} || rc=1
+        else
+            echo "schema-lint: schemas/sbe/sbe.xsd absent — XML checked for" \
+                 "well-formedness only, NOT validated against the SBE schema" >&2
+        fi
+    else
+        echo "schema-lint: xmllint not installed — SBE XML not checked" >&2
+        rc=1
     fi
+
     return "$rc"
 }
 
@@ -192,6 +214,33 @@ do_cpp_configure_build() {
         cmake -S cpp -B "$dir" -G Ninja -DCMAKE_CXX_STANDARD=20 "$@" || return 1
     fi
     cmake --build "$dir"
+}
+
+# sanitizer_available FLAGS...
+# True when the toolchain can actually link a program with these flags. A
+# distro can ship the compiler without the runtime (libasan/libtsan), in which
+# case the failure is a missing dependency, not a defect in the code — so it
+# must be reported as a missing-tool skip, which CI's strict mode still fails on.
+sanitizer_available() {
+    local probe status
+    probe=$(mktemp -d)
+    printf 'int main() { return 0; }\n' > "$probe/probe.cpp"
+    if ${CXX:-c++} "$@" "$probe/probe.cpp" -o "$probe/probe" >/dev/null 2>&1; then
+        status=0
+    else
+        status=1
+    fi
+    rm -rf "$probe"
+    return "$status"
+}
+
+# Build under a sanitizer AND run the tests under it. Building alone proves the
+# flags compile, which is not what a sanitizer is for.
+do_cpp_sanitize() {
+    local dir=$1
+    shift
+    do_cpp_configure_build "$dir" "$@" || return 1
+    ctest --test-dir "$dir" --output-on-failure --no-tests=error
 }
 
 do_cpp_test() {
@@ -238,6 +287,8 @@ run_step() {
         step_run java-format gradle spotlessCheck ;;
     java-coverage)
         step_run java-coverage gradle jacocoRootReport ;;
+    schema-lint)
+        step_run schema-lint do_schema_lint ;;
     java-nullmarked)
         step_run java-nullmarked python3 scripts/ci/checks/nullmarked_ratchet.py ;;
     cpp-build)
@@ -247,19 +298,29 @@ run_step() {
         step_needs_tool cpp-test ctest 'ctest not installed' -- \
             do_cpp_test "$CPP_BUILD_DIR" ;;
     cpp-asan-ubsan)
-        step_needs_tool cpp-asan-ubsan cmake 'cmake not installed' -- \
-            do_cpp_configure_build "$CPP_ASAN_DIR" \
+        if ! have_tool cmake; then
+            step_skip_tool cpp-asan-ubsan 'cmake not installed'
+        elif ! sanitizer_available -fsanitize=address,undefined; then
+            step_skip_tool cpp-asan-ubsan 'no ASan/UBSan runtime (install libasan/libubsan)'
+        else
+            step_run cpp-asan-ubsan do_cpp_sanitize "$CPP_ASAN_DIR" \
                 -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-                -DEMS_SANITIZER=address-undefined ;;
+                -DEMS_SANITIZER=address-undefined
+        fi ;;
     cpp-tsan)
-        step_needs_tool cpp-tsan cmake 'cmake not installed' -- \
-            do_cpp_configure_build "$CPP_TSAN_DIR" \
+        if ! have_tool cmake; then
+            step_skip_tool cpp-tsan 'cmake not installed'
+        elif ! sanitizer_available -fsanitize=thread; then
+            step_skip_tool cpp-tsan 'no TSan runtime (install libtsan)'
+        else
+            step_run cpp-tsan do_cpp_sanitize "$CPP_TSAN_DIR" \
                 -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-                -DEMS_SANITIZER=thread ;;
+                -DEMS_SANITIZER=thread
+        fi ;;
     cpp-msan)
         if [ -n "${EMS_MSAN_LIBCXX:-}" ]; then
             step_needs_tool cpp-msan cmake 'cmake not installed' -- \
-                do_cpp_configure_build "$CPP_MSAN_DIR" \
+                do_cpp_sanitize "$CPP_MSAN_DIR" \
                     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
                     -DEMS_SANITIZER=memory
         else
@@ -323,8 +384,10 @@ run_step() {
     fuzz-long)
         step_skip fuzz-long 'no fuzz targets yet — sub-projects 4 and 5' ;;
     *)
-        printf 'gate.sh: unknown step %s\n' "$1" >&2
-        return 2 ;;
+        # A lane listing a step with no dispatch case must FAIL, not print a
+        # note and carry on — that is how `schema-lint` silently did nothing.
+        step_run "$1" false
+        printf 'gate.sh: step %s has no dispatch case in run_step()\n' "$1" >&2 ;;
     esac
 }
 
