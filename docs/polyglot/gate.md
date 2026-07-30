@@ -40,7 +40,7 @@ it was skipped.
 | Step | fast | full | nightly | What it runs |
 |---|:--:|:--:|:--:|---|
 | `exec-bits` | ✔ | ✔ | ✔ | Every tracked `*.sh` outside a `lib/` and every hook is mode `100755` |
-| `shellcheck` | ✔ | ✔ | ✔ | `shellcheck` over `scripts/**/*.sh` and `.githooks/*` |
+| `shellcheck` | ✔ | ✔ | ✔ | `shellcheck -x` over `scripts/**/*.sh` and `.githooks/*`; falls back to the `koalaman/shellcheck` container under podman or docker |
 | `ci-check-tests` | ✔ | ✔ | ✔ | `python3 -m unittest discover -s scripts/ci/checks` — the gate's own checks are tested |
 | `fsm-sync` | ✔ | ✔ | ✔ | Regenerate FSMs (Java + C++, Rust when present), `git diff --exit-code` |
 | `java-build` | ✔ | ✔ | ✔ | `./gradlew assemble` — includes ErrorProne + NullAway |
@@ -93,7 +93,11 @@ There are two kinds of skip, and they are treated differently on purpose:
 | Kind | Example | Local | CI (`EMS_GATE_STRICT=1`) |
 |---|---|---|---|
 | **Subject missing** | `rust/` does not exist yet | `SKIP` | `SKIP` |
-| **Tool missing** | `shellcheck` not installed | `SKIP` (with a nudge) | **`FAIL`** |
+| **Tool missing** | `clang-tidy` not installed | `SKIP` (with a nudge) | **`FAIL`** |
+
+A few steps avoid the second row entirely by falling back to a container: `shellcheck` runs from
+`docker.io/koalaman/shellcheck:stable` under podman or docker when the binary is absent, so a
+laptop without it still gets the check rather than a skip.
 
 `EMS_GATE_STRICT` is set automatically whenever `CI` is set. The reason for the split: a laptop
 without `clang-tidy` should still be able to run the gate, but a CI image that quietly loses a

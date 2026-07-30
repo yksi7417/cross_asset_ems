@@ -21,6 +21,7 @@ set -uo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 2
 
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib/steps.sh
 . "$REPO_ROOT/scripts/ci/lib/steps.sh"
 
@@ -116,7 +117,22 @@ do_shellcheck() {
     local scripts=()
     mapfile -t scripts < <(shell_scripts)
     [ "${#scripts[@]}" -eq 0 ] && return 0
-    shellcheck "${scripts[@]}"
+
+    # -x follows `source`d files, so sourcing scripts/ci/lib/steps.sh is checked
+    # rather than reported as SC1091.
+    if have_tool shellcheck; then
+        shellcheck -x "${scripts[@]}"
+    elif have_tool podman; then
+        podman run --rm --security-opt label=disable -v "$(pwd):/mnt:ro" -w /mnt \
+            docker.io/koalaman/shellcheck:stable -x "${scripts[@]}"
+    else
+        docker run --rm -v "$(pwd):/mnt:ro" -w /mnt \
+            docker.io/koalaman/shellcheck:stable -x "${scripts[@]}"
+    fi
+}
+
+have_shellcheck() {
+    have_tool shellcheck || have_tool podman || have_tool docker
 }
 
 do_exec_bits() {
@@ -205,7 +221,11 @@ run_step() {
     exec-bits)
         step_run exec-bits do_exec_bits ;;
     shellcheck)
-        step_needs_tool shellcheck shellcheck 'shellcheck not installed' -- do_shellcheck ;;
+        if have_shellcheck; then
+            step_run shellcheck do_shellcheck
+        else
+            step_skip_tool shellcheck 'no shellcheck, podman or docker'
+        fi ;;
     ci-check-tests)
         step_run ci-check-tests do_ci_check_tests ;;
     fsm-sync)
