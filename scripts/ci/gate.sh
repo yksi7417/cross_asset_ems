@@ -79,7 +79,26 @@ lane_steps() {
 have_rust_tree() { [ -f rust/Cargo.toml ]; }
 have_conformance() { [ -x conformance/harness/run.sh ]; }
 
-gradle() { ./gradlew --no-daemon "$@"; }
+gradle() {
+    local log rc
+    log=$(mktemp)
+    ./gradlew --no-daemon "$@" 2>&1 | tee "$log"
+    rc=${PIPESTATUS[0]}
+
+    # Spotless caches formatter state in .gradle/configuration-cache and fails
+    # outright when that cache is stale — a local-only failure with a mechanical
+    # fix (diffplug/spotless#987). Clearing and retrying once beats making every
+    # developer learn the incantation.
+    if [ "$rc" -ne 0 ] && grep -q "Spotless JVM-local cache is stale" "$log"; then
+        echo "gate: stale Spotless configuration cache — clearing and retrying once" >&2
+        rm -rf .gradle/configuration-cache
+        ./gradlew --no-daemon "$@" 2>&1 | tee "$log"
+        rc=${PIPESTATUS[0]}
+    fi
+
+    rm -f "$log"
+    return "$rc"
+}
 
 shell_scripts() {
     # Hooks have no extension, so they are collected by directory rather than by
