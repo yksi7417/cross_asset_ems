@@ -19,3 +19,4 @@
 # See docs/decisions/0004-defensive-gate-stack.md.
 
 io.crossasset.ems.validator
+io.crossasset.ems.core.journal
