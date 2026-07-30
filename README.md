@@ -1,5 +1,8 @@
 # Cross-Asset EMS
 
+☕ Buy me a coffee ☕
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/squaremaniam/shop)   
+
 A green-field institutional Execution Management System built on a **cross-asset architecture** —
 one platform designed to carry cash equity, fixed income, FX, rates, credit, commodities and
 crypto. Java + C++ on SBE/Aeron with full event sourcing, a single distributed trace ID through
