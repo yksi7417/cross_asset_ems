@@ -32,6 +32,11 @@ snakeyaml          = "2.3"
 # Code generation
 javapoet           = "1.13.0"
 
+# Static analysis — see docs/decisions/0004-defensive-gate-stack.md
+errorprone         = "2.31.0"
+nullaway           = "0.12.3"
+jspecify           = "1.0.0"
+
 # C++ counterpart deps (Google Benchmark, GoogleTest) are managed via CMake FetchContent in cpp/.
 
 [libraries]
@@ -65,6 +70,10 @@ jackson-yaml       = { module = "com.fasterxml.jackson.dataformat:jackson-datafo
 snakeyaml          = { module = "org.yaml:snakeyaml",                      version.ref = "snakeyaml" }
 
 javapoet           = { module = "com.squareup:javapoet",                   version.ref = "javapoet" }
+
+errorprone-core    = { module = "com.google.errorprone:error_prone_core",  version.ref = "errorprone" }
+nullaway           = { module = "com.uber.nullaway:nullaway",              version.ref = "nullaway" }
+jspecify           = { module = "org.jspecify:jspecify",                   version.ref = "jspecify" }
 
 [bundles]
 junit              = ["junit-jupiter-api", "junit-jupiter-engine"]
