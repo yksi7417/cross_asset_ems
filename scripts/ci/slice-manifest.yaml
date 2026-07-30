@@ -1,0 +1,44 @@
+# Slice manifest — what each non-reference language claims, per module.
+#
+# Read by scripts/ci/checks/anti_stub.py, which runs in every gate lane.
+# `java/` is absent on purpose: it is the reference implementation and is not
+# making a claim about itself.
+#
+# Statuses:
+#   stub         Directory exists, no behaviour. Must NOT contain non-generated
+#                implementation source — if it does, this file is stale and the
+#                gate fails.
+#   in-progress  Behaviour is landing. Exempt from the behaviour checks; the
+#                directory must exist. Use sparingly and never on main for long.
+#   done         Must contain compiled behaviour AND at least one test that
+#                asserts something. This is the claim the anti-stub check
+#                actually polices.
+#
+# Editing rule: a module moves to `done` in the same PR that gives it behaviour
+# and a test, never ahead of it. See docs/polyglot/README.md for the slice scope
+# and docs/decisions/0002-vertical-slice-cash-equity.md for what is in it.
+
+cpp:
+  # Modules the cash-equity slice will port (sub-project 5).
+  ems-core: stub
+  ems-fsm: stub
+  ems-transport: stub
+  ems-aaa: stub
+  ems-validator: stub
+  ems-oms: stub
+  ems-venue-connectivity: stub
+  ems-posttrade: stub
+  # Modules outside the slice. They stay stubs; they are listed so the gate
+  # notices if source ever appears in one without a decision behind it.
+  ems-fix-bridge: stub
+  ems-market-data: stub
+  ems-pretrade: stub
+  ems-observability: stub
+  ems-ops: stub
+  ems-bench: stub
+  ems-it: stub
+
+# No entries until sub-project 3 creates the workspace. Unlike cpp/, no empty
+# module stubs are committed — a directory appears when it has behaviour and
+# tests. See docs/decisions/0001-reinstate-rust-three-language-port.md.
+rust: {}
