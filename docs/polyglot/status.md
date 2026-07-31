@@ -248,7 +248,7 @@ attaches to it.
 | Step | Why | Cleared by |
 |---|---|---|
 | `fsm-coverage` | no FSM in the slice runner yet | component 5b |
-| `cpp-msan` (nightly) | needs an MSan-instrumented libc++ | open question in [`README.md`](README.md) |
+| `cpp-msan` (nightly) | needs an MSan-instrumented libc++ | [T-1](TODO.md#t-1); decided nightly-only in [ADR 0008](../decisions/0008-msan-nightly-only.md) |
 | `cpp-valgrind`, `fuzz-long` (nightly) | no slice binary or fuzz target yet | components 7–8 |
 
 Under `EMS_GATE_STRICT=1` (set in CI) a step skipped for a **missing tool** is a failure — so every

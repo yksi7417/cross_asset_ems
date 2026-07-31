@@ -92,7 +92,7 @@ yet. They skip with the sub-project that will deliver them named in the reason:
 | `rust-format`, `rust-lint`, `rust-test`, `rust-deny`, `rust-miri` | `rust/Cargo.toml` does not exist | sub-project 3 |
 | `conformance`, `fsm-coverage` | `conformance/harness/` does not exist | sub-project 2 |
 | `cpp-valgrind`, `fuzz-long` | there is no slice binary or fuzz target to run | sub-projects 4, 5 |
-| `cpp-msan` | no MSan-instrumented libc++ (`EMS_MSAN_LIBCXX` unset) | open question — see the hub |
+| `cpp-msan` | no MSan-instrumented libc++ (`EMS_MSAN_LIBCXX` unset) | [T-1](TODO.md#t-1) — nightly-only by [ADR 0008](../decisions/0008-msan-nightly-only.md) |
 | `cpp-asan-ubsan`, `cpp-tsan` | the toolchain has the compiler but not the runtime (`libasan`, `libtsan`) | a missing-tool skip: local nudge, CI failure |
 
 **Two known gaps the gate states rather than hides:**
@@ -157,8 +157,9 @@ It is idempotent — already-installed packages are skipped, so re-running costs
 > container image pinned by digest". What exists today is the identical *dependency set* via one
 > script that both the image build and CI run — not a digest-pinned image, which needs registry
 > credentials and a publish workflow. Publishing it is the follow-up item at the end of the
-> [gate-skeleton plan](../superpowers/plans/2026-07-30-polyglot-01-gate-skeleton.md). Until then,
-> the image is not the unit of pinning and this document says so rather than implying otherwise.
+> [gate-skeleton plan](../superpowers/plans/2026-07-30-polyglot-01-gate-skeleton.md) and as
+> [T-4](TODO.md#t-4). Until then, the image is not the unit of pinning and this document says so
+> rather than implying otherwise.
 
 ---
 
