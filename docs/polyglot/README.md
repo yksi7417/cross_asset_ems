@@ -107,6 +107,16 @@ failure is reproducible locally by running one command. The design spec asks for
 container image on both sides; that is not yet built, and [`gate.md`](gate.md) records the gap
 rather than implying otherwise.
 
+## See it working
+
+```bash
+scripts/dev/demo-polyglot.sh
+```
+
+Builds `ems-slice` in all three languages, runs the same input journal through each, shows the
+three sha256 sums matching, then re-runs Rust with a different seed so you can watch the differ
+catch a one-character divergence. ~90 seconds cold, a few seconds with `--no-build`.
+
 ## How to pick this up
 
 1. Read the [design spec](../superpowers/specs/2026-07-30-polyglot-ems-port-design.md) once, end to

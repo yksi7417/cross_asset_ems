@@ -18,6 +18,15 @@ gap threefold. See [ADR 0004](../decisions/0004-defensive-gate-stack.md).
 
 ---
 
+## Seeing it work
+
+```bash
+scripts/dev/demo-polyglot.sh          # build, run all three, compare, then break one on purpose
+scripts/dev/demo-polyglot.sh --no-build
+conformance/harness/run.sh            # just the byte-exact comparison
+conformance/harness/run.sh --list     # what would run, and what is not built
+```
+
 ## Reproducing a CI failure
 
 Whatever CI reported, run the same lane locally:
