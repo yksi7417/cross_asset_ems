@@ -38,6 +38,23 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 endif()
 
+# Coverage instrumentation — its own build directory (build/cpp-coverage), like
+# the sanitizers. Instrumented binaries are slower and write .gcda files as they
+# run; they must not be what the conformance harness executes.
+#
+# --coverage is the gcc spelling of -fprofile-arcs -ftest-coverage. -O0 because
+# optimisation inlines and reorders code until line coverage stops corresponding
+# to anything a reader can act on.
+option(EMS_COVERAGE "Build with gcov instrumentation" OFF)
+if(EMS_COVERAGE)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(FATAL_ERROR "EMS_COVERAGE needs GCC or Clang")
+    endif()
+    add_compile_options(--coverage -O0 -g)
+    add_link_options(--coverage)
+    message(STATUS "EMS coverage build (gcov)")
+endif()
+
 # Sanitizer configuration — driven by scripts/ci/gate.sh, which builds each
 # sanitizer in its own directory (build/cpp-asan, build/cpp-tsan, ...).
 #   -DEMS_SANITIZER=address-undefined | thread | memory | none

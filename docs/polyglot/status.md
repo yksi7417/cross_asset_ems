@@ -272,13 +272,81 @@ the gap is under 150 lines and is mostly C++ header declarations against Rust do
 
 ---
 
+## Coverage
+
+All three languages are instrumented, and all three run in `scripts/ci/gate.sh full`.
+
+| | Tool | Mechanism | Line coverage |
+|---|---|---|---:|
+| Java | JaCoCo | JVM bytecode instrumentation | see `build/reports/jacoco/aggregate/` |
+| Rust | [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov) | LLVM source-based (`-C instrument-coverage`) | **91.9%** |
+| C++ | `gcov` + `gcovr` | GCC `--coverage` | **79%** |
+
+```bash
+scripts/ci/gate.sh full        # runs all three
+# reports land in build/coverage/{cpp.html,rust/} and build/reports/jacoco/
+```
+
+### Per-file, Rust
+
+| File | Lines | Regions |
+|---|---:|---:|
+| `ems-core/src/ids.rs` | 100.0% | 100.0% |
+| `ems-transport/src/lib.rs` | 99.0% | 98.7% |
+| `ems-aaa/src/lib.rs` | 96.9% | 98.0% |
+| `ems-validator/src/lib.rs` | 93.0% | 93.6% |
+| `ems-core/src/journal.rs` | 92.3% | 89.1% |
+| `ems-slice/src/runner.rs` | 89.9% | 88.7% |
+| `ems-slice/src/main.rs` | 72.5% | 72.8% |
+
+### Per-file, C++
+
+| File | Lines |
+|---|---:|
+| `ems-core/src/ids.cpp`, `ems-transport/src/journal_transport.cpp`, `ems-validator/…/validator.hpp` | 100% |
+| `ems-validator/src/validator.cpp` | 88% |
+| `ems-core/src/journal.cpp` | 87% |
+| `ems-it/src/slice_runner.cpp` | 85% |
+| `ems-it/src/slice_main.cpp` | **0%** |
+
+### Reading these honestly
+
+**`slice_main.cpp` at 0% and `main.rs` at 72% are the same fact**: `main()` is exercised by the
+conformance harness, which runs the binary as a *separate process*. Unit-test coverage cannot see
+it. The code is tested — `conformance/harness/run.sh` executes it nine times — but not by an
+instrumented run, so the number understates it. Rust scores higher only because its argument parser
+is unit-testable (`parse_args` returns a value); the C++ equivalent writes to `std::cerr` and
+returns an exit code.
+
+**Why the tools differ.** `cargo-llvm-cov` uses the same LLVM source-based instrumentation rustc
+itself supports, rather than `cargo-tarpaulin`'s ptrace sampling, which miscounts generics and
+inlined code. On the C++ side GCC is already the compiler, so `gcov` is free; `gcovr` is preferred
+over raw `lcov` because it emits Cobertura XML and a text summary in one invocation.
+
+**What is excluded, and why** — the same three exclusions in both languages:
+
+| Excluded | Reason |
+|---|---|
+| Generated FSM sources | The *generator* is what is under review; its output is pinned by [`test_generated_golden.py`](../../tools/codegen/test_generated_golden.py) and the `fsm-sync` gate step. ~2,000 generated C++ lines and ~1,300 Rust would swamp a figure meant to describe hand-written code, and would move on every schema change. |
+| Test sources | How much of a test file executes says nothing about whether the code under test is covered. |
+| Vendored deps (GoogleTest) | Third-party. |
+
+Exclusions are passed on the **command line**, not via `cpp/.gcovr.cfg` — gcovr 8.x silently ignores
+`exclude` entries in a config file, which showed up as generated headers appearing in the report and
+dragging the figure from 79% to 43%.
+
+**Coverage is reported, not gated.** No threshold fails the build in any of the three languages,
+matching JaCoCo's existing report-only posture (`min-coverage-* = 0`). A number that blocks merges
+before anyone has agreed what it should be produces `@SuppressWarnings`, not tests.
+
+---
+
 ## What is deliberately not measured
 
-- **Coverage percentages.** JaCoCo runs on Java only; Rust and C++ have no coverage instrumentation
-  wired up. One number beside two blanks would imply a comparison that does not exist.
 - **Performance.** Out of scope per ADR 0001. No benchmarks have been run, so there is no basis for
   a claim in either direction.
-- **Mutation score.** Not run in any language.
+- **Mutation score.** Not run in any language. Coverage says a line executed; it does not say an
+  assertion would have caught a change to it.
 
 ---
 

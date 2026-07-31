@@ -65,6 +65,8 @@ it was skipped.
 | `anti-stub` | ✔ | ✔ | ✔ | `scripts/ci/checks/anti_stub.py` (see below) |
 | `schema-lint` | | ✔ | ✔ | yamllint over `schemas/fsm/`; xmllint well-formedness over `schemas/sbe/` (XSD validation only when `schemas/sbe/sbe.xsd` is present — see below) |
 | `java-coverage` | | ✔ | ✔ | `./gradlew jacocoRootReport` |
+| `cpp-coverage` | | ✔ | ✔ | `gcov` + `gcovr` over a separate `-DEMS_COVERAGE=ON` build; HTML + Cobertura into `build/coverage/` |
+| `rust-coverage` | | ✔ | ✔ | `cargo llvm-cov` (LLVM source-based instrumentation); HTML into `build/coverage/rust/` |
 | `cpp-asan-ubsan` | | ✔ | ✔ | Separate build **and `ctest` run** with `-fsanitize=address,undefined -fno-sanitize-recover=all` |
 | `cpp-tsan` | | ✔ | ✔ | Separate build **and `ctest` run** with `-fsanitize=thread` |
 | `rust-deny` | | ✔ | ✔ | `cargo deny check` — advisories, licenses, duplicate versions |

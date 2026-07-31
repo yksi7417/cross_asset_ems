@@ -29,6 +29,7 @@ CPP_BUILD_DIR=build/cpp
 CPP_ASAN_DIR=build/cpp-asan
 CPP_TSAN_DIR=build/cpp-tsan
 CPP_MSAN_DIR=build/cpp-msan
+CPP_COVERAGE_DIR=build/cpp-coverage
 
 # ── lanes ────────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,8 @@ FAST_STEPS=(
 FULL_EXTRA_STEPS=(
     schema-lint
     java-coverage
+    cpp-coverage
+    rust-coverage
     cpp-asan-ubsan
     cpp-tsan
     rust-deny
@@ -286,6 +289,49 @@ do_conformance() {
     conformance/harness/run.sh
 }
 
+# Exclusions are passed on the command line rather than via a gcovr config file:
+# config-file `exclude` entries are silently ignored by gcovr 8.x, which shows
+# up as generated FSM headers appearing in the report and dragging the figure
+# from 79% to 43%.
+#
+# What is excluded, and why:
+#   _deps/          GoogleTest, vendored by FetchContent. Third-party.
+#   test/           the tests themselves. How much of a test file runs says
+#                   nothing about whether the code under test is covered.
+#   fsm/generated/  generated headers. The generator is what is under review,
+#                   and its output is pinned by the golden test and fsm-sync.
+#                   ~2,000 generated lines would swamp the hand-written figure
+#                   and move on every schema change.
+do_cpp_coverage() {
+    do_cpp_configure_build "$CPP_COVERAGE_DIR" \
+        -DCMAKE_BUILD_TYPE=Debug -DEMS_COVERAGE=ON || return 1
+    ctest --test-dir "$CPP_COVERAGE_DIR" --output-on-failure --no-tests=error || return 1
+
+    mkdir -p build/coverage
+    gcovr --root cpp --object-directory "$CPP_COVERAGE_DIR" \
+        --exclude '.*/_deps/.*' \
+        --exclude '.*/test/.*' \
+        --exclude '.*fsm/generated/.*' \
+        --exclude-unreachable-branches \
+        --exclude-throw-branches \
+        --html-details build/coverage/cpp.html \
+        --xml build/coverage/cpp-cobertura.xml \
+        --print-summary
+}
+
+# Generated FSM sources are excluded for the same reason as C++: the generator
+# is under review, not its output, and 1,300 generated lines would dominate a
+# 2,700-line hand-written figure.
+do_rust_coverage() {
+    mkdir -p build/coverage
+    cargo llvm-cov --manifest-path rust/Cargo.toml --all \
+        --ignore-filename-regex 'generated/' \
+        --html --output-dir build/coverage/rust || return 1
+    cargo llvm-cov --manifest-path rust/Cargo.toml --all \
+        --ignore-filename-regex 'generated/' \
+        --summary-only
+}
+
 do_anti_stub() {
     python3 scripts/ci/checks/anti_stub.py
 }
@@ -325,6 +371,22 @@ run_step() {
         step_run java-coverage gradle jacocoRootReport ;;
     schema-lint)
         step_run schema-lint do_schema_lint ;;
+    cpp-coverage)
+        if ! have_tool cmake; then
+            step_skip_tool cpp-coverage 'cmake not installed'
+        elif ! have_tool gcovr; then
+            step_skip_tool cpp-coverage 'gcovr not installed'
+        else
+            step_run cpp-coverage do_cpp_coverage
+        fi ;;
+    rust-coverage)
+        if ! have_rust_tree; then
+            step_skip rust-coverage 'rust/ not present'
+        elif ! have_tool cargo-llvm-cov; then
+            step_skip_tool rust-coverage 'cargo-llvm-cov not installed'
+        else
+            step_run rust-coverage do_rust_coverage
+        fi ;;
     java-nullmarked)
         step_run java-nullmarked python3 scripts/ci/checks/nullmarked_ratchet.py ;;
     java-clock)
