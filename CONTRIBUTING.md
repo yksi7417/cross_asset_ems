@@ -54,6 +54,19 @@ green. Run `scripts/ci/gate.sh full` to also cover what a PR to `main` will run.
 
 Full reference: [`docs/polyglot/gate.md`](docs/polyglot/gate.md).
 
+### A green gate is evidence, not proof
+
+[`docs/polyglot/traps.md`](docs/polyglot/traps.md) records 34 things that have actually gone wrong
+here, and most of them **looked green while they were wrong**: a generator whose stderr was
+redirected to `/dev/null` and wrote nothing, a `git diff` that could not see an untracked generated
+file, a gate step listed in a lane with no dispatch case, sanitizers that compiled the tree and
+never ran a test.
+
+Twenty-three of the thirty-four now have a check behind them. Eleven do not. If you are adding a
+gate step, writing a check, or about to trust a green run over something that surprised you, read
+that page first — and when something fools you, the fix is not finished until you have asked whether
+a check could have caught it.
+
 ---
 
 ## The polyglot port

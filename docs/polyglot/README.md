@@ -15,6 +15,7 @@ Rust, and C++ — and a byte-exact conformance gate proves the three behave iden
 | Plans | [`docs/superpowers/plans/`](../superpowers/plans/README.md) — one per sub-project, indexed |
 | Status | [`docs/polyglot/status.md`](status.md) — per-language test counts and the test evidence behind every feature |
 | Follow-ups | [`docs/TODO.md`](../TODO.md) — the repo-wide deferred-work register |
+| **Traps** | [`docs/polyglot/traps.md`](traps.md) — 34 things that went wrong, and which of them a check now catches. **Read this before adding a gate step or trusting a green build.** |
 
 ---
 
