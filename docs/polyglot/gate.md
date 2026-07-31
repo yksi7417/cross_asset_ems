@@ -56,6 +56,7 @@ it was skipped.
 | `java-test` | ✔ | ✔ | ✔ | `./gradlew allTests` |
 | `java-format` | ✔ | ✔ | ✔ | `./gradlew spotlessCheck` |
 | `java-nullmarked` | ✔ | ✔ | ✔ | `@NullMarked` coverage ratchet (see below) |
+| `java-clock` | ✔ | ✔ | ✔ | business logic takes a `TimeSource` rather than reading the wall clock (see below) |
 | `cpp-build` | ✔ | ✔ | ✔ | CMake configure + build into `build/cpp` |
 | `cpp-test` | ✔ | ✔ | ✔ | `ctest --no-tests=error` |
 | `rust-format` | ✔ | ✔ | ✔ | `cargo fmt --check` |
@@ -179,7 +180,7 @@ Bypass once, when you know what you are doing: `git push --no-verify`.
 
 ## The checks the gate owns
 
-Three Python checks live in `scripts/ci/checks/`, each with unit tests that the `ci-check-tests`
+Four Python checks live in `scripts/ci/checks/`, each with unit tests that the `ci-check-tests`
 step runs. They use the standard library plus PyYAML — nothing else.
 
 ### `anti_stub.py` — a module cannot be "done" while it is a stub
@@ -203,6 +204,25 @@ Bidirectional: every `STUDY: <slug>` marker in `java/`, `cpp/` or `rust/` needs 
 `70_concepts/idioms/<slug>.md`, and every note's `anchor: <path>:<line>` must still resolve to a
 line carrying that marker. See [`70_concepts/idioms/README.md`](../../70_concepts/idioms/README.md)
 for the note template.
+
+### `no_raw_clock.py` — business logic cannot read the wall clock
+
+`io.crossasset.ems.core.clock.Clock` has said business logic must take an injected clock since task
+3.6. Nothing checked it, and four services called `System.currentTimeMillis()` anyway *while their
+own javadoc claimed the clock was injected*.
+
+A component that reads the wall clock cannot be replayed, cannot be tested against a fixed instant,
+and cannot join the conformance gate — which compares three implementations byte-for-byte and would
+see a different timestamp every run.
+
+`SystemTimeSource` is the single class permitted to read the clock. Everything else takes a
+`TimeSource` (`now()`, `nowMicros()`); `Clock extends TimeSource` and adds scheduling, so a
+component that only needs the time does not drag in a timer thread.
+
+Genuine exceptions — I/O deadlines around Aeron offers, demo entry points — are listed in
+`scripts/ci/clock-baseline.txt`. The list can shrink but not grow, and a **stale** entry (a file
+that no longer offends) is also a failure: a baseline that outlives the problem stops describing
+reality and starts granting blanket permission.
 
 ### `nullmarked_ratchet.py` — null-correctness coverage only grows
 

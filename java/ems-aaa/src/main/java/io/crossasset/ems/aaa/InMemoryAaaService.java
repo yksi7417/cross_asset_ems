@@ -5,6 +5,8 @@
 package io.crossasset.ems.aaa;
 
 import io.crossasset.ems.aaa.permission.TagPermissionEvaluator;
+import io.crossasset.ems.core.clock.SystemTimeSource;
+import io.crossasset.ems.core.clock.TimeSource;
 import io.crossasset.ems.transport.session.SequenceRecoveryService;
 import java.util.Map;
 import java.util.Objects;
@@ -21,8 +23,11 @@ import java.util.concurrent.atomic.AtomicLong;
  * {@code tags}. When a {@link SequenceRecoveryService} is supplied (task 5.5), sequence state is
  * tracked per session.
  *
- * <p>Clock: uses wall time via {@code System.currentTimeMillis()}. Production code injects the
- * sim-clock per arch-time-replay-server.md.
+ * <p>Time comes from an injected {@link TimeSource}, defaulting to {@link
+ * SystemTimeSource#INSTANCE}. Pass a {@link io.crossasset.ems.core.clock.FixedTimeSource} or a
+ * {@link io.crossasset.ems.core.clock.SimulatedClock} to make session timestamps deterministic —
+ * which is what replay and the polyglot conformance gate need. Until this was wired, the javadoc
+ * claimed injection while the code read the wall clock directly.
  *
  * <p>Task 5.1 — AAA service skeleton. Extended in tasks 5.3, 5.4, 5.5.
  */
@@ -33,6 +38,7 @@ public final class InMemoryAaaService implements AaaService {
   private final Map<String, CredentialEntry> credentialStore = new ConcurrentHashMap<>();
   private final Map<Long, Session> activeSessions = new ConcurrentHashMap<>();
   private final AtomicLong sessionIdSeq = new AtomicLong(1);
+  private final TimeSource timeSource;
   private final AaaEventLog eventLog;
   private final TagPermissionEvaluator tagPermissionEvaluator;
   private final SequenceRecoveryService seqRecovery;
@@ -52,6 +58,21 @@ public final class InMemoryAaaService implements AaaService {
       AaaEventLog eventLog,
       TagPermissionEvaluator tagPermissionEvaluator,
       SequenceRecoveryService seqRecovery) {
+    this(eventLog, tagPermissionEvaluator, seqRecovery, SystemTimeSource.INSTANCE);
+  }
+
+  /**
+   * Full constructor.
+   *
+   * @param timeSource where session timestamps come from. Inject a deterministic one for replay and
+   *     for tests that assert on timing; the other constructors default to wall time.
+   */
+  public InMemoryAaaService(
+      AaaEventLog eventLog,
+      TagPermissionEvaluator tagPermissionEvaluator,
+      SequenceRecoveryService seqRecovery,
+      TimeSource timeSource) {
+    this.timeSource = Objects.requireNonNull(timeSource, "timeSource");
     this.eventLog = Objects.requireNonNull(eventLog, "eventLog");
     this.tagPermissionEvaluator = tagPermissionEvaluator; // nullable
     this.seqRecovery = seqRecovery; // nullable
@@ -76,7 +97,7 @@ public final class InMemoryAaaService implements AaaService {
 
   @Override
   public LogonOutcome logon(LogonCredentials credentials) {
-    long nowMicros = System.currentTimeMillis() * 1_000L;
+    long nowMicros = timeSource.nowMicros();
     eventLog.record(new AaaEvent.ConnectAttempted(credentials.kind(), nowMicros));
 
     CredentialEntry entry = credentialStore.get(credentials.token());
@@ -123,7 +144,7 @@ public final class InMemoryAaaService implements AaaService {
   public void logout(long sessionId, String reason) {
     Session removed = activeSessions.remove(sessionId);
     if (removed != null) {
-      long nowMicros = System.currentTimeMillis() * 1_000L;
+      long nowMicros = timeSource.nowMicros();
       eventLog.record(new AaaEvent.SessionLogout(sessionId, reason, nowMicros));
     }
   }

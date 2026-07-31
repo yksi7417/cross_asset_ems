@@ -4,6 +4,8 @@
  */
 package io.crossasset.ems.oms;
 
+import io.crossasset.ems.core.clock.SystemTimeSource;
+import io.crossasset.ems.core.clock.TimeSource;
 import io.crossasset.ems.fsm.generated.MultiLegFsmContext;
 import io.crossasset.ems.fsm.generated.MultiLegFsmEffect;
 import io.crossasset.ems.fsm.generated.MultiLegFsmEvent;
@@ -47,17 +49,33 @@ public final class InMemoryMultiLegOrderManager implements MultiLegOrderManager 
   private final ConcurrentHashMap<String, PackageRec> packages = new ConcurrentHashMap<>();
   private final AtomicLong orderIdSeq = new AtomicLong(1);
 
+  private final TimeSource timeSource;
+
+  /** Package staging timestamps come from wall time. */
   public InMemoryMultiLegOrderManager(
       StagedOrderManager som, RouteManager routeManager, ValidatorPipeline validatorPipeline) {
+    this(som, routeManager, validatorPipeline, SystemTimeSource.INSTANCE);
+  }
+
+  /**
+   * @param timeSource where {@code stagedAtMicros} comes from. Inject a deterministic one for
+   *     replay and for tests that assert on timing.
+   */
+  public InMemoryMultiLegOrderManager(
+      StagedOrderManager som,
+      RouteManager routeManager,
+      ValidatorPipeline validatorPipeline,
+      TimeSource timeSource) {
     this.som = Objects.requireNonNull(som, "som");
     this.routeManager = Objects.requireNonNull(routeManager, "routeManager");
     this.validatorPipeline = Objects.requireNonNull(validatorPipeline, "validatorPipeline");
+    this.timeSource = Objects.requireNonNull(timeSource, "timeSource");
   }
 
   @Override
   public MultiLegStageResult stage(MultiLegOrderRequest request) {
     String orderId = "EMS-MLO-" + orderIdSeq.getAndIncrement();
-    PackageRec rec = new PackageRec(orderId, request);
+    PackageRec rec = new PackageRec(orderId, request, timeSource.nowMicros());
     packages.put(orderId, rec);
 
     String[] failure = validatePackage(request);
@@ -437,7 +455,7 @@ public final class InMemoryMultiLegOrderManager implements MultiLegOrderManager 
     MultiLegFsmState state;
     MultiLegFsmContext ctx;
 
-    PackageRec(String orderId, MultiLegOrderRequest request) {
+    PackageRec(String orderId, MultiLegOrderRequest request, long stagedAtMicros) {
       this.orderId = orderId;
       this.clOrdId = request.clOrdId();
       this.sessionId = request.sessionId();
@@ -445,7 +463,7 @@ public final class InMemoryMultiLegOrderManager implements MultiLegOrderManager 
       this.sequencePolicy = request.sequencePolicy();
       this.account = request.account();
       this.tif = request.tif();
-      this.stagedAtMicros = System.currentTimeMillis() * 1_000L;
+      this.stagedAtMicros = stagedAtMicros;
       this.legs = new ArrayList<>(request.legs().size());
       int index = 0;
       for (LegRequest leg : request.legs()) {

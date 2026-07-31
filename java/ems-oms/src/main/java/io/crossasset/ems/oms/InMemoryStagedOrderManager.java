@@ -4,6 +4,8 @@
  */
 package io.crossasset.ems.oms;
 
+import io.crossasset.ems.core.clock.SystemTimeSource;
+import io.crossasset.ems.core.clock.TimeSource;
 import io.crossasset.ems.fsm.generated.OrderFsmContext;
 import io.crossasset.ems.fsm.generated.OrderFsmEvent;
 import io.crossasset.ems.fsm.generated.OrderFsmRunner;
@@ -37,8 +39,20 @@ public final class InMemoryStagedOrderManager implements StagedOrderManager {
   /** Per-session ClOrdID dedup (FIX session rules; backs idempotent re-import, task 8.8). */
   private final ConcurrentHashMap<String, String> clOrdIdIndex = new ConcurrentHashMap<>();
 
+  private final TimeSource timeSource;
+
+  /** Staging timestamps come from wall time. */
   public InMemoryStagedOrderManager(ValidatorPipeline validatorPipeline) {
+    this(validatorPipeline, SystemTimeSource.INSTANCE);
+  }
+
+  /**
+   * @param timeSource where {@code stagedAtMicros} comes from. Inject a deterministic one for
+   *     replay and for tests that assert on timing.
+   */
+  public InMemoryStagedOrderManager(ValidatorPipeline validatorPipeline, TimeSource timeSource) {
     this.validatorPipeline = Objects.requireNonNull(validatorPipeline, "validatorPipeline");
+    this.timeSource = Objects.requireNonNull(timeSource, "timeSource");
   }
 
   @Override
@@ -60,7 +74,7 @@ public final class InMemoryStagedOrderManager implements StagedOrderManager {
       return new StageResult.Rejected(request.requestId(), reject.code(), reject.message());
     }
     String orderId = "EMS-ORD-" + orderIdSeq.getAndIncrement();
-    long nowMicros = System.currentTimeMillis() * 1_000L;
+    long nowMicros = timeSource.nowMicros();
     OrderFsmContext ctx =
         new OrderFsmContext(
             orderId,
