@@ -66,6 +66,74 @@ sub-project sequence, the plans and the open questions. Its work is tracked ther
 
 ---
 
+## Deferring work
+
+**When you consciously decide not to do something now, register it in the same commit that defers
+it.** Not in the commit message, not in a PR comment, not in your head.
+
+The register is [`docs/polyglot/TODO.md`](docs/polyglot/TODO.md). An entry needs three things:
+
+```markdown
+## T-7 — Short imperative title
+
+**Why:** what forced the deferral, and what breaks if it is never done.
+
+**Done when:** a condition someone else could check without asking you.
+```
+
+`scripts/ci/checks/deferred_work.py` enforces both sections, and runs in every gate lane. An entry
+without a **Why** cannot be prioritised; one without a **Done when** never closes, because nobody
+can tell whether it is finished.
+
+**If a comment in code or docs points at deferred work, mark it:**
+
+```
+# DEFERRED: T-4 — pinned by digest once the publish workflow exists
+```
+
+The check is bidirectional: a `DEFERRED:` marker with no register entry fails, and so does an entry
+that has lost its sections. So a comment cannot outlive the work it points at — when T-4 lands, the
+marker has to go with it or the build breaks.
+
+Use `DEFERRED: T-n` rather than a bare `T-n`: `CorporateActionState.java` already says
+`LOCKED (T-1 before ex_date)`, meaning T minus one day.
+
+### What belongs there, and what does not
+
+The register is **decided-and-deferred work**, not a wish list.
+
+| Belongs | Does not |
+|---|---|
+| "We decided to do X, but after Y" | "It'd be nice if X" |
+| A skipped gate step with a stated reason | A vague quality concern |
+| Honest debt — a rule bent with a reason | Work already in the sequencing table |
+
+If it turns out an item is not needed, **delete it with a note saying why**. An item nobody intends
+to do teaches readers the register is fiction, and then the real items get skipped too.
+
+### Why this is enforced rather than trusted
+
+This repository ran the experiment. `io.crossasset.ems.core.clock.Clock` documented "components
+must never call `System.currentTimeMillis()` directly" in task 3.6. Nothing checked it. Four
+services called it anyway — *while their own javadoc claimed the clock was injected*. The rule was
+true, written down, and ignored for months.
+
+Same reasoning as [ADR 0005](docs/decisions/0005-study-guide-with-enforced-anchors.md) applies to
+the study guide: an unenforced rule rots into a lie, and a rotted register is worse than none —
+it tells you the work is tracked when it is not.
+
+### Related practice: decide in the open
+
+A deferral is a decision. If it is a *design* decision — scope, tooling, an accepted trade-off —
+write an ADR in [`docs/decisions/`](docs/decisions/) and link it from the register entry. ADRs
+0007–0009 were written exactly this way, each settling a question that had been sitting in a
+"open questions" list.
+
+And when a question is answered, **take it out of the questions list**. An answered question left
+under a "questions" heading gets re-litigated by the next reader who finds it.
+
+---
+
 ## Commit conventions
 
 Pre-commit and commit-msg hooks enforce **Conventional Commits**:

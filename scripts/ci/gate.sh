@@ -49,6 +49,7 @@ FAST_STEPS=(
     rust-lint
     rust-test
     anti-stub
+    deferred-work
 )
 
 FULL_EXTRA_STEPS=(
@@ -467,6 +468,8 @@ run_step() {
         fi ;;
     anti-stub)
         step_run anti-stub do_anti_stub ;;
+    deferred-work)
+        step_run deferred-work python3 scripts/ci/checks/deferred_work.py ;;
     study-guide)
         step_run study-guide do_study_guide ;;
     conformance)

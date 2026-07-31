@@ -28,5 +28,5 @@ java/ems-fix-bridge/src/main/java/io/crossasset/ems/api/rest/RestEdgeBinding.jav
 # handed to onTick), not an I/O deadline — so it is a real debt, not an
 # exemption on merit. ems-market-data is outside the cash-equity slice
 # (ADR 0002), so it is baselined rather than fixed here; fix it when the module
-# is next touched. Tracked as T-5 in docs/polyglot/TODO.md.
+# is next touched. DEFERRED: T-5
 java/ems-market-data/src/main/java/io/crossasset/ems/md/bloomberg/ReflectiveBlpapiDriver.java

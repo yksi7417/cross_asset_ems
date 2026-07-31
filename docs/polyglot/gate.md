@@ -63,6 +63,7 @@ it was skipped.
 | `rust-lint` | ✔ | ✔ | ✔ | `cargo clippy --all-targets -- -D warnings` |
 | `rust-test` | ✔ | ✔ | ✔ | `cargo test --all` |
 | `anti-stub` | ✔ | ✔ | ✔ | `scripts/ci/checks/anti_stub.py` (see below) |
+| `deferred-work` | ✔ | ✔ | ✔ | deferred work is registered in `docs/polyglot/TODO.md` and the register has not rotted (see below) |
 | `schema-lint` | | ✔ | ✔ | yamllint over `schemas/fsm/`; xmllint well-formedness over `schemas/sbe/` (XSD validation only when `schemas/sbe/sbe.xsd` is present — see below) |
 | `java-coverage` | | ✔ | ✔ | `./gradlew jacocoRootReport` |
 | `cpp-coverage` | | ✔ | ✔ | `gcov` + `gcovr` over a separate `-DEMS_COVERAGE=ON` build; HTML + Cobertura into `build/coverage/` |
@@ -183,7 +184,7 @@ Bypass once, when you know what you are doing: `git push --no-verify`.
 
 ## The checks the gate owns
 
-Four Python checks live in `scripts/ci/checks/`, each with unit tests that the `ci-check-tests`
+Five Python checks live in `scripts/ci/checks/`, each with unit tests that the `ci-check-tests`
 step runs. They use the standard library plus PyYAML — nothing else.
 
 ### `anti_stub.py` — a module cannot be "done" while it is a stub
@@ -226,6 +227,20 @@ Genuine exceptions — I/O deadlines around Aeron offers, demo entry points — 
 `scripts/ci/clock-baseline.txt`. The list can shrink but not grow, and a **stale** entry (a file
 that no longer offends) is also a failure: a baseline that outlives the problem stops describing
 reality and starts granting blanket permission.
+
+### `deferred_work.py` — deferred work is registered, and the register does not rot
+
+The practice, in [`CONTRIBUTING.md`](../../CONTRIBUTING.md#deferring-work): work consciously
+deferred goes in [`TODO.md`](TODO.md) with a **Why** and a **Done when**, in the same commit that
+defers it.
+
+Bidirectional, like the study-guide check: a `DEFERRED: T-n` marker with no register entry fails,
+and an entry missing either section fails. So a comment pointing at deferred work cannot outlive the
+work — when the item lands, the marker goes with it or the build breaks.
+
+The marker is spelled `DEFERRED: T-n` rather than a bare `T-n` because
+`CorporateActionState.java` already says `LOCKED (T-1 before ex_date)`, meaning T minus one day. A
+naive pattern flagged it on the first run.
 
 ### `nullmarked_ratchet.py` — null-correctness coverage only grows
 

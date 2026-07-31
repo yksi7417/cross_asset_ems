@@ -10,6 +10,11 @@ not left to rot.
 For what is *being built next*, see the sequencing table in [`README.md`](README.md). This file is
 for work outside that sequence.
 
+**The practice is enforced**, not trusted: `scripts/ci/checks/deferred_work.py` runs in every gate
+lane and requires each entry to carry a **Why** and a **Done when**, and each `DEFERRED: T-n` marker
+in the tree to resolve here. See
+[CONTRIBUTING.md § Deferring work](../../CONTRIBUTING.md#deferring-work) for when to add an entry.
+
 | ID | Item | Blocked by | Source |
 |---|---|---|---|
 | [T-1](#t-1) | MSan-instrumented libc++ so `cpp-msan` actually runs | nothing | [ADR 0008](../decisions/0008-msan-nightly-only.md) |
