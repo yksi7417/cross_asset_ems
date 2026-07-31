@@ -12,7 +12,7 @@ import unittest
 
 from deferred_work import check, entries, markers
 
-REGISTER = "docs/polyglot/TODO.md"
+REGISTER = "docs/TODO.md"
 
 GOOD_ENTRY = """# Follow-ups
 

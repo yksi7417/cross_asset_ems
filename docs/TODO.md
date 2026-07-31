@@ -1,28 +1,35 @@
-# Polyglot port — follow-ups
+# Deferred work
 
-Work that is **decided and deferred**, not undecided. Each item exists because a decision was made
-to do it later, and each links the ADR that made that decision.
+**Repo-wide register.** Work that is *decided and deferred*, not undecided. Each item exists
+because someone concluded it is needed and chose the timing, and links whatever made that call.
 
-This is deliberately not a wish list. An entry here means someone concluded the work is needed and
-chose the timing; if it turns out not to be needed, the entry is deleted with a note saying why,
-not left to rot.
+This is deliberately **not a wish list**. If an item turns out not to be needed, delete it with a
+note saying why — an entry nobody intends to do teaches readers the register is fiction, and then
+the real items get skipped too.
 
-For what is *being built next*, see the sequencing table in [`README.md`](README.md). This file is
-for work outside that sequence.
+**Enforced, not trusted.** `scripts/ci/checks/deferred_work.py` runs in every gate lane and
+requires:
 
-**The practice is enforced**, not trusted: `scripts/ci/checks/deferred_work.py` runs in every gate
-lane and requires each entry to carry a **Why** and a **Done when**, and each `DEFERRED: T-n` marker
-in the tree to resolve here. See
-[CONTRIBUTING.md § Deferring work](../../CONTRIBUTING.md#deferring-work) for when to add an entry.
+- each entry to carry a **Why** and a **Done when**;
+- each `DEFERRED: T-n` marker anywhere in the tree to resolve to an entry here.
+
+Both directions have been observed failing. See
+[CONTRIBUTING.md § Deferring work](../CONTRIBUTING.md#deferring-work) for when to add an entry and
+how to phrase it.
+
+Everything currently listed happens to come from the polyglot port — it is simply the work in
+flight. The register is not scoped to it; anything deferred anywhere in the repo belongs here.
+For what is *being built next* in the port, see its
+[sequencing table](polyglot/README.md#sequencing), which is a plan rather than a deferral list.
 
 | ID | Item | Blocked by | Source |
 |---|---|---|---|
-| [T-1](#t-1) | MSan-instrumented libc++ so `cpp-msan` actually runs | nothing | [ADR 0008](../decisions/0008-msan-nightly-only.md) |
-| [T-2](#t-2) | Nightly failure notification | T-1 landing makes it matter | [ADR 0008](../decisions/0008-msan-nightly-only.md) |
-| [T-3](#t-3) | Triangulate the corpus instead of privileging Java | all three slices complete | [ADR 0009](../decisions/0009-corpus-authority-java-with-triangulation-later.md) |
-| [T-4](#t-4) | Digest-pinned CI container image | nothing | [gate.md](gate.md) recorded deviation |
-| [T-5](#t-5) | `ReflectiveBlpapiDriver` takes a `TimeSource` | nothing | [clock-baseline.txt](../../scripts/ci/clock-baseline.txt) |
-| [T-6](#t-6) | Study-guide index + completeness check | components 6–8 | [ADR 0005](../decisions/0005-study-guide-with-enforced-anchors.md) |
+| [T-1](#t-1) | MSan-instrumented libc++ so `cpp-msan` actually runs | nothing | [ADR 0008](decisions/0008-msan-nightly-only.md) |
+| [T-2](#t-2) | Nightly failure notification | T-1 landing makes it matter | [ADR 0008](decisions/0008-msan-nightly-only.md) |
+| [T-3](#t-3) | Triangulate the corpus instead of privileging Java | all three slices complete | [ADR 0009](decisions/0009-corpus-authority-java-with-triangulation-later.md) |
+| [T-4](#t-4) | Digest-pinned CI container image | nothing | [gate.md](polyglot/gate.md) recorded deviation |
+| [T-5](#t-5) | `ReflectiveBlpapiDriver` takes a `TimeSource` | nothing | [clock-baseline.txt](../scripts/ci/clock-baseline.txt) |
+| [T-6](#t-6) | Study-guide index + completeness check | components 6–8 | [ADR 0005](decisions/0005-study-guide-with-enforced-anchors.md) |
 
 ---
 
@@ -99,7 +106,7 @@ which both the devcontainer build and every CI job run. That closes the local/CI
 package **contents** but not for package **versions** — an upstream apt update can still change
 what CI sees without anything in this repo changing.
 
-Recorded as a deviation in [`gate.md`](gate.md) rather than glossed over.
+Recorded as a deviation in [`gate.md`](polyglot/gate.md) rather than glossed over.
 
 **What it takes:** registry credentials, a publish workflow, and a digest reference in both
 `ci.yml` and the devcontainer. The `Dockerfile` already exists and already delegates to
@@ -111,7 +118,7 @@ Recorded as a deviation in [`gate.md`](gate.md) rather than glossed over.
 
 ## T-5 — `ReflectiveBlpapiDriver` takes a `TimeSource`
 
-**Why:** it is the one entry in [`scripts/ci/clock-baseline.txt`](../../scripts/ci/clock-baseline.txt)
+**Why:** it is the one entry in [`scripts/ci/clock-baseline.txt`](../scripts/ci/clock-baseline.txt)
 that is **honest debt rather than an exemption on merit**. Every other baselined file reads the wall
 clock for an I/O deadline or is a demo entry point; this one stamps a market-data tick with
 `System.currentTimeMillis()`, which is a genuine business timestamp.
@@ -133,7 +140,7 @@ than optional.
 something browsable. ADR 0005 also specified checks the integrity checker does not yet do: it
 verifies a note *exists* and its anchor resolves, but not that the note *says* anything.
 
-**What it takes** (from [plan 06](../superpowers/plans/2026-07-30-polyglot-06-study-guide.md)):
+**What it takes** (from [plan 06](superpowers/plans/2026-07-30-polyglot-06-study-guide.md)):
 - `70_concepts/idioms/idioms-index.md`, grouped three ways — by language, by theme, by module —
   because three kinds of reader arrive three different ways.
 - Extend `study_guide.py`: every note has all five required headings; no note contains `TODO`/`TBD`
@@ -152,6 +159,6 @@ it.
 
 | Item | Outcome |
 |---|---|
-| Coverage instrumentation for Rust and C++ | Done — `cargo-llvm-cov` (91.9%) and `gcov`/`gcovr` (79%), both in `gate.sh full`. See [status.md](status.md). |
+| Coverage instrumentation for Rust and C++ | Done — `cargo-llvm-cov` (91.9%) and `gcov`/`gcovr` (79%), both in `gate.sh full`. See [status.md](polyglot/status.md). |
 | Make business logic clock-injectable | Done — `TimeSource`, and `no_raw_clock.py` enforces it. |
 | Slice reuses the production AAA | Done — the duplicate `io.crossasset.ems.aaa.slice` package was deleted. |

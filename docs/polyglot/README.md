@@ -14,7 +14,7 @@ Rust, and C++ — and a byte-exact conformance gate proves the three behave iden
 | Study guide | [`70_concepts/idioms/`](../../70_concepts/idioms/) |
 | Plans | [`docs/superpowers/plans/`](../superpowers/plans/README.md) — one per sub-project, indexed |
 | Status | [`docs/polyglot/status.md`](status.md) — per-language test counts and the test evidence behind every feature |
-| Follow-ups | [`docs/polyglot/TODO.md`](TODO.md) — decided-and-deferred work, each linked to the ADR that deferred it |
+| Follow-ups | [`docs/TODO.md`](../TODO.md) — the repo-wide deferred-work register |
 
 ---
 
@@ -168,5 +168,5 @@ section gets re-litigated by the next reader.
 | MSan: nightly, or drop it? | **Keep it, nightly only.** ASan and MSan catch different defects, and an uninitialised read is exactly what would make the conformance gate fail *intermittently*. | [ADR 0008](../decisions/0008-msan-nightly-only.md) |
 | Corpus authority: Java, or hand-authored? | **Java for now**, with the schema-review discipline that compensates. Triangulation once all three slices are complete. | [ADR 0009](../decisions/0009-corpus-authority-java-with-triangulation-later.md) |
 
-Deferred work from those decisions is tracked in [`TODO.md`](TODO.md), with the ADR that deferred it
+Deferred work from those decisions is tracked in [`docs/TODO.md`](../TODO.md), with the ADR that deferred it
 linked from each entry.

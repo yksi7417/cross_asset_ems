@@ -71,7 +71,7 @@ sub-project sequence, the plans and the open questions. Its work is tracked ther
 **When you consciously decide not to do something now, register it in the same commit that defers
 it.** Not in the commit message, not in a PR comment, not in your head.
 
-The register is [`docs/polyglot/TODO.md`](docs/polyglot/TODO.md). An entry needs three things:
+The register is [`docs/TODO.md`](docs/TODO.md) — repo-wide, not scoped to any one subsystem. An entry needs three things:
 
 ```markdown
 ## T-7 — Short imperative title

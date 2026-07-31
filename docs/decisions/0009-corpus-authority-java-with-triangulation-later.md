@@ -31,7 +31,7 @@ Three parts:
    against. This is already happening and is the thing that makes the arrangement tolerable —
    `component-04-validation-layers/case.md`, for instance, cites the four catalog entries its codes
    come from by name.
-3. **Triangulation is tracked as T-3** in [`docs/polyglot/TODO.md`](../polyglot/TODO.md), to be
+3. **Triangulation is tracked as T-3** in [`docs/TODO.md`](../TODO.md), to be
    picked up once all three implementations are complete.
 
 ### What "triangulate" means here, precisely

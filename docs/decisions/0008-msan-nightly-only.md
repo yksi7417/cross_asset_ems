@@ -31,7 +31,7 @@ Concretely:
 - The MSan-instrumented libc++ is built once and cached, gated behind `EMS_MSAN_LIBCXX`. Until that
   lands, the step continues to skip **with the reason stated**, and this ADR is the record of why
   it is a scheduled task rather than an abandoned one.
-- Tracked as **T-1** in [`docs/polyglot/TODO.md`](../polyglot/TODO.md).
+- Tracked as **T-1** in [`docs/TODO.md`](../TODO.md).
 
 ### Why keep it rather than drop it
 
@@ -70,7 +70,7 @@ both is not redundancy; it is two tools with different blind spots.
 - Uninitialised-memory defects are caught within 24 hours of introduction, not at PR time. That is
   the accepted cost of this decision and should be stated when one is eventually found.
 - The nightly lane becomes the lane that can actually fail for a reason PRs did not catch. It needs
-  someone to look at it — `docs/polyglot/TODO.md` T-2 covers wiring a notification, because a red
+  someone to look at it — `docs/TODO.md` T-2 covers wiring a notification, because a red
   nightly nobody sees is worse than no nightly.
 - If PR feedback ever needs shortening, MSan is not the thing to cut. It is already out.
 

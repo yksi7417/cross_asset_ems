@@ -2,7 +2,7 @@
 """Deferred work is registered, and the register does not rot.
 
 The practice this enforces: **when work is consciously deferred, it goes in
-``docs/polyglot/TODO.md`` with an ID, a reason, and a "done when" — in the same
+``docs/TODO.md`` with an ID, a reason, and a "done when" — in the same
 commit that defers it.** Not in a commit message, not in a PR comment, not in
 someone's head.
 
@@ -37,7 +37,9 @@ import pathlib
 import re
 import sys
 
-REGISTER = pathlib.Path("docs/polyglot/TODO.md")
+# Repo-wide, not port-scoped: the practice applies to any deferral, and a
+# register that lives under one subsystem invites a second one elsewhere.
+REGISTER = pathlib.Path("docs/TODO.md")
 
 MARKER_RE = re.compile(r"DEFERRED:\s*(T-\d+)")
 HEADING_RE = re.compile(r"^##\s+(T-\d+)\s*[—-]", re.M)

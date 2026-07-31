@@ -63,7 +63,7 @@ it was skipped.
 | `rust-lint` | ✔ | ✔ | ✔ | `cargo clippy --all-targets -- -D warnings` |
 | `rust-test` | ✔ | ✔ | ✔ | `cargo test --all` |
 | `anti-stub` | ✔ | ✔ | ✔ | `scripts/ci/checks/anti_stub.py` (see below) |
-| `deferred-work` | ✔ | ✔ | ✔ | deferred work is registered in `docs/polyglot/TODO.md` and the register has not rotted (see below) |
+| `deferred-work` | ✔ | ✔ | ✔ | deferred work is registered in `docs/TODO.md` and the register has not rotted (see below) |
 | `schema-lint` | | ✔ | ✔ | yamllint over `schemas/fsm/`; xmllint well-formedness over `schemas/sbe/` (XSD validation only when `schemas/sbe/sbe.xsd` is present — see below) |
 | `java-coverage` | | ✔ | ✔ | `./gradlew jacocoRootReport` |
 | `cpp-coverage` | | ✔ | ✔ | `gcov` + `gcovr` over a separate `-DEMS_COVERAGE=ON` build; HTML + Cobertura into `build/coverage/` |
@@ -93,7 +93,7 @@ yet. They skip with the sub-project that will deliver them named in the reason:
 | `rust-format`, `rust-lint`, `rust-test`, `rust-deny`, `rust-miri` | `rust/Cargo.toml` does not exist | sub-project 3 |
 | `conformance`, `fsm-coverage` | `conformance/harness/` does not exist | sub-project 2 |
 | `cpp-valgrind`, `fuzz-long` | there is no slice binary or fuzz target to run | sub-projects 4, 5 |
-| `cpp-msan` | no MSan-instrumented libc++ (`EMS_MSAN_LIBCXX` unset) | [T-1](TODO.md#t-1) — nightly-only by [ADR 0008](../decisions/0008-msan-nightly-only.md) |
+| `cpp-msan` | no MSan-instrumented libc++ (`EMS_MSAN_LIBCXX` unset) | [T-1](../TODO.md#t-1) — nightly-only by [ADR 0008](../decisions/0008-msan-nightly-only.md) |
 | `cpp-asan-ubsan`, `cpp-tsan` | the toolchain has the compiler but not the runtime (`libasan`, `libtsan`) | a missing-tool skip: local nudge, CI failure |
 
 **Two known gaps the gate states rather than hides:**
@@ -159,7 +159,7 @@ It is idempotent — already-installed packages are skipped, so re-running costs
 > script that both the image build and CI run — not a digest-pinned image, which needs registry
 > credentials and a publish workflow. Publishing it is the follow-up item at the end of the
 > [gate-skeleton plan](../superpowers/plans/2026-07-30-polyglot-01-gate-skeleton.md) and as
-> [T-4](TODO.md#t-4). Until then, the image is not the unit of pinning and this document says so
+> [T-4](../TODO.md#t-4). Until then, the image is not the unit of pinning and this document says so
 > rather than implying otherwise.
 
 ---
@@ -231,7 +231,7 @@ reality and starts granting blanket permission.
 ### `deferred_work.py` — deferred work is registered, and the register does not rot
 
 The practice, in [`CONTRIBUTING.md`](../../CONTRIBUTING.md#deferring-work): work consciously
-deferred goes in [`TODO.md`](TODO.md) with a **Why** and a **Done when**, in the same commit that
+deferred goes in [`docs/TODO.md`](../TODO.md) with a **Why** and a **Done when**, in the same commit that
 defers it.
 
 Bidirectional, like the study-guide check: a `DEFERRED: T-n` marker with no register entry fails,
