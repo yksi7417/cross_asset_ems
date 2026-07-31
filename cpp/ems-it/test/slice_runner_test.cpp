@@ -223,6 +223,140 @@ TEST(SliceRunner, SeedShiftsGeneratedIdentifiers) {
     EXPECT_EQ(nth_of(out, "RunSummary").fields.at("seed"), "41");
 }
 
+// ── Routing (component 6a) ───────────────────────────────────────────────────
+
+/// A logon, an active instrument and one accepted order of `qty`.
+///
+/// Every routing test needs the same three events before it can say anything
+/// about a route, and spelling them out per test buries the one line that
+/// differs.
+std::vector<JournalEvent> routable_order(const std::string& cl_ord_id, const std::string& qty) {
+    return {logon("order-entry"),
+            event(2, "InstrumentCreated", {{"figi", "BBG1"}, {"status", "ACTIVE"}}),
+            event(3, "OrderNew",
+                  {{"clOrdId", cl_ord_id},
+                   {"figi", "BBG1"},
+                   {"qty", qty},
+                   {"sessionId", "7"},
+                   {"side", "BUY"},
+                   {"tag", "order-entry"}})};
+}
+
+TEST(SliceRunner, RoutingAnAcceptedOrderDispatchesIt) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(event(4, "RouteNew",
+                          {{"clOrdId", "C-A"}, {"qty", "400"}, {"venueMic", "XNAS"}}));
+    const auto out = run_slice(input, ids);
+
+    const auto& accepted = nth_of(out, "RouteAccepted");
+    EXPECT_EQ(accepted.fields.at("routeId"), "RTE-0000000001");
+    EXPECT_EQ(accepted.fields.at("orderId"), "ORD-0000000001");
+    EXPECT_EQ(accepted.fields.at("routeClOrdId"), "C-A-1");
+    EXPECT_EQ(accepted.fields.at("venueMic"), "XNAS");
+    // A market route carries no price rather than a zero one: absent and zero
+    // are different orders to a venue.
+    EXPECT_EQ(accepted.fields.count("price"), 0U);
+
+    // The route is dispatched on creation, not merely created.
+    const auto& transition = nth_of(out, "FsmTransition", 1);
+    EXPECT_EQ(transition.fields.at("fsm"), "route");
+    EXPECT_EQ(transition.fields.at("from"), "PENDING");
+    EXPECT_EQ(transition.fields.at("to"), "SENT");
+    EXPECT_EQ(transition.fields.at("applied"), "true");
+}
+
+TEST(SliceRunner, RoutingMoreThanTheOrderHoldsIsRefused) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(event(4, "RouteNew",
+                          {{"clOrdId", "C-A"}, {"qty", "600"}, {"venueMic", "XNAS"}}));
+    input.push_back(event(5, "RouteNew",
+                          {{"clOrdId", "C-A"}, {"qty", "600"}, {"venueMic", "XNYS"}}));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(count_of(out, "RouteAccepted"), 1U);
+    const auto& rejected = nth_of(out, "RouteRejected");
+    EXPECT_EQ(rejected.fields.at("code"), "EMS-RTE-4003");
+    EXPECT_EQ(rejected.fields.at("reason"), "qty 600 not routable against 400 remaining");
+}
+
+TEST(SliceRunner, ZeroQuantityIsNotARoute) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(
+        event(4, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "0"}, {"venueMic", "XNAS"}}));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(count_of(out, "RouteAccepted"), 0U);
+    EXPECT_EQ(nth_of(out, "RouteRejected").fields.at("code"), "EMS-RTE-4003");
+}
+
+TEST(SliceRunner, RoutingAnUnknownOrderIsRefused) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(event(4, "RouteNew",
+                          {{"clOrdId", "C-NOPE"}, {"qty", "100"}, {"venueMic", "XNAS"}}));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(nth_of(out, "RouteRejected").fields.at("code"), "EMS-RTE-4001");
+}
+
+/// A rejected order is in the book but cannot take quantity — 4002, not 4001.
+TEST(SliceRunner, RoutingARejectedOrderSaysTheOrderIsRejected) {
+    DeterministicIds ids{0};
+    const auto out = run_slice(
+        {logon("order-entry"),
+         event(2, "OrderNew",
+               {{"clOrdId", "C-Z"},
+                {"figi", "BBG-NOT-LISTED"},
+                {"qty", "100"},
+                {"sessionId", "7"},
+                {"tag", "order-entry"}}),
+         event(3, "RouteNew", {{"clOrdId", "C-Z"}, {"qty", "100"}, {"venueMic", "XNAS"}})},
+        ids);
+
+    const auto& rejected = nth_of(out, "RouteRejected");
+    EXPECT_EQ(rejected.fields.at("code"), "EMS-RTE-4002");
+    EXPECT_EQ(rejected.fields.at("reason"), "order is REJECTED");
+}
+
+TEST(SliceRunner, ARouteClOrdIdCannotBeReused) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(event(4, "RouteNew",
+                          {{"clOrdId", "C-A"},
+                           {"qty", "100"},
+                           {"routeClOrdId", "MINE"},
+                           {"venueMic", "XNAS"}}));
+    input.push_back(event(5, "RouteNew",
+                          {{"clOrdId", "C-A"},
+                           {"qty", "100"},
+                           {"routeClOrdId", "MINE"},
+                           {"venueMic", "XNYS"}}));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(count_of(out, "RouteAccepted"), 1U);
+    EXPECT_EQ(nth_of(out, "RouteRejected").fields.at("code"), "EMS-RTE-2005");
+}
+
+/// The routing analogue of aRejectedOrderDoesNotConsumeAnIdentifier: if refusals
+/// burned route ids, every identifier downstream of a refusal would shift.
+TEST(SliceRunner, ARefusedRouteDoesNotConsumeAnIdentifier) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(event(4, "RouteNew",
+                          {{"clOrdId", "C-NOPE"}, {"qty", "100"}, {"venueMic", "XNAS"}}));
+    input.push_back(event(5, "RouteNew",
+                          {{"clOrdId", "C-A"}, {"qty", "9999"}, {"venueMic", "XNAS"}}));
+    input.push_back(event(6, "RouteNew",
+                          {{"clOrdId", "C-A"}, {"qty", "100"}, {"venueMic", "XNAS"}}));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(count_of(out, "RouteRejected"), 2U);
+    EXPECT_EQ(nth_of(out, "RouteAccepted").fields.at("routeId"), "RTE-0000000001");
+}
+
 TEST(SliceRunner, OutputSequenceIsContiguousFromOne) {
     DeterministicIds ids{0};
     const auto out = run_slice({logon("order-entry"), event(9, "Heartbeat")}, ids);

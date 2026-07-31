@@ -5,10 +5,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use ems_aaa::{AaaService, Identity};
 use ems_core::{DeterministicIds, JournalEvent};
 use ems_fsm::generated::order_fsm::{FullFillPayload, PartialFillPayload};
-use ems_fsm::{OrderFsmContext, OrderFsmEvent, OrderFsmPayload, OrderFsmState};
+use ems_fsm::{
+    OrderFsmContext, OrderFsmEvent, OrderFsmPayload, OrderFsmState, RouteFsmContext, RouteFsmEvent,
+    RouteFsmState,
+};
 use ems_validator::{
     validate, InstrumentStatus, SecurityMaster, ValidationRequest, ValidationResult,
 };
+
+use crate::routes::RouteBook;
 
 /// Input event adding an instrument to the security master.
 const TYPE_INSTRUMENT_CREATED: &str = "InstrumentCreated";
@@ -37,6 +42,20 @@ const TYPE_ORDER_EVENT: &str = "OrderEvent";
 const TYPE_FSM_TRANSITION: &str = "FsmTransition";
 /// Output event for an order action that changed nothing.
 const TYPE_ORDER_EVENT_IGNORED: &str = "OrderEventIgnored";
+/// Input event projecting an accepted order onto one venue.
+const TYPE_ROUTE_NEW: &str = "RouteNew";
+/// Output event acknowledging a route.
+const TYPE_ROUTE_ACCEPTED: &str = "RouteAccepted";
+/// Output event refusing one.
+const TYPE_ROUTE_REJECTED: &str = "RouteRejected";
+/// Catalog code: no such order to route.
+const CODE_ROUTE_UNKNOWN_ORDER: &str = "EMS-RTE-4001";
+/// Catalog code: the order is not in a state that can be routed.
+const CODE_ROUTE_ORDER_NOT_ROUTABLE: &str = "EMS-RTE-4002";
+/// Catalog code: the requested quantity is not routable against what is left.
+const CODE_ROUTE_QTY_INVALID: &str = "EMS-RTE-4003";
+/// Catalog code: the route's `ClOrdID` is already in use.
+const CODE_ROUTE_CLORDID_COLLISION: &str = "EMS-RTE-2005";
 /// Final output event: makes the seed and the input size visible in the journal.
 const TYPE_RUN_SUMMARY: &str = "RunSummary";
 
@@ -49,15 +68,17 @@ const ECHOED_FIELDS: [&str; 5] = ["account", "figi", "price", "qty", "side"];
 
 /// Runs the slice over `input`, returning the output journal.
 ///
-/// **Today this covers components 1–3**: the journal codec, deterministic
-/// identifiers, the transport seam and the AAA entitlement decision. A
-/// `SessionLogon` registers a session; an `OrderNew` is checked against it and
-/// becomes either an `OrderAccepted` carrying a generated order id or an
-/// `OrderRejected` carrying a catalog reject code.
+/// **Today this covers components 1–6a**: the journal codec, deterministic
+/// identifiers, the transport seam, the AAA entitlement decision, the layered
+/// validation pipeline, the order FSM and route creation. A `SessionLogon`
+/// registers a session; an `OrderNew` is checked against it and becomes either
+/// an `OrderAccepted` carrying a generated order id or an `OrderRejected`
+/// carrying a catalog reject code; an `OrderEvent` drives the order FSM; a
+/// `RouteNew` projects an accepted order onto a venue.
 ///
-/// There is still no validation pipeline, no FSM, no routing and no venue —
-/// those are later components, and pretending otherwise in the output would
-/// make the conformance corpus lie about what is implemented.
+/// There is still no venue edge and no allocation, and a created route never
+/// leaves `Sent` — the venue lifecycle is component 6b. Pretending otherwise in
+/// the output would make the conformance corpus lie about what is implemented.
 ///
 /// Kept in lockstep with `java/ems-it/.../SliceRunner.java` and
 /// `cpp/ems-it/src/slice_runner.cpp`.
@@ -71,6 +92,12 @@ pub fn run(input: &[JournalEvent], ids: &mut DeterministicIds) -> Vec<JournalEve
     // the FIX convention, and it is what lets a rejected order take the real
     // PENDING_NEW -> REJECTED transition without consuming an order id.
     let mut orders: BTreeMap<String, (OrderFsmState, OrderFsmContext)> = BTreeMap::new();
+    let mut routes = RouteBook::new();
+    // The order id we assigned to each accepted order, by the client's ClOrdID.
+    // A runner-level index rather than a field on the order book: the FSM context
+    // is the schema's shape and this is ours. A rejected order has no entry, so a
+    // route can never be hung off an order id that was never issued.
+    let mut order_ids: BTreeMap<String, String> = BTreeMap::new();
     let mut seq: u64 = 0;
 
     for event in input {
@@ -84,10 +111,30 @@ pub fn run(input: &[JournalEvent], ids: &mut DeterministicIds) -> Vec<JournalEve
                 output.push(on_session_logon(event, seq, &mut aaa));
             }
             TYPE_ORDER_NEW => {
-                seq = on_order_new(event, seq, &aaa, &securities, ids, &mut orders, &mut output);
+                seq = on_order_new(
+                    event,
+                    seq,
+                    &aaa,
+                    &securities,
+                    ids,
+                    &mut orders,
+                    &mut order_ids,
+                    &mut output,
+                );
             }
             TYPE_ORDER_EVENT => {
                 seq = on_order_event(event, seq, &mut orders, &mut output);
+            }
+            TYPE_ROUTE_NEW => {
+                seq = on_route_new(
+                    event,
+                    seq,
+                    ids,
+                    &orders,
+                    &order_ids,
+                    &mut routes,
+                    &mut output,
+                );
             }
             _ => {
                 seq += 1;
@@ -210,6 +257,7 @@ fn on_order_new(
     securities: &SecurityMaster,
     ids: &mut DeterministicIds,
     orders: &mut BTreeMap<String, (OrderFsmState, OrderFsmContext)>,
+    order_ids: &mut BTreeMap<String, String>,
     output: &mut Vec<JournalEvent>,
 ) -> u64 {
     // The whole decision is the pipeline's. SESSION, IDENTITY, REFERENCE and
@@ -274,8 +322,10 @@ fn on_order_new(
     // Only an accepted order consumes an identifier. If a rejected one did, the
     // ids in a journal would depend on how many orders failed — and every corpus
     // case downstream of a rejection would shift.
+    let order_id = ids.next_order_id();
+    order_ids.insert(cl_ord_id.clone(), order_id.clone());
     let mut fields = BTreeMap::new();
-    fields.insert("orderId".to_owned(), ids.next_order_id());
+    fields.insert("orderId".to_owned(), order_id);
     for key in ECHOED_FIELDS {
         if let Some(value) = event.fields.get(key) {
             fields.insert(key.to_owned(), value.clone());
@@ -288,6 +338,234 @@ fn on_order_new(
         fields,
     });
     seq
+}
+
+/// Projects an accepted order onto one venue.
+///
+/// Four refusals, checked in a fixed order with the first one winning, exactly
+/// as the validation pipeline short-circuits: unknown order, order not routable,
+/// quantity not routable, `ClOrdID` already taken. Fixed order matters because a
+/// request can fail two of them at once and the journal must say the same thing
+/// in all three languages.
+///
+/// **A refused route creates nothing.** There is no `FsmTransition` on this path,
+/// and that asymmetry with `OrderNew` is the schema's, not a shortcut:
+/// `order.fsm.yaml` models validation failure as a real `PENDING_NEW ->
+/// REJECTED` transition, while `route.fsm.yaml` has no transition out of
+/// `PENDING` except `RouteSent`. Emitting one would mean inventing a transition
+/// the schema does not define — and `fsm-coverage` would then count a transition
+/// that does not exist.
+#[allow(clippy::too_many_arguments)]
+fn on_route_new(
+    event: &JournalEvent,
+    seq: u64,
+    ids: &mut DeterministicIds,
+    orders: &BTreeMap<String, (OrderFsmState, OrderFsmContext)>,
+    order_ids: &BTreeMap<String, String>,
+    routes: &mut RouteBook,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
+    let cl_ord_id = field(event, "clOrdId");
+    let venue_mic = field(event, "venueMic");
+    let qty = field(event, "qty").parse::<u64>().unwrap_or(0);
+
+    let Some((state, context)) = orders.get(&cl_ord_id) else {
+        return reject_route(
+            event,
+            seq,
+            CODE_ROUTE_UNKNOWN_ORDER,
+            "no such order",
+            output,
+        );
+    };
+    // A Rejected order is in the book and lands here, not on 4001 — it exists, it
+    // just cannot take quantity. "your order was rejected" is a more useful thing
+    // to tell a trader than "we have never heard of it".
+    if !is_routable(*state) {
+        return reject_route(
+            event,
+            seq,
+            CODE_ROUTE_ORDER_NOT_ROUTABLE,
+            &format!("order is {}", state.name()),
+            output,
+        );
+    }
+    // Unreachable: a routable state is only reached after acceptance, and
+    // acceptance is what fills order_ids. Handled rather than asserted, because
+    // this runs against a journal a venue wrote.
+    let Some(order_id) = order_ids.get(&cl_ord_id) else {
+        return reject_route(
+            event,
+            seq,
+            CODE_ROUTE_ORDER_NOT_ROUTABLE,
+            "order has no identifier",
+            output,
+        );
+    };
+
+    let already_routed = routes.routed_qty(order_id);
+    if qty == 0 || already_routed + qty > context.order_qty {
+        return reject_route(
+            event,
+            seq,
+            CODE_ROUTE_QTY_INVALID,
+            &format!(
+                "qty {qty} not routable against {} remaining",
+                context.order_qty - already_routed
+            ),
+            output,
+        );
+    }
+
+    // Absent, the route's ClOrdID is derived from the parent's and the count of
+    // routes already hung off it: C-A-1, C-A-2. Derived rather than taken from
+    // the route id so that the check below can run BEFORE an id is consumed —
+    // the same "a refusal costs nothing" property the order path has.
+    let mut route_cl_ord_id = field(event, "routeClOrdId");
+    if route_cl_ord_id.is_empty() {
+        route_cl_ord_id = format!("{cl_ord_id}-{}", routes.count_for_order(order_id) + 1);
+    }
+    if routes.has_cl_ord_id(&route_cl_ord_id) {
+        return reject_route(
+            event,
+            seq,
+            CODE_ROUTE_CLORDID_COLLISION,
+            &format!("ClOrdID {route_cl_ord_id} in use"),
+            output,
+        );
+    }
+
+    let route_id = ids.next_route_id();
+    let price = non_empty(event, "price").and_then(|raw| raw.parse::<i64>().ok());
+    let result = routes.open(
+        &route_id,
+        RouteFsmContext {
+            route_id: route_id.clone(),
+            order_id: order_id.clone(),
+            cl_ord_id: route_cl_ord_id.clone(),
+            orig_cl_ord_id: None,
+            venue_mic: venue_mic.clone(),
+            instrument_id: context.instrument_id.clone(),
+            side: context.side,
+            route_qty: qty,
+            price,
+            cum_qty: 0,
+            leaves_qty: qty,
+            trace_id: 1,
+            initial_order_id: order_id.clone(),
+            pre_cancel_status: None,
+        },
+    );
+
+    push_route_accepted(
+        RouteJournal {
+            seq,
+            applied: !result.is_no_transition,
+            stored: routes.state_of(&route_id).unwrap_or(RouteFsmState::Pending),
+            route_id: &route_id,
+            order_id,
+            cl_ord_id: &cl_ord_id,
+            route_cl_ord_id: &route_cl_ord_id,
+            venue_mic: &venue_mic,
+            qty,
+            price,
+        },
+        output,
+    )
+}
+
+/// Everything the two output events for an accepted route need.
+///
+/// A struct rather than ten positional arguments: `push_route_accepted` writes
+/// six string fields whose values are all `&str`, and getting two of them the
+/// wrong way round would produce a journal that still parses.
+#[derive(Clone, Copy)]
+struct RouteJournal<'a> {
+    seq: u64,
+    applied: bool,
+    stored: RouteFsmState,
+    route_id: &'a str,
+    order_id: &'a str,
+    cl_ord_id: &'a str,
+    route_cl_ord_id: &'a str,
+    venue_mic: &'a str,
+    qty: u64,
+    price: Option<i64>,
+}
+
+/// Records the dispatch transition and the acknowledgement, in that order.
+fn push_route_accepted(journal: RouteJournal<'_>, output: &mut Vec<JournalEvent>) -> u64 {
+    let mut transition = BTreeMap::new();
+    transition.insert("applied".to_owned(), journal.applied.to_string());
+    transition.insert(
+        "event".to_owned(),
+        RouteFsmEvent::RouteSent.name().to_owned(),
+    );
+    transition.insert("from".to_owned(), RouteFsmState::Pending.name().to_owned());
+    transition.insert("fsm".to_owned(), "route".to_owned());
+    transition.insert("routeId".to_owned(), journal.route_id.to_owned());
+    // Read back from the book rather than taken from the transition result: the
+    // journal should report the state the slice is actually holding.
+    transition.insert("to".to_owned(), journal.stored.name().to_owned());
+    output.push(JournalEvent {
+        seq: journal.seq + 1,
+        event_type: TYPE_FSM_TRANSITION.to_owned(),
+        fields: transition,
+    });
+
+    let mut fields = BTreeMap::new();
+    fields.insert("clOrdId".to_owned(), journal.cl_ord_id.to_owned());
+    fields.insert("orderId".to_owned(), journal.order_id.to_owned());
+    fields.insert("qty".to_owned(), journal.qty.to_string());
+    fields.insert(
+        "routeClOrdId".to_owned(),
+        journal.route_cl_ord_id.to_owned(),
+    );
+    fields.insert("routeId".to_owned(), journal.route_id.to_owned());
+    fields.insert("venueMic".to_owned(), journal.venue_mic.to_owned());
+    if let Some(value) = journal.price {
+        fields.insert("price".to_owned(), value.to_string());
+    }
+    output.push(JournalEvent {
+        seq: journal.seq + 2,
+        event_type: TYPE_ROUTE_ACCEPTED.to_owned(),
+        fields,
+    });
+    journal.seq + 2
+}
+
+/// States an order can be routed from.
+///
+/// An allowlist, not a denylist of terminal states. A state added to the schema
+/// is then un-routable until someone decides it should be — the safe direction
+/// for a list that decides whether quantity goes to a venue.
+const fn is_routable(state: OrderFsmState) -> bool {
+    matches!(
+        state,
+        OrderFsmState::New | OrderFsmState::Replaced | OrderFsmState::PartiallyFilled
+    )
+}
+
+/// Refuses a route. No route is created, and no identifier is consumed.
+fn reject_route(
+    event: &JournalEvent,
+    seq: u64,
+    code: &str,
+    reason: &str,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
+    let mut fields = BTreeMap::new();
+    fields.insert("clOrdId".to_owned(), field(event, "clOrdId"));
+    fields.insert("code".to_owned(), code.to_owned());
+    fields.insert("qty".to_owned(), field(event, "qty"));
+    fields.insert("reason".to_owned(), reason.to_owned());
+    fields.insert("venueMic".to_owned(), field(event, "venueMic"));
+    output.push(JournalEvent {
+        seq: seq + 1,
+        event_type: TYPE_ROUTE_REJECTED.to_owned(),
+        fields,
+    });
+    seq + 1
 }
 
 /// Applies a venue or client action to a live order.
@@ -703,5 +981,181 @@ mod tests {
         for (i, e) in out.iter().enumerate() {
             assert_eq!(e.seq, i as u64 + 1);
         }
+    }
+
+    // ── Routing (component 6a) ───────────────────────────────────────────────
+
+    /// A logon, an active instrument and one accepted order of `qty`.
+    ///
+    /// Every routing test needs the same three events before it can say anything
+    /// about a route, and spelling them out per test buries the line that differs.
+    fn routable_order(cl_ord_id: &str, qty: &str) -> Vec<JournalEvent> {
+        vec![
+            logon("order-entry"),
+            event(
+                2,
+                "InstrumentCreated",
+                &[("figi", "BBG1"), ("status", "ACTIVE")],
+            ),
+            event(
+                3,
+                "OrderNew",
+                &[
+                    ("clOrdId", cl_ord_id),
+                    ("figi", "BBG1"),
+                    ("qty", qty),
+                    ("sessionId", "7"),
+                    ("side", "BUY"),
+                    ("tag", "order-entry"),
+                ],
+            ),
+        ]
+    }
+
+    fn route_new(seq: u64, cl_ord_id: &str, qty: &str) -> JournalEvent {
+        event(
+            seq,
+            "RouteNew",
+            &[("clOrdId", cl_ord_id), ("qty", qty), ("venueMic", "XNAS")],
+        )
+    }
+
+    #[test]
+    fn routing_an_accepted_order_dispatches_it() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-A", "400"));
+        let out = run(&input, &mut ids);
+
+        let accepted = nth_of(&out, "RouteAccepted", 0);
+        assert_eq!(accepted.fields["routeId"], "RTE-0000000001");
+        assert_eq!(accepted.fields["orderId"], "ORD-0000000001");
+        assert_eq!(accepted.fields["routeClOrdId"], "C-A-1");
+        // A market route carries no price rather than a zero one: absent and zero
+        // are different orders to a venue.
+        assert!(!accepted.fields.contains_key("price"));
+
+        // The route is dispatched on creation, not merely created.
+        let transition = nth_of(&out, "FsmTransition", 1);
+        assert_eq!(transition.fields["fsm"], "route");
+        assert_eq!(transition.fields["from"], "PENDING");
+        assert_eq!(transition.fields["to"], "SENT");
+        assert_eq!(transition.fields["applied"], "true");
+    }
+
+    #[test]
+    fn routing_more_than_the_order_holds_is_refused() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-A", "600"));
+        input.push(route_new(5, "C-A", "600"));
+        let out = run(&input, &mut ids);
+
+        assert_eq!(count_of(&out, "RouteAccepted"), 1);
+        let rejected = nth_of(&out, "RouteRejected", 0);
+        assert_eq!(rejected.fields["code"], "EMS-RTE-4003");
+        assert_eq!(
+            rejected.fields["reason"],
+            "qty 600 not routable against 400 remaining"
+        );
+    }
+
+    #[test]
+    fn zero_quantity_is_not_a_route() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-A", "0"));
+        let out = run(&input, &mut ids);
+
+        assert_eq!(count_of(&out, "RouteAccepted"), 0);
+        assert_eq!(
+            nth_of(&out, "RouteRejected", 0).fields["code"],
+            "EMS-RTE-4003"
+        );
+    }
+
+    #[test]
+    fn routing_an_unknown_order_is_refused() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-NOPE", "100"));
+        let out = run(&input, &mut ids);
+
+        assert_eq!(
+            nth_of(&out, "RouteRejected", 0).fields["code"],
+            "EMS-RTE-4001"
+        );
+    }
+
+    /// A rejected order is in the book but cannot take quantity — 4002, not 4001.
+    #[test]
+    fn routing_a_rejected_order_says_the_order_is_rejected() {
+        let mut ids = DeterministicIds::new(0);
+        let out = run(
+            &[
+                logon("order-entry"),
+                event(
+                    2,
+                    "OrderNew",
+                    &[
+                        ("clOrdId", "C-Z"),
+                        ("figi", "BBG-NOT-LISTED"),
+                        ("qty", "100"),
+                        ("sessionId", "7"),
+                        ("tag", "order-entry"),
+                    ],
+                ),
+                route_new(3, "C-Z", "100"),
+            ],
+            &mut ids,
+        );
+
+        let rejected = nth_of(&out, "RouteRejected", 0);
+        assert_eq!(rejected.fields["code"], "EMS-RTE-4002");
+        assert_eq!(rejected.fields["reason"], "order is REJECTED");
+    }
+
+    #[test]
+    fn a_route_cl_ord_id_cannot_be_reused() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        for seq in [4, 5] {
+            input.push(event(
+                seq,
+                "RouteNew",
+                &[
+                    ("clOrdId", "C-A"),
+                    ("qty", "100"),
+                    ("routeClOrdId", "MINE"),
+                    ("venueMic", "XNAS"),
+                ],
+            ));
+        }
+        let out = run(&input, &mut ids);
+
+        assert_eq!(count_of(&out, "RouteAccepted"), 1);
+        assert_eq!(
+            nth_of(&out, "RouteRejected", 0).fields["code"],
+            "EMS-RTE-2005"
+        );
+    }
+
+    /// The routing analogue of `a_rejected_order_does_not_consume_an_identifier`:
+    /// if refusals burned route ids, every identifier downstream of a refusal
+    /// would shift — which is why the `ClOrdID` check runs before an id is drawn.
+    #[test]
+    fn a_refused_route_does_not_consume_an_identifier() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-NOPE", "100"));
+        input.push(route_new(5, "C-A", "9999"));
+        input.push(route_new(6, "C-A", "100"));
+        let out = run(&input, &mut ids);
+
+        assert_eq!(count_of(&out, "RouteRejected"), 2);
+        assert_eq!(
+            nth_of(&out, "RouteAccepted", 0).fields["routeId"],
+            "RTE-0000000001"
+        );
     }
 }

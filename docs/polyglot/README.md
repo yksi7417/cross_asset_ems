@@ -140,7 +140,14 @@ no language accumulates a backlog of unverified code. Components done in all thr
 AND-gate), **4** `ems-validator` (the layered pipeline: SESSION → IDENTITY → REFERENCE →
 PERMISSION, short-circuiting on the outermost failure), **5** `ems-fsm` — the Rust codegen emitter plus the
 order FSM **wired into the slice runner**, so `fsm-coverage` now asserts all **31 transitions** are
-reached by a corpus case in all three languages. Routing (`ems-oms`) is next.
+reached by a corpus case in all three languages, **6a** `ems-oms` route creation — an accepted order
+projected onto a named venue, `PENDING -RouteSent-> SENT`, with four reject codes and the property
+that a refused route consumes no route id.
+
+**6b** — the venue lifecycle, which drives the remaining 28 route transitions and propagates route
+events back to the order FSM — is next. Until it lands, `route` stays out of scope in
+`fsm-coverage` with a stated reason rather than counted at 1/29: a partial-coverage exemption
+written once is an exemption nobody removes.
 
 Each plan is written for someone with zero context on this codebase: exact files, exact commands,
 test-first steps, and a commit at the end of every task.

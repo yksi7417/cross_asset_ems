@@ -11,6 +11,7 @@
 #include "ems_aaa/aaa.hpp"
 #include "ems_validator/validator.hpp"
 #include "order_fsm.hpp"
+#include "route_fsm.hpp"
 
 namespace ems::it {
 namespace {
@@ -39,8 +40,23 @@ constexpr std::string_view kTypeOrderNew = "OrderNew";
 constexpr std::string_view kTypeOrderAccepted = "OrderAccepted";
 /// Output event refusing one.
 constexpr std::string_view kTypeOrderRejected = "OrderRejected";
+/// Input event projecting an accepted order onto one venue.
+constexpr std::string_view kTypeRouteNew = "RouteNew";
+/// Output event acknowledging a route.
+constexpr std::string_view kTypeRouteAccepted = "RouteAccepted";
+/// Output event refusing one.
+constexpr std::string_view kTypeRouteRejected = "RouteRejected";
 /// Final output event: makes the seed and the input size visible in the journal.
 constexpr std::string_view kTypeRunSummary = "RunSummary";
+
+/// Catalog code: no such order to route.
+constexpr std::string_view kCodeRouteUnknownOrder = "EMS-RTE-4001";
+/// Catalog code: the order is not in a state that can be routed.
+constexpr std::string_view kCodeRouteOrderNotRoutable = "EMS-RTE-4002";
+/// Catalog code: the requested quantity is not routable against what is left.
+constexpr std::string_view kCodeRouteQtyInvalid = "EMS-RTE-4003";
+/// Catalog code: the route's ClOrdID is already in use.
+constexpr std::string_view kCodeRouteClOrdIdCollision = "EMS-RTE-2005";
 
 /// Fields copied from `OrderNew` onto `OrderAccepted`.
 ///
@@ -329,10 +345,211 @@ std::uint64_t on_order_event(const core::JournalEvent& event, std::uint64_t seq,
     return emit_transition(cl_ord_id, *fsm_event, payload, it->second.second, seq, orders, output);
 }
 
+/// Every route the run has created, keyed on route id.
+///
+/// **One map, no derived indexes.** "How much have we routed for this order" and
+/// "is this route ClOrdID taken" are both answered by scanning, not by side
+/// tables kept in step with this one. Scanning is O(n) in a book that holds tens
+/// of routes; the alternative — two maps that can disagree after a partial
+/// failure — is the bug that would actually cost something. The scan order is
+/// the map's, so the answer is deterministic.
+using RouteBook = std::map<std::string, std::pair<crossasset::ems::fsm::RouteFsmState,
+                                                  crossasset::ems::fsm::RouteFsmContext>>;
+
+/// Quantity already routed for `order_id`.
+///
+/// Counts every route, including terminal ones. That is right for a filled route
+/// and wrong for a rejected one — quantity on a route the venue refused is not
+/// committed anywhere and ought to be routable again. Nothing in the slice can
+/// reach those states yet, so encoding the distinction now would be a rule with
+/// no test behind it. DEFERRED: T-7
+std::uint64_t routed_qty(const RouteBook& routes, const std::string& order_id) {
+    std::uint64_t total = 0;
+    for (const auto& [id, entry] : routes) {
+        if (entry.second.orderId == order_id) {
+            total += entry.second.routeQty;
+        }
+    }
+    return total;
+}
+
+/// How many routes exist for `order_id`. Used to name the next one.
+std::size_t count_for_order(const RouteBook& routes, const std::string& order_id) {
+    std::size_t count = 0;
+    for (const auto& [id, entry] : routes) {
+        if (entry.second.orderId == order_id) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+/// Whether any route already carries `cl_ord_id` — FIX requires them unique.
+bool has_route_cl_ord_id(const RouteBook& routes, const std::string& cl_ord_id) {
+    for (const auto& [id, entry] : routes) {
+        if (entry.second.clOrdId == cl_ord_id) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Refuses a route. No route is created, and no identifier is consumed.
+std::uint64_t reject_route(const core::JournalEvent& event, std::uint64_t seq,
+                           std::string_view code, const std::string& reason,
+                           std::vector<core::JournalEvent>& output) {
+    std::map<std::string, std::string> fields;
+    fields.emplace("clOrdId", field(event, "clOrdId"));
+    fields.emplace("code", std::string(code));
+    fields.emplace("qty", field(event, "qty"));
+    fields.emplace("reason", reason);
+    fields.emplace("venueMic", field(event, "venueMic"));
+    output.push_back(
+        core::JournalEvent{seq + 1U, std::string(kTypeRouteRejected), std::move(fields)});
+    return seq + 1U;
+}
+
+/// States an order can be routed from.
+///
+/// An allowlist, not a denylist of terminal states. A state added to the schema
+/// is then un-routable until someone decides it should be — the safe direction
+/// for a list that decides whether quantity goes to a venue.
+bool is_routable(crossasset::ems::fsm::OrderFsmState state) {
+    namespace f = crossasset::ems::fsm;
+    return state == f::OrderFsmState::NEW || state == f::OrderFsmState::REPLACED ||
+           state == f::OrderFsmState::PARTIALLY_FILLED;
+}
+
+/// Projects an accepted order onto one venue.
+///
+/// Four refusals, checked in a fixed order with the first one winning, exactly as
+/// the validation pipeline short-circuits: unknown order, order not routable,
+/// quantity not routable, ClOrdID already taken. Fixed order matters because a
+/// request can fail two of them at once and the journal must say the same thing
+/// in all three languages.
+///
+/// **A refused route creates nothing.** There is no FsmTransition on this path,
+/// and that asymmetry with OrderNew is the schema's, not a shortcut:
+/// order.fsm.yaml models validation failure as a real PENDING_NEW -> REJECTED
+/// transition, while route.fsm.yaml has no transition out of PENDING except
+/// RouteSent. Emitting one would mean inventing a transition the schema does not
+/// define — and fsm-coverage would then count a transition that does not exist.
+std::uint64_t on_route_new(const core::JournalEvent& event, std::uint64_t seq,
+                           core::DeterministicIds& ids, const OrderBook& orders,
+                           const std::map<std::string, std::string>& order_ids, RouteBook& routes,
+                           std::vector<core::JournalEvent>& output) {
+    namespace f = crossasset::ems::fsm;
+    const std::string cl_ord_id = field(event, "clOrdId");
+    const std::string venue_mic = field(event, "venueMic");
+    const auto qty = static_cast<std::uint64_t>(parse_i64(field(event, "qty")));
+
+    const auto parent = orders.find(cl_ord_id);
+    if (parent == orders.end()) {
+        return reject_route(event, seq, kCodeRouteUnknownOrder, "no such order", output);
+    }
+    // A REJECTED order is in the book and lands here, not on 4001 — it exists, it
+    // just cannot take quantity. "your order was rejected" is a more useful thing
+    // to tell a trader than "we have never heard of it".
+    if (!is_routable(parent->second.first)) {
+        return reject_route(event, seq, kCodeRouteOrderNotRoutable,
+                            std::string("order is ") + f::name(parent->second.first), output);
+    }
+    // Unreachable: a routable state is only reached after acceptance, and
+    // acceptance is what fills order_ids. Handled rather than asserted, because
+    // this runs against a journal a venue wrote.
+    const auto assigned = order_ids.find(cl_ord_id);
+    if (assigned == order_ids.end()) {
+        return reject_route(event, seq, kCodeRouteOrderNotRoutable, "order has no identifier",
+                            output);
+    }
+
+    const std::string& order_id = assigned->second;
+    const std::uint64_t already_routed = routed_qty(routes, order_id);
+    const std::uint64_t order_qty = parent->second.second.orderQty;
+    if (qty == 0U || already_routed + qty > order_qty) {
+        return reject_route(event, seq, kCodeRouteQtyInvalid,
+                            "qty " + std::to_string(qty) + " not routable against " +
+                                std::to_string(order_qty - already_routed) + " remaining",
+                            output);
+    }
+
+    // Absent, the route's ClOrdID is derived from the parent's and the count of
+    // routes already hung off it: C-A-1, C-A-2. Derived rather than taken from
+    // the route id so that the check below can run BEFORE an id is consumed —
+    // the same "a refusal costs nothing" property the order path has.
+    std::string route_cl_ord_id = field(event, "routeClOrdId");
+    if (route_cl_ord_id.empty()) {
+        route_cl_ord_id = cl_ord_id + "-" + std::to_string(count_for_order(routes, order_id) + 1U);
+    }
+    if (has_route_cl_ord_id(routes, route_cl_ord_id)) {
+        return reject_route(event, seq, kCodeRouteClOrdIdCollision,
+                            "ClOrdID " + route_cl_ord_id + " in use", output);
+    }
+
+    const std::string route_id = ids.next_route_id();
+    const auto price = non_empty(event, "price");
+
+    f::RouteFsmContext context;
+    context.routeId = route_id;
+    context.orderId = order_id;
+    context.clOrdId = route_cl_ord_id;
+    context.venueMic = venue_mic;
+    context.instrumentId = parent->second.second.instrumentId;
+    context.side = parent->second.second.side;
+    context.routeQty = qty;
+    if (price.has_value()) {
+        context.price = parse_i64(*price);
+    }
+    context.cumQty = 0;
+    context.leavesQty = qty;
+    context.traceId = 1;
+    context.initialOrderId = order_id;
+
+    // Every route starts in the schema's initial state and is moved out of it by
+    // RouteSent, exactly as an order is moved out of PENDING_NEW by a validation
+    // outcome. Seeding a route straight into SENT would make the first transition
+    // unreachable by any corpus case.
+    const auto result =
+        f::transition(f::RouteFsmState::PENDING, f::RouteFsmEvent::RouteSent, context, nullptr);
+    routes.insert_or_assign(
+        route_id, std::make_pair(result.isNoTransition ? f::RouteFsmState::PENDING
+                                                       : result.newState,
+                                 result.isNoTransition ? context : result.newContext));
+
+    std::map<std::string, std::string> transition;
+    transition.emplace("applied", result.isNoTransition ? "false" : "true");
+    transition.emplace("event", f::name(f::RouteFsmEvent::RouteSent));
+    transition.emplace("from", f::name(f::RouteFsmState::PENDING));
+    transition.emplace("fsm", "route");
+    transition.emplace("routeId", route_id);
+    // Read back from the book rather than taken from the transition result: the
+    // journal should report the state the slice is actually holding.
+    const auto stored = routes.find(route_id);
+    transition.emplace("to", f::name(stored == routes.end() ? f::RouteFsmState::PENDING
+                                                            : stored->second.first));
+    output.push_back(
+        core::JournalEvent{seq + 1U, std::string(kTypeFsmTransition), std::move(transition)});
+
+    std::map<std::string, std::string> fields;
+    fields.emplace("clOrdId", cl_ord_id);
+    fields.emplace("orderId", order_id);
+    if (price.has_value()) {
+        fields.emplace("price", std::to_string(parse_i64(*price)));
+    }
+    fields.emplace("qty", std::to_string(qty));
+    fields.emplace("routeClOrdId", route_cl_ord_id);
+    fields.emplace("routeId", route_id);
+    fields.emplace("venueMic", venue_mic);
+    output.push_back(
+        core::JournalEvent{seq + 2U, std::string(kTypeRouteAccepted), std::move(fields)});
+    return seq + 2U;
+}
+
 std::uint64_t on_order_new(const core::JournalEvent& event, std::uint64_t seq,
                            const aaa::AaaService& service,
                            const validator::SecurityMaster& securities,
                            core::DeterministicIds& ids, OrderBook& orders,
+                           std::map<std::string, std::string>& order_ids,
                            std::vector<core::JournalEvent>& output) {
     // The whole decision is the pipeline's. SESSION, IDENTITY, REFERENCE and
     // PERMISSION run in that fixed order and the first failure short-circuits,
@@ -358,8 +575,10 @@ std::uint64_t on_order_new(const core::JournalEvent& event, std::uint64_t seq,
     // Only an accepted order consumes an identifier. If a rejected one did, the
     // ids in a journal would depend on how many orders failed — and every corpus
     // case downstream of a rejection would shift.
+    std::string order_id = ids.next_order_id();
+    order_ids.insert_or_assign(cl_ord_id, order_id);
     std::map<std::string, std::string> fields;
-    fields.emplace("orderId", ids.next_order_id());
+    fields.emplace("orderId", std::move(order_id));
     for (const auto& key : kEchoedFields) {
         const auto it = event.fields.find(std::string(key));
         if (it != event.fields.end()) {
@@ -380,6 +599,12 @@ std::vector<core::JournalEvent> run_slice(const std::vector<core::JournalEvent>&
     aaa::AaaService service;
     validator::SecurityMaster securities;
     OrderBook orders;
+    RouteBook routes;
+    // The order id we assigned to each accepted order, by the client's ClOrdID.
+    // A runner-level index rather than a field on the order book: the FSM context
+    // is the schema's shape and this is ours. A rejected order has no entry, so a
+    // route can never be hung off an order id that was never issued.
+    std::map<std::string, std::string> order_ids;
     std::uint64_t seq = 0;
 
     for (const auto& event : input) {
@@ -388,9 +613,11 @@ std::vector<core::JournalEvent> run_slice(const std::vector<core::JournalEvent>&
         } else if (event.type == kTypeSessionLogon) {
             output.push_back(on_session_logon(event, ++seq, service));
         } else if (event.type == kTypeOrderNew) {
-            seq = on_order_new(event, seq, service, securities, ids, orders, output);
+            seq = on_order_new(event, seq, service, securities, ids, orders, order_ids, output);
         } else if (event.type == kTypeOrderEvent) {
             seq = on_order_event(event, seq, orders, output);
+        } else if (event.type == kTypeRouteNew) {
+            seq = on_route_new(event, seq, ids, orders, order_ids, routes, output);
         } else {
             core::JournalEvent copy = event;
             copy.seq = ++seq;

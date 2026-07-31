@@ -205,6 +205,131 @@ class SliceMainTest {
     assertThat(Files.readAllBytes(first)).isEqualTo(Files.readAllBytes(second));
   }
 
+  // ── Routing (component 6a) ─────────────────────────────────────────────────
+
+  /** An active instrument, so the REFERENCE layer lets a routable order through. */
+  private static final String INSTRUMENT =
+      "{\"fields\":{\"figi\":\"BBG1\",\"status\":\"ACTIVE\"},\"seq\":2,"
+          + "\"type\":\"InstrumentCreated\"}\n";
+
+  /** An order on that instrument for {@code qty}, accepted as {@code ORD-0000000001}. */
+  private static String orderNew(String clOrdId, String qty) {
+    return "{\"fields\":{\"clOrdId\":\""
+        + clOrdId
+        + "\",\"figi\":\"BBG1\",\"qty\":\""
+        + qty
+        + "\",\"sessionId\":\"7\",\"side\":\"BUY\",\"tag\":\"order-entry\"},\"seq\":3,"
+        + "\"type\":\"OrderNew\"}\n";
+  }
+
+  private static String routeNew(String clOrdId, String qty, String extra) {
+    return "{\"fields\":{\"clOrdId\":\""
+        + clOrdId
+        + "\",\"qty\":\""
+        + qty
+        + "\""
+        + extra
+        + ",\"venueMic\":\"XNAS\"},\"seq\":4,\"type\":\"RouteNew\"}\n";
+  }
+
+  private String routed(String journal) throws IOException {
+    Path input = tmp.resolve("in.jsonl");
+    Path output = tmp.resolve("out.jsonl");
+    Files.writeString(input, LOGON + INSTRUMENT + journal);
+    assertThat(run("--input", input.toString(), "--output", output.toString())).isZero();
+    return Files.readString(output, StandardCharsets.UTF_8);
+  }
+
+  @Test
+  void routingAnAcceptedOrderDispatchesIt() throws IOException {
+    String out = routed(orderNew("C-A", "1000") + routeNew("C-A", "400", ""));
+
+    assertThat(out)
+        .contains("\"type\":\"RouteAccepted\"")
+        .contains("\"routeId\":\"RTE-0000000001\"")
+        .contains("\"orderId\":\"ORD-0000000001\"")
+        // Numbered per order, not per run — a venue reconciling a ClOrdID chain
+        // expects the count of routes on this order.
+        .contains("\"routeClOrdId\":\"C-A-1\"")
+        // The route is dispatched on creation, not merely created.
+        .contains("\"event\":\"RouteSent\",\"from\":\"PENDING\",\"fsm\":\"route\"")
+        .contains("\"to\":\"SENT\"");
+  }
+
+  @Test
+  void aMarketRouteCarriesNoPrice() throws IOException {
+    String out = routed(orderNew("C-A", "1000") + routeNew("C-A", "400", ""));
+
+    // Absent and zero are different orders to a venue.
+    assertThat(out).doesNotContain("\"price\"");
+  }
+
+  @Test
+  void routingMoreThanTheOrderHoldsIsRefused() throws IOException {
+    String out =
+        routed(orderNew("C-A", "1000") + routeNew("C-A", "600", "") + routeNew("C-A", "600", ""));
+
+    assertThat(out)
+        .contains("\"code\":\"EMS-RTE-4003\"")
+        .contains("qty 600 not routable against 400 remaining");
+  }
+
+  @Test
+  void zeroQuantityIsNotARoute() throws IOException {
+    String out = routed(orderNew("C-A", "1000") + routeNew("C-A", "0", ""));
+
+    assertThat(out).contains("\"code\":\"EMS-RTE-4003\"").doesNotContain("RouteAccepted");
+  }
+
+  @Test
+  void routingAnUnknownOrderIsRefused() throws IOException {
+    String out = routed(orderNew("C-A", "1000") + routeNew("C-NOPE", "100", ""));
+
+    assertThat(out).contains("\"code\":\"EMS-RTE-4001\"").contains("no such order");
+  }
+
+  /** A rejected order is in the book but cannot take quantity — 4002, not 4001. */
+  @Test
+  void routingARejectedOrderSaysTheOrderIsRejected() throws IOException {
+    String out =
+        routed(
+            "{\"fields\":{\"clOrdId\":\"C-Z\",\"figi\":\"BBG-NOT-LISTED\",\"qty\":\"100\","
+                + "\"sessionId\":\"7\",\"tag\":\"order-entry\"},\"seq\":3,\"type\":\"OrderNew\"}\n"
+                + routeNew("C-Z", "100", ""));
+
+    assertThat(out).contains("\"code\":\"EMS-RTE-4002\"").contains("order is REJECTED");
+  }
+
+  @Test
+  void aRouteClOrdIdCannotBeReused() throws IOException {
+    String out =
+        routed(
+            orderNew("C-A", "1000")
+                + routeNew("C-A", "100", ",\"routeClOrdId\":\"MINE\"")
+                + routeNew("C-A", "100", ",\"routeClOrdId\":\"MINE\""));
+
+    assertThat(out).contains("\"code\":\"EMS-RTE-2005\"").contains("ClOrdID MINE in use");
+  }
+
+  /**
+   * The routing analogue of {@link #aRejectedOrderDoesNotConsumeAnIdentifier}.
+   *
+   * <p>If refusals burned route ids, every identifier downstream of a refusal would shift — and the
+   * ClOrdID collision check in particular has to run <em>before</em> an id is drawn for that to
+   * hold.
+   */
+  @Test
+  void aRefusedRouteDoesNotConsumeAnIdentifier() throws IOException {
+    String out =
+        routed(
+            orderNew("C-A", "1000")
+                + routeNew("C-NOPE", "100", "")
+                + routeNew("C-A", "9999", "")
+                + routeNew("C-A", "100", ""));
+
+    assertThat(out).contains("\"routeId\":\"RTE-0000000001\"").doesNotContain("RTE-0000000002");
+  }
+
   @Test
   void emptyInputStillProducesARunSummary() throws IOException {
     Path input = tmp.resolve("empty.jsonl");

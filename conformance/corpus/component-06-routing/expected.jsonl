@@ -1,0 +1,22 @@
+{"fields":{"figi":"BBG000B9XRY4","status":"ACTIVE"},"seq":1,"type":"InstrumentAccepted"}
+{"fields":{"deskTags":"order-entry","firmTags":"order-entry","sessionId":"7","tags":"order-entry","user":"trader1"},"seq":2,"type":"SessionAccepted"}
+{"fields":{"applied":"true","clOrdId":"C-A","event":"ValidationPassed","from":"PENDING_NEW","fsm":"order","to":"NEW"},"seq":3,"type":"FsmTransition"}
+{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","orderId":"ORD-0000000001","qty":"1000","side":"BUY"},"seq":4,"type":"OrderAccepted"}
+{"fields":{"applied":"true","clOrdId":"C-B","event":"ValidationPassed","from":"PENDING_NEW","fsm":"order","to":"NEW"},"seq":5,"type":"FsmTransition"}
+{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","orderId":"ORD-0000000002","qty":"500","side":"SELL"},"seq":6,"type":"OrderAccepted"}
+{"fields":{"applied":"true","clOrdId":"C-Z","event":"ValidationFailed","from":"PENDING_NEW","fsm":"order","to":"REJECTED"},"seq":7,"type":"FsmTransition"}
+{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG-NOT-LISTED not present in security master.","sessionId":"7"},"seq":8,"type":"OrderRejected"}
+{"fields":{"applied":"true","event":"RouteSent","from":"PENDING","fsm":"route","routeId":"RTE-0000000001","to":"SENT"},"seq":9,"type":"FsmTransition"}
+{"fields":{"clOrdId":"C-A","orderId":"ORD-0000000001","price":"15000","qty":"400","routeClOrdId":"C-A-1","routeId":"RTE-0000000001","venueMic":"XNAS"},"seq":10,"type":"RouteAccepted"}
+{"fields":{"applied":"true","event":"RouteSent","from":"PENDING","fsm":"route","routeId":"RTE-0000000002","to":"SENT"},"seq":11,"type":"FsmTransition"}
+{"fields":{"clOrdId":"C-A","orderId":"ORD-0000000001","qty":"600","routeClOrdId":"C-A-2","routeId":"RTE-0000000002","venueMic":"XNYS"},"seq":12,"type":"RouteAccepted"}
+{"fields":{"clOrdId":"C-A","code":"EMS-RTE-4003","qty":"100","reason":"qty 100 not routable against 0 remaining","venueMic":"XLON"},"seq":13,"type":"RouteRejected"}
+{"fields":{"clOrdId":"C-B","code":"EMS-RTE-4003","qty":"0","reason":"qty 0 not routable against 500 remaining","venueMic":"XNAS"},"seq":14,"type":"RouteRejected"}
+{"fields":{"clOrdId":"C-NOPE","code":"EMS-RTE-4001","qty":"100","reason":"no such order","venueMic":"XNAS"},"seq":15,"type":"RouteRejected"}
+{"fields":{"clOrdId":"C-Z","code":"EMS-RTE-4002","qty":"100","reason":"order is REJECTED","venueMic":"XNAS"},"seq":16,"type":"RouteRejected"}
+{"fields":{"clOrdId":"C-B","code":"EMS-RTE-2005","qty":"200","reason":"ClOrdID C-A-1 in use","venueMic":"XNAS"},"seq":17,"type":"RouteRejected"}
+{"fields":{"applied":"true","event":"RouteSent","from":"PENDING","fsm":"route","routeId":"RTE-0000000003","to":"SENT"},"seq":18,"type":"FsmTransition"}
+{"fields":{"clOrdId":"C-B","orderId":"ORD-0000000002","qty":"200","routeClOrdId":"C-B-1","routeId":"RTE-0000000003","venueMic":"XNAS"},"seq":19,"type":"RouteAccepted"}
+{"fields":{"applied":"true","clOrdId":"C-B","event":"FullFill","from":"NEW","fsm":"order","to":"FILLED"},"seq":20,"type":"FsmTransition"}
+{"fields":{"clOrdId":"C-B","code":"EMS-RTE-4002","qty":"100","reason":"order is FILLED","venueMic":"XNAS"},"seq":21,"type":"RouteRejected"}
+{"fields":{"events":"15","seed":"0"},"seq":22,"type":"RunSummary"}
