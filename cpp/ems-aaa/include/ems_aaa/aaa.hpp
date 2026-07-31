@@ -17,14 +17,24 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace ems::aaa {
 
 /// Catalog code: session ID unknown or already logged out.
 inline constexpr std::string_view kCodeSessionNotFound = "EMS-SES-1002";
 
-/// Catalog code: user does not hold the required permission tag.
-inline constexpr std::string_view kCodeMissingTag = "EMS-PRM-1001";
+/// Catalog code: the user does not hold the tag (innermost layer).
+inline constexpr std::string_view kCodeUserMissingTag = "EMS-PRM-1001";
+
+/// Catalog code: the user holds the tag but the desk is not granted it.
+inline constexpr std::string_view kCodeDeskNotGranted = "EMS-PRM-1002";
+
+/// Catalog code: the firm is not granted the tag (outermost layer).
+inline constexpr std::string_view kCodeFirmNotGranted = "EMS-PRM-1003";
+
+/// Which layer of the AND-gate refused.
+enum class DenialLevel { kFirm, kDesk, kUser };
 
 /// Who is acting, and what they are entitled to.
 ///
@@ -60,20 +70,33 @@ struct Session {
 /// The reject `code` is a real entry in schemas/reject-codes/catalog.yaml — it
 /// reaches the output journal, so an invented code would diverge from the
 /// catalog silently and the conformance gate would not notice.
-struct AuthorizationDecision {
+struct AuthorizationResult {
     bool allowed{true};
     std::string code;
-    std::string category;
-    std::string reason;
+    std::string message;
+    DenialLevel level{DenialLevel::kUser};
 
-    [[nodiscard]] static AuthorizationDecision allow() { return AuthorizationDecision{}; }
+    [[nodiscard]] static AuthorizationResult allow() { return AuthorizationResult{}; }
 
-    [[nodiscard]] static AuthorizationDecision deny(std::string_view code,
-                                                    std::string_view category,
-                                                    std::string reason) {
-        return AuthorizationDecision{false, std::string(code), std::string(category),
-                                     std::move(reason)};
+    [[nodiscard]] static AuthorizationResult deny(std::string_view code, std::string message,
+                                                  DenialLevel level) {
+        return AuthorizationResult{false, std::string(code), std::move(message), level};
     }
+};
+
+/// Firm- and desk-level tag grants. User-level grants live on Identity::tags.
+class TagPermissionStore {
+public:
+    void grant_firm_tag(const std::string& firm, const std::string& tag);
+    void grant_desk_tag(const std::string& firm, const std::string& desk, const std::string& tag);
+
+    [[nodiscard]] bool firm_granted(const std::string& firm, const std::string& tag) const;
+    [[nodiscard]] bool desk_granted(const std::string& firm, const std::string& desk,
+                                    const std::string& tag) const;
+
+private:
+    std::map<std::string, std::set<std::string>> firm_grants_;
+    std::map<std::pair<std::string, std::string>, std::set<std::string>> desk_grants_;
 };
 
 /// Sessions registered from the journal, held for the length of one run.
@@ -81,23 +104,31 @@ struct AuthorizationDecision {
 /// Not thread-safe. The slice binary is single-threaded by design.
 class AaaService {
 public:
-    /// Registers a session, replacing any existing one with the same identifier.
+    /// Establishes a session, replacing any existing one with the same identifier.
     ///
     /// Replacement rather than rejection: a second logon on the same identifier
     /// is a re-logon, and the FIX session layer that would police it is out of
     /// scope for this slice (ADR 0002).
-    void register_session(Session session);
+    void register_session(std::uint64_t session_id, Identity identity,
+                          const std::set<std::string>& firm_tags,
+                          const std::set<std::string>& desk_tags);
 
-    /// Returns the session, or nullopt when the identifier is unknown.
+    /// Returns the session, or nullptr when the identifier is unknown.
     [[nodiscard]] const Session* session(std::uint64_t session_id) const;
 
-    /// Decides whether `session` may act with `tag`. An empty tag means the
-    /// action requires no entitlement.
-    [[nodiscard]] static AuthorizationDecision authorize(const Session& session,
-                                                         const std::string& tag);
+    /// Runs the three-layer AND-gate, outermost first.
+    ///
+    /// Order matters and is part of the contract: a firm denial is reported
+    /// before the desk is consulted, because a missing firm grant makes the
+    /// inner resolution irrelevant — and reporting "you lack the tag" would
+    /// send the user to the wrong administrator. An empty tag requires no
+    /// entitlement.
+    [[nodiscard]] AuthorizationResult authorize(const Session& session,
+                                                const std::string& tag) const;
 
 private:
     std::map<std::uint64_t, Session> sessions_;
+    TagPermissionStore grants_;
 };
 
 }  // namespace ems::aaa

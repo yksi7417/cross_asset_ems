@@ -9,7 +9,7 @@ exercises the parts of the format where three independent JSON writers are most 
 
 | Input line | What it proves |
 |---|---|
-| 1 | `SessionLogon` establishes the session the orders reference (added when the AAA component landed; without it the orders would now be rejected, and this case would stop testing the codec) |
+| 1 | `SessionLogon` establishes the session the orders reference, and its `SessionAccepted` echoes the grants at all three AND-gate layers (added when the AAA component landed; without it the orders would be rejected and this case would stop testing the codec) |
 | 2, 3 | `OrderNew` → `OrderAccepted` with `ORD-0000000001`, `ORD-0000000002` — the identifier format and its ordering |
 | 4 | a non-order event passes through with only its sequence renumbered |
 | 5 | the `ignored` field is **not** echoed — only the agreed field list crosses to the output, so a stray field cannot diverge on some other language's map ordering |

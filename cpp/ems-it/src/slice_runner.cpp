@@ -109,21 +109,38 @@ core::JournalEvent reject(std::uint64_t seq, const core::JournalEvent& event,
     return core::JournalEvent{seq, std::string(kTypeOrderRejected), std::move(fields)};
 }
 
+/// Tags from `key`, or `fallback` when the field is absent.
+std::set<std::string> tags_or_default(const core::JournalEvent& event, std::string_view key,
+                                      const std::set<std::string>& fallback) {
+    const auto it = event.fields.find(std::string(key));
+    return it == event.fields.end() ? fallback : split_tags(it->second);
+}
+
 core::JournalEvent on_session_logon(const core::JournalEvent& event, std::uint64_t seq,
                                     aaa::AaaService& service) {
     const auto session_id = parse_session_id(event);
+    const std::set<std::string> user_tags = split_tags(field(event, "tags"));
+
+    // firmTags / deskTags default to the user's tags, so the common case reads
+    // as "this user may do these things" and the AND-gate passes. A case that
+    // wants a firm- or desk-level denial states them explicitly.
+    const std::set<std::string> firm_tags = tags_or_default(event, "firmTags", user_tags);
+    const std::set<std::string> desk_tags = tags_or_default(event, "deskTags", user_tags);
+
     aaa::Identity identity{field(event, "firm"), field(event, "desk"), field(event, "user"),
-                           split_tags(field(event, "tags"))};
+                           user_tags};
 
     std::map<std::string, std::string> fields;
+    fields.emplace("deskTags", join_tags(desk_tags));
+    fields.emplace("firmTags", join_tags(firm_tags));
     fields.emplace("sessionId", session_id_text(session_id));
-    fields.emplace("user", identity.user);
     // The granted tags are echoed so a corpus case can show *why* a later
     // rejection happened without the reader having to re-read the input.
-    fields.emplace("tags", join_tags(identity.tags));
+    fields.emplace("tags", join_tags(user_tags));
+    fields.emplace("user", identity.user);
 
-    service.register_session(
-        aaa::Session{session_id.value_or(UINT64_MAX), std::move(identity)});
+    service.register_session(session_id.value_or(UINT64_MAX), std::move(identity), firm_tags,
+                             desk_tags);
 
     return core::JournalEvent{seq, std::string(kTypeSessionAccepted), std::move(fields)};
 }
@@ -140,8 +157,10 @@ core::JournalEvent on_order_new(const core::JournalEvent& event, std::uint64_t s
     }
 
     const std::string tag = field(event, "tag");
-    if (const auto decision = aaa::AaaService::authorize(*session, tag); !decision.allowed) {
-        return reject(seq, event, decision.code, decision.category, decision.reason);
+    // The three-layer AND-gate decides this, and its reject code names the
+    // outermost missing layer: firm (1003), desk (1002) or user (1001).
+    if (const auto decision = service.authorize(*session, tag); !decision.allowed) {
+        return reject(seq, event, decision.code, "PRM", decision.message);
     }
 
     // Only an accepted order consumes an identifier. If a rejected one did, the

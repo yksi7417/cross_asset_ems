@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use ems_aaa::{AaaService, AuthorizationDecision, Identity, Session, CODE_SESSION_NOT_FOUND};
+use ems_aaa::{AaaService, AuthorizationResult, Identity, CODE_SESSION_NOT_FOUND};
 use ems_core::{DeterministicIds, JournalEvent};
 
 /// Input event registering a session and its entitlements.
@@ -70,33 +70,58 @@ pub fn run(input: &[JournalEvent], ids: &mut DeterministicIds) -> Vec<JournalEve
 
 fn on_session_logon(event: &JournalEvent, seq: u64, aaa: &mut AaaService) -> JournalEvent {
     let session_id = parse_session_id(event);
+    let user_tags = split_tags(&field(event, "tags"));
+
+    // firmTags / deskTags default to the user's tags, so the common case reads
+    // as "this user may do these things" and the AND-gate passes. A case that
+    // wants a firm- or desk-level denial states them explicitly.
+    let firm_tags = tags_or_default(event, "firmTags", &user_tags);
+    let desk_tags = tags_or_default(event, "deskTags", &user_tags);
+
     let identity = Identity {
         firm: field(event, "firm"),
         desk: field(event, "desk"),
         user: field(event, "user"),
-        tags: split_tags(&field(event, "tags")),
+        tags: user_tags.clone(),
     };
 
     let mut fields = BTreeMap::new();
+    fields.insert("deskTags".to_owned(), join_tags(&desk_tags));
+    fields.insert("firmTags".to_owned(), join_tags(&firm_tags));
     fields.insert("sessionId".to_owned(), session_id_text(session_id));
-    fields.insert("user".to_owned(), identity.user.clone());
     // The granted tags are echoed so a corpus case can show *why* a later
     // rejection happened without the reader having to re-read the input.
-    fields.insert(
-        "tags".to_owned(),
-        identity.tags.iter().cloned().collect::<Vec<_>>().join(","),
-    );
+    fields.insert("tags".to_owned(), join_tags(&user_tags));
+    fields.insert("user".to_owned(), identity.user.clone());
 
-    aaa.register(Session {
-        session_id: session_id.unwrap_or(u64::MAX),
+    aaa.register_session(
+        session_id.unwrap_or(u64::MAX),
         identity,
-    });
+        &firm_tags,
+        &desk_tags,
+    );
 
     JournalEvent {
         seq,
         event_type: TYPE_SESSION_ACCEPTED.to_owned(),
         fields,
     }
+}
+
+/// Tags from `key`, or `fallback` when the field is absent.
+fn tags_or_default(
+    event: &JournalEvent,
+    key: &str,
+    fallback: &BTreeSet<String>,
+) -> BTreeSet<String> {
+    event
+        .fields
+        .get(key)
+        .map_or_else(|| fallback.clone(), |raw| split_tags(raw))
+}
+
+fn join_tags(tags: &BTreeSet<String>) -> String {
+    tags.iter().cloned().collect::<Vec<_>>().join(",")
 }
 
 fn on_order_new(
@@ -120,13 +145,10 @@ fn on_order_new(
     };
 
     let tag = field(event, "tag");
-    if let AuthorizationDecision::Deny {
-        code,
-        category,
-        reason,
-    } = AaaService::authorize(session, &tag)
-    {
-        return reject(seq, event, &code, &category, &reason);
+    // The three-layer AND-gate decides this, and its reject code names the
+    // outermost missing layer: firm (1003), desk (1002) or user (1001).
+    if let AuthorizationResult::Deny { code, message, .. } = aaa.authorize(session, &tag) {
+        return reject(seq, event, &code, "PRM", &message);
     }
 
     // Only an accepted order consumes an identifier. If a rejected one did, the
@@ -284,15 +306,15 @@ mod tests {
             &mut ids,
         );
 
+        // Outermost-first: firmTags defaults to the user's tags, so the firm
+        // grant is missing too and the gate reports firm (1003) rather than
+        // user (1001). Reporting "you lack the tag" would send the user to the
+        // wrong administrator.
+        let encoded = encode(&out[1]);
+        assert!(encoded.contains("EMS-PRM-1003"), "{encoded}");
         assert!(
-            encode(&out[1]).contains("EMS-PRM-1001"),
-            "{}",
-            encode(&out[1])
-        );
-        assert!(
-            encode(&out[1]).contains("does not have permission tag #order-entry"),
-            "{}",
-            encode(&out[1])
+            encoded.contains("is not granted tag `#order-entry`"),
+            "{encoded}"
         );
     }
 

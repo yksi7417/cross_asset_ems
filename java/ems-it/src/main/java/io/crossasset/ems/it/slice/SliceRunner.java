@@ -4,10 +4,8 @@
  */
 package io.crossasset.ems.it.slice;
 
-import io.crossasset.ems.aaa.slice.AuthorizationDecision;
-import io.crossasset.ems.aaa.slice.InMemorySliceAaaService;
-import io.crossasset.ems.aaa.slice.SliceIdentity;
-import io.crossasset.ems.aaa.slice.SliceSession;
+import io.crossasset.ems.aaa.Session;
+import io.crossasset.ems.aaa.permission.AuthorizationResult;
 import io.crossasset.ems.core.journal.DeterministicIds;
 import io.crossasset.ems.core.journal.JournalEvent;
 import java.util.ArrayList;
@@ -53,6 +51,9 @@ public final class SliceRunner {
   /** Final output event: makes the seed and the input size visible in the journal itself. */
   private static final String TYPE_RUN_SUMMARY = "RunSummary";
 
+  /** Catalog code: session ID unknown or already logged out. */
+  private static final String CODE_SESSION_NOT_FOUND = "EMS-SES-1002";
+
   /**
    * Fields copied from {@code OrderNew} onto {@code OrderAccepted}, in this order.
    *
@@ -64,7 +65,7 @@ public final class SliceRunner {
       List.of("account", "figi", "price", "qty", "side");
 
   private final DeterministicIds ids;
-  private final InMemorySliceAaaService aaa = new InMemorySliceAaaService();
+  private final SliceAaa aaa = new SliceAaa();
 
   public SliceRunner(DeterministicIds ids) {
     this.ids = ids;
@@ -93,39 +94,55 @@ public final class SliceRunner {
 
   private JournalEvent onSessionLogon(JournalEvent event, long seq) {
     long sessionId = parseSessionId(event);
-    SliceIdentity identity =
-        new SliceIdentity(
-            field(event, "firm"),
-            field(event, "desk"),
-            field(event, "user"),
-            splitTags(field(event, "tags")));
-    aaa.register(new SliceSession(sessionId, identity));
+    String firm = field(event, "firm");
+    String desk = field(event, "desk");
+    String user = field(event, "user");
+    TreeSet<String> userTags = splitTags(field(event, "tags"));
+
+    // firmTags / deskTags default to the user's tags, so the common case reads
+    // as "this user may do these things" and the AND-gate passes. A case that
+    // wants to exercise a firm- or desk-level denial states them explicitly.
+    TreeSet<String> firmTags = tagsOrDefault(event, "firmTags", userTags);
+    TreeSet<String> deskTags = tagsOrDefault(event, "deskTags", userTags);
+
+    aaa.register(sessionId, firm, desk, user, userTags, firmTags, deskTags);
 
     TreeMap<String, String> fields = new TreeMap<>();
     fields.put("sessionId", Long.toString(sessionId));
-    fields.put("user", identity.user());
+    fields.put("user", user);
     // The granted tags are echoed so a corpus case can show *why* a later
     // rejection happened without the reader having to re-read the input.
-    fields.put("tags", String.join(",", identity.tags()));
+    fields.put("tags", String.join(",", userTags));
+    fields.put("firmTags", String.join(",", firmTags));
+    fields.put("deskTags", String.join(",", deskTags));
     return new JournalEvent(seq, TYPE_SESSION_ACCEPTED, fields);
+  }
+
+  /** Tags from {@code key}, or {@code fallback} when the field is absent. */
+  private static TreeSet<String> tagsOrDefault(
+      JournalEvent event, String key, TreeSet<String> fallback) {
+    String raw = event.fields().get(key);
+    return raw == null ? fallback : splitTags(raw);
   }
 
   private JournalEvent onOrderNew(JournalEvent event, long seq) {
     long sessionId = parseSessionId(event);
-    Optional<SliceSession> session = aaa.session(sessionId);
+    Optional<Session> session = aaa.session(sessionId);
 
     if (session.isEmpty()) {
       return reject(
           seq,
           event,
-          InMemorySliceAaaService.CODE_SESSION_NOT_FOUND,
+          CODE_SESSION_NOT_FOUND,
           "SES",
           "Session " + sessionId + " not found or has expired.");
     }
 
     String tag = field(event, "tag");
-    if (aaa.authorize(session.get(), tag) instanceof AuthorizationDecision.Deny deny) {
-      return reject(seq, event, deny.code(), deny.category(), deny.reason());
+    // The production three-layer AND-gate decides this, and its reject code
+    // names the outermost missing layer: firm (1003), desk (1002) or user (1001).
+    if (aaa.authorize(session.get(), tag) instanceof AuthorizationResult.Deny deny) {
+      return reject(seq, event, deny.rejectCode(), "PRM", deny.message());
     }
 
     // Only an accepted order consumes an identifier. If a rejected one did, the

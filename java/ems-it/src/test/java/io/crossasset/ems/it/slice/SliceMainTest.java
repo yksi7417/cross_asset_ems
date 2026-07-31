@@ -136,8 +136,11 @@ class SliceMainTest {
 
     assertThat(run("--input", input.toString(), "--output", output.toString())).isZero();
     assertThat(Files.readString(output, StandardCharsets.UTF_8))
-        .contains("\"code\":\"EMS-PRM-1001\"")
-        .contains("does not have permission tag #order-entry");
+        .contains("\"code\":\"EMS-PRM-1003\"")
+        // Outermost-first: the firm grant is missing, so the production gate
+        // reports firm rather than user. That is more useful than "you lack the
+        // tag" when the tag was never available to your firm at all.
+        .contains("is not granted tag `#order-entry`");
   }
 
   @Test

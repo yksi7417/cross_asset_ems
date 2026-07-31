@@ -90,6 +90,52 @@ public final class InMemoryAaaService implements AaaService {
             Set.copyOf(Objects.requireNonNull(tags, "tags"))));
   }
 
+  /**
+   * Establishes a session directly, bypassing credential authentication.
+   *
+   * <p>For callers that authenticate elsewhere and arrive with an identity already resolved — the
+   * deterministic slice replays {@code SessionLogon} events off a journal, and a replay
+   * re-authenticating against a credential store would be re-deciding a decision the journal
+   * already records.
+   *
+   * <p>An existing session with the same id is <strong>replaced</strong>. A second logon on one id
+   * is a re-logon; policing it belongs to the FIX session layer.
+   *
+   * @param sessionId the identifier callers will use to look this session up
+   * @param identity the resolved identity, including its granted tags
+   * @param traceContext the trace context to stamp. Supplied rather than minted because {@link
+   *     TraceContextFactory#mint()} draws from {@code UUID.randomUUID()} and {@code
+   *     ThreadLocalRandom}, and a replayed session must produce the same bytes every run.
+   * @return the established session
+   */
+  public Session registerSession(long sessionId, Identity identity, TraceContext traceContext) {
+    Objects.requireNonNull(identity, "identity");
+    Objects.requireNonNull(traceContext, "traceContext");
+    if (sessionId < 0) {
+      throw new IllegalArgumentException("sessionId must not be negative: " + sessionId);
+    }
+    Session session = new Session(sessionId, identity, timeSource.nowMicros(), traceContext);
+    activeSessions.put(sessionId, session);
+    // Keep the generator ahead of any externally supplied id, so a later logon()
+    // cannot mint an id that collides with one a caller already registered.
+    sessionIdSeq.updateAndGet(next -> Math.max(next, sessionId + 1));
+    // Authenticated, not ConnectAttempted: the credential check happened
+    // upstream, and the audit log should say a session was established rather
+    // than imply this service validated anything.
+    eventLog.record(new AaaEvent.Authenticated(sessionId, identity, timeSource.nowMicros()));
+    return session;
+  }
+
+  /**
+   * Establishes a session with a freshly minted trace context.
+   *
+   * <p>Convenience for live callers. Deterministic callers must use {@link #registerSession(long,
+   * Identity, TraceContext)} — this one draws from a random source.
+   */
+  public Session registerSession(long sessionId, Identity identity) {
+    return registerSession(sessionId, identity, TraceContextFactory.mint());
+  }
+
   /** Remove a credential (SCIM deprovisioning, 18.9). Existing sessions end via logout. */
   public void removeCredential(String token) {
     credentialStore.remove(Objects.requireNonNull(token, "token"));

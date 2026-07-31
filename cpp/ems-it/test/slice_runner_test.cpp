@@ -53,15 +53,49 @@ TEST(SliceRunner, LogonThenOrderIsAccepted) {
               "\"seq\":2,\"type\":\"OrderAccepted\"}");
 }
 
-TEST(SliceRunner, LogonEchoesTheGrantedTags) {
+TEST(SliceRunner, LogonEchoesTheGrantedTagsAtEveryLayer) {
     DeterministicIds ids{0};
     const auto out = run_slice({logon("order-entry,market-data")}, ids);
 
     // Tags are echoed in lexicographic order so a corpus case can show why a
-    // later rejection happened without re-reading the input.
+    // later rejection happened without re-reading the input. firmTags and
+    // deskTags default to the user's tags.
     EXPECT_EQ(encode(out.at(0)),
-              "{\"fields\":{\"sessionId\":\"7\",\"tags\":\"market-data,order-entry\","
-              "\"user\":\"trader1\"},\"seq\":1,\"type\":\"SessionAccepted\"}");
+              "{\"fields\":{\"deskTags\":\"market-data,order-entry\","
+              "\"firmTags\":\"market-data,order-entry\",\"sessionId\":\"7\","
+              "\"tags\":\"market-data,order-entry\",\"user\":\"trader1\"},"
+              "\"seq\":1,\"type\":\"SessionAccepted\"}");
+}
+
+TEST(SliceRunner, FirmDenialIsReportedWhenTheFirmLacksTheTag) {
+    DeterministicIds ids{0};
+    const auto out = run_slice(
+        {logon("market-data"), event(2, "OrderNew", {{"sessionId", "7"}, {"tag", "order-entry"}})},
+        ids);
+
+    // firmTags defaults to the user's tags, so the firm grant is missing too and
+    // the gate reports firm (1003) rather than user (1001).
+    EXPECT_EQ(out.at(1).fields.at("code"), "EMS-PRM-1003");
+    EXPECT_EQ(out.at(1).fields.at("reason"), "Firm `FIRM1` is not granted tag `#order-entry`.");
+}
+
+TEST(SliceRunner, UserDenialWhenTheOuterLayersGrantExplicitly) {
+    DeterministicIds ids{0};
+    const auto out = run_slice(
+        {event(1, "SessionLogon",
+               {{"desk", "DESK1"},
+                {"deskTags", "order-entry"},
+                {"firm", "FIRM1"},
+                {"firmTags", "order-entry"},
+                {"sessionId", "7"},
+                {"tags", "market-data"},
+                {"user", "trader3"}}),
+         event(2, "OrderNew", {{"sessionId", "7"}, {"tag", "order-entry"}})},
+        ids);
+
+    EXPECT_EQ(out.at(1).fields.at("code"), "EMS-PRM-1001");
+    EXPECT_EQ(out.at(1).fields.at("reason"),
+              "User `trader3` does not have permission tag `#order-entry`.");
 }
 
 TEST(SliceRunner, OrderWithoutAKnownSessionIsRejected) {
@@ -80,9 +114,8 @@ TEST(SliceRunner, OrderMissingTheRequiredTagIsRejected) {
         {logon("market-data"), event(2, "OrderNew", {{"sessionId", "7"}, {"tag", "order-entry"}})},
         ids);
 
-    EXPECT_EQ(out.at(1).fields.at("code"), "EMS-PRM-1001");
-    EXPECT_EQ(out.at(1).fields.at("reason"),
-              "User trader1 does not have permission tag #order-entry.");
+    EXPECT_EQ(out.at(1).fields.at("code"), "EMS-PRM-1003");
+    EXPECT_EQ(out.at(1).fields.at("reason"), "Firm `FIRM1` is not granted tag `#order-entry`.");
 }
 
 TEST(SliceRunner, ARejectedOrderDoesNotConsumeAnIdentifier) {
