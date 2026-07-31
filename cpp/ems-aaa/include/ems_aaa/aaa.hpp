@@ -75,12 +75,16 @@ struct AuthorizationResult {
     std::string code;
     std::string message;
     DenialLevel level{DenialLevel::kUser};
+    /// Who can grant the missing permission. Reaches the journal via the
+    /// validator, which wraps it as "Talk to {admin_hint}."
+    std::string admin_hint;
 
     [[nodiscard]] static AuthorizationResult allow() { return AuthorizationResult{}; }
 
     [[nodiscard]] static AuthorizationResult deny(std::string_view code, std::string message,
-                                                  DenialLevel level) {
-        return AuthorizationResult{false, std::string(code), std::move(message), level};
+                                                  DenialLevel level, std::string admin_hint) {
+        return AuthorizationResult{false, std::string(code), std::move(message), level,
+                                   std::move(admin_hint)};
     }
 };
 

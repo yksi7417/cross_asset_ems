@@ -17,6 +17,7 @@ dependencies = [
  "ems-aaa",
  "ems-core",
  "ems-transport",
+ "ems-validator",
 ]
 
 [[package]]
@@ -24,4 +25,11 @@ name = "ems-transport"
 version = "0.1.0"
 dependencies = [
  "ems-core",
+]
+
+[[package]]
+name = "ems-validator"
+version = "0.1.0"
+dependencies = [
+ "ems-aaa",
 ]

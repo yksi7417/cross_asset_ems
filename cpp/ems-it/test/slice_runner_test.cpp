@@ -103,7 +103,8 @@ TEST(SliceRunner, OrderWithoutAKnownSessionIsRejected) {
     const auto out = run_slice({event(1, "OrderNew", {{"sessionId", "99"}})}, ids);
 
     EXPECT_EQ(encode(out.at(0)),
-              "{\"fields\":{\"category\":\"SES\",\"code\":\"EMS-SES-1002\","
+              "{\"fields\":{\"adminHint\":\"Talk to session admin.\","
+              "\"category\":\"SES\",\"code\":\"EMS-SES-1002\",\"layer\":\"SESSION\","
               "\"reason\":\"Session 99 not found or has expired.\",\"sessionId\":\"99\"},"
               "\"seq\":1,\"type\":\"OrderRejected\"}");
 }

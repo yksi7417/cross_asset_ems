@@ -4,16 +4,18 @@
  */
 package io.crossasset.ems.it.slice;
 
-import io.crossasset.ems.aaa.Session;
-import io.crossasset.ems.aaa.permission.AuthorizationResult;
 import io.crossasset.ems.core.journal.DeterministicIds;
 import io.crossasset.ems.core.journal.JournalEvent;
+import io.crossasset.ems.instrument.LifecycleStatus;
+import io.crossasset.ems.validator.LayeredValidatorPipeline;
+import io.crossasset.ems.validator.ValidationRequest;
+import io.crossasset.ems.validator.ValidationResult;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The slice, as far as it has been built.
@@ -32,6 +34,12 @@ import java.util.TreeSet;
  * cpp/ems-it/src/slice_runner.cpp}.
  */
 public final class SliceRunner {
+
+  /** Input event adding an instrument to the security master. */
+  private static final String TYPE_INSTRUMENT_CREATED = "InstrumentCreated";
+
+  /** Output event acknowledging one. */
+  private static final String TYPE_INSTRUMENT_ACCEPTED = "InstrumentAccepted";
 
   /** Input event registering a session and its entitlements. */
   private static final String TYPE_SESSION_LOGON = "SessionLogon";
@@ -66,6 +74,17 @@ public final class SliceRunner {
 
   private final DeterministicIds ids;
   private final SliceAaa aaa = new SliceAaa();
+  private final SliceSecurityMaster securityMaster = new SliceSecurityMaster();
+
+  /**
+   * The production pipeline, wired with the production collaborators.
+   *
+   * <p>SESSION, IDENTITY, REFERENCE and PERMISSION all live here now. The runner used to check the
+   * session and the entitlement itself; that was the validator's job all along, and doing it here
+   * meant the ports were mirroring the runner rather than the pipeline.
+   */
+  private final LayeredValidatorPipeline validator =
+      new LayeredValidatorPipeline(aaa.aaaService(), securityMaster.service(), aaa.evaluator());
 
   public SliceRunner(DeterministicIds ids) {
     this.ids = ids;
@@ -78,6 +97,7 @@ public final class SliceRunner {
 
     for (JournalEvent event : input) {
       switch (event.type()) {
+        case TYPE_INSTRUMENT_CREATED -> output.add(onInstrumentCreated(event, ++seq));
         case TYPE_SESSION_LOGON -> output.add(onSessionLogon(event, ++seq));
         case TYPE_ORDER_NEW -> output.add(onOrderNew(event, ++seq));
         default -> output.add(event.withSeq(++seq));
@@ -125,24 +145,47 @@ public final class SliceRunner {
     return raw == null ? fallback : splitTags(raw);
   }
 
-  private JournalEvent onOrderNew(JournalEvent event, long seq) {
-    long sessionId = parseSessionId(event);
-    Optional<Session> session = aaa.session(sessionId);
+  /**
+   * Adds an instrument to the security master.
+   *
+   * <p>An unparseable status is {@code UNKNOWN}, which is not active — so a malformed instrument
+   * makes orders on it fail the REFERENCE layer rather than making the run fail.
+   */
+  private JournalEvent onInstrumentCreated(JournalEvent event, long seq) {
+    String figi = field(event, "figi");
+    LifecycleStatus status = parseStatus(field(event, "status"));
+    securityMaster.add(figi, status);
 
-    if (session.isEmpty()) {
-      return reject(
-          seq,
-          event,
-          CODE_SESSION_NOT_FOUND,
-          "SES",
-          "Session " + sessionId + " not found or has expired.");
+    TreeMap<String, String> fields = new TreeMap<>();
+    fields.put("figi", figi);
+    fields.put("status", status.name());
+    return new JournalEvent(seq, TYPE_INSTRUMENT_ACCEPTED, fields);
+  }
+
+  private static LifecycleStatus parseStatus(String raw) {
+    for (LifecycleStatus candidate : LifecycleStatus.values()) {
+      if (candidate.name().equals(raw)) {
+        return candidate;
+      }
     }
+    return LifecycleStatus.UNKNOWN;
+  }
 
-    String tag = field(event, "tag");
-    // The production three-layer AND-gate decides this, and its reject code
-    // names the outermost missing layer: firm (1003), desk (1002) or user (1001).
-    if (aaa.authorize(session.get(), tag) instanceof AuthorizationResult.Deny deny) {
-      return reject(seq, event, deny.rejectCode(), "PRM", deny.message());
+  private JournalEvent onOrderNew(JournalEvent event, long seq) {
+    // The whole decision is the pipeline's. SESSION, IDENTITY, REFERENCE and
+    // PERMISSION run in that fixed order and the first failure short-circuits,
+    // so the reject the journal carries names the outermost thing that was
+    // wrong — which is the one worth telling a trader about.
+    String figi = field(event, "figi");
+    ValidationRequest request =
+        new ValidationRequest(
+            field(event, "clOrdId"),
+            parseSessionId(event),
+            emptyToNull(field(event, "tag")),
+            emptyToNull(figi));
+
+    if (validator.validate(request) instanceof ValidationResult.Reject reject) {
+      return rejectFrom(seq, event, reject);
     }
 
     // Only an accepted order consumes an identifier. If a rejected one did, the
@@ -159,14 +202,31 @@ public final class SliceRunner {
     return new JournalEvent(seq, TYPE_ORDER_ACCEPTED, fields);
   }
 
-  private static JournalEvent reject(
-      long seq, JournalEvent event, String code, String category, String reason) {
+  /**
+   * Turns a pipeline rejection into a journal event.
+   *
+   * <p>The layer is carried explicitly. Two rejections can share a code and differ in which layer
+   * produced them once later layers land, and a journal that omits it would make those two
+   * indistinguishable on replay.
+   */
+  private static JournalEvent rejectFrom(
+      long seq, JournalEvent event, ValidationResult.Reject reject) {
     TreeMap<String, String> fields = new TreeMap<>();
-    fields.put("category", category);
-    fields.put("code", code);
-    fields.put("reason", reason);
+    fields.put("category", reject.category());
+    fields.put("code", reject.code());
+    fields.put("layer", reject.layer().name());
+    fields.put("reason", reject.message());
     fields.put("sessionId", field(event, "sessionId"));
+    String adminHint = reject.adminHint();
+    if (adminHint != null) {
+      fields.put("adminHint", adminHint);
+    }
     return new JournalEvent(seq, TYPE_ORDER_REJECTED, fields);
+  }
+
+  /** The pipeline treats null as "not supplied"; the journal has no null, only absent. */
+  private static @Nullable String emptyToNull(String value) {
+    return value.isEmpty() ? null : value;
   }
 
   /**

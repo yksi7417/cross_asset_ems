@@ -1,0 +1,8 @@
+{"fields":{"figi":"BBG000B9XRY4","status":"ACTIVE"},"seq":1,"type":"InstrumentCreated"}
+{"fields":{"figi":"BBG000SUSPEND","status":"SUSPENDED"},"seq":2,"type":"InstrumentCreated"}
+{"fields":{"desk":"DESK1","firm":"FIRM1","sessionId":"7","tags":"order-entry","user":"trader1"},"seq":3,"type":"SessionLogon"}
+{"fields":{"clOrdId":"C-1","figi":"BBG000B9XRY4","price":"1250000","qty":"100","sessionId":"7","side":"BUY","tag":"order-entry"},"seq":4,"type":"OrderNew"}
+{"fields":{"clOrdId":"C-2","figi":"BBG000NOTREAL","price":"1250000","qty":"100","sessionId":"7","side":"BUY","tag":"order-entry"},"seq":5,"type":"OrderNew"}
+{"fields":{"clOrdId":"C-3","figi":"BBG000SUSPEND","price":"1250000","qty":"100","sessionId":"7","side":"BUY","tag":"order-entry"},"seq":6,"type":"OrderNew"}
+{"fields":{"clOrdId":"C-4","figi":"BBG000NOTREAL","price":"1250000","qty":"100","sessionId":"99","side":"BUY","tag":"order-entry"},"seq":7,"type":"OrderNew"}
+{"fields":{"clOrdId":"C-5","figi":"BBG000B9XRY4","price":"1250000","qty":"100","sessionId":"7","side":"BUY","tag":"algo-trading"},"seq":8,"type":"OrderNew"}

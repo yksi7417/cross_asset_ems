@@ -50,21 +50,21 @@ AuthorizationResult AaaService::authorize(const Session& session, const std::str
     if (!grants_.firm_granted(identity.firm, tag)) {
         return AuthorizationResult::deny(
             kCodeFirmNotGranted, "Firm `" + identity.firm + "` is not granted tag `#" + tag + "`.",
-            DenialLevel::kFirm);
+            DenialLevel::kFirm, identity.firm + " admin");
     }
 
     if (!grants_.desk_granted(identity.firm, identity.desk, tag)) {
         return AuthorizationResult::deny(kCodeDeskNotGranted,
                                          "User `" + identity.user + "` has tag `#" + tag +
                                              "` but desk `" + identity.desk + "` is not granted.",
-                                         DenialLevel::kDesk);
+                                         DenialLevel::kDesk, identity.desk + " admin");
     }
 
     if (!identity.holds(tag)) {
         return AuthorizationResult::deny(
             kCodeUserMissingTag,
             "User `" + identity.user + "` does not have permission tag `#" + tag + "`.",
-            DenialLevel::kUser);
+            DenialLevel::kUser, "tag admin for #" + tag);
     }
 
     return AuthorizationResult::allow();

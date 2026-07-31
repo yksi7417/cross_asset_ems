@@ -13,6 +13,7 @@ path = "src/main.rs"
 [dependencies]
 ems-aaa = { path = "../ems-aaa", version = "0.1.0" }
 ems-core = { path = "../ems-core", version = "0.1.0" }
+ems-validator = { path = "../ems-validator", version = "0.1.0" }
 ems-transport = { path = "../ems-transport", version = "0.1.0" }
 
 [lints]

@@ -7,10 +7,15 @@
 #include <string_view>
 
 #include "ems_aaa/aaa.hpp"
+#include "ems_validator/validator.hpp"
 
 namespace ems::it {
 namespace {
 
+/// Input event adding an instrument to the security master.
+constexpr std::string_view kTypeInstrumentCreated = "InstrumentCreated";
+/// Output event acknowledging one.
+constexpr std::string_view kTypeInstrumentAccepted = "InstrumentAccepted";
 /// Input event registering a session and its entitlements.
 constexpr std::string_view kTypeSessionLogon = "SessionLogon";
 /// Output event acknowledging a logon.
@@ -98,15 +103,52 @@ std::string join_tags(const std::set<std::string>& tags) {
     return out;
 }
 
-core::JournalEvent reject(std::uint64_t seq, const core::JournalEvent& event,
-                          std::string_view code, std::string_view category,
-                          const std::string& reason) {
+/// Turns a pipeline rejection into a journal event.
+///
+/// The layer is carried explicitly: two rejections can share a code and differ
+/// in which layer produced them once later layers land, and a journal that
+/// omitted it would make those indistinguishable on replay.
+core::JournalEvent reject_from(std::uint64_t seq, const core::JournalEvent& event,
+                               const validator::ValidationResult& result) {
     std::map<std::string, std::string> fields;
-    fields.emplace("category", std::string(category));
-    fields.emplace("code", std::string(code));
-    fields.emplace("reason", reason);
+    if (result.admin_hint.has_value()) {
+        fields.emplace("adminHint", *result.admin_hint);
+    }
+    fields.emplace("category", result.category);
+    fields.emplace("code", result.code);
+    fields.emplace("layer", std::string(validator::layer_name(result.layer)));
+    fields.emplace("reason", result.message);
     fields.emplace("sessionId", field(event, "sessionId"));
     return core::JournalEvent{seq, std::string(kTypeOrderRejected), std::move(fields)};
+}
+
+/// The field's value, or nullopt when absent or empty — the pipeline reads that
+/// as "skip the layer this feeds".
+std::optional<std::string> non_empty(const core::JournalEvent& event, std::string_view key) {
+    const std::string value = field(event, key);
+    return value.empty() ? std::nullopt : std::optional<std::string>{value};
+}
+
+/// Adds an instrument to the security master.
+///
+/// An unrecognised status is treated as inactive, so a malformed instrument
+/// makes orders on it fail the REFERENCE layer rather than failing the run.
+core::JournalEvent on_instrument_created(const core::JournalEvent& event, std::uint64_t seq,
+                                         validator::SecurityMaster& securities) {
+    const std::string figi = field(event, "figi");
+    const std::string raw = field(event, "status");
+    const bool active = raw == "ACTIVE";
+    const std::string status =
+        (active || raw == "SUSPENDED" || raw == "EXPIRED" || raw == "MATURED" ||
+         raw == "DEFAULTED")
+            ? raw
+            : std::string("UNKNOWN");
+    securities.add(figi, validator::Instrument{active, status});
+
+    std::map<std::string, std::string> fields;
+    fields.emplace("figi", figi);
+    fields.emplace("status", status);
+    return core::JournalEvent{seq, std::string(kTypeInstrumentAccepted), std::move(fields)};
 }
 
 /// Tags from `key`, or `fallback` when the field is absent.
@@ -146,21 +188,19 @@ core::JournalEvent on_session_logon(const core::JournalEvent& event, std::uint64
 }
 
 core::JournalEvent on_order_new(const core::JournalEvent& event, std::uint64_t seq,
-                                const aaa::AaaService& service, core::DeterministicIds& ids) {
-    const auto session_id = parse_session_id(event);
-    const aaa::Session* session =
-        session_id.has_value() ? service.session(*session_id) : nullptr;
+                                const aaa::AaaService& service,
+                                const validator::SecurityMaster& securities,
+                                core::DeterministicIds& ids) {
+    // The whole decision is the pipeline's. SESSION, IDENTITY, REFERENCE and
+    // PERMISSION run in that fixed order and the first failure short-circuits,
+    // so the reject the journal carries names the outermost thing that was
+    // wrong — which is the one worth telling a trader about.
+    const validator::ValidationRequest request{field(event, "clOrdId"), parse_session_id(event),
+                                               non_empty(event, "tag"),
+                                               non_empty(event, "figi")};
 
-    if (session == nullptr) {
-        return reject(seq, event, aaa::kCodeSessionNotFound, "SES",
-                      "Session " + session_id_text(session_id) + " not found or has expired.");
-    }
-
-    const std::string tag = field(event, "tag");
-    // The three-layer AND-gate decides this, and its reject code names the
-    // outermost missing layer: firm (1003), desk (1002) or user (1001).
-    if (const auto decision = service.authorize(*session, tag); !decision.allowed) {
-        return reject(seq, event, decision.code, "PRM", decision.message);
+    if (const auto result = validator::validate(request, service, securities); !result.passed) {
+        return reject_from(seq, event, result);
     }
 
     // Only an accepted order consumes an identifier. If a rejected one did, the
@@ -184,14 +224,17 @@ std::vector<core::JournalEvent> run_slice(const std::vector<core::JournalEvent>&
     std::vector<core::JournalEvent> output;
     output.reserve(input.size() + 1U);
     aaa::AaaService service;
+    validator::SecurityMaster securities;
     std::uint64_t seq = 0;
 
     for (const auto& event : input) {
         ++seq;
-        if (event.type == kTypeSessionLogon) {
+        if (event.type == kTypeInstrumentCreated) {
+            output.push_back(on_instrument_created(event, seq, securities));
+        } else if (event.type == kTypeSessionLogon) {
             output.push_back(on_session_logon(event, seq, service));
         } else if (event.type == kTypeOrderNew) {
-            output.push_back(on_order_new(event, seq, service, ids));
+            output.push_back(on_order_new(event, seq, service, securities, ids));
         } else {
             core::JournalEvent copy = event;
             copy.seq = seq;

@@ -1,0 +1,13 @@
+[package]
+name = "ems-validator"
+description = "The layered validation pipeline: SESSION, IDENTITY, REFERENCE, PERMISSION."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ems-aaa = { path = "../ems-aaa", version = "0.1.0" }
+
+[lints]
+workspace = true
