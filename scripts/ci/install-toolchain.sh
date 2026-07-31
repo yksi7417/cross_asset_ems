@@ -27,7 +27,8 @@ usage: scripts/ci/install-toolchain.sh [--profile base|full|nightly] [--dry-run]
 
   base     cmake, ninja, g++-14, shellcheck, clang-format, python3-yaml,
            yamllint, libxml2-utils, rustup toolchain (stable + clippy + rustfmt)
-  full     base + clang-tidy, iwyu, sanitizer runtimes, cargo-deny
+  full     base + clang-tidy, iwyu, sanitizer runtimes, cargo-deny,
+           coverage (gcovr, cargo-llvm-cov, llvm-tools)
   nightly  full + valgrind, rust nightly + miri, cargo-fuzz
 
   --dry-run  print what would be installed and exit
@@ -72,13 +73,17 @@ APT_FULL=(
     clang-tidy
     iwyu
     libclang-rt-dev   # ASan/UBSan/TSan runtimes for clang
+    gcovr             # C++ coverage reporting over gcov (gcov ships with gcc)
 )
 
 APT_NIGHTLY=(
     valgrind
 )
 
-CARGO_FULL=(cargo-deny)
+# cargo-llvm-cov uses LLVM source-based instrumentation — the same mechanism
+# rustc itself supports — rather than tarpaulin's ptrace sampling, which
+# miscounts generics and inlined code.
+CARGO_FULL=(cargo-deny cargo-llvm-cov)
 CARGO_NIGHTLY=(cargo-fuzz)
 
 packages=("${APT_BASE[@]}")
@@ -138,6 +143,14 @@ fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
 rustup component add clippy rustfmt >/dev/null 2>&1 || true
+
+# llvm-tools carries llvm-profdata and llvm-cov, which cargo-llvm-cov shells out
+# to. Without it the coverage step fails with a message about a missing binary
+# that sounds like a cargo-llvm-cov bug and is not.
+if [ "$PROFILE" != "base" ]; then
+    rustup component add llvm-tools-preview >/dev/null 2>&1 || \
+        rustup component add llvm-tools >/dev/null 2>&1 || true
+fi
 
 if [ "$PROFILE" = "nightly" ]; then
     rustup toolchain install nightly --profile minimal >/dev/null
