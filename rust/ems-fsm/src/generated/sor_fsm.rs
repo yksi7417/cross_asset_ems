@@ -143,6 +143,66 @@ pub enum SorFsmEvent {
     RouteAnomaly,
 }
 
+impl SorFsmEvent {
+    /// The event name as the schema spells it.
+    ///
+    /// Event names reach the output journal for the same reason state names do —
+    /// the `FsmTransition` events the conformance gate compares carry both — so
+    /// this must match Java's enum constant character for character.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::SorStrategyDecided => "SorStrategyDecided",
+            Self::SorPlanAdjusted => "SorPlanAdjusted",
+            Self::RouteSent => "RouteSent",
+            Self::RoutePendingNewAtVenue => "RoutePendingNewAtVenue",
+            Self::RouteAcknowledged => "RouteAcknowledged",
+            Self::RouteRejected => "RouteRejected",
+            Self::RouteReplaceRequested => "RouteReplaceRequested",
+            Self::RouteReplacePendingAtVenue => "RouteReplacePendingAtVenue",
+            Self::RouteReplaced => "RouteReplaced",
+            Self::RouteReplaceRejected => "RouteReplaceRejected",
+            Self::RouteCancelRequested => "RouteCancelRequested",
+            Self::RouteCanceled => "RouteCanceled",
+            Self::RouteCancelRejected => "RouteCancelRejected",
+            Self::RoutePartiallyFilled => "RoutePartiallyFilled",
+            Self::RouteFilled => "RouteFilled",
+            Self::RouteExpired => "RouteExpired",
+            Self::RouteSuperseded => "RouteSuperseded",
+            Self::RouteAnomaly => "RouteAnomaly",
+        }
+    }
+
+    /// Parses a schema event name. `None` for anything the schema does not define.
+    ///
+    /// A journal can carry any string; an unrecognised one is data, not a defect,
+    /// so the caller decides what to do rather than being handed a panic.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "SorStrategyDecided" => Some(Self::SorStrategyDecided),
+            "SorPlanAdjusted" => Some(Self::SorPlanAdjusted),
+            "RouteSent" => Some(Self::RouteSent),
+            "RoutePendingNewAtVenue" => Some(Self::RoutePendingNewAtVenue),
+            "RouteAcknowledged" => Some(Self::RouteAcknowledged),
+            "RouteRejected" => Some(Self::RouteRejected),
+            "RouteReplaceRequested" => Some(Self::RouteReplaceRequested),
+            "RouteReplacePendingAtVenue" => Some(Self::RouteReplacePendingAtVenue),
+            "RouteReplaced" => Some(Self::RouteReplaced),
+            "RouteReplaceRejected" => Some(Self::RouteReplaceRejected),
+            "RouteCancelRequested" => Some(Self::RouteCancelRequested),
+            "RouteCanceled" => Some(Self::RouteCanceled),
+            "RouteCancelRejected" => Some(Self::RouteCancelRejected),
+            "RoutePartiallyFilled" => Some(Self::RoutePartiallyFilled),
+            "RouteFilled" => Some(Self::RouteFilled),
+            "RouteExpired" => Some(Self::RouteExpired),
+            "RouteSuperseded" => Some(Self::RouteSuperseded),
+            "RouteAnomaly" => Some(Self::RouteAnomaly),
+            _ => None,
+        }
+    }
+}
+
 /// Context carried alongside the state.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SorFsmContext {

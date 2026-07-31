@@ -138,9 +138,9 @@ sequence — it keeps the differential gate honest at every step instead of at t
 no language accumulates a backlog of unverified code. Components done in all three: **1** journal codec + deterministic identifiers, **2**
 `ems-transport` (the ADR 0006 seam), **3** `ems-aaa` (session lookup + the three-layer entitlement
 AND-gate), **4** `ems-validator` (the layered pipeline: SESSION → IDENTITY → REFERENCE →
-PERMISSION, short-circuiting on the outermost failure), **5** `ems-fsm` — the Rust codegen emitter,
-so all five state machines are now generated from `schemas/fsm/*.fsm.yaml` in three languages and
-the `fsm-sync` gate step diffs all three. Wiring the order FSM into the slice runner is next.
+PERMISSION, short-circuiting on the outermost failure), **5** `ems-fsm` — the Rust codegen emitter plus the
+order FSM **wired into the slice runner**, so `fsm-coverage` now asserts all **31 transitions** are
+reached by a corpus case in all three languages. Routing (`ems-oms`) is next.
 
 Each plan is written for someone with zero context on this codebase: exact files, exact commands,
 test-first steps, and a commit at the end of every task.

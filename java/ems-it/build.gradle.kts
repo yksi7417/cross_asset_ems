@@ -22,6 +22,7 @@ dependencies {
     implementation(project(":ems-transport"))
     implementation(project(":ems-aaa"))
     implementation(project(":ems-validator"))
+    implementation(project(":ems-fsm"))
 
     testImplementation(project(":ems-core"))
     testImplementation(project(":ems-fsm"))

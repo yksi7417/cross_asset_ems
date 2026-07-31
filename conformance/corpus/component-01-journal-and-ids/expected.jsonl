@@ -1,7 +1,10 @@
 {"fields":{"deskTags":"market-data,order-entry","firmTags":"market-data,order-entry","sessionId":"7","tags":"market-data,order-entry","user":"trader1"},"seq":1,"type":"SessionAccepted"}
-{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000B9XRY4 not present in security master.","sessionId":"7"},"seq":2,"type":"OrderRejected"}
-{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000BPH459 not present in security master.","sessionId":"7"},"seq":3,"type":"OrderRejected"}
-{"fields":{"note":"session still up"},"seq":4,"type":"Heartbeat"}
-{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000B9XRY4 not present in security master.","sessionId":"7"},"seq":5,"type":"OrderRejected"}
-{"fields":{"text":"café — ☕ \"quoted\" back\\slash"},"seq":6,"type":"Note"}
-{"fields":{"events":"6","seed":"0"},"seq":7,"type":"RunSummary"}
+{"fields":{"applied":"true","clOrdId":"","event":"ValidationFailed","from":"PENDING_NEW","fsm":"order","to":"REJECTED"},"seq":2,"type":"FsmTransition"}
+{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000B9XRY4 not present in security master.","sessionId":"7"},"seq":3,"type":"OrderRejected"}
+{"fields":{"applied":"false","clOrdId":"","event":"ValidationFailed","from":"REJECTED","fsm":"order","to":"REJECTED"},"seq":4,"type":"FsmTransition"}
+{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000BPH459 not present in security master.","sessionId":"7"},"seq":5,"type":"OrderRejected"}
+{"fields":{"note":"session still up"},"seq":6,"type":"Heartbeat"}
+{"fields":{"applied":"false","clOrdId":"","event":"ValidationFailed","from":"REJECTED","fsm":"order","to":"REJECTED"},"seq":7,"type":"FsmTransition"}
+{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000B9XRY4 not present in security master.","sessionId":"7"},"seq":8,"type":"OrderRejected"}
+{"fields":{"text":"café — ☕ \"quoted\" back\\slash"},"seq":9,"type":"Note"}
+{"fields":{"events":"6","seed":"0"},"seq":10,"type":"RunSummary"}

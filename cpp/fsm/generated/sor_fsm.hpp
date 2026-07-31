@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <optional>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -48,6 +49,81 @@ enum class SorFsmEvent : uint16_t {
   RouteSuperseded,
   RouteAnomaly,
 };
+
+// ── Names ────────────────────────────────────────────────────────────────────
+//
+// State and event names reach the output journal, which the conformance gate
+// compares byte-for-byte across three languages — so these must match the Java
+// enum constants character for character.
+
+inline const char* name(SorFsmState state) noexcept {
+  switch (state) {
+    case SorFsmState::PENDING: return "PENDING";
+    case SorFsmState::SENT: return "SENT";
+    case SorFsmState::PENDING_NEW_AT_VENUE: return "PENDING_NEW_AT_VENUE";
+    case SorFsmState::WORKING: return "WORKING";
+    case SorFsmState::PENDING_REPLACE_AT_VENUE: return "PENDING_REPLACE_AT_VENUE";
+    case SorFsmState::PENDING_CANCEL_AT_VENUE: return "PENDING_CANCEL_AT_VENUE";
+    case SorFsmState::PARTIALLY_FILLED: return "PARTIALLY_FILLED";
+    case SorFsmState::FILLED: return "FILLED";
+    case SorFsmState::CANCELED: return "CANCELED";
+    case SorFsmState::REJECTED: return "REJECTED";
+    case SorFsmState::EXPIRED: return "EXPIRED";
+    case SorFsmState::SUPERSEDED: return "SUPERSEDED";
+    case SorFsmState::ANOMALY: return "ANOMALY";
+  }
+  return "UNKNOWN";
+}
+
+inline const char* name(SorFsmEvent event) noexcept {
+  switch (event) {
+    case SorFsmEvent::SorStrategyDecided: return "SorStrategyDecided";
+    case SorFsmEvent::SorPlanAdjusted: return "SorPlanAdjusted";
+    case SorFsmEvent::RouteSent: return "RouteSent";
+    case SorFsmEvent::RoutePendingNewAtVenue: return "RoutePendingNewAtVenue";
+    case SorFsmEvent::RouteAcknowledged: return "RouteAcknowledged";
+    case SorFsmEvent::RouteRejected: return "RouteRejected";
+    case SorFsmEvent::RouteReplaceRequested: return "RouteReplaceRequested";
+    case SorFsmEvent::RouteReplacePendingAtVenue: return "RouteReplacePendingAtVenue";
+    case SorFsmEvent::RouteReplaced: return "RouteReplaced";
+    case SorFsmEvent::RouteReplaceRejected: return "RouteReplaceRejected";
+    case SorFsmEvent::RouteCancelRequested: return "RouteCancelRequested";
+    case SorFsmEvent::RouteCanceled: return "RouteCanceled";
+    case SorFsmEvent::RouteCancelRejected: return "RouteCancelRejected";
+    case SorFsmEvent::RoutePartiallyFilled: return "RoutePartiallyFilled";
+    case SorFsmEvent::RouteFilled: return "RouteFilled";
+    case SorFsmEvent::RouteExpired: return "RouteExpired";
+    case SorFsmEvent::RouteSuperseded: return "RouteSuperseded";
+    case SorFsmEvent::RouteAnomaly: return "RouteAnomaly";
+  }
+  return "UNKNOWN";
+}
+
+/// Parses a schema event name. nullopt for anything the schema does not define.
+///
+/// A journal can carry any string; an unrecognised one is data, not a defect,
+/// so the caller decides what to do rather than being handed undefined behaviour.
+inline std::optional<SorFsmEvent> SorFsmEventFromName(std::string_view name) {
+  if (name == "SorStrategyDecided") return SorFsmEvent::SorStrategyDecided;
+  if (name == "SorPlanAdjusted") return SorFsmEvent::SorPlanAdjusted;
+  if (name == "RouteSent") return SorFsmEvent::RouteSent;
+  if (name == "RoutePendingNewAtVenue") return SorFsmEvent::RoutePendingNewAtVenue;
+  if (name == "RouteAcknowledged") return SorFsmEvent::RouteAcknowledged;
+  if (name == "RouteRejected") return SorFsmEvent::RouteRejected;
+  if (name == "RouteReplaceRequested") return SorFsmEvent::RouteReplaceRequested;
+  if (name == "RouteReplacePendingAtVenue") return SorFsmEvent::RouteReplacePendingAtVenue;
+  if (name == "RouteReplaced") return SorFsmEvent::RouteReplaced;
+  if (name == "RouteReplaceRejected") return SorFsmEvent::RouteReplaceRejected;
+  if (name == "RouteCancelRequested") return SorFsmEvent::RouteCancelRequested;
+  if (name == "RouteCanceled") return SorFsmEvent::RouteCanceled;
+  if (name == "RouteCancelRejected") return SorFsmEvent::RouteCancelRejected;
+  if (name == "RoutePartiallyFilled") return SorFsmEvent::RoutePartiallyFilled;
+  if (name == "RouteFilled") return SorFsmEvent::RouteFilled;
+  if (name == "RouteExpired") return SorFsmEvent::RouteExpired;
+  if (name == "RouteSuperseded") return SorFsmEvent::RouteSuperseded;
+  if (name == "RouteAnomaly") return SorFsmEvent::RouteAnomaly;
+  return std::nullopt;
+}
 
 // ── Context ───────────────────────────────────────────────────────────────────
 struct SorFsmContext {

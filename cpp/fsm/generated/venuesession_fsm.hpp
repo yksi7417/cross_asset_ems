@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <optional>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -42,6 +43,74 @@ enum class VenueSessionFsmEvent : uint16_t {
   LogoutEchoed,
   UnexpectedDisconnect,
 };
+
+// ── Names ────────────────────────────────────────────────────────────────────
+//
+// State and event names reach the output journal, which the conformance gate
+// compares byte-for-byte across three languages — so these must match the Java
+// enum constants character for character.
+
+inline const char* name(VenueSessionFsmState state) noexcept {
+  switch (state) {
+    case VenueSessionFsmState::DISCONNECTED: return "DISCONNECTED";
+    case VenueSessionFsmState::CONNECTING: return "CONNECTING";
+    case VenueSessionFsmState::LOGON_SENT: return "LOGON_SENT";
+    case VenueSessionFsmState::ACTIVE: return "ACTIVE";
+    case VenueSessionFsmState::TEST_REQUEST_SENT: return "TEST_REQUEST_SENT";
+    case VenueSessionFsmState::RESEND_IN_PROGRESS: return "RESEND_IN_PROGRESS";
+    case VenueSessionFsmState::SEQUENCE_RESETTING: return "SEQUENCE_RESETTING";
+    case VenueSessionFsmState::LOGOUT_IN_PROGRESS: return "LOGOUT_IN_PROGRESS";
+  }
+  return "UNKNOWN";
+}
+
+inline const char* name(VenueSessionFsmEvent event) noexcept {
+  switch (event) {
+    case VenueSessionFsmEvent::ConnectRequested: return "ConnectRequested";
+    case VenueSessionFsmEvent::TcpConnected: return "TcpConnected";
+    case VenueSessionFsmEvent::TcpFailed: return "TcpFailed";
+    case VenueSessionFsmEvent::LogonAcknowledged: return "LogonAcknowledged";
+    case VenueSessionFsmEvent::LogonRejected: return "LogonRejected";
+    case VenueSessionFsmEvent::HeartbeatReceived: return "HeartbeatReceived";
+    case VenueSessionFsmEvent::HeartbeatOverdue: return "HeartbeatOverdue";
+    case VenueSessionFsmEvent::TestRequestResponse: return "TestRequestResponse";
+    case VenueSessionFsmEvent::TestRequestTimeout: return "TestRequestTimeout";
+    case VenueSessionFsmEvent::GapDetected: return "GapDetected";
+    case VenueSessionFsmEvent::ResendComplete: return "ResendComplete";
+    case VenueSessionFsmEvent::InboundResendRequest: return "InboundResendRequest";
+    case VenueSessionFsmEvent::SequenceResetReceived: return "SequenceResetReceived";
+    case VenueSessionFsmEvent::LogoutRequested: return "LogoutRequested";
+    case VenueSessionFsmEvent::LogoutReceived: return "LogoutReceived";
+    case VenueSessionFsmEvent::LogoutEchoed: return "LogoutEchoed";
+    case VenueSessionFsmEvent::UnexpectedDisconnect: return "UnexpectedDisconnect";
+  }
+  return "UNKNOWN";
+}
+
+/// Parses a schema event name. nullopt for anything the schema does not define.
+///
+/// A journal can carry any string; an unrecognised one is data, not a defect,
+/// so the caller decides what to do rather than being handed undefined behaviour.
+inline std::optional<VenueSessionFsmEvent> VenueSessionFsmEventFromName(std::string_view name) {
+  if (name == "ConnectRequested") return VenueSessionFsmEvent::ConnectRequested;
+  if (name == "TcpConnected") return VenueSessionFsmEvent::TcpConnected;
+  if (name == "TcpFailed") return VenueSessionFsmEvent::TcpFailed;
+  if (name == "LogonAcknowledged") return VenueSessionFsmEvent::LogonAcknowledged;
+  if (name == "LogonRejected") return VenueSessionFsmEvent::LogonRejected;
+  if (name == "HeartbeatReceived") return VenueSessionFsmEvent::HeartbeatReceived;
+  if (name == "HeartbeatOverdue") return VenueSessionFsmEvent::HeartbeatOverdue;
+  if (name == "TestRequestResponse") return VenueSessionFsmEvent::TestRequestResponse;
+  if (name == "TestRequestTimeout") return VenueSessionFsmEvent::TestRequestTimeout;
+  if (name == "GapDetected") return VenueSessionFsmEvent::GapDetected;
+  if (name == "ResendComplete") return VenueSessionFsmEvent::ResendComplete;
+  if (name == "InboundResendRequest") return VenueSessionFsmEvent::InboundResendRequest;
+  if (name == "SequenceResetReceived") return VenueSessionFsmEvent::SequenceResetReceived;
+  if (name == "LogoutRequested") return VenueSessionFsmEvent::LogoutRequested;
+  if (name == "LogoutReceived") return VenueSessionFsmEvent::LogoutReceived;
+  if (name == "LogoutEchoed") return VenueSessionFsmEvent::LogoutEchoed;
+  if (name == "UnexpectedDisconnect") return VenueSessionFsmEvent::UnexpectedDisconnect;
+  return std::nullopt;
+}
 
 // ── Context ───────────────────────────────────────────────────────────────────
 struct VenueSessionFsmContext {

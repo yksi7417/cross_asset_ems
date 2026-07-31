@@ -137,9 +137,9 @@ and layer order is the property most likely to drift between three implementatio
 | 🟡 | `terminal_states_are_marked_terminal` (asserts `FILLED` is **not** terminal — a fill can still be busted); `a_terminal_state_accepts_nothing`; `a_guarded_transition_picks_the_arm_whose_guard_holds`; `an_unguarded_transition_fires_regardless_of_context`; `a_payload_carrying_transition_updates_the_context`; `the_context_is_not_mutated_in_place` |
 | 🔴 | `an_event_with_no_matching_transition_is_ignored_not_an_error`; **`a_payload_carrying_transition_without_its_payload_is_a_no_transition`** — a truncated venue message is data, not a denial of service; `a_guard_that_holds_for_no_arm_is_a_no_transition` |
 
-**C++ has one compile-only test here and no behavioural coverage**, because the FSM is not wired
-into the C++ slice runner yet. Stating that plainly rather than letting the ✅ in the matrix imply
-otherwise.
+C++ still has only a compile test at the *unit* level here — its behavioural FSM coverage comes
+from `component-05`, which drives all 31 transitions through the binary and compares the result
+byte-for-byte with Java and Rust.
 
 The golden test is the negative case for the *generator*: it pins the Java and C++ output so adding
 a third emitter cannot silently perturb the other two.
@@ -217,7 +217,7 @@ Eight components make up the cash-equity slice. Five are done in all three langu
 | 3 | AAA — sessions, 3-layer AND-gate | ✅ | ✅ | ✅ | `component-03` |
 | 4 | Validation pipeline | ✅ | ✅ | ✅ | `component-04` |
 | 5 | FSM codegen | ✅ | ✅ | ✅ | `fsm-sync` diffs all three |
-| 5b | FSM wired into the slice runner | ❌ | ❌ | ❌ | — `fsm-coverage` still skips |
+| 5b | FSM wired into the slice runner | ✅ | ✅ | ✅ | `component-05`; `fsm-coverage` asserts 31/31 |
 | 6 | Staging + routing (`ems-oms`) | ✅ † | ❌ | ❌ | — |
 | 7 | Venue edge (FIX out, ExecutionReport in) | ✅ † | ❌ | ❌ | — |
 | 8 | Fill handling / allocation | ✅ † | ❌ | ❌ | — |
@@ -247,7 +247,6 @@ attaches to it.
 
 | Step | Why | Cleared by |
 |---|---|---|
-| `fsm-coverage` | no FSM in the slice runner yet | component 5b |
 | `cpp-msan` (nightly) | needs an MSan-instrumented libc++ | [T-1](../TODO.md#t-1); decided nightly-only in [ADR 0008](../decisions/0008-msan-nightly-only.md) |
 | `cpp-valgrind`, `fuzz-long` (nightly) | no slice binary or fuzz target yet | components 7–8 |
 

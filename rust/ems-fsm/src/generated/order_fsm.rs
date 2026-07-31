@@ -131,6 +131,58 @@ pub enum OrderFsmEvent {
     DoneForDay,
 }
 
+impl OrderFsmEvent {
+    /// The event name as the schema spells it.
+    ///
+    /// Event names reach the output journal for the same reason state names do —
+    /// the `FsmTransition` events the conformance gate compares carry both — so
+    /// this must match Java's enum constant character for character.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::ValidationPassed => "ValidationPassed",
+            Self::ValidationFailed => "ValidationFailed",
+            Self::ReplaceRequested => "ReplaceRequested",
+            Self::ReplaceAccepted => "ReplaceAccepted",
+            Self::ReplaceRejected => "ReplaceRejected",
+            Self::CancelRequested => "CancelRequested",
+            Self::CancelAccepted => "CancelAccepted",
+            Self::CancelRejected => "CancelRejected",
+            Self::PartialFill => "PartialFill",
+            Self::FullFill => "FullFill",
+            Self::TradeCorrect => "TradeCorrect",
+            Self::TradeCancelBust => "TradeCancelBust",
+            Self::OrderExpired => "OrderExpired",
+            Self::DoneForDay => "DoneForDay",
+        }
+    }
+
+    /// Parses a schema event name. `None` for anything the schema does not define.
+    ///
+    /// A journal can carry any string; an unrecognised one is data, not a defect,
+    /// so the caller decides what to do rather than being handed a panic.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "ValidationPassed" => Some(Self::ValidationPassed),
+            "ValidationFailed" => Some(Self::ValidationFailed),
+            "ReplaceRequested" => Some(Self::ReplaceRequested),
+            "ReplaceAccepted" => Some(Self::ReplaceAccepted),
+            "ReplaceRejected" => Some(Self::ReplaceRejected),
+            "CancelRequested" => Some(Self::CancelRequested),
+            "CancelAccepted" => Some(Self::CancelAccepted),
+            "CancelRejected" => Some(Self::CancelRejected),
+            "PartialFill" => Some(Self::PartialFill),
+            "FullFill" => Some(Self::FullFill),
+            "TradeCorrect" => Some(Self::TradeCorrect),
+            "TradeCancelBust" => Some(Self::TradeCancelBust),
+            "OrderExpired" => Some(Self::OrderExpired),
+            "DoneForDay" => Some(Self::DoneForDay),
+            _ => None,
+        }
+    }
+}
+
 /// Context carried alongside the state.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct OrderFsmContext {
