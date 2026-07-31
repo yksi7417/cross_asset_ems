@@ -19,7 +19,7 @@ to:
 
 | | Java | Rust | C++ |
 |---|---:|---:|---:|
-| **Tests passing** | **2,374** | **78** | **65** |
+| **Tests passing** | **2,382** | **90** | **72** |
 | Failures / errors / skipped | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
 | Suites | 14 modules | 9 | 7 ctest targets |
 
@@ -137,9 +137,9 @@ and layer order is the property most likely to drift between three implementatio
 | 🟡 | `terminal_states_are_marked_terminal` (asserts `FILLED` is **not** terminal — a fill can still be busted); `a_terminal_state_accepts_nothing`; `a_guarded_transition_picks_the_arm_whose_guard_holds`; `an_unguarded_transition_fires_regardless_of_context`; `a_payload_carrying_transition_updates_the_context`; `the_context_is_not_mutated_in_place` |
 | 🔴 | `an_event_with_no_matching_transition_is_ignored_not_an_error`; **`a_payload_carrying_transition_without_its_payload_is_a_no_transition`** — a truncated venue message is data, not a denial of service; `a_guard_that_holds_for_no_arm_is_a_no_transition` |
 
-**C++ has one compile-only test here and no behavioural coverage**, because the FSM is not wired
-into the C++ slice runner yet. Stating that plainly rather than letting the ✅ in the matrix imply
-otherwise.
+C++ still has only a compile test at the *unit* level here — its behavioural FSM coverage comes
+from `component-05`, which drives all 31 transitions through the binary and compares the result
+byte-for-byte with Java and Rust.
 
 The golden test is the negative case for the *generator*: it pins the Java and C++ output so adding
 a third emitter cannot silently perturb the other two.
@@ -152,7 +152,7 @@ The end-to-end path, exercised through the actual binary.
 
 | | Java | Rust | C++ |
 |---|---|---|---|
-| Tests | 15 | 16 | 14 |
+| Tests | 23 | 23 | 21 |
 | File | [`SliceMainTest.java`](../../java/ems-it/src/test/java/io/crossasset/ems/it/slice/SliceMainTest.java) | [`runner.rs`](../../rust/ems-slice/src/runner.rs) · [`main.rs`](../../rust/ems-slice/src/main.rs) | [`slice_runner_test.cpp`](../../cpp/ems-it/test/slice_runner_test.cpp) |
 
 | | Evidence |
@@ -160,6 +160,19 @@ The end-to-end path, exercised through the actual binary.
 | 🟢 | `logonThenOrderIsAccepted`, `defaultSeedIsZero`, `seedShiftsGeneratedIdentifiers`, `logonEchoesTheGrantedTagsAtEveryLayer` |
 | 🟡 | **`aRejectedOrderDoesNotConsumeAnIdentifier`** — ids must not depend on how many earlier orders failed, or every corpus case downstream of a rejection shifts; **`producesByteIdenticalOutputOnRepeatedRuns`** (Java); `emptyInputStillProducesARunSummary`; `outputSequenceIsContiguousFromOne`; `unrecognisedFieldsAreNotEchoed`; `reLogonReplacesTheIdentity`; `otherEventTypesPassThroughWithSequenceRenumbered` |
 | 🔴 | `orderWithoutAKnownSessionIsRejected`, `orderMissingTheRequiredTagIsRejected`, **`aNonNumericSessionIdIsARejectionNotACrash`**, `malformedInputJournalExitsOneWithoutAStackTrace` (Java), `missingInputFileExitsOne` (Java), `missingInputArgumentIsAUsageError`, `unknownArgumentIsAUsageError`, `negativeSeedIsAUsageError`, `nonNumericSeedIsAUsageError`, `danglingFlagValueIsAnError` (Rust) |
+
+**Routing (component 6a)** — the same three-way split, all three languages:
+
+| | Evidence |
+|---|---|
+| 🟢 | `routingAnAcceptedOrderDispatchesIt` — asserts the route id, the parent order id, the per-order `routeClOrdId` (`C-A-1`) *and* the `PENDING -> SENT` transition, so "created" and "dispatched" cannot drift apart |
+| 🟡 | `aMarketRouteCarriesNoPrice` — absent and zero are different orders to a venue; **`aRefusedRouteDoesNotConsumeAnIdentifier`** — the routing analogue of the order-id property, and the reason the ClOrdID check runs *before* an id is drawn |
+| 🔴 | `routingMoreThanTheOrderHoldsIsRefused` (4003, asserts the remaining-quantity arithmetic in the message); `zeroQuantityIsNotARoute` (4003); `routingAnUnknownOrderIsRefused` (4001); **`routingARejectedOrderSaysTheOrderIsRejected`** (4002 — an order that exists but cannot take quantity is not the same as one that does not exist); `aRouteClOrdIdCannotBeReused` (2005) |
+
+The route book has its own unit tests in Rust ([`routes.rs`](../../rust/ems-slice/src/routes.rs)):
+`routed_quantity_is_summed_per_order` and `route_count_is_per_order` both assert the
+order-with-no-routes case answers 0 rather than panicking, and `cl_ord_id_collision_spans_orders`
+pins that uniqueness is global rather than per order — which is what FIX means by it.
 
 ---
 
@@ -173,8 +186,10 @@ each other, at the byte level.**
 | [`component-01-journal-and-ids`](../../conformance/corpus/component-01-journal-and-ids/case.md) | id ordering, field-echo filtering, UTF-8 raw vs escaped quotes/backslashes, `RunSummary` | 🟢🟡 |
 | [`component-03-aaa-rejections`](../../conformance/corpus/component-03-aaa-rejections/case.md) | order before logon; all three denial layers; re-logon widening tags; non-numeric session id | 🔴🟡 |
 | [`component-04-validation-layers`](../../conformance/corpus/component-04-validation-layers/case.md) | unknown FIGI; suspended instrument; **two faults where SESSION wins**; ungranted tag | 🔴🟡 |
+| [`component-05-order-fsm`](../../conformance/corpus/component-05-order-fsm/case.md) | all **31** order transitions across 12 orders — replace round trips, fills racing a pending replace *and* a pending cancel, cancel-rejects routing back to three states by guard, trade correction and bust; plus an event for an unknown order and an event name the schema does not define | 🟢🟡🔴 |
+| [`component-06-routing`](../../conformance/corpus/component-06-routing/case.md) | route creation: a limit route, a market route taking the exact remainder, and **six refusals** — over-route, zero qty, unknown order, rejected order, ClOrdID collision, filled order — with the route ids unshifted by any of them | 🟢🟡🔴 |
 
-**9 of 9** — three cases × three implementations, byte-identical.
+**15 of 15** — five cases × three implementations, byte-identical.
 
 ```bash
 conformance/harness/run.sh
@@ -208,7 +223,7 @@ lane.
 
 ## Feature matrix
 
-Eight components make up the cash-equity slice. Five are done in all three languages.
+Eight components make up the cash-equity slice. Six are done in all three languages.
 
 | # | Component | Java | Rust | C++ | Cross-language proof |
 |---|---|:---:|:---:|:---:|---|
@@ -217,8 +232,9 @@ Eight components make up the cash-equity slice. Five are done in all three langu
 | 3 | AAA — sessions, 3-layer AND-gate | ✅ | ✅ | ✅ | `component-03` |
 | 4 | Validation pipeline | ✅ | ✅ | ✅ | `component-04` |
 | 5 | FSM codegen | ✅ | ✅ | ✅ | `fsm-sync` diffs all three |
-| 5b | FSM wired into the slice runner | ❌ | ❌ | ❌ | — `fsm-coverage` still skips |
-| 6 | Staging + routing (`ems-oms`) | ✅ † | ❌ | ❌ | — |
+| 5b | FSM wired into the slice runner | ✅ | ✅ | ✅ | `component-05`; `fsm-coverage` asserts 31/31 |
+| 6a | Route creation (`ems-oms`) | ✅ | ✅ | ✅ | `component-06`; 4 reject codes, ids survive refusals |
+| 6b | Route venue lifecycle | ❌ | ❌ | ❌ | — (28 of 29 route transitions still unreachable) |
 | 7 | Venue edge (FIX out, ExecutionReport in) | ✅ † | ❌ | ❌ | — |
 | 8 | Fill handling / allocation | ✅ † | ❌ | ❌ | — |
 
@@ -247,7 +263,6 @@ attaches to it.
 
 | Step | Why | Cleared by |
 |---|---|---|
-| `fsm-coverage` | no FSM in the slice runner yet | component 5b |
 | `cpp-msan` (nightly) | needs an MSan-instrumented libc++ | [T-1](../TODO.md#t-1); decided nightly-only in [ADR 0008](../decisions/0008-msan-nightly-only.md) |
 | `cpp-valgrind`, `fuzz-long` (nightly) | no slice binary or fuzz target yet | components 7–8 |
 

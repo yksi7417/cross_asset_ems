@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <optional>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -46,6 +47,77 @@ enum class RouteFsmEvent : uint16_t {
   RouteSuperseded,
   RouteAnomaly,
 };
+
+// ── Names ────────────────────────────────────────────────────────────────────
+//
+// State and event names reach the output journal, which the conformance gate
+// compares byte-for-byte across three languages — so these must match the Java
+// enum constants character for character.
+
+inline const char* name(RouteFsmState state) noexcept {
+  switch (state) {
+    case RouteFsmState::PENDING: return "PENDING";
+    case RouteFsmState::SENT: return "SENT";
+    case RouteFsmState::PENDING_NEW_AT_VENUE: return "PENDING_NEW_AT_VENUE";
+    case RouteFsmState::WORKING: return "WORKING";
+    case RouteFsmState::PENDING_REPLACE_AT_VENUE: return "PENDING_REPLACE_AT_VENUE";
+    case RouteFsmState::PENDING_CANCEL_AT_VENUE: return "PENDING_CANCEL_AT_VENUE";
+    case RouteFsmState::PARTIALLY_FILLED: return "PARTIALLY_FILLED";
+    case RouteFsmState::FILLED: return "FILLED";
+    case RouteFsmState::CANCELED: return "CANCELED";
+    case RouteFsmState::REJECTED: return "REJECTED";
+    case RouteFsmState::EXPIRED: return "EXPIRED";
+    case RouteFsmState::SUPERSEDED: return "SUPERSEDED";
+    case RouteFsmState::ANOMALY: return "ANOMALY";
+  }
+  return "UNKNOWN";
+}
+
+inline const char* name(RouteFsmEvent event) noexcept {
+  switch (event) {
+    case RouteFsmEvent::RouteSent: return "RouteSent";
+    case RouteFsmEvent::RoutePendingNewAtVenue: return "RoutePendingNewAtVenue";
+    case RouteFsmEvent::RouteAcknowledged: return "RouteAcknowledged";
+    case RouteFsmEvent::RouteRejected: return "RouteRejected";
+    case RouteFsmEvent::RouteReplaceRequested: return "RouteReplaceRequested";
+    case RouteFsmEvent::RouteReplacePendingAtVenue: return "RouteReplacePendingAtVenue";
+    case RouteFsmEvent::RouteReplaced: return "RouteReplaced";
+    case RouteFsmEvent::RouteReplaceRejected: return "RouteReplaceRejected";
+    case RouteFsmEvent::RouteCancelRequested: return "RouteCancelRequested";
+    case RouteFsmEvent::RouteCanceled: return "RouteCanceled";
+    case RouteFsmEvent::RouteCancelRejected: return "RouteCancelRejected";
+    case RouteFsmEvent::RoutePartiallyFilled: return "RoutePartiallyFilled";
+    case RouteFsmEvent::RouteFilled: return "RouteFilled";
+    case RouteFsmEvent::RouteExpired: return "RouteExpired";
+    case RouteFsmEvent::RouteSuperseded: return "RouteSuperseded";
+    case RouteFsmEvent::RouteAnomaly: return "RouteAnomaly";
+  }
+  return "UNKNOWN";
+}
+
+/// Parses a schema event name. nullopt for anything the schema does not define.
+///
+/// A journal can carry any string; an unrecognised one is data, not a defect,
+/// so the caller decides what to do rather than being handed undefined behaviour.
+inline std::optional<RouteFsmEvent> RouteFsmEventFromName(std::string_view name) {
+  if (name == "RouteSent") return RouteFsmEvent::RouteSent;
+  if (name == "RoutePendingNewAtVenue") return RouteFsmEvent::RoutePendingNewAtVenue;
+  if (name == "RouteAcknowledged") return RouteFsmEvent::RouteAcknowledged;
+  if (name == "RouteRejected") return RouteFsmEvent::RouteRejected;
+  if (name == "RouteReplaceRequested") return RouteFsmEvent::RouteReplaceRequested;
+  if (name == "RouteReplacePendingAtVenue") return RouteFsmEvent::RouteReplacePendingAtVenue;
+  if (name == "RouteReplaced") return RouteFsmEvent::RouteReplaced;
+  if (name == "RouteReplaceRejected") return RouteFsmEvent::RouteReplaceRejected;
+  if (name == "RouteCancelRequested") return RouteFsmEvent::RouteCancelRequested;
+  if (name == "RouteCanceled") return RouteFsmEvent::RouteCanceled;
+  if (name == "RouteCancelRejected") return RouteFsmEvent::RouteCancelRejected;
+  if (name == "RoutePartiallyFilled") return RouteFsmEvent::RoutePartiallyFilled;
+  if (name == "RouteFilled") return RouteFsmEvent::RouteFilled;
+  if (name == "RouteExpired") return RouteFsmEvent::RouteExpired;
+  if (name == "RouteSuperseded") return RouteFsmEvent::RouteSuperseded;
+  if (name == "RouteAnomaly") return RouteFsmEvent::RouteAnomaly;
+  return std::nullopt;
+}
 
 // ── Context ───────────────────────────────────────────────────────────────────
 struct RouteFsmContext {

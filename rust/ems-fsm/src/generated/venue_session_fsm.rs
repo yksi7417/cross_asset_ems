@@ -114,6 +114,64 @@ pub enum VenueSessionFsmEvent {
     UnexpectedDisconnect,
 }
 
+impl VenueSessionFsmEvent {
+    /// The event name as the schema spells it.
+    ///
+    /// Event names reach the output journal for the same reason state names do —
+    /// the `FsmTransition` events the conformance gate compares carry both — so
+    /// this must match Java's enum constant character for character.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::ConnectRequested => "ConnectRequested",
+            Self::TcpConnected => "TcpConnected",
+            Self::TcpFailed => "TcpFailed",
+            Self::LogonAcknowledged => "LogonAcknowledged",
+            Self::LogonRejected => "LogonRejected",
+            Self::HeartbeatReceived => "HeartbeatReceived",
+            Self::HeartbeatOverdue => "HeartbeatOverdue",
+            Self::TestRequestResponse => "TestRequestResponse",
+            Self::TestRequestTimeout => "TestRequestTimeout",
+            Self::GapDetected => "GapDetected",
+            Self::ResendComplete => "ResendComplete",
+            Self::InboundResendRequest => "InboundResendRequest",
+            Self::SequenceResetReceived => "SequenceResetReceived",
+            Self::LogoutRequested => "LogoutRequested",
+            Self::LogoutReceived => "LogoutReceived",
+            Self::LogoutEchoed => "LogoutEchoed",
+            Self::UnexpectedDisconnect => "UnexpectedDisconnect",
+        }
+    }
+
+    /// Parses a schema event name. `None` for anything the schema does not define.
+    ///
+    /// A journal can carry any string; an unrecognised one is data, not a defect,
+    /// so the caller decides what to do rather than being handed a panic.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "ConnectRequested" => Some(Self::ConnectRequested),
+            "TcpConnected" => Some(Self::TcpConnected),
+            "TcpFailed" => Some(Self::TcpFailed),
+            "LogonAcknowledged" => Some(Self::LogonAcknowledged),
+            "LogonRejected" => Some(Self::LogonRejected),
+            "HeartbeatReceived" => Some(Self::HeartbeatReceived),
+            "HeartbeatOverdue" => Some(Self::HeartbeatOverdue),
+            "TestRequestResponse" => Some(Self::TestRequestResponse),
+            "TestRequestTimeout" => Some(Self::TestRequestTimeout),
+            "GapDetected" => Some(Self::GapDetected),
+            "ResendComplete" => Some(Self::ResendComplete),
+            "InboundResendRequest" => Some(Self::InboundResendRequest),
+            "SequenceResetReceived" => Some(Self::SequenceResetReceived),
+            "LogoutRequested" => Some(Self::LogoutRequested),
+            "LogoutReceived" => Some(Self::LogoutReceived),
+            "LogoutEchoed" => Some(Self::LogoutEchoed),
+            "UnexpectedDisconnect" => Some(Self::UnexpectedDisconnect),
+            _ => None,
+        }
+    }
+}
+
 /// Context carried alongside the state.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct VenueSessionFsmContext {

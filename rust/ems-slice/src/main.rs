@@ -11,6 +11,7 @@
 //! invoked wrongly".
 #![forbid(unsafe_code)]
 
+mod routes;
 mod runner;
 
 use std::path::PathBuf;

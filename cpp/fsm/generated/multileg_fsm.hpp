@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <optional>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -32,6 +33,55 @@ enum class MultiLegFsmEvent : uint16_t {
   LegCanceled,
   CancelRequested,
 };
+
+// ── Names ────────────────────────────────────────────────────────────────────
+//
+// State and event names reach the output journal, which the conformance gate
+// compares byte-for-byte across three languages — so these must match the Java
+// enum constants character for character.
+
+inline const char* name(MultiLegFsmState state) noexcept {
+  switch (state) {
+    case MultiLegFsmState::STAGED: return "STAGED";
+    case MultiLegFsmState::READY: return "READY";
+    case MultiLegFsmState::LEGS_WORKING: return "LEGS_WORKING";
+    case MultiLegFsmState::FILLED: return "FILLED";
+    case MultiLegFsmState::PARTIALLY_FILLED: return "PARTIALLY_FILLED";
+    case MultiLegFsmState::CANCELED: return "CANCELED";
+    case MultiLegFsmState::REJECTED: return "REJECTED";
+  }
+  return "UNKNOWN";
+}
+
+inline const char* name(MultiLegFsmEvent event) noexcept {
+  switch (event) {
+    case MultiLegFsmEvent::LegsValidated: return "LegsValidated";
+    case MultiLegFsmEvent::LegsValidationFailed: return "LegsValidationFailed";
+    case MultiLegFsmEvent::FirstLegDispatched: return "FirstLegDispatched";
+    case MultiLegFsmEvent::LegFilled: return "LegFilled";
+    case MultiLegFsmEvent::LegPartiallyFilled: return "LegPartiallyFilled";
+    case MultiLegFsmEvent::LegRejected: return "LegRejected";
+    case MultiLegFsmEvent::LegCanceled: return "LegCanceled";
+    case MultiLegFsmEvent::CancelRequested: return "CancelRequested";
+  }
+  return "UNKNOWN";
+}
+
+/// Parses a schema event name. nullopt for anything the schema does not define.
+///
+/// A journal can carry any string; an unrecognised one is data, not a defect,
+/// so the caller decides what to do rather than being handed undefined behaviour.
+inline std::optional<MultiLegFsmEvent> MultiLegFsmEventFromName(std::string_view name) {
+  if (name == "LegsValidated") return MultiLegFsmEvent::LegsValidated;
+  if (name == "LegsValidationFailed") return MultiLegFsmEvent::LegsValidationFailed;
+  if (name == "FirstLegDispatched") return MultiLegFsmEvent::FirstLegDispatched;
+  if (name == "LegFilled") return MultiLegFsmEvent::LegFilled;
+  if (name == "LegPartiallyFilled") return MultiLegFsmEvent::LegPartiallyFilled;
+  if (name == "LegRejected") return MultiLegFsmEvent::LegRejected;
+  if (name == "LegCanceled") return MultiLegFsmEvent::LegCanceled;
+  if (name == "CancelRequested") return MultiLegFsmEvent::CancelRequested;
+  return std::nullopt;
+}
 
 // ── Context ───────────────────────────────────────────────────────────────────
 struct MultiLegFsmContext {

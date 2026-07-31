@@ -155,6 +155,24 @@ it.
 
 ---
 
+## T-7 — Release routed quantity when a route dies unfilled
+
+`SliceRouteBook.routedQty` sums **every** route for an order, including terminal ones. For a filled
+route that is right — the quantity was consumed. For a route the venue rejected, cancelled or
+expired it is wrong: nothing is committed anywhere, and that quantity ought to be routable again.
+Today an order whose only route was rejected can never be re-routed.
+
+**Why:** the distinction cannot be tested yet. Component 6a creates routes and nothing moves them out
+of `SENT`, so `REJECTED`, `CANCELED`, `EXPIRED` and `SUPERSEDED` are unreachable. Writing the rule
+now means shipping a branch no corpus case can execute, which is the thing the conformance gate
+exists to make impossible to do quietly.
+
+**Done when:** component 6b can drive a route to each unfilled terminal state, `routedQty` excludes
+those states in all three languages, and a corpus case re-routes an order whose first route the venue
+rejected — with the second route accepted and byte-identical across Java, Rust and C++.
+
+---
+
 ## Completed
 
 | Item | Outcome |

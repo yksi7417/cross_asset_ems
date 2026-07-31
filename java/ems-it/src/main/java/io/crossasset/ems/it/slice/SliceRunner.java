@@ -6,6 +6,12 @@ package io.crossasset.ems.it.slice;
 
 import io.crossasset.ems.core.journal.DeterministicIds;
 import io.crossasset.ems.core.journal.JournalEvent;
+import io.crossasset.ems.fsm.generated.OrderFsmContext;
+import io.crossasset.ems.fsm.generated.OrderFsmEvent;
+import io.crossasset.ems.fsm.generated.OrderFsmState;
+import io.crossasset.ems.fsm.generated.RouteFsmContext;
+import io.crossasset.ems.fsm.generated.RouteFsmEvent;
+import io.crossasset.ems.fsm.generated.RouteFsmState;
 import io.crossasset.ems.instrument.LifecycleStatus;
 import io.crossasset.ems.validator.LayeredValidatorPipeline;
 import io.crossasset.ems.validator.ValidationRequest;
@@ -13,6 +19,7 @@ import io.crossasset.ems.validator.ValidationResult;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import org.jspecify.annotations.Nullable;
@@ -20,15 +27,17 @@ import org.jspecify.annotations.Nullable;
 /**
  * The slice, as far as it has been built.
  *
- * <p><strong>Today it covers components 1–3</strong>: the journal codec, deterministic identifiers,
- * the transport seam and the AAA entitlement decision. A {@code SessionLogon} registers a session;
- * an {@code OrderNew} is checked against it and becomes either an {@code OrderAccepted} carrying a
- * generated order id or an {@code OrderRejected} carrying a catalog reject code. Everything else
- * passes through with its sequence renumbered, and a {@code RunSummary} closes the journal.
+ * <p><strong>Today it covers components 1–6a</strong>: the journal codec, deterministic
+ * identifiers, the transport seam, the AAA entitlement decision, the layered validation pipeline,
+ * the order FSM and route creation. A {@code SessionLogon} registers a session; an {@code OrderNew}
+ * is checked against it and becomes either an {@code OrderAccepted} carrying a generated order id
+ * or an {@code OrderRejected} carrying a catalog reject code; an {@code OrderEvent} drives the
+ * order FSM; a {@code RouteNew} projects an accepted order onto a venue. Everything else passes
+ * through with its sequence renumbered, and a {@code RunSummary} closes the journal.
  *
- * <p>There is still no validation pipeline, no FSM, no routing and no venue — those are later
- * components, and pretending otherwise in the output would make the conformance corpus lie about
- * what is implemented.
+ * <p>There is still no venue edge and no allocation, and a created route never leaves {@code SENT}
+ * — the venue lifecycle is component 6b. Pretending otherwise in the output would make the
+ * conformance corpus lie about what is implemented.
  *
  * <p>Kept in lockstep with {@code rust/ems-slice/src/runner.rs} and {@code
  * cpp/ems-it/src/slice_runner.cpp}.
@@ -56,11 +65,50 @@ public final class SliceRunner {
   /** Output event refusing one. */
   private static final String TYPE_ORDER_REJECTED = "OrderRejected";
 
+  /**
+   * Input event carrying a venue or client action against a live order.
+   *
+   * <p>One input type rather than one per FSM event: the journal names the FSM event in a field, so
+   * adding a transition to the schema does not require a new event type here. The mapping is {@link
+   * #toFsmEvent}, and an unrecognised name is a no-transition rather than a crash.
+   */
+  private static final String TYPE_ORDER_EVENT = "OrderEvent";
+
+  /**
+   * Output event recording every FSM transition taken.
+   *
+   * <p>This is what {@code conformance/harness/fsm_coverage.py} reads. Coverage is measured from
+   * what the corpus actually exercised rather than inferred from the input, so a case that claims
+   * to reach a transition and does not is caught.
+   */
+  private static final String TYPE_FSM_TRANSITION = "FsmTransition";
+
+  /** Input event projecting an accepted order onto one venue. */
+  private static final String TYPE_ROUTE_NEW = "RouteNew";
+
+  /** Output event acknowledging a route. */
+  private static final String TYPE_ROUTE_ACCEPTED = "RouteAccepted";
+
+  /** Output event refusing one. */
+  private static final String TYPE_ROUTE_REJECTED = "RouteRejected";
+
   /** Final output event: makes the seed and the input size visible in the journal itself. */
   private static final String TYPE_RUN_SUMMARY = "RunSummary";
 
   /** Catalog code: session ID unknown or already logged out. */
   private static final String CODE_SESSION_NOT_FOUND = "EMS-SES-1002";
+
+  /** Catalog code: no such order to route. */
+  private static final String CODE_ROUTE_UNKNOWN_ORDER = "EMS-RTE-4001";
+
+  /** Catalog code: the order is not in a state that can be routed. */
+  private static final String CODE_ROUTE_ORDER_NOT_ROUTABLE = "EMS-RTE-4002";
+
+  /** Catalog code: the requested quantity is not routable against what is left. */
+  private static final String CODE_ROUTE_QTY_INVALID = "EMS-RTE-4003";
+
+  /** Catalog code: the route's ClOrdID is already in use. */
+  private static final String CODE_ROUTE_CLORDID_COLLISION = "EMS-RTE-2005";
 
   /**
    * Fields copied from {@code OrderNew} onto {@code OrderAccepted}, in this order.
@@ -75,6 +123,18 @@ public final class SliceRunner {
   private final DeterministicIds ids;
   private final SliceAaa aaa = new SliceAaa();
   private final SliceSecurityMaster securityMaster = new SliceSecurityMaster();
+  private final SliceOrderBook orders = new SliceOrderBook();
+  private final SliceRouteBook routes = new SliceRouteBook();
+
+  /**
+   * The order id we assigned to each accepted order, by the client's ClOrdID.
+   *
+   * <p>A runner-level index rather than a field on the order book: the FSM context is the schema's
+   * shape and this is ours. A rejected order has no entry here — the same property {@code
+   * aRejectedOrderDoesNotConsumeAnIdentifier} pins — so a route can never be hung off an order id
+   * that was never issued.
+   */
+  private final TreeMap<String, String> orderIds = new TreeMap<>();
 
   /**
    * The production pipeline, wired with the production collaborators.
@@ -99,7 +159,9 @@ public final class SliceRunner {
       switch (event.type()) {
         case TYPE_INSTRUMENT_CREATED -> output.add(onInstrumentCreated(event, ++seq));
         case TYPE_SESSION_LOGON -> output.add(onSessionLogon(event, ++seq));
-        case TYPE_ORDER_NEW -> output.add(onOrderNew(event, ++seq));
+        case TYPE_ORDER_NEW -> seq = onOrderNew(event, seq, output);
+        case TYPE_ORDER_EVENT -> seq = onOrderEvent(event, seq, output);
+        case TYPE_ROUTE_NEW -> seq = onRouteNew(event, seq, output);
         default -> output.add(event.withSeq(++seq));
       }
     }
@@ -171,7 +233,7 @@ public final class SliceRunner {
     return LifecycleStatus.UNKNOWN;
   }
 
-  private JournalEvent onOrderNew(JournalEvent event, long seq) {
+  private long onOrderNew(JournalEvent event, long seq, List<JournalEvent> output) {
     // The whole decision is the pipeline's. SESSION, IDENTITY, REFERENCE and
     // PERMISSION run in that fixed order and the first failure short-circuits,
     // so the reject the journal carries names the outermost thing that was
@@ -184,22 +246,303 @@ public final class SliceRunner {
             emptyToNull(field(event, "tag")),
             emptyToNull(figi));
 
+    // The FSM tracks the order under the CLIENT's identifier, not ours.
+    //
+    // ClOrdID exists before the order reaches us; OrderID is ours and is assigned
+    // on acceptance. Keying the book on ClOrdID is both the FIX convention and
+    // what lets a rejected order take the real PENDING_NEW -> REJECTED transition
+    // without consuming an order id — the property component 3 established, and
+    // which SliceMainTest.aRejectedOrderDoesNotConsumeAnIdentifier still guards.
+    String clOrdId = field(event, "clOrdId");
+    OrderFsmContext context = contextFor(clOrdId, event);
+
     if (validator.validate(request) instanceof ValidationResult.Reject reject) {
-      return rejectFrom(seq, event, reject);
+      seq = emitTransition(clOrdId, OrderFsmEvent.ValidationFailed, null, context, seq, output);
+      output.add(rejectFrom(++seq, event, reject));
+      return seq;
     }
 
-    // Only an accepted order consumes an identifier. If a rejected one did, the
-    // ids in a journal would depend on how many orders failed — and every corpus
-    // case downstream of a rejection would shift.
+    seq = emitTransition(clOrdId, OrderFsmEvent.ValidationPassed, null, context, seq, output);
+    String orderId = ids.nextOrderId();
+
     TreeMap<String, String> fields = new TreeMap<>();
-    fields.put("orderId", ids.nextOrderId());
+    fields.put("orderId", orderId);
     for (String key : ECHOED_FIELDS) {
       String value = event.fields().get(key);
       if (value != null) {
         fields.put(key, value);
       }
     }
-    return new JournalEvent(seq, TYPE_ORDER_ACCEPTED, fields);
+    output.add(new JournalEvent(++seq, TYPE_ORDER_ACCEPTED, fields));
+    orderIds.put(clOrdId, orderId);
+    return seq;
+  }
+
+  /**
+   * Projects an accepted order onto one venue.
+   *
+   * <p>Four refusals, checked in a fixed order with the first one winning, exactly as the
+   * validation pipeline short-circuits: unknown order, order not routable, quantity not routable,
+   * ClOrdID already taken. Fixed order matters because a request can fail two of them at once and
+   * the journal must say the same thing in all three languages.
+   *
+   * <p><strong>A refused route creates nothing.</strong> There is no {@code FsmTransition} on this
+   * path, and that asymmetry with {@code OrderNew} is the schema's, not a shortcut: {@code
+   * order.fsm.yaml} models validation failure as a real {@code PENDING_NEW -> REJECTED} transition,
+   * while {@code route.fsm.yaml} has no transition out of {@code PENDING} except {@code RouteSent}.
+   * Emitting one would mean inventing a transition the schema does not define — and {@code
+   * fsm-coverage} would then count a transition that does not exist.
+   */
+  private long onRouteNew(JournalEvent event, long seq, List<JournalEvent> output) {
+    String clOrdId = field(event, "clOrdId");
+    String venueMic = field(event, "venueMic");
+    long qty = parseLong(field(event, "qty"));
+
+    Optional<SliceOrderBook.Entry> parent = orders.get(clOrdId);
+    if (parent.isEmpty()) {
+      return rejectRoute(event, seq, output, CODE_ROUTE_UNKNOWN_ORDER, "no such order");
+    }
+    // A REJECTED order is in the book and lands here, not on 4001 — it exists,
+    // it just cannot take quantity. "your order was rejected" is a more useful
+    // thing to tell a trader than "we have never heard of it".
+    if (!isRoutable(parent.get().state())) {
+      return rejectRoute(
+          event,
+          seq,
+          output,
+          CODE_ROUTE_ORDER_NOT_ROUTABLE,
+          "order is " + parent.get().state().name());
+    }
+    // Unreachable: a routable state is only reached after acceptance, and
+    // acceptance is what fills orderIds. Handled rather than asserted, because
+    // this runs against a journal a venue wrote.
+    String orderId = orderIds.get(clOrdId);
+    if (orderId == null) {
+      return rejectRoute(
+          event, seq, output, CODE_ROUTE_ORDER_NOT_ROUTABLE, "order has no identifier");
+    }
+
+    long orderQty = parent.get().context().orderQty();
+    long alreadyRouted = routes.routedQty(orderId);
+    if (qty == 0 || alreadyRouted + qty > orderQty) {
+      return rejectRoute(
+          event,
+          seq,
+          output,
+          CODE_ROUTE_QTY_INVALID,
+          "qty " + qty + " not routable against " + (orderQty - alreadyRouted) + " remaining");
+    }
+
+    // Absent, the route's ClOrdID is derived from the parent's and the count of
+    // routes already hung off it: C-A-1, C-A-2. Derived rather than taken from
+    // the route id so that the check below can run BEFORE an id is consumed —
+    // the same "a refusal costs nothing" property the order path has.
+    String routeClOrdId = field(event, "routeClOrdId");
+    if (routeClOrdId.isEmpty()) {
+      routeClOrdId = clOrdId + "-" + (routes.countForOrder(orderId) + 1);
+    }
+    if (routes.hasClOrdId(routeClOrdId)) {
+      return rejectRoute(
+          event, seq, output, CODE_ROUTE_CLORDID_COLLISION, "ClOrdID " + routeClOrdId + " in use");
+    }
+
+    String routeId = ids.nextRouteId();
+    Long price =
+        emptyToNull(field(event, "price")) == null ? null : parseLong(field(event, "price"));
+    RouteFsmContext context =
+        new RouteFsmContext(
+            routeId,
+            orderId,
+            routeClOrdId,
+            null,
+            venueMic,
+            parent.get().context().instrumentId(),
+            parent.get().context().side(),
+            qty,
+            price,
+            0L,
+            qty,
+            1L,
+            orderId,
+            null);
+
+    var result = routes.open(routeId, context);
+
+    TreeMap<String, String> transition = new TreeMap<>();
+    transition.put("applied", Boolean.toString(!result.get().isNoTransition()));
+    transition.put("event", RouteFsmEvent.RouteSent.name());
+    transition.put("from", RouteFsmState.PENDING.name());
+    transition.put("fsm", "route");
+    transition.put("routeId", routeId);
+    // Read back from the book rather than taken from the transition result: the
+    // journal should report the state the slice is actually holding.
+    transition.put("to", routes.stateOf(routeId).orElse(RouteFsmState.PENDING).name());
+    output.add(new JournalEvent(++seq, TYPE_FSM_TRANSITION, transition));
+
+    TreeMap<String, String> fields = new TreeMap<>();
+    fields.put("clOrdId", clOrdId);
+    fields.put("orderId", orderId);
+    fields.put("qty", Long.toString(qty));
+    fields.put("routeClOrdId", routeClOrdId);
+    fields.put("routeId", routeId);
+    fields.put("venueMic", venueMic);
+    if (price != null) {
+      fields.put("price", Long.toString(price));
+    }
+    output.add(new JournalEvent(++seq, TYPE_ROUTE_ACCEPTED, fields));
+    return seq;
+  }
+
+  /**
+   * States an order can be routed from.
+   *
+   * <p>An allowlist, not a denylist of terminal states. A state added to the schema is then
+   * un-routable until someone decides it should be — which is the safe direction for a list that
+   * decides whether quantity goes to a venue.
+   */
+  private static boolean isRoutable(OrderFsmState state) {
+    return state == OrderFsmState.NEW
+        || state == OrderFsmState.REPLACED
+        || state == OrderFsmState.PARTIALLY_FILLED;
+  }
+
+  /** Refuses a route. No route is created, and no identifier is consumed. */
+  private long rejectRoute(
+      JournalEvent event, long seq, List<JournalEvent> output, String code, String reason) {
+    TreeMap<String, String> fields = new TreeMap<>();
+    fields.put("clOrdId", field(event, "clOrdId"));
+    fields.put("code", code);
+    fields.put("qty", field(event, "qty"));
+    fields.put("reason", reason);
+    fields.put("venueMic", field(event, "venueMic"));
+    output.add(new JournalEvent(++seq, TYPE_ROUTE_REJECTED, fields));
+    return seq;
+  }
+
+  /**
+   * Applies a venue or client action to a live order.
+   *
+   * <p>Every outcome is a journal event: a transition, a no-transition, or an unknown order. None
+   * of the three is an exception — an order book fed by a venue must survive anything the venue
+   * sends.
+   */
+  private long onOrderEvent(JournalEvent event, long seq, List<JournalEvent> output) {
+    String clOrdId = field(event, "clOrdId");
+    OrderFsmEvent fsmEvent = toFsmEvent(field(event, "event"));
+
+    if (fsmEvent == null) {
+      TreeMap<String, String> fields = new TreeMap<>();
+      fields.put("clOrdId", clOrdId);
+      fields.put("event", field(event, "event"));
+      fields.put("reason", "unknown FSM event");
+      output.add(new JournalEvent(++seq, "OrderEventIgnored", fields));
+      return seq;
+    }
+
+    Optional<SliceOrderBook.Entry> entry = orders.get(clOrdId);
+    if (entry.isEmpty()) {
+      TreeMap<String, String> fields = new TreeMap<>();
+      fields.put("clOrdId", clOrdId);
+      fields.put("event", fsmEvent.name());
+      fields.put("reason", "unknown order");
+      output.add(new JournalEvent(++seq, "OrderEventIgnored", fields));
+      return seq;
+    }
+
+    return emitTransition(
+        clOrdId, fsmEvent, payloadFor(fsmEvent, event), entry.get().context(), seq, output);
+  }
+
+  /**
+   * Applies a transition and records it.
+   *
+   * <p>A no-transition is recorded too, with {@code applied=false}. Dropping it would make a corpus
+   * case that fed the FSM an event it ignored look identical to one that never sent the event — and
+   * the difference is exactly what a reviewer needs to see.
+   */
+  private long emitTransition(
+      String clOrdId,
+      OrderFsmEvent fsmEvent,
+      @Nullable Object payload,
+      OrderFsmContext context,
+      long seq,
+      List<JournalEvent> output) {
+
+    OrderFsmState before =
+        orders.get(clOrdId).map(SliceOrderBook.Entry::state).orElse(OrderFsmState.PENDING_NEW);
+
+    var result =
+        orders.get(clOrdId).isEmpty()
+            ? orders.open(clOrdId, context, fsmEvent)
+            : orders.apply(clOrdId, fsmEvent, payload);
+
+    TreeMap<String, String> fields = new TreeMap<>();
+    fields.put("clOrdId", clOrdId);
+    fields.put("event", fsmEvent.name());
+    fields.put("fsm", "order");
+    if (result.isEmpty() || result.get().isNoTransition()) {
+      fields.put("applied", "false");
+      fields.put("from", before.name());
+      fields.put("to", before.name());
+    } else {
+      fields.put("applied", "true");
+      fields.put("from", before.name());
+      fields.put("to", result.get().newState().name());
+    }
+    output.add(new JournalEvent(++seq, TYPE_FSM_TRANSITION, fields));
+    return seq;
+  }
+
+  /** Maps a journal event name to an FSM event. Null for anything the schema does not define. */
+  private static @Nullable OrderFsmEvent toFsmEvent(String name) {
+    for (OrderFsmEvent candidate : OrderFsmEvent.values()) {
+      if (candidate.name().equals(name)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  /** Builds the payload an FSM event needs, or null when it takes none. */
+  private static @Nullable Object payloadFor(OrderFsmEvent fsmEvent, JournalEvent event) {
+    long lastQty = parseLong(field(event, "lastQty"));
+    long lastPx = parseLong(field(event, "lastPx"));
+    String execId = field(event, "execId");
+    return switch (fsmEvent) {
+      case PartialFill -> SliceOrderBook.partialFill(lastQty, lastPx, execId);
+      case FullFill -> SliceOrderBook.fullFill(lastQty, lastPx, execId);
+      default -> null;
+    };
+  }
+
+  private static long parseLong(String raw) {
+    try {
+      return Long.parseLong(raw);
+    } catch (NumberFormatException e) {
+      return 0L;
+    }
+  }
+
+  /** The FSM context an order starts with, from the fields the journal carries. */
+  private static OrderFsmContext contextFor(String clOrdId, JournalEvent event) {
+    long qty = parseLong(field(event, "qty"));
+    return new OrderFsmContext(
+        clOrdId,
+        clOrdId,
+        null,
+        field(event, "figi"),
+        "SELL".equals(field(event, "side")) ? 2 : 1,
+        qty,
+        null,
+        0L,
+        qty,
+        field(event, "account"),
+        0,
+        clOrdId,
+        clOrdId,
+        1L,
+        null,
+        null);
   }
 
   /**

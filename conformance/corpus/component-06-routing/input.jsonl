@@ -1,0 +1,15 @@
+{"fields":{"figi":"BBG000B9XRY4","status":"ACTIVE"},"seq":1,"type":"InstrumentCreated"}
+{"fields":{"desk":"DESK1","firm":"FIRM1","sessionId":"7","tags":"order-entry","user":"trader1"},"seq":2,"type":"SessionLogon"}
+{"fields":{"account":"ACC1","clOrdId":"C-A","figi":"BBG000B9XRY4","qty":"1000","sessionId":"7","side":"BUY","tag":"order-entry"},"seq":3,"type":"OrderNew"}
+{"fields":{"account":"ACC1","clOrdId":"C-B","figi":"BBG000B9XRY4","qty":"500","sessionId":"7","side":"SELL","tag":"order-entry"},"seq":4,"type":"OrderNew"}
+{"fields":{"account":"ACC1","clOrdId":"C-Z","figi":"BBG-NOT-LISTED","qty":"100","sessionId":"7","side":"BUY","tag":"order-entry"},"seq":5,"type":"OrderNew"}
+{"fields":{"clOrdId":"C-A","price":"15000","qty":"400","venueMic":"XNAS"},"seq":6,"type":"RouteNew"}
+{"fields":{"clOrdId":"C-A","qty":"600","venueMic":"XNYS"},"seq":7,"type":"RouteNew"}
+{"fields":{"clOrdId":"C-A","qty":"100","venueMic":"XLON"},"seq":8,"type":"RouteNew"}
+{"fields":{"clOrdId":"C-B","qty":"0","venueMic":"XNAS"},"seq":9,"type":"RouteNew"}
+{"fields":{"clOrdId":"C-NOPE","qty":"100","venueMic":"XNAS"},"seq":10,"type":"RouteNew"}
+{"fields":{"clOrdId":"C-Z","qty":"100","venueMic":"XNAS"},"seq":11,"type":"RouteNew"}
+{"fields":{"clOrdId":"C-B","qty":"200","routeClOrdId":"C-A-1","venueMic":"XNAS"},"seq":12,"type":"RouteNew"}
+{"fields":{"clOrdId":"C-B","qty":"200","venueMic":"XNAS"},"seq":13,"type":"RouteNew"}
+{"fields":{"clOrdId":"C-B","event":"FullFill","execId":"E-1","lastPx":"15000","lastQty":"500"},"seq":14,"type":"OrderEvent"}
+{"fields":{"clOrdId":"C-B","qty":"100","venueMic":"XNAS"},"seq":15,"type":"RouteNew"}

@@ -7,7 +7,7 @@
 add_library(ems-it
     src/slice_runner.cpp
 )
-target_include_directories(ems-it PUBLIC include/)
+target_include_directories(ems-it PUBLIC include/ ${CMAKE_CURRENT_SOURCE_DIR}/../fsm/generated)
 target_compile_features(ems-it PUBLIC cxx_std_20)
 target_link_libraries(ems-it PUBLIC ems-core ems-fsm ems-transport ems-aaa ems-validator)
 

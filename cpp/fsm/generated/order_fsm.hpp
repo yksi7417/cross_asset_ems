@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <optional>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -44,6 +45,73 @@ enum class OrderFsmEvent : uint16_t {
   OrderExpired,
   DoneForDay,
 };
+
+// ── Names ────────────────────────────────────────────────────────────────────
+//
+// State and event names reach the output journal, which the conformance gate
+// compares byte-for-byte across three languages — so these must match the Java
+// enum constants character for character.
+
+inline const char* name(OrderFsmState state) noexcept {
+  switch (state) {
+    case OrderFsmState::PENDING_NEW: return "PENDING_NEW";
+    case OrderFsmState::NEW: return "NEW";
+    case OrderFsmState::PENDING_REPLACE: return "PENDING_REPLACE";
+    case OrderFsmState::REPLACED: return "REPLACED";
+    case OrderFsmState::PENDING_CANCEL: return "PENDING_CANCEL";
+    case OrderFsmState::PARTIALLY_FILLED: return "PARTIALLY_FILLED";
+    case OrderFsmState::FILLED: return "FILLED";
+    case OrderFsmState::CANCELED: return "CANCELED";
+    case OrderFsmState::REJECTED: return "REJECTED";
+    case OrderFsmState::EXPIRED: return "EXPIRED";
+    case OrderFsmState::DONE_FOR_DAY: return "DONE_FOR_DAY";
+    case OrderFsmState::TRADE_CORRECTED: return "TRADE_CORRECTED";
+    case OrderFsmState::TRADE_CANCELED: return "TRADE_CANCELED";
+  }
+  return "UNKNOWN";
+}
+
+inline const char* name(OrderFsmEvent event) noexcept {
+  switch (event) {
+    case OrderFsmEvent::ValidationPassed: return "ValidationPassed";
+    case OrderFsmEvent::ValidationFailed: return "ValidationFailed";
+    case OrderFsmEvent::ReplaceRequested: return "ReplaceRequested";
+    case OrderFsmEvent::ReplaceAccepted: return "ReplaceAccepted";
+    case OrderFsmEvent::ReplaceRejected: return "ReplaceRejected";
+    case OrderFsmEvent::CancelRequested: return "CancelRequested";
+    case OrderFsmEvent::CancelAccepted: return "CancelAccepted";
+    case OrderFsmEvent::CancelRejected: return "CancelRejected";
+    case OrderFsmEvent::PartialFill: return "PartialFill";
+    case OrderFsmEvent::FullFill: return "FullFill";
+    case OrderFsmEvent::TradeCorrect: return "TradeCorrect";
+    case OrderFsmEvent::TradeCancelBust: return "TradeCancelBust";
+    case OrderFsmEvent::OrderExpired: return "OrderExpired";
+    case OrderFsmEvent::DoneForDay: return "DoneForDay";
+  }
+  return "UNKNOWN";
+}
+
+/// Parses a schema event name. nullopt for anything the schema does not define.
+///
+/// A journal can carry any string; an unrecognised one is data, not a defect,
+/// so the caller decides what to do rather than being handed undefined behaviour.
+inline std::optional<OrderFsmEvent> OrderFsmEventFromName(std::string_view name) {
+  if (name == "ValidationPassed") return OrderFsmEvent::ValidationPassed;
+  if (name == "ValidationFailed") return OrderFsmEvent::ValidationFailed;
+  if (name == "ReplaceRequested") return OrderFsmEvent::ReplaceRequested;
+  if (name == "ReplaceAccepted") return OrderFsmEvent::ReplaceAccepted;
+  if (name == "ReplaceRejected") return OrderFsmEvent::ReplaceRejected;
+  if (name == "CancelRequested") return OrderFsmEvent::CancelRequested;
+  if (name == "CancelAccepted") return OrderFsmEvent::CancelAccepted;
+  if (name == "CancelRejected") return OrderFsmEvent::CancelRejected;
+  if (name == "PartialFill") return OrderFsmEvent::PartialFill;
+  if (name == "FullFill") return OrderFsmEvent::FullFill;
+  if (name == "TradeCorrect") return OrderFsmEvent::TradeCorrect;
+  if (name == "TradeCancelBust") return OrderFsmEvent::TradeCancelBust;
+  if (name == "OrderExpired") return OrderFsmEvent::OrderExpired;
+  if (name == "DoneForDay") return OrderFsmEvent::DoneForDay;
+  return std::nullopt;
+}
 
 // ── Context ───────────────────────────────────────────────────────────────────
 struct OrderFsmContext {
