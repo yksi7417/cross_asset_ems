@@ -4,10 +4,13 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <utility>
+#include <vector>
 #include <string_view>
 
 #include "ems_aaa/aaa.hpp"
 #include "ems_validator/validator.hpp"
+#include "order_fsm.hpp"
 
 namespace ems::it {
 namespace {
@@ -16,6 +19,16 @@ namespace {
 constexpr std::string_view kTypeInstrumentCreated = "InstrumentCreated";
 /// Output event acknowledging one.
 constexpr std::string_view kTypeInstrumentAccepted = "InstrumentAccepted";
+/// Input event carrying a venue or client action against a live order.
+///
+/// One input type rather than one per FSM event: the journal names the FSM
+/// event in a field, so adding a transition to the schema needs no new type
+/// here. An unrecognised name is ignored, not fatal.
+constexpr std::string_view kTypeOrderEvent = "OrderEvent";
+/// Output event recording every FSM transition taken. Read by fsm_coverage.py.
+constexpr std::string_view kTypeFsmTransition = "FsmTransition";
+/// Output event for an order action that changed nothing.
+constexpr std::string_view kTypeOrderEventIgnored = "OrderEventIgnored";
 /// Input event registering a session and its entitlements.
 constexpr std::string_view kTypeSessionLogon = "SessionLogon";
 /// Output event acknowledging a logon.
@@ -187,10 +200,140 @@ core::JournalEvent on_session_logon(const core::JournalEvent& event, std::uint64
     return core::JournalEvent{seq, std::string(kTypeSessionAccepted), std::move(fields)};
 }
 
-core::JournalEvent on_order_new(const core::JournalEvent& event, std::uint64_t seq,
-                                const aaa::AaaService& service,
-                                const validator::SecurityMaster& securities,
-                                core::DeterministicIds& ids) {
+/// An order and its FSM state, keyed on the CLIENT's identifier.
+///
+/// ClOrdID exists before the order reaches us; OrderID is ours and is assigned
+/// on acceptance. That is the FIX convention, and it is what lets a rejected
+/// order take the real PENDING_NEW -> REJECTED transition without consuming an
+/// order id.
+using OrderBook = std::map<std::string, std::pair<crossasset::ems::fsm::OrderFsmState,
+                                                  crossasset::ems::fsm::OrderFsmContext>>;
+
+/// The FSM context an order starts with, from the fields the journal carries.
+crossasset::ems::fsm::OrderFsmContext context_for(const std::string& cl_ord_id,
+                                                  const core::JournalEvent& event) {
+    crossasset::ems::fsm::OrderFsmContext ctx;
+    const std::string raw_qty = field(event, "qty");
+    std::uint64_t qty = 0;
+    for (const char c : raw_qty) {
+        if (c >= '0' && c <= '9') {
+            qty = (qty * 10U) + static_cast<std::uint64_t>(c - '0');
+        }
+    }
+    ctx.orderId = cl_ord_id;
+    ctx.clOrdId = cl_ord_id;
+    ctx.instrumentId = field(event, "figi");
+    ctx.side = (field(event, "side") == "SELL") ? 2 : 1;
+    ctx.orderQty = qty;
+    ctx.cumQty = 0;
+    ctx.leavesQty = qty;
+    ctx.account = field(event, "account");
+    ctx.tif = 0;
+    ctx.initialClOrdId = cl_ord_id;
+    ctx.chainId = cl_ord_id;
+    ctx.orderVersion = 1;
+    return ctx;
+}
+
+std::int64_t parse_i64(const std::string& raw) {
+    std::int64_t value = 0;
+    for (const char c : raw) {
+        if (c >= '0' && c <= '9') {
+            value = (value * 10) + (c - '0');
+        }
+    }
+    return value;
+}
+
+/// Applies a transition and records it.
+///
+/// A no-transition is recorded too, with applied=false. Dropping it would make a
+/// case that fed the FSM an event it ignored look identical to one that never
+/// sent the event.
+std::uint64_t emit_transition(const std::string& cl_ord_id,
+                              crossasset::ems::fsm::OrderFsmEvent fsm_event,
+                              const void* payload,
+                              const crossasset::ems::fsm::OrderFsmContext& seed,
+                              std::uint64_t seq, OrderBook& orders,
+                              std::vector<core::JournalEvent>& output) {
+    namespace f = crossasset::ems::fsm;
+
+    const auto it = orders.find(cl_ord_id);
+    const f::OrderFsmState before =
+        it == orders.end() ? f::OrderFsmState::PENDING_NEW : it->second.first;
+    const f::OrderFsmContext ctx = it == orders.end() ? seed : it->second.second;
+
+    const auto result = f::transition(before, fsm_event, ctx, payload);
+    if (!result.isNoTransition) {
+        orders.insert_or_assign(cl_ord_id, std::make_pair(result.newState, result.newContext));
+    } else if (it == orders.end()) {
+        orders.insert_or_assign(cl_ord_id, std::make_pair(before, ctx));
+    }
+
+    std::map<std::string, std::string> fields;
+    fields.emplace("applied", result.isNoTransition ? "false" : "true");
+    fields.emplace("clOrdId", cl_ord_id);
+    fields.emplace("event", f::name(fsm_event));
+    fields.emplace("from", f::name(before));
+    fields.emplace("fsm", "order");
+    fields.emplace("to", f::name(result.isNoTransition ? before : result.newState));
+    output.push_back(
+        core::JournalEvent{seq + 1U, std::string(kTypeFsmTransition), std::move(fields)});
+    return seq + 1U;
+}
+
+std::uint64_t push_ignored(std::uint64_t seq, const std::string& cl_ord_id,
+                           const std::string& raw_event, const std::string& reason,
+                           std::vector<core::JournalEvent>& output) {
+    std::map<std::string, std::string> fields;
+    fields.emplace("clOrdId", cl_ord_id);
+    fields.emplace("event", raw_event);
+    fields.emplace("reason", reason);
+    output.push_back(
+        core::JournalEvent{seq + 1U, std::string(kTypeOrderEventIgnored), std::move(fields)});
+    return seq + 1U;
+}
+
+/// Applies a venue or client action to a live order.
+std::uint64_t on_order_event(const core::JournalEvent& event, std::uint64_t seq,
+                             OrderBook& orders, std::vector<core::JournalEvent>& output) {
+    namespace f = crossasset::ems::fsm;
+    const std::string cl_ord_id = field(event, "clOrdId");
+    const std::string raw = field(event, "event");
+
+    const auto fsm_event = f::OrderFsmEventFromName(raw);
+    if (!fsm_event.has_value()) {
+        return push_ignored(seq, cl_ord_id, raw, "unknown FSM event", output);
+    }
+
+    const auto it = orders.find(cl_ord_id);
+    if (it == orders.end()) {
+        return push_ignored(seq, cl_ord_id, raw, "unknown order", output);
+    }
+
+    f::OrderFsmPayloads::PartialFillPayload partial{};
+    f::OrderFsmPayloads::FullFillPayload full{};
+    const void* payload = nullptr;
+    if (*fsm_event == f::OrderFsmEvent::PartialFill) {
+        partial.lastQty = static_cast<std::uint64_t>(parse_i64(field(event, "lastQty")));
+        partial.lastPx = parse_i64(field(event, "lastPx"));
+        partial.execId = field(event, "execId");
+        payload = &partial;
+    } else if (*fsm_event == f::OrderFsmEvent::FullFill) {
+        full.lastQty = static_cast<std::uint64_t>(parse_i64(field(event, "lastQty")));
+        full.lastPx = parse_i64(field(event, "lastPx"));
+        full.execId = field(event, "execId");
+        payload = &full;
+    }
+
+    return emit_transition(cl_ord_id, *fsm_event, payload, it->second.second, seq, orders, output);
+}
+
+std::uint64_t on_order_new(const core::JournalEvent& event, std::uint64_t seq,
+                           const aaa::AaaService& service,
+                           const validator::SecurityMaster& securities,
+                           core::DeterministicIds& ids, OrderBook& orders,
+                           std::vector<core::JournalEvent>& output) {
     // The whole decision is the pipeline's. SESSION, IDENTITY, REFERENCE and
     // PERMISSION run in that fixed order and the first failure short-circuits,
     // so the reject the journal carries names the outermost thing that was
@@ -199,9 +342,18 @@ core::JournalEvent on_order_new(const core::JournalEvent& event, std::uint64_t s
                                                non_empty(event, "tag"),
                                                non_empty(event, "figi")};
 
+    const std::string cl_ord_id = field(event, "clOrdId");
+    const auto context = context_for(cl_ord_id, event);
+
     if (const auto result = validator::validate(request, service, securities); !result.passed) {
-        return reject_from(seq, event, result);
+        seq = emit_transition(cl_ord_id, crossasset::ems::fsm::OrderFsmEvent::ValidationFailed,
+                              nullptr, context, seq, orders, output);
+        output.push_back(reject_from(seq + 1U, event, result));
+        return seq + 1U;
     }
+
+    seq = emit_transition(cl_ord_id, crossasset::ems::fsm::OrderFsmEvent::ValidationPassed, nullptr,
+                          context, seq, orders, output);
 
     // Only an accepted order consumes an identifier. If a rejected one did, the
     // ids in a journal would depend on how many orders failed — and every corpus
@@ -214,7 +366,9 @@ core::JournalEvent on_order_new(const core::JournalEvent& event, std::uint64_t s
             fields.emplace(it->first, it->second);
         }
     }
-    return core::JournalEvent{seq, std::string(kTypeOrderAccepted), std::move(fields)};
+    output.push_back(
+        core::JournalEvent{seq + 1U, std::string(kTypeOrderAccepted), std::move(fields)});
+    return seq + 1U;
 }
 
 }  // namespace
@@ -225,19 +379,21 @@ std::vector<core::JournalEvent> run_slice(const std::vector<core::JournalEvent>&
     output.reserve(input.size() + 1U);
     aaa::AaaService service;
     validator::SecurityMaster securities;
+    OrderBook orders;
     std::uint64_t seq = 0;
 
     for (const auto& event : input) {
-        ++seq;
         if (event.type == kTypeInstrumentCreated) {
-            output.push_back(on_instrument_created(event, seq, securities));
+            output.push_back(on_instrument_created(event, ++seq, securities));
         } else if (event.type == kTypeSessionLogon) {
-            output.push_back(on_session_logon(event, seq, service));
+            output.push_back(on_session_logon(event, ++seq, service));
         } else if (event.type == kTypeOrderNew) {
-            output.push_back(on_order_new(event, seq, service, securities, ids));
+            seq = on_order_new(event, seq, service, securities, ids, orders, output);
+        } else if (event.type == kTypeOrderEvent) {
+            seq = on_order_event(event, seq, orders, output);
         } else {
             core::JournalEvent copy = event;
-            copy.seq = seq;
+            copy.seq = ++seq;
             output.push_back(std::move(copy));
         }
     }

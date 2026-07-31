@@ -860,6 +860,7 @@ CPP_HEADER_TEMPLATE = """\
 #include <cstdint>
 #include <string>
 #include <optional>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -874,6 +875,35 @@ enum class {prefix}FsmState : uint8_t {{
 enum class {prefix}FsmEvent : uint16_t {{
 {events}
 }};
+
+// ── Names ────────────────────────────────────────────────────────────────────
+//
+// State and event names reach the output journal, which the conformance gate
+// compares byte-for-byte across three languages — so these must match the Java
+// enum constants character for character.
+
+inline const char* name({prefix}FsmState state) noexcept {{
+  switch (state) {{
+{state_names}
+  }}
+  return "UNKNOWN";
+}}
+
+inline const char* name({prefix}FsmEvent event) noexcept {{
+  switch (event) {{
+{event_names}
+  }}
+  return "UNKNOWN";
+}}
+
+/// Parses a schema event name. nullopt for anything the schema does not define.
+///
+/// A journal can carry any string; an unrecognised one is data, not a defect,
+/// so the caller decides what to do rather than being handed undefined behaviour.
+inline std::optional<{prefix}FsmEvent> {prefix}FsmEventFromName(std::string_view name) {{
+{event_from_name}
+  return std::nullopt;
+}}
 
 // ── Context ───────────────────────────────────────────────────────────────────
 struct {prefix}FsmContext {{
@@ -1223,6 +1253,16 @@ def gen_cpp_header(fsm: dict) -> str:
     prefix = fsm_class_prefix(fsm["name"])
     states = "\n".join(f"  {s['name']}," for s in fsm["states"])
     events = "\n".join(f"  {e['name']}," for e in fsm["events"])
+    state_names = "\n".join(
+        f'    case {prefix}FsmState::{s["name"]}: return "{s["name"]}";' for s in fsm["states"]
+    )
+    event_names = "\n".join(
+        f'    case {prefix}FsmEvent::{e["name"]}: return "{e["name"]}";' for e in fsm["events"]
+    )
+    event_from_name = "\n".join(
+        f'  if (name == "{e["name"]}") return {prefix}FsmEvent::{e["name"]};'
+        for e in fsm["events"]
+    )
     ctx_fields = []
     for fname, finfo in fsm["context_schema"].items():
         ctype = YAML_TO_CPP[finfo["type"]]
@@ -1238,6 +1278,9 @@ def gen_cpp_header(fsm: dict) -> str:
         prefix=prefix,
         states=states,
         events=events,
+        state_names=state_names,
+        event_names=event_names,
+        event_from_name=event_from_name,
         ctx_fields="\n".join(ctx_fields),
         payload_struct=payload_struct,
         transition_impl=transition_impl,
@@ -1731,6 +1774,14 @@ def gen_rust_module(fsm: dict) -> str:
         f"    /// {e.get('description', e['name'])}\n    {rust_variant_name(e['name'])},"
         for e in fsm["events"]
     )
+    event_names = "\n".join(
+        f'            Self::{rust_variant_name(e["name"])} => "{e["name"]}",'
+        for e in fsm["events"]
+    )
+    event_from_name = "\n".join(
+        f'            "{e["name"]}" => Some(Self::{rust_variant_name(e["name"])}),'
+        for e in fsm["events"]
+    )
     ctx_fields = []
     for fname, finfo in fsm["context_schema"].items():
         rtype = YAML_TO_RUST[finfo["type"]]
@@ -1750,6 +1801,8 @@ def gen_rust_module(fsm: dict) -> str:
         initial=rust_variant_name(initial),
         terminals=terminals,
         events=events,
+        event_names=event_names,
+        event_from_name=event_from_name,
         ctx_fields="\n".join(ctx_fields),
         payloads=payloads,
         transition=transition,
@@ -1803,6 +1856,32 @@ impl {prefix}FsmState {{
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum {prefix}FsmEvent {{
 {events}
+}}
+
+impl {prefix}FsmEvent {{
+    /// The event name as the schema spells it.
+    ///
+    /// Event names reach the output journal for the same reason state names do —
+    /// the `FsmTransition` events the conformance gate compares carry both — so
+    /// this must match Java's enum constant character for character.
+    #[must_use]
+    pub const fn name(self) -> &'static str {{
+        match self {{
+{event_names}
+        }}
+    }}
+
+    /// Parses a schema event name. `None` for anything the schema does not define.
+    ///
+    /// A journal can carry any string; an unrecognised one is data, not a defect,
+    /// so the caller decides what to do rather than being handed a panic.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {{
+        match name {{
+{event_from_name}
+            _ => None,
+        }}
+    }}
 }}
 
 /// Context carried alongside the state.

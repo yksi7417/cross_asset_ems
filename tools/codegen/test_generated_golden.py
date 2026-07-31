@@ -15,6 +15,11 @@ the generator produced on the commit before the Rust work started.
 emitter — regenerate, review the diff, and update the hash. That is a visible,
 reviewable edit rather than a silent drift.
 
+The C++ hashes were updated once, when `name()` / `FsmEventFromName` were added
+to the C++ emitter so state and event names could reach the journal. The diff
+was pure insertion: no existing line changed, which is what made the update
+safe to make rather than a signal that something had broken.
+
 Run: python3 -m unittest discover -s tools/codegen -p 'test_*.py'
 """
 
@@ -62,11 +67,11 @@ JAVA_GOLDEN = {
 }
 
 CPP_GOLDEN = {
-    "multileg_fsm.hpp": "b46552e7212af800d590f837bde81f700d880ad55ac81225139c3c35952b01fd",
-    "order_fsm.hpp": "4e7af78ae0b580cf74d7ee6e3ea8b34a083065a3f411d7bb021b2a8c305017ff",
-    "route_fsm.hpp": "07c54841a8d8c3495613219a2b3ab8139fcea411c88101dbce1bea450ebc969c",
-    "sor_fsm.hpp": "2aeed46f33e2a8ca6e425ba5b5bb6012f4e8a0411035561c93b70e1aafc5feb9",
-    "venuesession_fsm.hpp": "68baa94f761bfc04637e735eb69c88fe5a48554b6aed38e93d90dfc76a2b7cde",
+    "multileg_fsm.hpp": "f95d319c20f4a9084e38cc78a67437807739efb461484d6822d293e4f037422f",
+    "order_fsm.hpp": "69ea6aa72a3aa46236f8f5b995a2474f42a066bb651941faaac70ed09a2e10c6",
+    "route_fsm.hpp": "15f4e3914681b6e180ff04116d0522d905473bdcbc8a99ee3a3485e9c31b3ccd",
+    "sor_fsm.hpp": "bc3caaea9c75b415149d1bb4c7896be79dc0f5c4f26b8613e6e071d024074e2d",
+    "venuesession_fsm.hpp": "e2172e1da238b1287633c8cf9432fcfabc2c46527771d127d39f12d6621cdae0",
 }
 
 

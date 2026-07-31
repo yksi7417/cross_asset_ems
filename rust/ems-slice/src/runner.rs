@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ems_aaa::{AaaService, Identity};
 use ems_core::{DeterministicIds, JournalEvent};
+use ems_fsm::generated::order_fsm::{FullFillPayload, PartialFillPayload};
+use ems_fsm::{OrderFsmContext, OrderFsmEvent, OrderFsmPayload, OrderFsmState};
 use ems_validator::{
     validate, InstrumentStatus, SecurityMaster, ValidationRequest, ValidationResult,
 };
@@ -22,6 +24,19 @@ const TYPE_ORDER_NEW: &str = "OrderNew";
 const TYPE_ORDER_ACCEPTED: &str = "OrderAccepted";
 /// Output event refusing one.
 const TYPE_ORDER_REJECTED: &str = "OrderRejected";
+/// Input event carrying a venue or client action against a live order.
+///
+/// One input type rather than one per FSM event: the journal names the FSM
+/// event in a field, so adding a transition to the schema needs no new event
+/// type here. An unrecognised name is ignored rather than fatal.
+const TYPE_ORDER_EVENT: &str = "OrderEvent";
+/// Output event recording every FSM transition taken.
+///
+/// What `conformance/harness/fsm_coverage.py` reads. Coverage is measured from
+/// what the corpus actually exercised, not inferred from the input.
+const TYPE_FSM_TRANSITION: &str = "FsmTransition";
+/// Output event for an order action that changed nothing.
+const TYPE_ORDER_EVENT_IGNORED: &str = "OrderEventIgnored";
 /// Final output event: makes the seed and the input size visible in the journal.
 const TYPE_RUN_SUMMARY: &str = "RunSummary";
 
@@ -51,17 +66,34 @@ pub fn run(input: &[JournalEvent], ids: &mut DeterministicIds) -> Vec<JournalEve
     let mut output = Vec::with_capacity(input.len() + 1);
     let mut aaa = AaaService::new();
     let mut securities = SecurityMaster::new();
+    // Keyed on the CLIENT's identifier, not ours. ClOrdID exists before the
+    // order reaches us; OrderID is ours and is assigned on acceptance. That is
+    // the FIX convention, and it is what lets a rejected order take the real
+    // PENDING_NEW -> REJECTED transition without consuming an order id.
+    let mut orders: BTreeMap<String, (OrderFsmState, OrderFsmContext)> = BTreeMap::new();
     let mut seq: u64 = 0;
 
     for event in input {
-        seq += 1;
-        let emitted = match event.event_type.as_str() {
-            TYPE_INSTRUMENT_CREATED => on_instrument_created(event, seq, &mut securities),
-            TYPE_SESSION_LOGON => on_session_logon(event, seq, &mut aaa),
-            TYPE_ORDER_NEW => on_order_new(event, seq, &aaa, &securities, ids),
-            _ => event.with_seq(seq),
-        };
-        output.push(emitted);
+        match event.event_type.as_str() {
+            TYPE_INSTRUMENT_CREATED => {
+                seq += 1;
+                output.push(on_instrument_created(event, seq, &mut securities));
+            }
+            TYPE_SESSION_LOGON => {
+                seq += 1;
+                output.push(on_session_logon(event, seq, &mut aaa));
+            }
+            TYPE_ORDER_NEW => {
+                seq = on_order_new(event, seq, &aaa, &securities, ids, &mut orders, &mut output);
+            }
+            TYPE_ORDER_EVENT => {
+                seq = on_order_event(event, seq, &mut orders, &mut output);
+            }
+            _ => {
+                seq += 1;
+                output.push(event.with_seq(seq));
+            }
+        }
     }
 
     let mut summary = BTreeMap::new();
@@ -170,13 +202,16 @@ fn on_instrument_created(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn on_order_new(
     event: &JournalEvent,
     seq: u64,
     aaa: &AaaService,
     securities: &SecurityMaster,
     ids: &mut DeterministicIds,
-) -> JournalEvent {
+    orders: &mut BTreeMap<String, (OrderFsmState, OrderFsmContext)>,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
     // The whole decision is the pipeline's. SESSION, IDENTITY, REFERENCE and
     // PERMISSION run in that fixed order and the first failure short-circuits,
     // so the reject the journal carries names the outermost thing that was
@@ -188,6 +223,13 @@ fn on_order_new(
         figi: non_empty(event, "figi"),
     };
 
+    // Keyed on the CLIENT's identifier: ClOrdID exists before the order reaches
+    // us, OrderID is ours and is assigned on acceptance. That is what lets a
+    // rejected order take the real PENDING_NEW -> REJECTED transition without
+    // consuming an order id.
+    let cl_ord_id = field(event, "clOrdId");
+    let context = context_for(&cl_ord_id, event);
+
     if let ValidationResult::Reject {
         code,
         category,
@@ -197,7 +239,17 @@ fn on_order_new(
         ..
     } = validate(&request, aaa, securities)
     {
-        return reject_from(
+        let mut seq = emit_transition(
+            &cl_ord_id,
+            OrderFsmEvent::ValidationFailed,
+            None,
+            &context,
+            seq,
+            orders,
+            output,
+        );
+        seq += 1;
+        output.push(reject_from(
             seq,
             event,
             &code,
@@ -205,8 +257,19 @@ fn on_order_new(
             layer.name(),
             &message,
             admin_hint.as_deref(),
-        );
+        ));
+        return seq;
     }
+
+    let mut seq = emit_transition(
+        &cl_ord_id,
+        OrderFsmEvent::ValidationPassed,
+        None,
+        &context,
+        seq,
+        orders,
+        output,
+    );
 
     // Only an accepted order consumes an identifier. If a rejected one did, the
     // ids in a journal would depend on how many orders failed — and every corpus
@@ -218,10 +281,162 @@ fn on_order_new(
             fields.insert(key.to_owned(), value.clone());
         }
     }
-    JournalEvent {
+    seq += 1;
+    output.push(JournalEvent {
         seq,
         event_type: TYPE_ORDER_ACCEPTED.to_owned(),
         fields,
+    });
+    seq
+}
+
+/// Applies a venue or client action to a live order.
+///
+/// Every outcome is a journal event: a transition, a no-transition, or an
+/// unknown order. None is fatal — an order book fed by a venue must survive
+/// anything the venue sends.
+fn on_order_event(
+    event: &JournalEvent,
+    seq: u64,
+    orders: &mut BTreeMap<String, (OrderFsmState, OrderFsmContext)>,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
+    let cl_ord_id = field(event, "clOrdId");
+    let raw = field(event, "event");
+
+    let Some(fsm_event) = OrderFsmEvent::from_name(&raw) else {
+        return push_ignored(seq, &cl_ord_id, &raw, "unknown FSM event", output);
+    };
+
+    let Some((_, context)) = orders.get(&cl_ord_id) else {
+        return push_ignored(seq, &cl_ord_id, &raw, "unknown order", output);
+    };
+    let context = context.clone();
+
+    emit_transition(
+        &cl_ord_id,
+        fsm_event,
+        payload_for(fsm_event, event).as_ref(),
+        &context,
+        seq,
+        orders,
+        output,
+    )
+}
+
+fn push_ignored(
+    seq: u64,
+    cl_ord_id: &str,
+    raw_event: &str,
+    reason: &str,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
+    let mut fields = BTreeMap::new();
+    fields.insert("clOrdId".to_owned(), cl_ord_id.to_owned());
+    fields.insert("event".to_owned(), raw_event.to_owned());
+    fields.insert("reason".to_owned(), reason.to_owned());
+    output.push(JournalEvent {
+        seq: seq + 1,
+        event_type: TYPE_ORDER_EVENT_IGNORED.to_owned(),
+        fields,
+    });
+    seq + 1
+}
+
+/// Applies a transition and records it.
+///
+/// A no-transition is recorded too, with `applied=false`. Dropping it would make
+/// a case that fed the FSM an event it ignored look identical to one that never
+/// sent the event — and that difference is what a reviewer needs to see.
+#[allow(clippy::too_many_arguments)]
+fn emit_transition(
+    cl_ord_id: &str,
+    fsm_event: OrderFsmEvent,
+    payload: Option<&OrderFsmPayload>,
+    context: &OrderFsmContext,
+    seq: u64,
+    orders: &mut BTreeMap<String, (OrderFsmState, OrderFsmContext)>,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
+    let before = orders
+        .get(cl_ord_id)
+        .map_or(OrderFsmState::PendingNew, |(state, _)| *state);
+    let ctx = orders
+        .get(cl_ord_id)
+        .map_or_else(|| context.clone(), |(_, c)| c.clone());
+
+    let result = before.apply(fsm_event, &ctx, payload);
+    if !result.is_no_transition {
+        orders.insert(
+            cl_ord_id.to_owned(),
+            (result.new_state, result.new_context.clone()),
+        );
+    } else if !orders.contains_key(cl_ord_id) {
+        orders.insert(cl_ord_id.to_owned(), (before, ctx));
+    }
+
+    let mut fields = BTreeMap::new();
+    fields.insert("applied".to_owned(), (!result.is_no_transition).to_string());
+    fields.insert("clOrdId".to_owned(), cl_ord_id.to_owned());
+    fields.insert("event".to_owned(), fsm_event.name().to_owned());
+    fields.insert("from".to_owned(), before.name().to_owned());
+    fields.insert("fsm".to_owned(), "order".to_owned());
+    fields.insert(
+        "to".to_owned(),
+        if result.is_no_transition {
+            before.name().to_owned()
+        } else {
+            result.new_state.name().to_owned()
+        },
+    );
+    output.push(JournalEvent {
+        seq: seq + 1,
+        event_type: TYPE_FSM_TRANSITION.to_owned(),
+        fields,
+    });
+    seq + 1
+}
+
+/// The FSM context an order starts with, from the fields the journal carries.
+fn context_for(cl_ord_id: &str, event: &JournalEvent) -> OrderFsmContext {
+    let qty = field(event, "qty").parse::<u64>().unwrap_or(0);
+    OrderFsmContext {
+        order_id: cl_ord_id.to_owned(),
+        cl_ord_id: cl_ord_id.to_owned(),
+        orig_cl_ord_id: None,
+        instrument_id: field(event, "figi"),
+        side: if field(event, "side") == "SELL" { 2 } else { 1 },
+        order_qty: qty,
+        price: None,
+        cum_qty: 0,
+        leaves_qty: qty,
+        account: field(event, "account"),
+        tif: 0,
+        initial_cl_ord_id: cl_ord_id.to_owned(),
+        chain_id: cl_ord_id.to_owned(),
+        order_version: 1,
+        pre_cancel_status: None,
+        pre_replace_status: None,
+    }
+}
+
+/// Builds the payload an FSM event needs, or `None` when it takes none.
+fn payload_for(fsm_event: OrderFsmEvent, event: &JournalEvent) -> Option<OrderFsmPayload> {
+    let last_qty = field(event, "lastQty").parse::<u64>().unwrap_or(0);
+    let last_px = field(event, "lastPx").parse::<i64>().unwrap_or(0);
+    let exec_id = field(event, "execId");
+    match fsm_event {
+        OrderFsmEvent::PartialFill => Some(OrderFsmPayload::PartialFill(PartialFillPayload {
+            last_qty,
+            last_px,
+            exec_id,
+        })),
+        OrderFsmEvent::FullFill => Some(OrderFsmPayload::FullFill(FullFillPayload {
+            last_qty,
+            last_px,
+            exec_id,
+        })),
+        _ => None,
     }
 }
 
@@ -307,6 +522,22 @@ mod tests {
         }
     }
 
+    /// The nth output event of a given type.
+    ///
+    /// Position-based assertions broke the moment the FSM started emitting an
+    /// `FsmTransition` before each outcome. Finding by type says what the test
+    /// means and survives the next component doing the same.
+    fn nth_of<'a>(out: &'a [JournalEvent], event_type: &str, index: usize) -> &'a JournalEvent {
+        out.iter()
+            .filter(|e| e.event_type == event_type)
+            .nth(index)
+            .unwrap_or_else(|| panic!("no {event_type} at index {index}"))
+    }
+
+    fn count_of(out: &[JournalEvent], event_type: &str) -> usize {
+        out.iter().filter(|e| e.event_type == event_type).count()
+    }
+
     fn logon(tags: &str) -> JournalEvent {
         event(
             1,
@@ -344,11 +575,9 @@ mod tests {
             &mut ids,
         );
 
-        assert_eq!(
-            encode(&out[1]),
-            "{\"fields\":{\"account\":\"ACC1\",\"orderId\":\"ORD-0000000001\"},\
-             \"seq\":2,\"type\":\"OrderAccepted\"}"
-        );
+        let accepted = nth_of(&out, "OrderAccepted", 0);
+        assert_eq!(accepted.fields["orderId"], "ORD-0000000001");
+        assert_eq!(accepted.fields["account"], "ACC1");
     }
 
     #[test]
@@ -356,12 +585,12 @@ mod tests {
         let mut ids = DeterministicIds::new(0);
         let out = run(&[event(1, "OrderNew", &[("sessionId", "99")])], &mut ids);
 
+        let rejected = nth_of(&out, "OrderRejected", 0);
+        assert_eq!(rejected.fields["code"], "EMS-SES-1002");
+        assert_eq!(rejected.fields["layer"], "SESSION");
         assert_eq!(
-            encode(&out[0]),
-            "{\"fields\":{\"adminHint\":\"Talk to session admin.\",\"category\":\"SES\",\
-             \"code\":\"EMS-SES-1002\",\"layer\":\"SESSION\",\
-             \"reason\":\"Session 99 not found or has expired.\",\"sessionId\":\"99\"},\
-             \"seq\":1,\"type\":\"OrderRejected\"}"
+            rejected.fields["reason"],
+            "Session 99 not found or has expired."
         );
     }
 
@@ -380,7 +609,7 @@ mod tests {
         // grant is missing too and the gate reports firm (1003) rather than
         // user (1001). Reporting "you lack the tag" would send the user to the
         // wrong administrator.
-        let encoded = encode(&out[1]);
+        let encoded = encode(nth_of(&out, "OrderRejected", 0));
         assert!(encoded.contains("EMS-PRM-1003"), "{encoded}");
         assert!(
             encoded.contains("is not granted tag `#order-entry`"),
@@ -402,7 +631,10 @@ mod tests {
 
         // If a rejected order consumed an id this would be ORD-0000000002, and
         // every corpus case downstream of a rejection would shift.
-        assert_eq!(out[2].fields["orderId"], "ORD-0000000001");
+        assert_eq!(
+            nth_of(&out, "OrderAccepted", 0).fields["orderId"],
+            "ORD-0000000001"
+        );
     }
 
     #[test]
@@ -413,9 +645,10 @@ mod tests {
             &mut ids,
         );
 
-        assert_eq!(out[0].fields["code"], "EMS-SES-1002");
+        let rejected = nth_of(&out, "OrderRejected", 0);
+        assert_eq!(rejected.fields["code"], "EMS-SES-1002");
         assert_eq!(
-            out[0].fields["reason"],
+            rejected.fields["reason"],
             "Session -1 not found or has expired."
         );
     }
@@ -443,8 +676,8 @@ mod tests {
             &mut ids,
         );
 
-        assert_eq!(out[1].event_type, "OrderRejected");
-        assert_eq!(out[3].event_type, "OrderAccepted");
+        assert_eq!(count_of(&out, "OrderRejected"), 1);
+        assert_eq!(count_of(&out, "OrderAccepted"), 1);
     }
 
     #[test]
@@ -466,9 +699,9 @@ mod tests {
             &mut ids,
         );
 
-        assert_eq!(out.len(), 3);
-        assert_eq!(out[0].seq, 1);
-        assert_eq!(out[1].seq, 2);
-        assert_eq!(out[2].seq, 3);
+        // Sequence numbers are contiguous from 1 however many events a run emits.
+        for (i, e) in out.iter().enumerate() {
+            assert_eq!(e.seq, i as u64 + 1);
+        }
     }
 }

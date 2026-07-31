@@ -482,7 +482,7 @@ run_step() {
         if [ -f conformance/harness/fsm_coverage.py ]; then
             step_run fsm-coverage python3 conformance/harness/fsm_coverage.py
         else
-            step_skip fsm-coverage 'no FSM in the slice yet — lands with the order FSM component'
+            step_skip fsm-coverage 'conformance harness not present — sub-project 2'
         fi ;;
     fuzz-long)
         step_skip fuzz-long 'no fuzz targets yet — sub-projects 4 and 5' ;;

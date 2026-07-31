@@ -1,9 +1,14 @@
 {"fields":{"figi":"BBG000B9XRY4","status":"ACTIVE"},"seq":1,"type":"InstrumentAccepted"}
 {"fields":{"figi":"BBG000SUSPEND","status":"SUSPENDED"},"seq":2,"type":"InstrumentAccepted"}
 {"fields":{"deskTags":"order-entry","firmTags":"order-entry","sessionId":"7","tags":"order-entry","user":"trader1"},"seq":3,"type":"SessionAccepted"}
-{"fields":{"figi":"BBG000B9XRY4","orderId":"ORD-0000000001","price":"1250000","qty":"100","side":"BUY"},"seq":4,"type":"OrderAccepted"}
-{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000NOTREAL not present in security master.","sessionId":"7"},"seq":5,"type":"OrderRejected"}
-{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2002","layer":"REFERENCE","reason":"Instrument BBG000SUSPEND is not active (status: SUSPENDED).","sessionId":"7"},"seq":6,"type":"OrderRejected"}
-{"fields":{"adminHint":"Talk to session admin.","category":"SES","code":"EMS-SES-1002","layer":"SESSION","reason":"Session 99 not found or has expired.","sessionId":"99"},"seq":7,"type":"OrderRejected"}
-{"fields":{"adminHint":"Talk to FIRM1 admin.","category":"PRM","code":"EMS-PRM-1003","layer":"PERMISSION","reason":"Firm `FIRM1` is not granted tag `#algo-trading`.","sessionId":"7"},"seq":8,"type":"OrderRejected"}
-{"fields":{"events":"8","seed":"0"},"seq":9,"type":"RunSummary"}
+{"fields":{"applied":"true","clOrdId":"C-1","event":"ValidationPassed","from":"PENDING_NEW","fsm":"order","to":"NEW"},"seq":4,"type":"FsmTransition"}
+{"fields":{"figi":"BBG000B9XRY4","orderId":"ORD-0000000001","price":"1250000","qty":"100","side":"BUY"},"seq":5,"type":"OrderAccepted"}
+{"fields":{"applied":"true","clOrdId":"C-2","event":"ValidationFailed","from":"PENDING_NEW","fsm":"order","to":"REJECTED"},"seq":6,"type":"FsmTransition"}
+{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000NOTREAL not present in security master.","sessionId":"7"},"seq":7,"type":"OrderRejected"}
+{"fields":{"applied":"true","clOrdId":"C-3","event":"ValidationFailed","from":"PENDING_NEW","fsm":"order","to":"REJECTED"},"seq":8,"type":"FsmTransition"}
+{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2002","layer":"REFERENCE","reason":"Instrument BBG000SUSPEND is not active (status: SUSPENDED).","sessionId":"7"},"seq":9,"type":"OrderRejected"}
+{"fields":{"applied":"true","clOrdId":"C-4","event":"ValidationFailed","from":"PENDING_NEW","fsm":"order","to":"REJECTED"},"seq":10,"type":"FsmTransition"}
+{"fields":{"adminHint":"Talk to session admin.","category":"SES","code":"EMS-SES-1002","layer":"SESSION","reason":"Session 99 not found or has expired.","sessionId":"99"},"seq":11,"type":"OrderRejected"}
+{"fields":{"applied":"true","clOrdId":"C-5","event":"ValidationFailed","from":"PENDING_NEW","fsm":"order","to":"REJECTED"},"seq":12,"type":"FsmTransition"}
+{"fields":{"adminHint":"Talk to FIRM1 admin.","category":"PRM","code":"EMS-PRM-1003","layer":"PERMISSION","reason":"Firm `FIRM1` is not granted tag `#algo-trading`.","sessionId":"7"},"seq":13,"type":"OrderRejected"}
+{"fields":{"events":"8","seed":"0"},"seq":14,"type":"RunSummary"}
