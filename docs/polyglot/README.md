@@ -8,12 +8,13 @@ Rust, and C++ — and a byte-exact conformance gate proves the three behave iden
 | | |
 |---|---|
 | Design spec | [`docs/superpowers/specs/2026-07-30-polyglot-ems-port-design.md`](../superpowers/specs/2026-07-30-polyglot-ems-port-design.md) |
-| Decisions | ADRs [0001](../decisions/0001-reinstate-rust-three-language-port.md) – [0006](../decisions/0006-abstract-transport-journal-first.md) |
+| Decisions | ADRs [0001](../decisions/0001-reinstate-rust-three-language-port.md) – [0009](../decisions/0009-corpus-authority-java-with-triangulation-later.md) |
 | Gate reference | [`docs/polyglot/gate.md`](gate.md) |
 | Conformance corpus | [`conformance/README.md`](../../conformance/README.md) |
 | Study guide | [`70_concepts/idioms/`](../../70_concepts/idioms/) |
 | Plans | [`docs/superpowers/plans/`](../superpowers/plans/README.md) — one per sub-project, indexed |
 | Status | [`docs/polyglot/status.md`](status.md) — per-language test counts and the test evidence behind every feature |
+| Follow-ups | [`docs/TODO.md`](../TODO.md) — the repo-wide deferred-work register |
 
 ---
 
@@ -88,7 +89,7 @@ conformance/           # NEW — corpus + harness + differ
   corpus/<case>/       #   input.jsonl, expected.jsonl, case.md
   harness/             #   language-agnostic runner + differ
 scripts/ci/gate.sh     # NEW — the single gate entry point
-docs/decisions/        # ADRs 0001–0006
+docs/decisions/        # ADRs 0001–0009
 docs/polyglot/         # this hub + gate reference
 70_concepts/idioms/    # study-guide vault section
 ```
@@ -157,10 +158,15 @@ test-first steps, and a commit at the end of every task.
 
 ## Open questions
 
-Carried from the design spec §9, unresolved:
+**None outstanding.** The three the design spec raised (§9) were settled on 2026-07-31 and are now
+decisions rather than questions — a question that has been answered but left in a "questions"
+section gets re-litigated by the next reader.
 
-1. **Slice boundary.** AAA is in, post-trade drop-copy is out. Both are judgment calls.
-2. **MSan.** Requires an MSan-instrumented libc++ — real setup cost. Defer to nightly-only, or drop
-   it and rely on ASan + Valgrind?
-3. **Corpus authority.** Java generates `expected.jsonl`, making Java correct by definition.
-   Hand-authored expectations from the schemas would be stricter and considerably more work.
+| Was | Decided | Record |
+|---|---|---|
+| Slice boundary: AAA in, post-trade out? | **AAA stays in.** Post-trade and drop-copy deferred — not cancelled. AAA earned it: it produced the corpus's first rejection case, and rejections are where three languages have the most room to disagree. | [ADR 0007](../decisions/0007-slice-boundary-aaa-in-posttrade-deferred.md) |
+| MSan: nightly, or drop it? | **Keep it, nightly only.** ASan and MSan catch different defects, and an uninitialised read is exactly what would make the conformance gate fail *intermittently*. | [ADR 0008](../decisions/0008-msan-nightly-only.md) |
+| Corpus authority: Java, or hand-authored? | **Java for now**, with the schema-review discipline that compensates. Triangulation once all three slices are complete. | [ADR 0009](../decisions/0009-corpus-authority-java-with-triangulation-later.md) |
+
+Deferred work from those decisions is tracked in [`docs/TODO.md`](../TODO.md), with the ADR that deferred it
+linked from each entry.

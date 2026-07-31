@@ -11,6 +11,7 @@ The **vault** (root + `10_asset_classes/` + `20_workflows/` + `30_venues/` + `40
 | Folder / file | Contents |
 |---|---|
 | `USER_GUIDE.md` | **How to use the system**: build, run, test, drive the end-to-end flows, module map, what's coming. Start here. |
+| `TODO.md` | The repo-wide deferred-work register. Decided-and-deferred work only, never a wish list — see [CONTRIBUTING.md § Deferring work](../CONTRIBUTING.md#deferring-work). Enforced by `scripts/ci/checks/deferred_work.py`. |
 | `decisions/` | ADRs (Architecture Decision Records). One markdown file per decision, numbered `NNNN-<slug>.md`. Records what was decided, why, and what was rejected. |
 | `polyglot/` | The Java/Rust/C++ port: program hub (`README.md`) and the gate reference (`gate.md`). Start at `polyglot/README.md` to pick that work up cold. |
 | `runbooks/` | Operational runbooks: how to deploy, how to switchover, how to handle incidents, how to onboard a new pod. |
