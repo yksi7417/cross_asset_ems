@@ -1,0 +1,15 @@
+[package]
+name = "ems-core"
+description = "Event journal codec and deterministic identifiers — the cross-language byte contract."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# No dependencies. The JSON encoder is hand-written on purpose: the byte layout
+# is a contract with the Java and C++ ports, and a serde upgrade must not be
+# able to change it.
+[dependencies]
+
+[lints]
+workspace = true

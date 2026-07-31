@@ -1,0 +1,47 @@
+# cargo-deny configuration — advisories, licences and duplicate versions.
+#
+# Run by the `rust-deny` step of scripts/ci/gate.sh (full and nightly lanes).
+# See docs/decisions/0004-defensive-gate-stack.md §A (Rust).
+#
+# Without this file cargo-deny falls back to its default configuration, which
+# allows no licences at all — so it rejects this workspace's own crates. The
+# failure reads like a dependency problem and is not one.
+
+[advisories]
+# Fail on any security advisory. There is no allowlist: an exception belongs in
+# this file with a comment saying why, not in a reviewer's memory.
+yanked = "deny"
+ignore = []
+
+[licenses]
+# SPDX identifiers only (US spelling: cargo-deny requires [licenses]).
+# Apache-2.0 is this repository's own licence; the rest
+# are the permissive set the Rust ecosystem actually uses. Anything copyleft or
+# unknown has to be argued for in a PR that edits this list.
+version = 2
+confidence-threshold = 0.9
+# The workspace has no third-party dependencies today, so this list is
+# deliberately short: Apache-2.0 is what these crates are. cargo-deny warns
+# about allowances nothing matches, and a list padded with licences "we might
+# need one day" makes that warning useless. Add entries when a dependency
+# actually arrives, in the PR that adds it.
+allow = ["Apache-2.0"]
+
+[bans]
+# Two versions of the same crate in one binary means two copies of its types,
+# and error messages that say `Foo is not Foo`. Warn rather than deny for now:
+# this workspace has no third-party dependencies at all, so the first time it
+# fires will be informative rather than obstructive.
+multiple-versions = "warn"
+# Path dependencies carry an explicit version rather than being exempted:
+# `{ path = "...", version = "0.1.0" }`. A wildcard path dependency is fine
+# until the day one of these crates is published, and then it is not.
+wildcards = "deny"
+deny = []
+
+[sources]
+# Only crates.io and the workspace itself. A git dependency is a supply-chain
+# decision, not a convenience.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
