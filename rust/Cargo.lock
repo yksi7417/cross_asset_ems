@@ -11,6 +11,10 @@ name = "ems-core"
 version = "0.1.0"
 
 [[package]]
+name = "ems-fsm"
+version = "0.1.0"
+
+[[package]]
 name = "ems-slice"
 version = "0.1.0"
 dependencies = [

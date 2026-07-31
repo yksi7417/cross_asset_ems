@@ -27,6 +27,9 @@ if command -v python3 >/dev/null 2>&1 && [ -f tools/codegen/fsm_codegen.py ]; th
 
     python3 tools/codegen/fsm_codegen.py --cpp-only >/dev/null
     git add cpp/fsm/generated/
+
+    python3 tools/codegen/fsm_codegen.py --rust-only >/dev/null
+    git add rust/ems-fsm/src/generated/
 fi
 
 # 2a. Java — spotlessApply auto-formats; re-stage what it reformatted.

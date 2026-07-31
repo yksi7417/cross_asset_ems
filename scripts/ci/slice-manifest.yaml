@@ -43,6 +43,7 @@ cpp:
 # See docs/decisions/0001-reinstate-rust-three-language-port.md.
 rust:
   ems-core: done
+  ems-fsm: done
   ems-transport: done
   ems-aaa: done
   ems-validator: done

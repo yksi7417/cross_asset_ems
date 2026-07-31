@@ -167,8 +167,25 @@ do_fsm_sync() {
     # hand-edit to any generated FSM in any language fails here.
     python3 tools/codegen/fsm_codegen.py --java-only >/dev/null || return 1
     python3 tools/codegen/fsm_codegen.py --cpp-only >/dev/null || return 1
-    local paths=(java/ems-fsm/src/main/generated/ cpp/fsm/generated/)
-    [ -d rust/ems-fsm/src/generated ] && paths+=(rust/ems-fsm/src/generated/)
+    python3 tools/codegen/fsm_codegen.py --rust-only >/dev/null || return 1
+    local paths=(
+        java/ems-fsm/src/main/generated/
+        cpp/fsm/generated/
+        rust/ems-fsm/src/generated/
+    )
+
+    # `git diff` only sees TRACKED files, so a newly emitted file that has never
+    # been committed would pass silently — which is exactly what happens the
+    # first time a language is added. `git status --porcelain` covers untracked
+    # too, and is what makes "the tree matches the schemas" actually true.
+    local untracked
+    untracked=$(git ls-files --others --exclude-standard -- "${paths[@]}")
+    if [ -n "$untracked" ]; then
+        echo "fsm-sync: generated files are not committed:" >&2
+        echo "$untracked" >&2
+        return 1
+    fi
+
     git diff --exit-code -- "${paths[@]}"
 }
 

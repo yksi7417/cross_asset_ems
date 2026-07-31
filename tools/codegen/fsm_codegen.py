@@ -1248,11 +1248,600 @@ def gen_cpp_header(fsm: dict) -> str:
 # Main
 # ──────────────────────────────────────────────────────────────────────────────
 
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Rust emitter
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# The Rust output differs from Java's and C++'s in one way that is the whole
+# point of having it: the transition function matches exhaustively on
+# (state, event) with no catch-all over states. Adding a state to the schema
+# makes Rust fail to COMPILE until the generator emits its arm — where Java
+# would compile and take a default branch at run time, and C++ would too unless
+# every switch happened to lack a default.
+#
+# See 70_concepts/idioms/fsm-state-exhaustiveness.md.
+
+RUST_OUT = REPO / "rust" / "ems-fsm" / "src" / "generated"
+
+YAML_TO_RUST = {
+    "u8": "u8",
+    "u16": "u16",
+    "u32": "u32",
+    "u64": "u64",
+    "i8": "i8",
+    "i16": "i16",
+    "i32": "i32",
+    "i64": "i64",
+    "string": "String",
+    "bool": "bool",
+    "timestamp": "i64",
+    "uuid": "String",
+    "figi": "String",
+    "lei": "String",
+    "currency": "String",
+}
+
+
+def rust_module_name(prefix: str) -> str:
+    """`VenueSession` → `venue_session_fsm`. The file name, and the module path."""
+    out = []
+    for i, ch in enumerate(prefix):
+        if ch.isupper() and i > 0:
+            out.append("_")
+        out.append(ch.lower())
+    return "".join(out) + "_fsm"
+
+
+def rust_variant_name(name: str) -> str:
+    """Schema name → Rust variant.
+
+    Both conventions appear in the schemas and each breaks the naive handling of
+    the other:
+
+    - states are SCREAMING_SNAKE — `PARTIALLY_FILLED` → `PartiallyFilled`;
+      keeping the tail would give `PARTIALLYFILLED`
+    - events are already PascalCase — `ValidationPassed` stays as it is;
+      `.capitalize()` would give `Validationpassed`
+
+    So a part that is entirely upper-case is treated as a snake segment and
+    lower-cased below the first letter; anything else keeps its tail.
+    """
+    parts = []
+    for part in name.split("_"):
+        if not part:
+            continue
+        parts.append(part.capitalize() if part.isupper() else part[:1].upper() + part[1:])
+    return "".join(parts)
+
+
+def rust_field_name(name: str) -> str:
+    """Context fields stay snake_case — Rust's convention, and already the YAML's."""
+    return name
+
+
+class ExprParserRust:
+    """Rust expression compiler — same DSL grammar as ExprParser, Rust emission.
+
+    Differences from the C++ compiler:
+    - context.field  → ctx.field           (snake_case is already the YAML form)
+    - payload.field  → p.field
+    - null           → None
+    - optional compare uses as_deref()/is_none() rather than has_value()
+    - string literals compare against &str, so the owned side needs .as_str()
+    """
+
+    def __init__(self, tokens: list, ctx_schema: dict):
+        self.tokens = tokens
+        self.pos = 0
+        self.ctx_schema = ctx_schema
+
+    def peek(self):
+        return self.tokens[self.pos] if self.pos < len(self.tokens) else None
+
+    def consume(self, kind=None):
+        t = self.tokens[self.pos]
+        if kind and t.kind != kind:
+            raise ValueError(f"Expected {kind}, got {t}")
+        self.pos += 1
+        return t
+
+    def parse_expr(self) -> str:
+        return self.parse_or()
+
+    def parse_or(self) -> str:
+        parts = [self.parse_and()]
+        while self.peek() and self.peek().kind == "OR":
+            self.consume("OR")
+            parts.append(self.parse_and())
+        return ("(" + " || ".join(parts) + ")") if len(parts) > 1 else parts[0]
+
+    def parse_and(self) -> str:
+        parts = [self.parse_cmp()]
+        while self.peek() and self.peek().kind == "AND":
+            self.consume("AND")
+            parts.append(self.parse_cmp())
+        return ("(" + " && ".join(parts) + ")") if len(parts) > 1 else parts[0]
+
+    def parse_cmp(self) -> str:
+        first_left_tok = self.peek()
+        left = self.parse_arith()
+        t = self.peek()
+        if t and t.kind in ("EQ", "NEQ", "LT", "GT", "LEQ", "GEQ"):
+            op_tok = self.consume()
+            first_right_tok = self.peek()
+            right = self.parse_arith()
+            op_map = {"LT": "<", "GT": ">", "LEQ": "<=", "GEQ": ">="}
+
+            # context.nullable_field == null / != null
+            if (first_left_tok and first_left_tok.kind == "CONTEXT_FIELD" and
+                    first_right_tok and first_right_tok.kind == "NULL"):
+                finfo = self.ctx_schema.get(first_left_tok.value, {})
+                if finfo.get("nullable"):
+                    return f"({left}.is_none())" if op_tok.kind == "EQ" else f"({left}.is_some())"
+
+            # context.string_field == 'literal'
+            if (op_tok.kind in ("EQ", "NEQ") and
+                    first_left_tok and first_left_tok.kind == "CONTEXT_FIELD" and
+                    first_right_tok and first_right_tok.kind == "STRING"):
+                finfo = self.ctx_schema.get(first_left_tok.value, {})
+                val = first_right_tok.value
+                if finfo.get("nullable") and finfo.get("type") == "string":
+                    if op_tok.kind == "EQ":
+                        return f'({left}.as_deref() == Some("{val}"))'
+                    return f'({left}.as_deref() != Some("{val}"))'
+                if finfo.get("type") == "string":
+                    op = "==" if op_tok.kind == "EQ" else "!="
+                    return f'({left}.as_str() {op} "{val}")'
+
+            if op_tok.kind == "EQ":
+                return f"({left} == {right})"
+            if op_tok.kind == "NEQ":
+                return f"({left} != {right})"
+            return f"({left} {op_map[op_tok.kind]} {right})"
+        return left
+
+    def parse_arith(self) -> str:
+        result = self.parse_term()
+        while self.peek() and self.peek().kind in ("PLUS", "MINUS"):
+            op = self.consume()
+            rhs = self.parse_term()
+            result = f"({result} {op.value} {rhs})"
+        return result
+
+    def parse_term(self) -> str:
+        t = self.peek()
+        if t is None:
+            raise ValueError("Unexpected end of expression")
+        if t.kind == "LPAREN":
+            self.consume("LPAREN")
+            inner = self.parse_expr()
+            self.consume("RPAREN")
+            # `parse_or`/`parse_and` already parenthesise what they build, so
+            # wrapping again would emit `((a || b))` — which rustc warns on.
+            return inner if inner.startswith("(") and inner.endswith(")") else f"({inner})"
+        if t.kind == "NULL":
+            self.consume()
+            return "None"
+        if t.kind == "INT":
+            self.consume()
+            return t.value
+        if t.kind == "STRING":
+            self.consume()
+            return f'"{t.value}"'
+        if t.kind == "CONTEXT_FIELD":
+            self.consume()
+            return f"ctx.{rust_field_name(t.value)}"
+        if t.kind == "PAYLOAD_FIELD":
+            self.consume()
+            return f"p.{rust_field_name(t.value)}"
+        raise ValueError(f"Unexpected token {t!r}")
+
+
+def _strip_outer_parens(expr: str) -> str:
+    """Drop one redundant enclosing paren pair.
+
+    The parser parenthesises defensively, which is free in C++ but makes rustc
+    emit `unnecessary_parens` — and the workspace denies warnings. Only strips
+    when the outermost pair actually encloses the whole expression.
+    """
+    if not (expr.startswith("(") and expr.endswith(")")):
+        return expr
+    depth = 0
+    for i, ch in enumerate(expr):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0 and i != len(expr) - 1:
+                return expr
+    return expr[1:-1]
+
+
+def compile_guard_rust(expr: str, ctx_schema: dict) -> str:
+    """Compile a guard expression to a Rust boolean expression."""
+    if not expr or expr.strip() == "":
+        return "true"
+    tokens = tokenize(expr.strip())
+    parser = ExprParserRust(tokens, ctx_schema)
+    result = parser.parse_expr()
+    if parser.pos != len(parser.tokens):
+        raise ValueError(f"Unconsumed tokens in Rust guard {expr!r}: {parser.tokens[parser.pos:]}")
+    return _strip_outer_parens(result)
+
+
+# Generated code is not hand-maintainable, so it is not held to hand-written
+# code's lint standards — the same reasoning ADR 0004 applies to generated Java
+# and ErrorProne. These are artifacts of uniform emission or of prose copied
+# from the schema, not defects:
+#
+#   doc_markdown          schema descriptions mention FIX names like
+#                         OrderCancelReject; back-ticking them would mean
+#                         editing every description in the YAML for Rust's
+#                         benefit.
+#   match_like_matches_macro, match_same_arms
+#                         the emitter produces one arm per state uniformly;
+#                         collapsing them by hand is what makes it a generator.
+#   needless_pass_by_value, wildcard_imports
+#                         signature shape is fixed across all five machines.
+RUST_GENERATED_ALLOWS = """// Not formatted by hand, so not formatted by rustfmt either.
+//
+// `cargo fmt` would reformat this file and the fsm-sync gate step would then
+// see a diff against what the generator emits — the two checks would deadlock.
+// Emitting rustfmt-formatted output instead would make the byte comparison
+// depend on the rustfmt version, which is not pinned. The same reasoning
+// Spotless already applies on the Java side via targetExclude("**/generated/**").
+#![cfg_attr(rustfmt, rustfmt::skip)]
+#![allow(
+    clippy::doc_markdown,
+    clippy::match_like_matches_macro,
+    clippy::match_same_arms,
+    clippy::too_many_lines
+)]"""
+
+
+def compile_update_expr_rust(yaml_expr, fname: str, finfo: dict, ctx_schema: dict) -> str:
+    """Compile an update_context value to a Rust expression."""
+    nullable = finfo.get("nullable", False)
+    ftype = finfo.get("type", "string")
+
+    if yaml_expr is None:
+        return "None"
+
+    if isinstance(yaml_expr, bool):
+        return "true" if yaml_expr else "false"
+
+    if isinstance(yaml_expr, int):
+        return f"Some({yaml_expr})" if nullable else str(yaml_expr)
+
+    text = str(yaml_expr)
+    looks_like_expr = ("context." in text or "payload." in text
+                       or any(op in text for op in ("+", "-", "*", "/")))
+
+    if not looks_like_expr:
+        if ftype == "string":
+            literal = f'"{text}".to_owned()'
+            return f"Some({literal})" if nullable else literal
+        return f"Some({text})" if nullable else text
+
+    tokens = tokenize(text)
+    parser = ExprParserRust(tokens, ctx_schema)
+    compiled = parser.parse_expr()
+    if parser.pos != len(parser.tokens):
+        raise ValueError(f"Unconsumed tokens in Rust update {text!r}")
+    compiled = _strip_outer_parens(compiled)
+    if ftype == "string" and not nullable:
+        compiled = f"{compiled}.to_owned()" if compiled.startswith('"') else compiled
+    return f"Some({compiled})" if nullable else compiled
+
+
+def gen_rust_payload_structs(fsm: dict, prefix: str) -> str:
+    """One struct per payload-carrying event, plus an enum over them.
+
+    C++ takes a `const void*` and casts; that is the sort of thing the Rust port
+    exists to avoid. A sum type means `apply` cannot be handed the payload of a
+    different event, and the compiler checks it.
+    """
+    out = []
+    for e in fsm["events"]:
+        schema = e.get("payload_schema")
+        if not schema:
+            continue
+        fields = []
+        for fname, finfo in schema.items():
+            rtype = YAML_TO_RUST[finfo["type"]]
+            if finfo.get("nullable"):
+                rtype = f"Option<{rtype}>"
+            fields.append(f"    /// `{fname}` from the schema.\n    pub {rust_field_name(fname)}: {rtype},")
+        out.append(
+            f"/// Payload carried by [`{prefix}FsmEvent::{rust_variant_name(e['name'])}`].\n"
+            f"#[derive(Debug, Clone, PartialEq, Eq, Default)]\n"
+            f"pub struct {e['name']}Payload {{\n" + "\n".join(fields) + "\n}"
+        )
+    carriers = [e["name"] for e in fsm["events"] if e.get("payload_schema")]
+    variants = "\n".join(
+        f"    /// Payload for [`{prefix}FsmEvent::{rust_variant_name(n)}`].\n    {n}({n}Payload),"
+        for n in carriers
+    )
+    if carriers:
+        out.append(
+            f"/// Any event payload this machine accepts.\n"
+            f"///\n"
+            f"/// A sum type rather than the `const void*` the C++ header takes: `apply`\n"
+            f"/// cannot be handed the payload of a different event, and the compiler\n"
+            f"/// checks it rather than the programmer.\n"
+            f"#[derive(Debug, Clone, PartialEq, Eq)]\n"
+            f"pub enum {prefix}FsmPayload {{\n{variants}\n}}"
+        )
+    else:
+        out.append(
+            f"/// This machine has no event payloads. The type exists so `apply` has a\n"
+            f"/// uniform signature across every generated machine.\n"
+            f"#[derive(Debug, Clone, PartialEq, Eq)]\n"
+            f"pub enum {prefix}FsmPayload {{}}"
+        )
+    return "\n\n".join(out)
+
+
+def gen_rust_transition(fsm: dict, prefix: str) -> str:
+    """The exhaustive transition function.
+
+    Matches on (state, event) with an arm per state — no catch-all across
+    states. That is what makes a schema addition a compile error in Rust.
+    """
+    ctx_schema = fsm["context_schema"]
+    from_map = {s["name"]: [] for s in fsm["states"]}
+    for t in fsm["transitions"]:
+        from_map[t["from"]].append(t)
+
+    event_payload = {
+        e["name"]: f"{e['name']}Payload"
+        for e in fsm["events"]
+        if e.get("payload_schema")
+    }
+    uses_any_payload = any(
+        t["event"] in event_payload and _row_uses_payload(t) for t in fsm["transitions"]
+    )
+
+    lines = [
+        f"impl {prefix}FsmState {{",
+        "    /// Applies `event`, returning the new state and context.",
+        "    ///",
+        "    /// The match over states is exhaustive with no catch-all: adding a state",
+        "    /// to the schema makes this fail to compile until its arm is generated.",
+        "    ///",
+        "    /// `payload` carries the event's fields where the schema declares any.",
+        "    /// A transition whose guard or update reads a payload field cannot fire",
+        "    /// without one, so a missing payload is a no-transition rather than a",
+        "    /// panic — malformed input is data, not a defect.",
+        "    #[must_use]",
+        "    #[allow(clippy::too_many_lines, clippy::match_same_arms)]",
+        "    // STUDY: fsm-state-exhaustiveness",
+        f"    pub fn apply(",
+        "        self,",
+        f"        event: {prefix}FsmEvent,",
+        f"        ctx: &{prefix}FsmContext,",
+        (f"        payload: Option<&{prefix}FsmPayload>," if uses_any_payload
+         else f"        _payload: Option<&{prefix}FsmPayload>,"),
+        f"    ) -> {prefix}FsmTransitionResult {{",
+        "        match self {",
+    ]
+
+    for sinfo in fsm["states"]:
+        sname = sinfo["name"]
+        variant = rust_variant_name(sname)
+        rows = from_map[sname]
+
+        if not rows:
+            # Terminal, or simply unreachable-by-event. `match event { _ => x }`
+            # is just `x`, and clippy says so.
+            lines.append(
+                f"            Self::{variant} => "
+                f"{prefix}FsmTransitionResult::no_transition(self, ctx),"
+            )
+            continue
+
+        lines.append(f"            Self::{variant} => match event {{")
+
+        event_map = {}
+        for t in rows:
+            event_map.setdefault(t["event"], []).append(t)
+
+        for ename, erows in event_map.items():
+            evariant = rust_variant_name(ename)
+            lines.append(f"                {prefix}FsmEvent::{evariant} => {{")
+
+            payload_type = event_payload.get(ename)
+            needs_payload = payload_type and any(_row_uses_payload(r) for r in erows)
+            if needs_payload:
+                lines.append(
+                    f"                    let Some({prefix}FsmPayload::{ename}(p)) = payload else {{"
+                )
+                lines.append(
+                    f"                        return {prefix}FsmTransitionResult::no_transition(self, ctx);"
+                )
+                lines.append("                    };")
+
+            all_guarded = all(r.get("guard") for r in erows)
+
+            for row in erows:
+                guard = row.get("guard")
+                to_variant = rust_variant_name(row["to"])
+                updates = extract_update_context(row.get("effects", []), ctx_schema)
+                body = []
+                if updates:
+                    body.append("let mut next = ctx.clone();")
+                    for field, yaml_expr in updates.items():
+                        finfo = ctx_schema.get(field, {"type": "string"})
+                        rust_expr = compile_update_expr_rust(yaml_expr, field, finfo, ctx_schema)
+                        body.append(f"next.{rust_field_name(field)} = {rust_expr};")
+                    ret_ctx = "next"
+                else:
+                    ret_ctx = "ctx.clone()"
+                ret = (f"{prefix}FsmTransitionResult {{ new_state: Self::{to_variant}, "
+                       f"new_context: {ret_ctx}, is_no_transition: false }}")
+                if guard:
+                    lines.append(f"                    if {compile_guard_rust(guard, ctx_schema)} {{")
+                    for stmt in body:
+                        lines.append(f"                        {stmt}")
+                    lines.append(f"                        return {ret};")
+                    lines.append("                    }")
+                else:
+                    for stmt in body:
+                        lines.append(f"                    {stmt}")
+                    lines.append(f"                    {ret}")
+            if all_guarded:
+                # Every row is conditional, so falling past them all is possible.
+                lines.append(
+                    f"                    {prefix}FsmTransitionResult::no_transition(self, ctx)"
+                )
+            lines.append("                }")
+
+        lines.append(f"                _ => {prefix}FsmTransitionResult::no_transition(self, ctx),")
+        lines.append("            },")
+
+    lines.append("        }")
+    lines.append("    }")
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def gen_rust_module(fsm: dict) -> str:
+    prefix = fsm_class_prefix(fsm["name"])
+    source = fsm["name"].lower()
+
+    states = "\n".join(
+        f"    /// {s.get('description', s['name'])}\n    {rust_variant_name(s['name'])},"
+        for s in fsm["states"]
+    )
+    state_names = "\n".join(
+        f'            Self::{rust_variant_name(s["name"])} => "{s["name"]}",'
+        for s in fsm["states"]
+    )
+    initial = next((s["name"] for s in fsm["states"] if s.get("initial")), fsm["states"][0]["name"])
+    terminal_arms = [
+        f"            Self::{rust_variant_name(s['name'])} => true,"
+        for s in fsm["states"] if s.get("terminal")
+    ]
+    # `match self { _ => false }` is just `false`, and clippy says so.
+    terminals = ("match self {\n" + "\n".join(terminal_arms)
+                 + "\n            _ => false,\n        }") if terminal_arms else "false"
+    events = "\n".join(
+        f"    /// {e.get('description', e['name'])}\n    {rust_variant_name(e['name'])},"
+        for e in fsm["events"]
+    )
+    ctx_fields = []
+    for fname, finfo in fsm["context_schema"].items():
+        rtype = YAML_TO_RUST[finfo["type"]]
+        if finfo.get("nullable"):
+            rtype = f"Option<{rtype}>"
+        ctx_fields.append(f"    /// `{fname}` from the schema.\n    pub {rust_field_name(fname)}: {rtype},")
+
+    payloads = gen_rust_payload_structs(fsm, prefix)
+    transition = gen_rust_transition(fsm, prefix)
+
+    return RUST_MODULE_TEMPLATE.format(
+        allows=RUST_GENERATED_ALLOWS,
+        source=source,
+        prefix=prefix,
+        states=states,
+        state_names=state_names,
+        initial=rust_variant_name(initial),
+        terminals=terminals,
+        events=events,
+        ctx_fields="\n".join(ctx_fields),
+        payloads=payloads,
+        transition=transition,
+    )
+
+
+RUST_MODULE_TEMPLATE = """\
+// GENERATED FILE — DO NOT EDIT BY HAND.
+// Source: schemas/fsm/{source}.fsm.yaml
+// Re-run: python3 tools/codegen/fsm_codegen.py --rust-only
+//
+// The match in `apply` is exhaustive over states with no catch-all. Adding a
+// state to the schema makes this fail to COMPILE until its arm is generated —
+// where Java compiles and takes a default branch at run time. That difference
+// is the point of the Rust port; see
+// 70_concepts/idioms/fsm-state-exhaustiveness.md.
+{allows}
+
+/// States of the `{prefix}` state machine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum {prefix}FsmState {{
+{states}
+}}
+
+impl {prefix}FsmState {{
+    /// The initial state, per the schema.
+    #[must_use]
+    pub const fn initial() -> Self {{
+        Self::{initial}
+    }}
+
+    /// The state name as the schema spells it.
+    ///
+    /// This reaches the output journal, so it must match Java's enum constant
+    /// character for character — the conformance gate compares bytes.
+    #[must_use]
+    pub const fn name(self) -> &'static str {{
+        match self {{
+{state_names}
+        }}
+    }}
+
+    /// Whether this state accepts no further transitions.
+    #[must_use]
+    pub const fn is_terminal(self) -> bool {{
+        {terminals}
+    }}
+}}
+
+/// Events the `{prefix}` state machine accepts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum {prefix}FsmEvent {{
+{events}
+}}
+
+/// Context carried alongside the state.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct {prefix}FsmContext {{
+{ctx_fields}
+}}
+
+/// The outcome of applying an event.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct {prefix}FsmTransitionResult {{
+    /// The state after the event. Unchanged when `is_no_transition`.
+    pub new_state: {prefix}FsmState,
+    /// The context after the event.
+    pub new_context: {prefix}FsmContext,
+    /// True when no transition matched — the event is ignored, not an error.
+    pub is_no_transition: bool,
+}}
+
+impl {prefix}FsmTransitionResult {{
+    /// No rule matched: state and context are unchanged.
+    #[must_use]
+    pub fn no_transition(state: {prefix}FsmState, ctx: &{prefix}FsmContext) -> Self {{
+        Self {{ new_state: state, new_context: ctx.clone(), is_no_transition: true }}
+    }}
+}}
+
+{payloads}
+
+{transition}
+"""
+
+
 def main():
     parser = argparse.ArgumentParser(description="FSM YAML → Java/C++ codegen")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--java-only", action="store_true")
     parser.add_argument("--cpp-only", action="store_true")
+    parser.add_argument("--rust-only", action="store_true")
     args = parser.parse_args()
 
     fsm_files = sorted(FSM_DIR.glob("*.fsm.yaml"))
@@ -1269,14 +1858,19 @@ def main():
         name = fsm.get("name", "?")
         print(f"Processing {fsm_path.name} ({name})")
 
-        if not args.cpp_only:
+        only_flags = [args.java_only, args.cpp_only, args.rust_only]
+        want_java = args.java_only or not any(only_flags)
+        want_cpp = args.cpp_only or not any(only_flags)
+        want_rust = args.rust_only or not any(only_flags)
+
+        if want_java:
             written = gen_java_for_fsm(fsm, args.dry_run)
             total_written.extend(written)
             if not args.dry_run:
                 for p in written:
                     print(f"  wrote {p}")
 
-        if not args.java_only:
+        if want_cpp:
             cpp_content = gen_cpp_header(fsm)
             prefix = fsm_class_prefix(name)
             cpp_path = CPP_OUT / f"{prefix.lower()}_fsm.hpp"
@@ -1287,8 +1881,43 @@ def main():
                 cpp_path.write_text(cpp_content)
                 print(f"  wrote {cpp_path}")
 
+        if want_rust:
+            rust_content = gen_rust_module(fsm)
+            prefix = fsm_class_prefix(name)
+            rust_path = RUST_OUT / f"{rust_module_name(prefix)}.rs"
+            if args.dry_run:
+                print(f"  DRY-RUN would write: {rust_path}")
+            else:
+                rust_path.parent.mkdir(parents=True, exist_ok=True)
+                rust_path.write_text(rust_content)
+                total_written.append(rust_path)
+                print(f"  wrote {rust_path}")
+
+    # The generated module index. Written from the same file list the loop used,
+    # so a removed schema removes its module rather than leaving a dangling
+    # `mod` that fails to compile.
+    if (args.rust_only or not any([args.java_only, args.cpp_only, args.rust_only])) and not args.dry_run:
+        mods = []
+        for fsm_path in fsm_files:
+            with open(fsm_path) as f:
+                prefix = fsm_class_prefix(yaml.safe_load(f)["name"])
+            mods.append(rust_module_name(prefix))
+        index = ["// GENERATED FILE — DO NOT EDIT BY HAND.",
+                 "// Re-run: python3 tools/codegen/fsm_codegen.py --rust-only",
+                 "",
+                 "//! One module per `schemas/fsm/*.fsm.yaml`.",
+                 ""]
+        for m in mods:
+            machine = "".join(part[:1].upper() + part[1:] for part in m.split("_")[:-1])
+            index.append(f"/// The `{machine}` state machine.")
+            index.append(f"pub mod {m};")
+        index_path = RUST_OUT / "mod.rs"
+        index_path.parent.mkdir(parents=True, exist_ok=True)
+        index_path.write_text("\n".join(index) + "\n")
+        print(f"  wrote {index_path}")
+
     # Write shared files (TransitionResult + @Nullable stub)
-    if not args.cpp_only and not args.dry_run:
+    if not args.cpp_only and not args.rust_only and not args.dry_run:
         tr_path = JAVA_PKG_PATH / "TransitionResult.java"
         tr_path.write_text(_transition_result_src(JAVA_PKG))
         print(f"  wrote {tr_path}")

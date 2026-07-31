@@ -46,7 +46,11 @@ venv/
 **/src/main/generated/
 **/src/generated/
 # FSM codegen output is committed so reviewers can diff it and CI stays hermetic.
+# Both trees must be un-ignored or the fsm-sync gate step cannot see them: it
+# compares the regenerated output against what is committed, and an ignored file
+# is never committed, so the check would pass over it in silence.
 !java/ems-fsm/src/main/generated/
+!rust/ems-fsm/src/generated/
 
 # Secrets
 .env

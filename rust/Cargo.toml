@@ -7,7 +7,7 @@
 
 [workspace]
 resolver = "2"
-members = ["ems-core", "ems-transport", "ems-aaa", "ems-validator", "ems-slice"]
+members = ["ems-core", "ems-fsm", "ems-transport", "ems-aaa", "ems-validator", "ems-slice"]
 
 [workspace.package]
 edition = "2021"
