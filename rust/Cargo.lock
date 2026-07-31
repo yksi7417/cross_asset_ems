@@ -3,6 +3,10 @@
 version = 3
 
 [[package]]
+name = "ems-aaa"
+version = "0.1.0"
+
+[[package]]
 name = "ems-core"
 version = "0.1.0"
 
@@ -10,6 +14,7 @@ version = "0.1.0"
 name = "ems-slice"
 version = "0.1.0"
 dependencies = [
+ "ems-aaa",
  "ems-core",
  "ems-transport",
 ]

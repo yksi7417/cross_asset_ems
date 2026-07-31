@@ -9,7 +9,7 @@ add_library(ems-it
 )
 target_include_directories(ems-it PUBLIC include/)
 target_compile_features(ems-it PUBLIC cxx_std_20)
-target_link_libraries(ems-it PUBLIC ems-core ems-fsm ems-transport)
+target_link_libraries(ems-it PUBLIC ems-core ems-fsm ems-transport ems-aaa)
 
 add_executable(ems-slice src/slice_main.cpp)
 target_link_libraries(ems-slice PRIVATE ems-it ems-transport)

@@ -1,6 +1,7 @@
-{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","orderId":"ORD-0000000001","price":"1250000","qty":"100","side":"BUY"},"seq":1,"type":"OrderAccepted"}
-{"fields":{"account":"ACC2","figi":"BBG000BPH459","orderId":"ORD-0000000002","price":"18750000","qty":"25","side":"SELL"},"seq":2,"type":"OrderAccepted"}
-{"fields":{"note":"session still up"},"seq":3,"type":"Heartbeat"}
-{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","orderId":"ORD-0000000003","price":"1249500","qty":"400","side":"BUY"},"seq":4,"type":"OrderAccepted"}
-{"fields":{"text":"café — ☕ \"quoted\" back\\slash"},"seq":5,"type":"Note"}
-{"fields":{"events":"5","seed":"0"},"seq":6,"type":"RunSummary"}
+{"fields":{"sessionId":"7","tags":"market-data,order-entry","user":"trader1"},"seq":1,"type":"SessionAccepted"}
+{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","orderId":"ORD-0000000001","price":"1250000","qty":"100","side":"BUY"},"seq":2,"type":"OrderAccepted"}
+{"fields":{"account":"ACC2","figi":"BBG000BPH459","orderId":"ORD-0000000002","price":"18750000","qty":"25","side":"SELL"},"seq":3,"type":"OrderAccepted"}
+{"fields":{"note":"session still up"},"seq":4,"type":"Heartbeat"}
+{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","orderId":"ORD-0000000003","price":"1249500","qty":"400","side":"BUY"},"seq":5,"type":"OrderAccepted"}
+{"fields":{"text":"café — ☕ \"quoted\" back\\slash"},"seq":6,"type":"Note"}
+{"fields":{"events":"6","seed":"0"},"seq":7,"type":"RunSummary"}

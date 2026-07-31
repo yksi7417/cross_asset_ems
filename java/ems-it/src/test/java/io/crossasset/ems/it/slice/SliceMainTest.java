@@ -85,12 +85,20 @@ class SliceMainTest {
         .isEqualTo(1);
   }
 
+  /** A logon that grants everything the order tests need. */
+  private static final String LOGON =
+      "{\"fields\":{\"desk\":\"DESK1\",\"firm\":\"FIRM1\",\"sessionId\":\"7\","
+          + "\"tags\":\"order-entry\",\"user\":\"trader1\"},\"seq\":1,\"type\":\"SessionLogon\"}\n";
+
   @Test
   void defaultSeedIsZero() throws IOException {
     Path input = tmp.resolve("in.jsonl");
     Path output = tmp.resolve("out.jsonl");
     Files.writeString(
-        input, "{\"fields\":{\"account\":\"ACC1\"},\"seq\":1,\"type\":\"OrderNew\"}\n");
+        input,
+        LOGON
+            + "{\"fields\":{\"account\":\"ACC1\",\"sessionId\":\"7\"},\"seq\":2,"
+            + "\"type\":\"OrderNew\"}\n");
 
     assertThat(run("--input", input.toString(), "--output", output.toString())).isZero();
     assertThat(Files.readString(output, StandardCharsets.UTF_8))
@@ -99,10 +107,74 @@ class SliceMainTest {
   }
 
   @Test
+  void orderWithoutAKnownSessionIsRejected() throws IOException {
+    Path input = tmp.resolve("in.jsonl");
+    Path output = tmp.resolve("out.jsonl");
+    Files.writeString(
+        input,
+        "{\"fields\":{\"account\":\"ACC1\",\"sessionId\":\"99\"},\"seq\":1,"
+            + "\"type\":\"OrderNew\"}\n");
+
+    assertThat(run("--input", input.toString(), "--output", output.toString())).isZero();
+    assertThat(Files.readString(output, StandardCharsets.UTF_8))
+        .contains("\"type\":\"OrderRejected\"")
+        .contains("\"code\":\"EMS-SES-1002\"")
+        .doesNotContain("orderId");
+  }
+
+  @Test
+  void orderMissingTheRequiredTagIsRejected() throws IOException {
+    Path input = tmp.resolve("in.jsonl");
+    Path output = tmp.resolve("out.jsonl");
+    Files.writeString(
+        input,
+        "{\"fields\":{\"desk\":\"DESK1\",\"firm\":\"FIRM1\",\"sessionId\":\"7\","
+            + "\"tags\":\"market-data\",\"user\":\"trader1\"},\"seq\":1,"
+            + "\"type\":\"SessionLogon\"}\n"
+            + "{\"fields\":{\"sessionId\":\"7\",\"tag\":\"order-entry\"},\"seq\":2,"
+            + "\"type\":\"OrderNew\"}\n");
+
+    assertThat(run("--input", input.toString(), "--output", output.toString())).isZero();
+    assertThat(Files.readString(output, StandardCharsets.UTF_8))
+        .contains("\"code\":\"EMS-PRM-1001\"")
+        .contains("does not have permission tag #order-entry");
+  }
+
+  @Test
+  void aRejectedOrderDoesNotConsumeAnIdentifier() throws IOException {
+    Path input = tmp.resolve("in.jsonl");
+    Path output = tmp.resolve("out.jsonl");
+    Files.writeString(
+        input,
+        LOGON
+            + "{\"fields\":{\"sessionId\":\"99\"},\"seq\":2,\"type\":\"OrderNew\"}\n"
+            + "{\"fields\":{\"sessionId\":\"7\"},\"seq\":3,\"type\":\"OrderNew\"}\n");
+
+    assertThat(run("--input", input.toString(), "--output", output.toString())).isZero();
+    // If a rejected order consumed an id, this would be ORD-0000000002 and every
+    // corpus case downstream of a rejection would shift.
+    assertThat(Files.readString(output, StandardCharsets.UTF_8))
+        .contains("\"orderId\":\"ORD-0000000001\"");
+  }
+
+  @Test
+  void aNonNumericSessionIdIsARejectionNotACrash() throws IOException {
+    Path input = tmp.resolve("in.jsonl");
+    Path output = tmp.resolve("out.jsonl");
+    Files.writeString(
+        input, "{\"fields\":{\"sessionId\":\"not-a-number\"},\"seq\":1,\"type\":\"OrderNew\"}\n");
+
+    assertThat(run("--input", input.toString(), "--output", output.toString())).isZero();
+    assertThat(Files.readString(output, StandardCharsets.UTF_8))
+        .contains("\"code\":\"EMS-SES-1002\"");
+  }
+
+  @Test
   void seedShiftsGeneratedIdentifiers() throws IOException {
     Path input = tmp.resolve("in.jsonl");
     Path output = tmp.resolve("out.jsonl");
-    Files.writeString(input, "{\"fields\":{},\"seq\":1,\"type\":\"OrderNew\"}\n");
+    Files.writeString(
+        input, LOGON + "{\"fields\":{\"sessionId\":\"7\"},\"seq\":2,\"type\":\"OrderNew\"}\n");
 
     assertThat(run("--input", input.toString(), "--output", output.toString(), "--seed", "41"))
         .isZero();
@@ -116,10 +188,11 @@ class SliceMainTest {
     Path input = tmp.resolve("in.jsonl");
     Files.writeString(
         input,
-        """
-        {"fields":{"account":"ACC1","figi":"BBG000B9XRY4","price":"1250000","qty":"100","side":"BUY"},"seq":1,"type":"OrderNew"}
-        {"fields":{"note":"passthrough"},"seq":2,"type":"Heartbeat"}
-        """);
+        LOGON
+            + """
+            {"fields":{"account":"ACC1","figi":"BBG000B9XRY4","price":"1250000","qty":"100","sessionId":"7","side":"BUY"},"seq":2,"type":"OrderNew"}
+            {"fields":{"note":"passthrough"},"seq":3,"type":"Heartbeat"}
+            """);
     Path first = tmp.resolve("a.jsonl");
     Path second = tmp.resolve("b.jsonl");
 

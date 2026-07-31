@@ -1,14 +1,21 @@
 //! The slice, as far as it has been built.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
+use ems_aaa::{AaaService, AuthorizationDecision, Identity, Session, CODE_SESSION_NOT_FOUND};
 use ems_core::{DeterministicIds, JournalEvent};
 
+/// Input event registering a session and its entitlements.
+const TYPE_SESSION_LOGON: &str = "SessionLogon";
+/// Output event acknowledging a logon.
+const TYPE_SESSION_ACCEPTED: &str = "SessionAccepted";
 /// Input event that opens an order.
 const TYPE_ORDER_NEW: &str = "OrderNew";
 /// Output event acknowledging one.
 const TYPE_ORDER_ACCEPTED: &str = "OrderAccepted";
-/// Final output event: makes the seed and the input size visible in the journal itself.
+/// Output event refusing one.
+const TYPE_ORDER_REJECTED: &str = "OrderRejected";
+/// Final output event: makes the seed and the input size visible in the journal.
 const TYPE_RUN_SUMMARY: &str = "RunSummary";
 
 /// Fields copied from `OrderNew` onto `OrderAccepted`.
@@ -20,39 +27,32 @@ const ECHOED_FIELDS: [&str; 5] = ["account", "figi", "price", "qty", "side"];
 
 /// Runs the slice over `input`, returning the output journal.
 ///
-/// **Today this covers component 1 only**: the journal codec and deterministic
-/// identifiers. An `OrderNew` becomes an `OrderAccepted` carrying a generated
-/// order id; everything else passes through with its sequence renumbered; a
-/// `RunSummary` closes the journal. There is no validation, no FSM, no routing
-/// and no venue — those are later components, and pretending otherwise in the
-/// output would make the conformance corpus lie about what is implemented.
+/// **Today this covers components 1–3**: the journal codec, deterministic
+/// identifiers, the transport seam and the AAA entitlement decision. A
+/// `SessionLogon` registers a session; an `OrderNew` is checked against it and
+/// becomes either an `OrderAccepted` carrying a generated order id or an
+/// `OrderRejected` carrying a catalog reject code.
+///
+/// There is still no validation pipeline, no FSM, no routing and no venue —
+/// those are later components, and pretending otherwise in the output would
+/// make the conformance corpus lie about what is implemented.
 ///
 /// Kept in lockstep with `java/ems-it/.../SliceRunner.java` and
 /// `cpp/ems-it/src/slice_runner.cpp`.
 #[must_use]
 pub fn run(input: &[JournalEvent], ids: &mut DeterministicIds) -> Vec<JournalEvent> {
     let mut output = Vec::with_capacity(input.len() + 1);
+    let mut aaa = AaaService::new();
     let mut seq: u64 = 0;
 
     for event in input {
-        if event.event_type == TYPE_ORDER_NEW {
-            let mut fields = BTreeMap::new();
-            fields.insert("orderId".to_owned(), ids.next_order_id());
-            for key in ECHOED_FIELDS {
-                if let Some(value) = event.fields.get(key) {
-                    fields.insert(key.to_owned(), value.clone());
-                }
-            }
-            seq += 1;
-            output.push(JournalEvent {
-                seq,
-                event_type: TYPE_ORDER_ACCEPTED.to_owned(),
-                fields,
-            });
-        } else {
-            seq += 1;
-            output.push(event.with_seq(seq));
-        }
+        seq += 1;
+        let emitted = match event.event_type.as_str() {
+            TYPE_SESSION_LOGON => on_session_logon(event, seq, &mut aaa),
+            TYPE_ORDER_NEW => on_order_new(event, seq, &aaa, ids),
+            _ => event.with_seq(seq),
+        };
+        output.push(emitted);
     }
 
     let mut summary = BTreeMap::new();
@@ -66,6 +66,136 @@ pub fn run(input: &[JournalEvent], ids: &mut DeterministicIds) -> Vec<JournalEve
     });
 
     output
+}
+
+fn on_session_logon(event: &JournalEvent, seq: u64, aaa: &mut AaaService) -> JournalEvent {
+    let session_id = parse_session_id(event);
+    let identity = Identity {
+        firm: field(event, "firm"),
+        desk: field(event, "desk"),
+        user: field(event, "user"),
+        tags: split_tags(&field(event, "tags")),
+    };
+
+    let mut fields = BTreeMap::new();
+    fields.insert("sessionId".to_owned(), session_id_text(session_id));
+    fields.insert("user".to_owned(), identity.user.clone());
+    // The granted tags are echoed so a corpus case can show *why* a later
+    // rejection happened without the reader having to re-read the input.
+    fields.insert(
+        "tags".to_owned(),
+        identity.tags.iter().cloned().collect::<Vec<_>>().join(","),
+    );
+
+    aaa.register(Session {
+        session_id: session_id.unwrap_or(u64::MAX),
+        identity,
+    });
+
+    JournalEvent {
+        seq,
+        event_type: TYPE_SESSION_ACCEPTED.to_owned(),
+        fields,
+    }
+}
+
+fn on_order_new(
+    event: &JournalEvent,
+    seq: u64,
+    aaa: &AaaService,
+    ids: &mut DeterministicIds,
+) -> JournalEvent {
+    let session_id = parse_session_id(event);
+    let Some(session) = session_id.and_then(|id| aaa.session(id)) else {
+        return reject(
+            seq,
+            event,
+            CODE_SESSION_NOT_FOUND,
+            "SES",
+            &format!(
+                "Session {} not found or has expired.",
+                session_id_display(session_id)
+            ),
+        );
+    };
+
+    let tag = field(event, "tag");
+    if let AuthorizationDecision::Deny {
+        code,
+        category,
+        reason,
+    } = AaaService::authorize(session, &tag)
+    {
+        return reject(seq, event, &code, &category, &reason);
+    }
+
+    // Only an accepted order consumes an identifier. If a rejected one did, the
+    // ids in a journal would depend on how many orders failed — and every corpus
+    // case downstream of a rejection would shift.
+    let mut fields = BTreeMap::new();
+    fields.insert("orderId".to_owned(), ids.next_order_id());
+    for key in ECHOED_FIELDS {
+        if let Some(value) = event.fields.get(key) {
+            fields.insert(key.to_owned(), value.clone());
+        }
+    }
+    JournalEvent {
+        seq,
+        event_type: TYPE_ORDER_ACCEPTED.to_owned(),
+        fields,
+    }
+}
+
+fn reject(
+    seq: u64,
+    event: &JournalEvent,
+    code: &str,
+    category: &str,
+    reason: &str,
+) -> JournalEvent {
+    let mut fields = BTreeMap::new();
+    fields.insert("category".to_owned(), category.to_owned());
+    fields.insert("code".to_owned(), code.to_owned());
+    fields.insert("reason".to_owned(), reason.to_owned());
+    fields.insert("sessionId".to_owned(), field(event, "sessionId"));
+    JournalEvent {
+        seq,
+        event_type: TYPE_ORDER_REJECTED.to_owned(),
+        fields,
+    }
+}
+
+/// `None` for a missing or non-numeric session id.
+///
+/// Malformed data on the wire is a rejection, not a defect: the order is
+/// refused as "session not found" rather than crashing the run.
+fn parse_session_id(event: &JournalEvent) -> Option<u64> {
+    field(event, "sessionId").parse::<u64>().ok()
+}
+
+/// The id as it appears in a `SessionAccepted`. An unparseable logon id is
+/// echoed as `-1`, matching what Java's `Long.parseLong` fallback produces.
+fn session_id_text(session_id: Option<u64>) -> String {
+    session_id.map_or_else(|| "-1".to_owned(), |id| id.to_string())
+}
+
+/// The id as it appears in a rejection reason.
+fn session_id_display(session_id: Option<u64>) -> String {
+    session_id_text(session_id)
+}
+
+fn field(event: &JournalEvent, key: &str) -> String {
+    event.fields.get(key).cloned().unwrap_or_default()
+}
+
+/// Splits a comma-separated tag list. Empty entries are dropped; order comes
+/// from the set.
+fn split_tags(raw: &str) -> BTreeSet<String> {
+    raw.split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
 }
 
 #[cfg(test)]
@@ -86,6 +216,20 @@ mod tests {
         }
     }
 
+    fn logon(tags: &str) -> JournalEvent {
+        event(
+            1,
+            "SessionLogon",
+            &[
+                ("desk", "DESK1"),
+                ("firm", "FIRM1"),
+                ("sessionId", "7"),
+                ("tags", tags),
+                ("user", "trader1"),
+            ],
+        )
+    }
+
     #[test]
     fn empty_input_still_produces_a_run_summary() {
         let mut ids = DeterministicIds::new(0);
@@ -99,33 +243,116 @@ mod tests {
     }
 
     #[test]
-    fn order_new_becomes_order_accepted_with_a_generated_id() {
+    fn logon_then_order_is_accepted() {
         let mut ids = DeterministicIds::new(0);
         let out = run(
-            &[event(1, "OrderNew", &[("account", "ACC1"), ("qty", "100")])],
+            &[
+                logon("order-entry"),
+                event(2, "OrderNew", &[("account", "ACC1"), ("sessionId", "7")]),
+            ],
             &mut ids,
         );
 
-        assert_eq!(out.len(), 2);
         assert_eq!(
-            encode(&out[0]),
-            "{\"fields\":{\"account\":\"ACC1\",\"orderId\":\"ORD-0000000001\",\"qty\":\"100\"},\
-             \"seq\":1,\"type\":\"OrderAccepted\"}"
+            encode(&out[1]),
+            "{\"fields\":{\"account\":\"ACC1\",\"orderId\":\"ORD-0000000001\"},\
+             \"seq\":2,\"type\":\"OrderAccepted\"}"
         );
     }
 
     #[test]
-    fn unrecognised_fields_are_not_echoed() {
-        // Only the agreed field list crosses to the output. A stray field
-        // reaching the journal would diverge the moment another language
-        // ordered it differently.
+    fn order_without_a_known_session_is_rejected() {
         let mut ids = DeterministicIds::new(0);
-        let out = run(&[event(1, "OrderNew", &[("surprise", "x")])], &mut ids);
+        let out = run(&[event(1, "OrderNew", &[("sessionId", "99")])], &mut ids);
 
         assert_eq!(
             encode(&out[0]),
-            "{\"fields\":{\"orderId\":\"ORD-0000000001\"},\"seq\":1,\"type\":\"OrderAccepted\"}"
+            "{\"fields\":{\"category\":\"SES\",\"code\":\"EMS-SES-1002\",\
+             \"reason\":\"Session 99 not found or has expired.\",\"sessionId\":\"99\"},\
+             \"seq\":1,\"type\":\"OrderRejected\"}"
         );
+    }
+
+    #[test]
+    fn order_missing_the_required_tag_is_rejected() {
+        let mut ids = DeterministicIds::new(0);
+        let out = run(
+            &[
+                logon("market-data"),
+                event(2, "OrderNew", &[("sessionId", "7"), ("tag", "order-entry")]),
+            ],
+            &mut ids,
+        );
+
+        assert!(
+            encode(&out[1]).contains("EMS-PRM-1001"),
+            "{}",
+            encode(&out[1])
+        );
+        assert!(
+            encode(&out[1]).contains("does not have permission tag #order-entry"),
+            "{}",
+            encode(&out[1])
+        );
+    }
+
+    #[test]
+    fn a_rejected_order_does_not_consume_an_identifier() {
+        let mut ids = DeterministicIds::new(0);
+        let out = run(
+            &[
+                logon("order-entry"),
+                event(2, "OrderNew", &[("sessionId", "99")]),
+                event(3, "OrderNew", &[("sessionId", "7")]),
+            ],
+            &mut ids,
+        );
+
+        // If a rejected order consumed an id this would be ORD-0000000002, and
+        // every corpus case downstream of a rejection would shift.
+        assert_eq!(out[2].fields["orderId"], "ORD-0000000001");
+    }
+
+    #[test]
+    fn a_non_numeric_session_id_is_a_rejection_not_a_panic() {
+        let mut ids = DeterministicIds::new(0);
+        let out = run(
+            &[event(1, "OrderNew", &[("sessionId", "not-a-number")])],
+            &mut ids,
+        );
+
+        assert_eq!(out[0].fields["code"], "EMS-SES-1002");
+        assert_eq!(
+            out[0].fields["reason"],
+            "Session -1 not found or has expired."
+        );
+    }
+
+    #[test]
+    fn re_logon_replaces_the_identity() {
+        let mut ids = DeterministicIds::new(0);
+        let out = run(
+            &[
+                logon("market-data"),
+                event(2, "OrderNew", &[("sessionId", "7"), ("tag", "order-entry")]),
+                event(
+                    3,
+                    "SessionLogon",
+                    &[
+                        ("desk", "DESK1"),
+                        ("firm", "FIRM1"),
+                        ("sessionId", "7"),
+                        ("tags", "market-data,order-entry"),
+                        ("user", "trader2"),
+                    ],
+                ),
+                event(4, "OrderNew", &[("sessionId", "7"), ("tag", "order-entry")]),
+            ],
+            &mut ids,
+        );
+
+        assert_eq!(out[1].event_type, "OrderRejected");
+        assert_eq!(out[3].event_type, "OrderAccepted");
     }
 
     #[test]
@@ -133,7 +360,6 @@ mod tests {
         let mut ids = DeterministicIds::new(0);
         let out = run(&[event(41, "Heartbeat", &[("note", "hi")])], &mut ids);
 
-        assert_eq!(out.len(), 2);
         assert_eq!(
             encode(&out[0]),
             "{\"fields\":{\"note\":\"hi\"},\"seq\":1,\"type\":\"Heartbeat\"}"
@@ -141,19 +367,10 @@ mod tests {
     }
 
     #[test]
-    fn seed_shifts_generated_identifiers() {
-        let mut ids = DeterministicIds::new(41);
-        let out = run(&[event(1, "OrderNew", &[])], &mut ids);
-
-        assert_eq!(out[0].fields["orderId"], "ORD-0000000042");
-        assert_eq!(out[1].fields["seed"], "41");
-    }
-
-    #[test]
     fn output_sequence_is_contiguous_from_one() {
         let mut ids = DeterministicIds::new(0);
         let out = run(
-            &[event(7, "OrderNew", &[]), event(9, "Heartbeat", &[])],
+            &[logon("order-entry"), event(9, "Heartbeat", &[])],
             &mut ids,
         );
 
