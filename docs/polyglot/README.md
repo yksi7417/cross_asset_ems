@@ -13,6 +13,7 @@ Rust, and C++ — and a byte-exact conformance gate proves the three behave iden
 | Conformance corpus | [`conformance/README.md`](../../conformance/README.md) |
 | Study guide | [`70_concepts/idioms/`](../../70_concepts/idioms/) |
 | Plans | [`docs/superpowers/plans/`](../superpowers/plans/README.md) — one per sub-project, indexed |
+| Status | [`docs/polyglot/status.md`](status.md) — per-language test counts and the test evidence behind every feature |
 
 ---
 
