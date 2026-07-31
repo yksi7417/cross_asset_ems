@@ -13,6 +13,7 @@ import io.crossasset.ems.fsm.generated.TransitionResult;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Live routes and their state, driven by the generated route FSM.
@@ -57,17 +58,53 @@ final class SliceRouteBook {
   }
 
   /**
-   * Quantity already routed for {@code orderId}.
+   * Applies {@code event} to {@code routeId}.
    *
-   * <p>Counts every route, including terminal ones. That is right for a filled route and wrong for
-   * a rejected one — quantity on a route the venue refused is not committed anywhere and ought to
-   * be routable again. Nothing in the slice can reach those states yet, so encoding the distinction
-   * now would be a rule with no test behind it. DEFERRED: T-7
+   * <p>Empty when the route is unknown. A result carrying {@code isNoTransition()} means the FSM
+   * had no rule for this (state, event) pair — the venue said something the route was not in a
+   * position to hear, which the schema answers by ignoring it.
+   */
+  Optional<TransitionResult<RouteFsmState, RouteFsmContext, RouteFsmEffect>> apply(
+      String routeId, RouteFsmEvent event, @Nullable Object payload) {
+    Entry entry = routes.get(routeId);
+    if (entry == null) {
+      return Optional.empty();
+    }
+
+    TransitionResult<RouteFsmState, RouteFsmContext, RouteFsmEffect> result =
+        RouteFsmRunner.transition(entry.state(), event, entry.context(), payload);
+
+    if (!result.isNoTransition()) {
+      routes.put(routeId, new Entry(result.newState(), result.newContext()));
+    }
+    return Optional.of(result);
+  }
+
+  /**
+   * States in which a route holds no quantity.
+   *
+   * <p>The venue killed the route without filling it, so nothing is committed anywhere and the
+   * quantity is routable again. {@code FILLED} is deliberately absent — a filled route consumed its
+   * quantity, and forgetting that would let an order be over-filled.
+   */
+  private static boolean releasesQuantity(RouteFsmState state) {
+    return state == RouteFsmState.REJECTED
+        || state == RouteFsmState.CANCELED
+        || state == RouteFsmState.EXPIRED
+        || state == RouteFsmState.SUPERSEDED;
+  }
+
+  /**
+   * Quantity currently committed to venues for {@code orderId}.
+   *
+   * <p>Counts live and filled routes; a route the venue rejected, cancelled, expired or superseded
+   * releases its quantity back. Until component 6b those states were unreachable, so this counted
+   * every route and an order whose only route was refused could never be re-routed.
    */
   long routedQty(String orderId) {
     long total = 0;
     for (Entry entry : routes.values()) {
-      if (entry.context().orderId().equals(orderId)) {
+      if (entry.context().orderId().equals(orderId) && !releasesQuantity(entry.state())) {
         total += entry.context().routeQty();
       }
     }
@@ -94,6 +131,11 @@ final class SliceRouteBook {
    */
   Optional<RouteFsmState> stateOf(String routeId) {
     return Optional.ofNullable(routes.get(routeId)).map(Entry::state);
+  }
+
+  /** The route, or empty when no such route exists. */
+  Optional<Entry> get(String routeId) {
+    return Optional.ofNullable(routes.get(routeId));
   }
 
   /** Whether any route already carries {@code clOrdId} — FIX requires them to be unique. */

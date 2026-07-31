@@ -330,6 +330,111 @@ class SliceMainTest {
     assertThat(out).contains("\"routeId\":\"RTE-0000000001\"").doesNotContain("RTE-0000000002");
   }
 
+  // ── Route lifecycle (component 6b) ────────────────────────────────────────
+
+  private static String routeEvent(String routeId, String name) {
+    return "{\"fields\":{\"event\":\""
+        + name
+        + "\",\"execId\":\"E-1\",\"lastPx\":\"15000\",\"lastQty\":\"100\","
+        + "\"routeId\":\""
+        + routeId
+        + "\"},\"seq\":5,\"type\":\"RouteEvent\"}\n";
+  }
+
+  /** A live route with its parent order, ready for venue events. */
+  private static String workingRoute() {
+    return orderNew("C-A", "1000")
+        + routeNew("C-A", "400", "")
+        + routeEvent("RTE-0000000001", "RouteAcknowledged");
+  }
+
+  /**
+   * The cascade: a venue fill on a route moves the parent <em>order</em>, and the mapping comes
+   * from the schema's {@code emit_event} effects rather than any table in the runner.
+   */
+  @Test
+  void aRouteFillCascadesToTheParentOrder() throws IOException {
+    String out = routed(workingRoute() + routeEvent("RTE-0000000001", "RouteFilled"));
+
+    assertThat(out)
+        .contains("\"event\":\"RouteFilled\",\"from\":\"WORKING\",\"fsm\":\"route\"")
+        // The order moved because the route did, on an event the client never sent.
+        .contains(
+            "\"clOrdId\":\"C-A\",\"event\":\"FullFill\",\"from\":\"NEW\","
+                + "\"fsm\":\"order\",\"to\":\"FILLED\"");
+    // Route transition first, then the order transition it cascaded to.
+    assertThat(out.indexOf("\"fsm\":\"route\",\"routeId\":\"RTE-0000000001\",\"to\":\"FILLED\""))
+        .isLessThan(out.indexOf("\"event\":\"FullFill\""));
+  }
+
+  /**
+   * A declined event cascades nothing. The generated effects are empty on a no-transition, so a
+   * route that refuses an event cannot move the order machine.
+   */
+  @Test
+  void aDeclinedRouteEventCascadesNothing() throws IOException {
+    // A route in SENT has no rule for RouteCanceled.
+    String out =
+        routed(
+            orderNew("C-A", "1000")
+                + routeNew("C-A", "400", "")
+                + routeEvent("RTE-0000000001", "RouteCanceled"));
+
+    assertThat(out).contains("\"applied\":\"false\",\"event\":\"RouteCanceled\"");
+    // Exactly one order transition: the ValidationPassed from OrderNew.
+    assertThat(out.split("\"fsm\":\"order\"", -1)).hasSize(2);
+  }
+
+  @Test
+  void anEventForAnUnknownRouteIsIgnored() throws IOException {
+    String out = routed(workingRoute() + routeEvent("RTE-9999999999", "RouteFilled"));
+
+    assertThat(out).contains("\"type\":\"RouteEventIgnored\"").contains("unknown route");
+  }
+
+  @Test
+  void anUnknownRouteEventNameIsIgnored() throws IOException {
+    String out = routed(workingRoute() + routeEvent("RTE-0000000001", "NotARouteEvent"));
+
+    assertThat(out).contains("\"type\":\"RouteEventIgnored\"").contains("unknown FSM event");
+  }
+
+  /**
+   * T-7: a route the venue refused holds no quantity, so the order can be re-routed for the full
+   * amount. Before component 6b this was refused with {@code EMS-RTE-4003}.
+   */
+  @Test
+  void aRejectedRouteReleasesItsQuantity() throws IOException {
+    String out =
+        routed(
+            orderNew("C-A", "1000")
+                + routeNew("C-A", "1000", "")
+                + routeEvent("RTE-0000000001", "RouteRejected")
+                + routeNew("C-A", "1000", ""));
+
+    assertThat(out).contains("RTE-0000000002").doesNotContain("EMS-RTE-4003");
+  }
+
+  /**
+   * A {@code FILLED} route keeps its quantity — releasing it would let the order be over-filled.
+   * The mirror of the test above, and why the releasing set is an allowlist rather than "any
+   * terminal state".
+   */
+  @Test
+  void aFilledRouteDoesNotReleaseItsQuantity() throws IOException {
+    String out =
+        routed(
+            orderNew("C-A", "1000")
+                + routeNew("C-A", "1000", "")
+                + routeEvent("RTE-0000000001", "RouteAcknowledged")
+                + routeEvent("RTE-0000000001", "RouteFilled")
+                + routeNew("C-A", "1000", ""));
+
+    // The order is FILLED by the cascade, so it is refused as un-routable before
+    // the quantity check is even reached.
+    assertThat(out).contains("\"code\":\"EMS-RTE-4002\"").doesNotContain("RTE-0000000002");
+  }
+
   @Test
   void emptyInputStillProducesARunSummary() throws IOException {
     Path input = tmp.resolve("empty.jsonl");

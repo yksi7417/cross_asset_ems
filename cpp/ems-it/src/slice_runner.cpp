@@ -46,6 +46,14 @@ constexpr std::string_view kTypeRouteNew = "RouteNew";
 constexpr std::string_view kTypeRouteAccepted = "RouteAccepted";
 /// Output event refusing one.
 constexpr std::string_view kTypeRouteRejected = "RouteRejected";
+/// Input event carrying a venue action against a live route.
+///
+/// The route counterpart of OrderEvent, named the same way for the same reason:
+/// the journal carries the FSM event name in a field, so a transition added to
+/// the schema needs no new event type here.
+constexpr std::string_view kTypeRouteEvent = "RouteEvent";
+/// Output event for a route action that reached no route.
+constexpr std::string_view kTypeRouteEventIgnored = "RouteEventIgnored";
 /// Final output event: makes the seed and the input size visible in the journal.
 constexpr std::string_view kTypeRunSummary = "RunSummary";
 
@@ -356,17 +364,28 @@ std::uint64_t on_order_event(const core::JournalEvent& event, std::uint64_t seq,
 using RouteBook = std::map<std::string, std::pair<crossasset::ems::fsm::RouteFsmState,
                                                   crossasset::ems::fsm::RouteFsmContext>>;
 
-/// Quantity already routed for `order_id`.
+/// States in which a route holds no quantity.
 ///
-/// Counts every route, including terminal ones. That is right for a filled route
-/// and wrong for a rejected one — quantity on a route the venue refused is not
-/// committed anywhere and ought to be routable again. Nothing in the slice can
-/// reach those states yet, so encoding the distinction now would be a rule with
-/// no test behind it. DEFERRED: T-7
+/// The venue killed the route without filling it, so nothing is committed
+/// anywhere and the quantity is routable again. FILLED is deliberately absent —
+/// a filled route consumed its quantity, and forgetting that would let an order
+/// be over-filled.
+bool releases_quantity(crossasset::ems::fsm::RouteFsmState state) {
+    namespace f = crossasset::ems::fsm;
+    return state == f::RouteFsmState::REJECTED || state == f::RouteFsmState::CANCELED ||
+           state == f::RouteFsmState::EXPIRED || state == f::RouteFsmState::SUPERSEDED;
+}
+
+/// Quantity currently committed to venues for `order_id`.
+///
+/// Counts live and filled routes; a route the venue rejected, cancelled, expired
+/// or superseded releases its quantity back. Until component 6b those states
+/// were unreachable, so this counted every route and an order whose only route
+/// was refused could never be re-routed.
 std::uint64_t routed_qty(const RouteBook& routes, const std::string& order_id) {
     std::uint64_t total = 0;
     for (const auto& [id, entry] : routes) {
-        if (entry.second.orderId == order_id) {
+        if (entry.second.orderId == order_id && !releases_quantity(entry.first)) {
             total += entry.second.routeQty;
         }
     }
@@ -545,6 +564,168 @@ std::uint64_t on_route_new(const core::JournalEvent& event, std::uint64_t seq,
     return seq + 2U;
 }
 
+/// The client identifier for one of our order ids.
+///
+/// A scan rather than a second map. The order book is keyed on ClOrdID and
+/// routes carry OrderID, so something has to bridge them; a reverse index would
+/// be a second structure to keep in step, and this book holds tens of orders.
+/// The map makes the scan order deterministic.
+std::string cl_ord_id_for(const std::map<std::string, std::string>& order_ids,
+                          const std::string& order_id) {
+    for (const auto& [cl_ord_id, assigned] : order_ids) {
+        if (assigned == order_id) {
+            return cl_ord_id;
+        }
+    }
+    return {};
+}
+
+/// Records a route action that reached no route. Never fatal.
+std::uint64_t push_route_ignored(std::uint64_t seq, const std::string& route_id,
+                                 const std::string& raw_event, const std::string& reason,
+                                 std::vector<core::JournalEvent>& output) {
+    std::map<std::string, std::string> fields;
+    fields.emplace("event", raw_event);
+    fields.emplace("reason", reason);
+    fields.emplace("routeId", route_id);
+    output.push_back(
+        core::JournalEvent{seq + 1U, std::string(kTypeRouteEventIgnored), std::move(fields)});
+    return seq + 1U;
+}
+
+/// Applies a venue action to a live route, and cascades what the schema says.
+///
+/// **The cascade is not written here.** route.fsm.yaml declares emit_event
+/// effects — a route reaching WORKING emits ValidationPassed to the order
+/// machine, a fill emits PartialFill — and this reads them off the transition
+/// result. Hand-writing that mapping would mean three languages each holding an
+/// opinion about what the YAML says, which is the failure the generator exists
+/// to prevent.
+///
+/// Ordering is fixed and journalled: the route's own transition first, then each
+/// cascaded order transition in the order the schema declares the effects.
+std::uint64_t on_route_event(const core::JournalEvent& event, std::uint64_t seq, OrderBook& orders,
+                             const std::map<std::string, std::string>& order_ids,
+                             RouteBook& routes, std::vector<core::JournalEvent>& output) {
+    namespace f = crossasset::ems::fsm;
+    const std::string route_id = field(event, "routeId");
+    const std::string raw = field(event, "event");
+
+    const auto fsm_event = f::RouteFsmEventFromName(raw);
+    if (!fsm_event.has_value()) {
+        return push_route_ignored(seq, route_id, raw, "unknown FSM event", output);
+    }
+    const auto found = routes.find(route_id);
+    if (found == routes.end()) {
+        return push_route_ignored(seq, route_id, raw, "unknown route", output);
+    }
+
+    const f::RouteFsmState before = found->second.first;
+    const std::string order_id = found->second.second.orderId;
+
+    // The payload structs must outlive the transition call: `transition` takes a
+    // `const void*` and reads through it, so a temporary would dangle.
+    f::RouteFsmPayloads::RoutePartiallyFilledPayload partial{};
+    f::RouteFsmPayloads::RouteFilledPayload filled{};
+    f::RouteFsmPayloads::RouteCancelRejectedPayload cancel_rej{};
+    f::RouteFsmPayloads::RouteReplaceRejectedPayload replace_rej{};
+    f::RouteFsmPayloads::RouteReplacedPayload replaced{};
+    f::RouteFsmPayloads::RouteReplaceRequestedPayload replace_req{};
+    const void* payload = nullptr;
+    switch (*fsm_event) {
+    case f::RouteFsmEvent::RoutePartiallyFilled:
+        partial.lastQty = static_cast<std::uint64_t>(parse_i64(field(event, "lastQty")));
+        partial.lastPx = parse_i64(field(event, "lastPx"));
+        partial.execId = field(event, "execId");
+        payload = &partial;
+        break;
+    case f::RouteFsmEvent::RouteFilled:
+        filled.lastQty = static_cast<std::uint64_t>(parse_i64(field(event, "lastQty")));
+        filled.lastPx = parse_i64(field(event, "lastPx"));
+        filled.execId = field(event, "execId");
+        payload = &filled;
+        break;
+    case f::RouteFsmEvent::RouteCancelRejected:
+        cancel_rej.cxlRejReason = static_cast<std::uint8_t>(parse_i64(field(event, "cxlRejReason")));
+        payload = &cancel_rej;
+        break;
+    case f::RouteFsmEvent::RouteReplaceRejected:
+        replace_rej.cxlRejReason =
+            static_cast<std::uint8_t>(parse_i64(field(event, "cxlRejReason")));
+        payload = &replace_rej;
+        break;
+    case f::RouteFsmEvent::RouteReplaced:
+        replaced.newClOrdId = field(event, "newClOrdId");
+        payload = &replaced;
+        break;
+    case f::RouteFsmEvent::RouteReplaceRequested:
+        replace_req.newClOrdId = field(event, "newClOrdId");
+        replace_req.newRouteQty =
+            static_cast<std::uint64_t>(parse_i64(field(event, "newRouteQty")));
+        payload = &replace_req;
+        break;
+    default:
+        break;
+    }
+
+    const auto result = f::transition(before, *fsm_event, found->second.second, payload);
+    if (!result.isNoTransition) {
+        routes.insert_or_assign(route_id, std::make_pair(result.newState, result.newContext));
+    }
+
+    std::map<std::string, std::string> fields;
+    fields.emplace("applied", result.isNoTransition ? "false" : "true");
+    fields.emplace("event", f::name(*fsm_event));
+    fields.emplace("from", f::name(before));
+    fields.emplace("fsm", "route");
+    fields.emplace("routeId", route_id);
+    fields.emplace("to", f::name(result.isNoTransition ? before : result.newState));
+    output.push_back(
+        core::JournalEvent{seq + 1U, std::string(kTypeFsmTransition), std::move(fields)});
+    seq += 1U;
+
+    // A declined event cascades nothing. The generated effects are empty on a
+    // no-transition precisely so this cannot be got wrong by forgetting to check.
+    if (result.isNoTransition) {
+        return seq;
+    }
+
+    const std::string cl_ord_id = cl_ord_id_for(order_ids, order_id);
+    if (cl_ord_id.empty()) {
+        return seq;
+    }
+
+    for (const auto& effect : result.effects) {
+        if (effect.kind != f::RouteFsmEffectKind::EmitEvent) {
+            continue;
+        }
+        const auto order_event = f::OrderFsmEventFromName(std::string(effect.event));
+        const auto parent = orders.find(cl_ord_id);
+        if (!order_event.has_value() || parent == orders.end()) {
+            continue;
+        }
+
+        f::OrderFsmPayloads::PartialFillPayload order_partial{};
+        f::OrderFsmPayloads::FullFillPayload order_full{};
+        const void* order_payload = nullptr;
+        if (*order_event == f::OrderFsmEvent::PartialFill) {
+            order_partial.lastQty = static_cast<std::uint64_t>(parse_i64(field(event, "lastQty")));
+            order_partial.lastPx = parse_i64(field(event, "lastPx"));
+            order_partial.execId = field(event, "execId");
+            order_payload = &order_partial;
+        } else if (*order_event == f::OrderFsmEvent::FullFill) {
+            order_full.lastQty = static_cast<std::uint64_t>(parse_i64(field(event, "lastQty")));
+            order_full.lastPx = parse_i64(field(event, "lastPx"));
+            order_full.execId = field(event, "execId");
+            order_payload = &order_full;
+        }
+
+        seq = emit_transition(cl_ord_id, *order_event, order_payload, parent->second.second, seq,
+                              orders, output);
+    }
+    return seq;
+}
+
 std::uint64_t on_order_new(const core::JournalEvent& event, std::uint64_t seq,
                            const aaa::AaaService& service,
                            const validator::SecurityMaster& securities,
@@ -618,6 +799,8 @@ std::vector<core::JournalEvent> run_slice(const std::vector<core::JournalEvent>&
             seq = on_order_event(event, seq, orders, output);
         } else if (event.type == kTypeRouteNew) {
             seq = on_route_new(event, seq, ids, orders, order_ids, routes, output);
+        } else if (event.type == kTypeRouteEvent) {
+            seq = on_route_event(event, seq, orders, order_ids, routes, output);
         } else {
             core::JournalEvent copy = event;
             copy.seq = ++seq;

@@ -19,7 +19,7 @@ to:
 
 | | Java | Rust | C++ |
 |---|---:|---:|---:|
-| **Tests passing** | **2,382** | **90** | **72** |
+| **Tests passing** | **2,388** | **104** | **86** |
 | Failures / errors / skipped | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
 | Suites | 14 modules | 9 | 7 ctest targets |
 
@@ -152,7 +152,7 @@ The end-to-end path, exercised through the actual binary.
 
 | | Java | Rust | C++ |
 |---|---|---|---|
-| Tests | 23 | 23 | 21 |
+| Tests | 29 | 29 | 27 |
 | File | [`SliceMainTest.java`](../../java/ems-it/src/test/java/io/crossasset/ems/it/slice/SliceMainTest.java) | [`runner.rs`](../../rust/ems-slice/src/runner.rs) · [`main.rs`](../../rust/ems-slice/src/main.rs) | [`slice_runner_test.cpp`](../../cpp/ems-it/test/slice_runner_test.cpp) |
 
 | | Evidence |
@@ -188,8 +188,9 @@ each other, at the byte level.**
 | [`component-04-validation-layers`](../../conformance/corpus/component-04-validation-layers/case.md) | unknown FIGI; suspended instrument; **two faults where SESSION wins**; ungranted tag | 🔴🟡 |
 | [`component-05-order-fsm`](../../conformance/corpus/component-05-order-fsm/case.md) | all **31** order transitions across 12 orders — replace round trips, fills racing a pending replace *and* a pending cancel, cancel-rejects routing back to three states by guard, trade correction and bust; plus an event for an unknown order and an event name the schema does not define | 🟢🟡🔴 |
 | [`component-06-routing`](../../conformance/corpus/component-06-routing/case.md) | route creation: a limit route, a market route taking the exact remainder, and **six refusals** — over-route, zero qty, unknown order, rejected order, ClOrdID collision, filled order — with the route ids unshifted by any of them | 🟢🟡🔴 |
+| [`component-07-route-lifecycle`](../../conformance/corpus/component-07-route-lifecycle/case.md) | all **29** route transitions across 18 routes, plus the **cross-FSM cascade** — a venue fill on a route moves the parent order via the schema's `emit_event` effects; two cancel-rejects landing in different states purely by guard; an unknown route, an unknown event name, and a terminal route declining venue chatter | 🟢🟡🔴 |
 
-**15 of 15** — five cases × three implementations, byte-identical.
+**18 of 18** — six cases × three implementations, byte-identical.
 
 ```bash
 conformance/harness/run.sh
@@ -223,7 +224,7 @@ lane.
 
 ## Feature matrix
 
-Eight components make up the cash-equity slice. Six are done in all three languages.
+Eight components make up the cash-equity slice. Seven are done in all three languages.
 
 | # | Component | Java | Rust | C++ | Cross-language proof |
 |---|---|:---:|:---:|:---:|---|
@@ -234,7 +235,7 @@ Eight components make up the cash-equity slice. Six are done in all three langua
 | 5 | FSM codegen | ✅ | ✅ | ✅ | `fsm-sync` diffs all three |
 | 5b | FSM wired into the slice runner | ✅ | ✅ | ✅ | `component-05`; `fsm-coverage` asserts 31/31 |
 | 6a | Route creation (`ems-oms`) | ✅ | ✅ | ✅ | `component-06`; 4 reject codes, ids survive refusals |
-| 6b | Route venue lifecycle | ❌ | ❌ | ❌ | — (28 of 29 route transitions still unreachable) |
+| 6b | Route venue lifecycle + cross-FSM cascade | ✅ | ✅ | ✅ | `component-07`; `fsm-coverage` asserts 29/29 |
 | 7 | Venue edge (FIX out, ExecutionReport in) | ✅ † | ❌ | ❌ | — |
 | 8 | Fill handling / allocation | ✅ † | ❌ | ❌ | — |
 
@@ -252,6 +253,7 @@ attaches to it.
 | **Dependencies** | version catalog | `cargo-deny`: one licence allowed, no git sources | CMake `FetchContent`, GoogleTest pinned |
 | **Clock** | `TimeSource` injected, `no_raw_clock.py` enforces | slice reads no clock | slice reads no clock |
 | **FSM exhaustiveness** | `default:` — new state fails at **run time** | **compile error** | `default:` — same as Java |
+| **FSM effects** | sealed interface of records, `List<E>` | `&'static [Effect]` — lifetime **checked** | `std::span` over `constexpr` tables — lifetime by convention |
 
 ---
 

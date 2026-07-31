@@ -70,5 +70,6 @@ every route in this case ends the run in `SENT` and the other 28 transitions in 
 unreachable. That is why `fsm_coverage.py` still lists `route` as out of scope with a reason instead
 of requiring it — component 6b drives the venue lifecycle, and flipping the machine in-scope while
 28/29 of it is unreachable would mean either a failing gate or a coverage exemption that never gets
-removed. Quantity on a route the venue later rejects is also still counted as committed
-(**DEFERRED: T-7**).
+removed. Quantity on a route the venue later rejects was also still counted as committed at 6a — component
+6b fixed that, and [`component-07-route-lifecycle`](../component-07-route-lifecycle/case.md)
+re-routes an order whose first route the venue refused.

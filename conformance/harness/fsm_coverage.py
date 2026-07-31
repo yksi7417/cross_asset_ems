@@ -35,15 +35,9 @@ SCHEMA_DIR = pathlib.Path("schemas/fsm")
 # Machines the slice drives. The others are real and generated in all three
 # languages, but nothing in the slice sends them events yet, so requiring corpus
 # coverage would mean writing cases for behaviour that does not exist.
-IN_SCOPE = {"order": "order.fsm.yaml"}
+IN_SCOPE = {"order": "order.fsm.yaml", "route": "route.fsm.yaml"}
 
 OUT_OF_SCOPE_REASON = {
-    # Component 6a drives exactly one of route.fsm.yaml's 29 transitions
-    # (PENDING -RouteSent-> SENT). Flipping the machine in-scope now would mean
-    # either a permanently red gate or a partial-coverage exemption, and an
-    # exemption written once is an exemption nobody removes. Binary is honest:
-    # in scope means every transition, and route is not there yet.
-    "route": "the venue lifecycle is component 6b — 6a only creates routes",
     "sor": "SOR is out of the slice entirely (ADR 0002)",
     "multileg": "multi-leg is out of the slice entirely (ADR 0002)",
     "venue_session": "the venue edge is component 7",

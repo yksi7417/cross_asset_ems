@@ -5,9 +5,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use ems_aaa::{AaaService, Identity};
 use ems_core::{DeterministicIds, JournalEvent};
 use ems_fsm::generated::order_fsm::{FullFillPayload, PartialFillPayload};
+use ems_fsm::generated::route_fsm::{
+    RouteCancelRejectedPayload, RouteFilledPayload, RoutePartiallyFilledPayload,
+    RouteReplaceRejectedPayload, RouteReplaceRequestedPayload, RouteReplacedPayload,
+};
 use ems_fsm::{
     OrderFsmContext, OrderFsmEvent, OrderFsmPayload, OrderFsmState, RouteFsmContext, RouteFsmEvent,
-    RouteFsmState,
+    RouteFsmPayload, RouteFsmState,
 };
 use ems_validator::{
     validate, InstrumentStatus, SecurityMaster, ValidationRequest, ValidationResult,
@@ -48,6 +52,14 @@ const TYPE_ROUTE_NEW: &str = "RouteNew";
 const TYPE_ROUTE_ACCEPTED: &str = "RouteAccepted";
 /// Output event refusing one.
 const TYPE_ROUTE_REJECTED: &str = "RouteRejected";
+/// Input event carrying a venue action against a live route.
+///
+/// The route counterpart of `OrderEvent`, named the same way for the same
+/// reason: the journal carries the FSM event name in a field, so a transition
+/// added to the schema needs no new event type here.
+const TYPE_ROUTE_EVENT: &str = "RouteEvent";
+/// Output event for a route action that reached no route.
+const TYPE_ROUTE_EVENT_IGNORED: &str = "RouteEventIgnored";
 /// Catalog code: no such order to route.
 const CODE_ROUTE_UNKNOWN_ORDER: &str = "EMS-RTE-4001";
 /// Catalog code: the order is not in a state that can be routed.
@@ -68,17 +80,19 @@ const ECHOED_FIELDS: [&str; 5] = ["account", "figi", "price", "qty", "side"];
 
 /// Runs the slice over `input`, returning the output journal.
 ///
-/// **Today this covers components 1–6a**: the journal codec, deterministic
+/// **Today this covers components 1–6b**: the journal codec, deterministic
 /// identifiers, the transport seam, the AAA entitlement decision, the layered
-/// validation pipeline, the order FSM and route creation. A `SessionLogon`
-/// registers a session; an `OrderNew` is checked against it and becomes either
-/// an `OrderAccepted` carrying a generated order id or an `OrderRejected`
-/// carrying a catalog reject code; an `OrderEvent` drives the order FSM; a
-/// `RouteNew` projects an accepted order onto a venue.
+/// validation pipeline, the order FSM, route creation and the route venue
+/// lifecycle. A `SessionLogon` registers a session; an `OrderNew` becomes an
+/// `OrderAccepted` carrying a generated order id or an `OrderRejected` carrying
+/// a catalog reject code; an `OrderEvent` drives the order FSM; a `RouteNew`
+/// projects an accepted order onto a venue; a `RouteEvent` drives the route FSM
+/// and **cascades to the order FSM** via the schema's `emit_event` effects.
 ///
-/// There is still no venue edge and no allocation, and a created route never
-/// leaves `Sent` — the venue lifecycle is component 6b. Pretending otherwise in
-/// the output would make the conformance corpus lie about what is implemented.
+/// There is still no venue edge — nothing here speaks FIX, and `RouteEvent`s
+/// arrive as journal entries rather than from a session — and no allocation.
+/// Those are components 7 and 8. Pretending otherwise in the output would make
+/// the conformance corpus lie about what is implemented.
 ///
 /// Kept in lockstep with `java/ems-it/.../SliceRunner.java` and
 /// `cpp/ems-it/src/slice_runner.cpp`.
@@ -131,6 +145,16 @@ pub fn run(input: &[JournalEvent], ids: &mut DeterministicIds) -> Vec<JournalEve
                     seq,
                     ids,
                     &orders,
+                    &order_ids,
+                    &mut routes,
+                    &mut output,
+                );
+            }
+            TYPE_ROUTE_EVENT => {
+                seq = on_route_event(
+                    event,
+                    seq,
+                    &mut orders,
                     &order_ids,
                     &mut routes,
                     &mut output,
@@ -532,6 +556,175 @@ fn push_route_accepted(journal: RouteJournal<'_>, output: &mut Vec<JournalEvent>
         fields,
     });
     journal.seq + 2
+}
+
+/// Applies a venue action to a live route, and cascades what the schema says.
+///
+/// **The cascade is not written here.** `route.fsm.yaml` declares `emit_event`
+/// effects — a route reaching `WORKING` emits `ValidationPassed` to the order
+/// machine, a fill emits `PartialFill` — and this reads them off the transition
+/// result. Hand-writing that mapping would mean three languages each holding an
+/// opinion about what the YAML says, which is the failure the generator exists
+/// to prevent.
+///
+/// Ordering is fixed and journalled: the route's own transition first, then each
+/// cascaded order transition in the order the schema declares the effects. Two
+/// languages emitting these in a different order would fail the conformance
+/// gate, which is how we know they agree.
+fn on_route_event(
+    event: &JournalEvent,
+    seq: u64,
+    orders: &mut BTreeMap<String, (OrderFsmState, OrderFsmContext)>,
+    order_ids: &BTreeMap<String, String>,
+    routes: &mut RouteBook,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
+    let route_id = field(event, "routeId");
+    let raw = field(event, "event");
+
+    let Some(fsm_event) = RouteFsmEvent::from_name(&raw) else {
+        return push_route_ignored(seq, &route_id, &raw, "unknown FSM event", output);
+    };
+    let Some(before) = routes.state_of(&route_id) else {
+        return push_route_ignored(seq, &route_id, &raw, "unknown route", output);
+    };
+    let order_id = routes
+        .context_of(&route_id)
+        .map(|context| context.order_id.clone())
+        .unwrap_or_default();
+
+    let payload = route_payload_for(fsm_event, event);
+    let result = routes.apply(&route_id, fsm_event, payload.as_ref());
+    let applied = result.as_ref().is_some_and(|r| !r.is_no_transition);
+
+    let mut fields = BTreeMap::new();
+    fields.insert("applied".to_owned(), applied.to_string());
+    fields.insert("event".to_owned(), fsm_event.name().to_owned());
+    fields.insert("from".to_owned(), before.name().to_owned());
+    fields.insert("fsm".to_owned(), "route".to_owned());
+    fields.insert("routeId".to_owned(), route_id.clone());
+    fields.insert(
+        "to".to_owned(),
+        routes
+            .state_of(&route_id)
+            .unwrap_or(before)
+            .name()
+            .to_owned(),
+    );
+    let mut seq = seq + 1;
+    output.push(JournalEvent {
+        seq,
+        event_type: TYPE_FSM_TRANSITION.to_owned(),
+        fields,
+    });
+
+    // A declined event cascades nothing. The generated effects are empty on a
+    // no-transition precisely so this cannot be got wrong by forgetting to check.
+    let Some(result) = result.filter(|r| !r.is_no_transition) else {
+        return seq;
+    };
+
+    let Some(cl_ord_id) = cl_ord_id_for(order_ids, &order_id) else {
+        return seq;
+    };
+
+    for (_, emitted) in result.emitted_events() {
+        let Some(order_event) = OrderFsmEvent::from_name(emitted) else {
+            continue;
+        };
+        let Some((_, context)) = orders.get(&cl_ord_id) else {
+            continue;
+        };
+        let context = context.clone();
+        seq = emit_transition(
+            &cl_ord_id,
+            order_event,
+            payload_for(order_event, event).as_ref(),
+            &context,
+            seq,
+            orders,
+            output,
+        );
+    }
+    seq
+}
+
+/// The client identifier for one of our order ids.
+///
+/// A scan rather than a second map. The order book is keyed on `ClOrdID` and
+/// routes carry `OrderID`, so something has to bridge them; a reverse index would
+/// be a second structure to keep in step, and this book holds tens of orders.
+/// The `BTreeMap` makes the scan order deterministic.
+fn cl_ord_id_for(order_ids: &BTreeMap<String, String>, order_id: &str) -> Option<String> {
+    order_ids
+        .iter()
+        .find(|(_, assigned)| assigned.as_str() == order_id)
+        .map(|(cl_ord_id, _)| cl_ord_id.clone())
+}
+
+/// Records a route action that reached no route. Never fatal.
+fn push_route_ignored(
+    seq: u64,
+    route_id: &str,
+    raw_event: &str,
+    reason: &str,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
+    let mut fields = BTreeMap::new();
+    fields.insert("event".to_owned(), raw_event.to_owned());
+    fields.insert("reason".to_owned(), reason.to_owned());
+    fields.insert("routeId".to_owned(), route_id.to_owned());
+    output.push(JournalEvent {
+        seq: seq + 1,
+        event_type: TYPE_ROUTE_EVENT_IGNORED.to_owned(),
+        fields,
+    });
+    seq + 1
+}
+
+/// Builds the payload a route FSM event needs, or `None` when it takes none.
+fn route_payload_for(fsm_event: RouteFsmEvent, event: &JournalEvent) -> Option<RouteFsmPayload> {
+    let last_qty = field(event, "lastQty").parse::<u64>().unwrap_or(0);
+    let last_px = field(event, "lastPx").parse::<i64>().unwrap_or(0);
+    let exec_id = field(event, "execId");
+    let reason = field(event, "cxlRejReason").parse::<u8>().unwrap_or(0);
+    match fsm_event {
+        RouteFsmEvent::RoutePartiallyFilled => Some(RouteFsmPayload::RoutePartiallyFilled(
+            RoutePartiallyFilledPayload {
+                last_qty,
+                last_px,
+                exec_id,
+            },
+        )),
+        RouteFsmEvent::RouteFilled => Some(RouteFsmPayload::RouteFilled(RouteFilledPayload {
+            last_qty,
+            last_px,
+            exec_id,
+        })),
+        RouteFsmEvent::RouteCancelRejected => Some(RouteFsmPayload::RouteCancelRejected(
+            RouteCancelRejectedPayload {
+                cxl_rej_reason: reason,
+            },
+        )),
+        RouteFsmEvent::RouteReplaceRejected => Some(RouteFsmPayload::RouteReplaceRejected(
+            RouteReplaceRejectedPayload {
+                cxl_rej_reason: reason,
+            },
+        )),
+        RouteFsmEvent::RouteReplaced => {
+            Some(RouteFsmPayload::RouteReplaced(RouteReplacedPayload {
+                new_cl_ord_id: field(event, "newClOrdId"),
+            }))
+        }
+        RouteFsmEvent::RouteReplaceRequested => Some(RouteFsmPayload::RouteReplaceRequested(
+            RouteReplaceRequestedPayload {
+                new_cl_ord_id: field(event, "newClOrdId"),
+                new_route_qty: field(event, "newRouteQty").parse::<u64>().unwrap_or(0),
+                new_price: None,
+            },
+        )),
+        _ => None,
+    }
 }
 
 /// States an order can be routed from.
@@ -1137,6 +1330,146 @@ mod tests {
         assert_eq!(
             nth_of(&out, "RouteRejected", 0).fields["code"],
             "EMS-RTE-2005"
+        );
+    }
+
+    // ── Route lifecycle (component 6b) ──────────────────────────────────────
+
+    fn route_event(seq: u64, route_id: &str, name: &str) -> JournalEvent {
+        event(
+            seq,
+            "RouteEvent",
+            &[
+                ("event", name),
+                ("execId", "E-1"),
+                ("lastPx", "15000"),
+                ("lastQty", "100"),
+                ("routeId", route_id),
+            ],
+        )
+    }
+
+    /// A live route with its parent order, ready for venue events.
+    fn working_route() -> Vec<JournalEvent> {
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-A", "400"));
+        input.push(route_event(5, "RTE-0000000001", "RouteAcknowledged"));
+        input
+    }
+
+    /// The cascade: a venue fill on a route moves the parent ORDER, and the
+    /// mapping comes from the schema's `emit_event` effects rather than from any
+    /// table in this file.
+    #[test]
+    fn a_route_fill_cascades_to_the_parent_order() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = working_route();
+        input.push(route_event(6, "RTE-0000000001", "RouteFilled"));
+        let out = run(&input, &mut ids);
+
+        let route = out
+            .iter()
+            .rfind(|e| e.event_type == "FsmTransition" && e.fields["fsm"] == "route")
+            .expect("a route transition");
+        assert_eq!(route.fields["to"], "FILLED");
+
+        let order = out
+            .iter()
+            .rfind(|e| e.event_type == "FsmTransition" && e.fields["fsm"] == "order")
+            .expect("an order transition");
+        assert_eq!(order.fields["event"], "FullFill");
+        assert_eq!(order.fields["to"], "FILLED");
+        // The route moves first, then the order it cascaded to. Order is part of
+        // the cross-language contract.
+        assert!(route.seq < order.seq);
+    }
+
+    /// **A declined event cascades nothing.** The generated effects are empty on
+    /// a no-transition, so a route that refuses an event cannot move the order.
+    #[test]
+    fn a_declined_route_event_cascades_nothing() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-A", "400"));
+        // A route in SENT has no rule for RouteCanceled.
+        input.push(route_event(5, "RTE-0000000001", "RouteCanceled"));
+        let out = run(&input, &mut ids);
+
+        let route = out
+            .iter()
+            .rfind(|e| e.event_type == "FsmTransition" && e.fields["fsm"] == "route")
+            .expect("a route transition");
+        assert_eq!(route.fields["applied"], "false");
+        // Exactly one order transition: the ValidationPassed from OrderNew. The
+        // declined route event added none.
+        assert_eq!(
+            out.iter()
+                .filter(|e| e.event_type == "FsmTransition" && e.fields["fsm"] == "order")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn an_event_for_an_unknown_route_is_ignored() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = working_route();
+        input.push(route_event(6, "RTE-9999999999", "RouteFilled"));
+        let out = run(&input, &mut ids);
+
+        assert_eq!(
+            nth_of(&out, "RouteEventIgnored", 0).fields["reason"],
+            "unknown route"
+        );
+    }
+
+    #[test]
+    fn an_unknown_route_event_name_is_ignored() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = working_route();
+        input.push(route_event(6, "RTE-0000000001", "NotARouteEvent"));
+        let out = run(&input, &mut ids);
+
+        assert_eq!(
+            nth_of(&out, "RouteEventIgnored", 0).fields["reason"],
+            "unknown FSM event"
+        );
+    }
+
+    /// T-7: a route the venue refused holds no quantity, so the order can be
+    /// re-routed for the full amount. Before component 6b this was EMS-RTE-4003.
+    #[test]
+    fn a_rejected_route_releases_its_quantity() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-A", "1000"));
+        input.push(route_event(5, "RTE-0000000001", "RouteRejected"));
+        input.push(route_new(6, "C-A", "1000"));
+        let out = run(&input, &mut ids);
+
+        assert_eq!(count_of(&out, "RouteAccepted"), 2);
+        assert_eq!(count_of(&out, "RouteRejected"), 0);
+    }
+
+    /// A FILLED route keeps its quantity — releasing it would let the order be
+    /// over-filled. The mirror of the test above, and the reason the releasing
+    /// set is an allowlist rather than "any terminal state".
+    #[test]
+    fn a_filled_route_does_not_release_its_quantity() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-A", "1000"));
+        input.push(route_event(5, "RTE-0000000001", "RouteAcknowledged"));
+        input.push(route_event(6, "RTE-0000000001", "RouteFilled"));
+        input.push(route_new(7, "C-A", "1000"));
+        let out = run(&input, &mut ids);
+
+        assert_eq!(count_of(&out, "RouteAccepted"), 1);
+        // The order is FILLED by the cascade, so it is refused as un-routable
+        // before the quantity check is even reached.
+        assert_eq!(
+            nth_of(&out, "RouteRejected", 0).fields["code"],
+            "EMS-RTE-4002"
         );
     }
 

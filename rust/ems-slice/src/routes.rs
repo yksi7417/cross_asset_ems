@@ -10,7 +10,25 @@
 
 use std::collections::BTreeMap;
 
-use ems_fsm::{RouteFsmContext, RouteFsmEvent, RouteFsmState, RouteFsmTransitionResult};
+use ems_fsm::{
+    RouteFsmContext, RouteFsmEvent, RouteFsmPayload, RouteFsmState, RouteFsmTransitionResult,
+};
+
+/// States in which a route holds no quantity.
+///
+/// The venue killed the route without filling it, so nothing is committed
+/// anywhere and the quantity is routable again. `Filled` is deliberately absent
+/// — a filled route consumed its quantity, and forgetting that would let an
+/// order be over-filled.
+const fn releases_quantity(state: RouteFsmState) -> bool {
+    matches!(
+        state,
+        RouteFsmState::Rejected
+            | RouteFsmState::Canceled
+            | RouteFsmState::Expired
+            | RouteFsmState::Superseded
+    )
+}
 
 /// A route, its FSM state, and the context the FSM threads through transitions.
 #[derive(Debug, Clone)]
@@ -61,18 +79,49 @@ impl RouteBook {
         result
     }
 
-    /// Quantity already routed for `order_id`.
+    /// Applies `event` to `route_id`.
     ///
-    /// Counts every route, including terminal ones. That is right for a filled
-    /// route and wrong for a rejected one — quantity on a route the venue refused
-    /// is not committed anywhere and ought to be routable again. Nothing in the
-    /// slice can reach those states yet, so encoding the distinction now would be
-    /// a rule with no test behind it. DEFERRED: T-7
+    /// `None` when the route is unknown. A result carrying `is_no_transition`
+    /// means the FSM had no rule for this (state, event) pair — the venue said
+    /// something the route was not in a position to hear, which the schema
+    /// answers by ignoring it.
+    pub fn apply(
+        &mut self,
+        route_id: &str,
+        event: RouteFsmEvent,
+        payload: Option<&RouteFsmPayload>,
+    ) -> Option<RouteFsmTransitionResult> {
+        let entry = self.routes.get(route_id)?;
+        let result = entry.state.apply(event, &entry.context, payload);
+        if !result.is_no_transition {
+            self.routes.insert(
+                route_id.to_owned(),
+                Entry {
+                    state: result.new_state,
+                    context: result.new_context.clone(),
+                },
+            );
+        }
+        Some(result)
+    }
+
+    /// The route's context, or `None` when no such route exists.
+    #[must_use]
+    pub fn context_of(&self, route_id: &str) -> Option<&RouteFsmContext> {
+        self.routes.get(route_id).map(|entry| &entry.context)
+    }
+
+    /// Quantity currently committed to venues for `order_id`.
+    ///
+    /// Counts live and filled routes; a route the venue rejected, cancelled,
+    /// expired or superseded releases its quantity back. Until component 6b
+    /// those states were unreachable, so this counted every route and an order
+    /// whose only route was refused could never be re-routed.
     #[must_use]
     pub fn routed_qty(&self, order_id: &str) -> u64 {
         self.routes
             .values()
-            .filter(|entry| entry.context.order_id == order_id)
+            .filter(|entry| entry.context.order_id == order_id && !releases_quantity(entry.state))
             .map(|entry| entry.context.route_qty)
             .sum()
     }

@@ -10,7 +10,9 @@ import io.crossasset.ems.fsm.generated.OrderFsmContext;
 import io.crossasset.ems.fsm.generated.OrderFsmEvent;
 import io.crossasset.ems.fsm.generated.OrderFsmState;
 import io.crossasset.ems.fsm.generated.RouteFsmContext;
+import io.crossasset.ems.fsm.generated.RouteFsmEffect;
 import io.crossasset.ems.fsm.generated.RouteFsmEvent;
+import io.crossasset.ems.fsm.generated.RouteFsmPayloads;
 import io.crossasset.ems.fsm.generated.RouteFsmState;
 import io.crossasset.ems.instrument.LifecycleStatus;
 import io.crossasset.ems.validator.LayeredValidatorPipeline;
@@ -27,17 +29,20 @@ import org.jspecify.annotations.Nullable;
 /**
  * The slice, as far as it has been built.
  *
- * <p><strong>Today it covers components 1–6a</strong>: the journal codec, deterministic
+ * <p><strong>Today it covers components 1–6b</strong>: the journal codec, deterministic
  * identifiers, the transport seam, the AAA entitlement decision, the layered validation pipeline,
- * the order FSM and route creation. A {@code SessionLogon} registers a session; an {@code OrderNew}
- * is checked against it and becomes either an {@code OrderAccepted} carrying a generated order id
- * or an {@code OrderRejected} carrying a catalog reject code; an {@code OrderEvent} drives the
- * order FSM; a {@code RouteNew} projects an accepted order onto a venue. Everything else passes
- * through with its sequence renumbered, and a {@code RunSummary} closes the journal.
+ * the order FSM, route creation and the route venue lifecycle. A {@code SessionLogon} registers a
+ * session; an {@code OrderNew} becomes an {@code OrderAccepted} carrying a generated order id or an
+ * {@code OrderRejected} carrying a catalog reject code; an {@code OrderEvent} drives the order FSM;
+ * a {@code RouteNew} projects an accepted order onto a venue; a {@code RouteEvent} drives the route
+ * FSM and <strong>cascades to the order FSM</strong> via the schema's {@code emit_event} effects.
+ * Everything else passes through with its sequence renumbered, and a {@code RunSummary} closes the
+ * journal.
  *
- * <p>There is still no venue edge and no allocation, and a created route never leaves {@code SENT}
- * — the venue lifecycle is component 6b. Pretending otherwise in the output would make the
- * conformance corpus lie about what is implemented.
+ * <p>There is still no venue edge — nothing here speaks FIX, and {@code RouteEvent}s arrive as
+ * journal entries rather than from a session — and no allocation. Those are components 7 and 8.
+ * Pretending otherwise in the output would make the conformance corpus lie about what is
+ * implemented.
  *
  * <p>Kept in lockstep with {@code rust/ems-slice/src/runner.rs} and {@code
  * cpp/ems-it/src/slice_runner.cpp}.
@@ -91,6 +96,18 @@ public final class SliceRunner {
 
   /** Output event refusing one. */
   private static final String TYPE_ROUTE_REJECTED = "RouteRejected";
+
+  /**
+   * Input event carrying a venue action against a live route.
+   *
+   * <p>The route counterpart of {@code OrderEvent}, and named the same way for the same reason: the
+   * journal carries the FSM event name in a field, so a transition added to the schema needs no new
+   * event type here.
+   */
+  private static final String TYPE_ROUTE_EVENT = "RouteEvent";
+
+  /** Output event for a route action that reached no route. */
+  private static final String TYPE_ROUTE_EVENT_IGNORED = "RouteEventIgnored";
 
   /** Final output event: makes the seed and the input size visible in the journal itself. */
   private static final String TYPE_RUN_SUMMARY = "RunSummary";
@@ -162,6 +179,7 @@ public final class SliceRunner {
         case TYPE_ORDER_NEW -> seq = onOrderNew(event, seq, output);
         case TYPE_ORDER_EVENT -> seq = onOrderEvent(event, seq, output);
         case TYPE_ROUTE_NEW -> seq = onRouteNew(event, seq, output);
+        case TYPE_ROUTE_EVENT -> seq = onRouteEvent(event, seq, output);
         default -> output.add(event.withSeq(++seq));
       }
     }
@@ -391,6 +409,145 @@ public final class SliceRunner {
     }
     output.add(new JournalEvent(++seq, TYPE_ROUTE_ACCEPTED, fields));
     return seq;
+  }
+
+  /**
+   * Applies a venue action to a live route, and cascades whatever the schema says it cascades.
+   *
+   * <p><strong>The cascade is not written here.</strong> {@code route.fsm.yaml} declares {@code
+   * emit_event} effects — a route reaching {@code WORKING} emits {@code ValidationPassed} to the
+   * order machine, a fill emits {@code PartialFill}, and so on — and this method reads them off the
+   * transition result. Hand-writing that mapping would mean three languages each holding an opinion
+   * about what the YAML says, which is the exact failure the generator exists to prevent.
+   *
+   * <p>Ordering is fixed and journalled: the route's own transition first, then each cascaded order
+   * transition in the order the schema declares the effects. Two languages emitting the same events
+   * in a different order would fail the conformance gate, which is how we know they agree.
+   */
+  private long onRouteEvent(JournalEvent event, long seq, List<JournalEvent> output) {
+    String routeId = field(event, "routeId");
+    String raw = field(event, "event");
+
+    RouteFsmEvent fsmEvent = toRouteFsmEvent(raw);
+    if (fsmEvent == null) {
+      return ignoreRouteEvent(seq, routeId, raw, "unknown FSM event", output);
+    }
+    Optional<SliceRouteBook.Entry> entry = routes.get(routeId);
+    if (entry.isEmpty()) {
+      return ignoreRouteEvent(seq, routeId, raw, "unknown route", output);
+    }
+
+    RouteFsmState before = entry.get().state();
+    var result = routes.apply(routeId, fsmEvent, routePayloadFor(fsmEvent, event));
+
+    TreeMap<String, String> fields = new TreeMap<>();
+    boolean applied = result.isPresent() && !result.get().isNoTransition();
+    fields.put("applied", Boolean.toString(applied));
+    fields.put("event", fsmEvent.name());
+    fields.put("from", before.name());
+    fields.put("fsm", "route");
+    fields.put("routeId", routeId);
+    fields.put("to", routes.stateOf(routeId).orElse(before).name());
+    output.add(new JournalEvent(++seq, TYPE_FSM_TRANSITION, fields));
+
+    if (!applied) {
+      // A declined event cascades nothing. The generated effects are empty on a
+      // no-transition precisely so this cannot be got wrong by forgetting to check.
+      return seq;
+    }
+
+    String clOrdId = clOrdIdFor(entry.get().context().orderId());
+    for (RouteFsmEffect effect : result.get().effects()) {
+      if (!(effect instanceof RouteFsmEffect.EmitEvent emit)) {
+        continue;
+      }
+      if (clOrdId == null) {
+        continue;
+      }
+      OrderFsmEvent orderEvent = toFsmEvent(emit.event());
+      Optional<SliceOrderBook.Entry> parent = orders.get(clOrdId);
+      if (orderEvent == null || parent.isEmpty()) {
+        continue;
+      }
+      seq =
+          emitTransition(
+              clOrdId,
+              orderEvent,
+              cascadePayload(orderEvent, event),
+              parent.get().context(),
+              seq,
+              output);
+    }
+    return seq;
+  }
+
+  /**
+   * The client identifier for one of our order ids.
+   *
+   * <p>A scan rather than a second map. The order book is keyed on ClOrdID and routes carry
+   * OrderID, so something has to bridge them; a reverse index would be a second structure to keep
+   * in step, and this book holds tens of orders. The {@link TreeMap} makes the scan order
+   * deterministic.
+   */
+  private @Nullable String clOrdIdFor(String orderId) {
+    for (var candidate : orderIds.entrySet()) {
+      if (candidate.getValue().equals(orderId)) {
+        return candidate.getKey();
+      }
+    }
+    return null;
+  }
+
+  /** Records a route action that reached no route. Never fatal — the venue sends what it sends. */
+  private static long ignoreRouteEvent(
+      long seq, String routeId, String raw, String reason, List<JournalEvent> output) {
+    TreeMap<String, String> fields = new TreeMap<>();
+    fields.put("event", raw);
+    fields.put("reason", reason);
+    fields.put("routeId", routeId);
+    output.add(new JournalEvent(++seq, TYPE_ROUTE_EVENT_IGNORED, fields));
+    return seq;
+  }
+
+  /** Maps a journal event name to a route FSM event. Null for anything the schema omits. */
+  private static @Nullable RouteFsmEvent toRouteFsmEvent(String name) {
+    for (RouteFsmEvent candidate : RouteFsmEvent.values()) {
+      if (candidate.name().equals(name)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  /** Builds the payload a route FSM event needs, or null when it takes none. */
+  private static @Nullable Object routePayloadFor(RouteFsmEvent fsmEvent, JournalEvent event) {
+    long lastQty = parseLong(field(event, "lastQty"));
+    long lastPx = parseLong(field(event, "lastPx"));
+    String execId = field(event, "execId");
+    int reason = (int) parseLong(field(event, "cxlRejReason"));
+    return switch (fsmEvent) {
+      case RoutePartiallyFilled ->
+          new RouteFsmPayloads.RoutePartiallyFilledPayload(lastQty, lastPx, execId);
+      case RouteFilled -> new RouteFsmPayloads.RouteFilledPayload(lastQty, lastPx, execId);
+      case RouteCancelRejected -> new RouteFsmPayloads.RouteCancelRejectedPayload(reason);
+      case RouteReplaceRejected -> new RouteFsmPayloads.RouteReplaceRejectedPayload(reason);
+      case RouteReplaced -> new RouteFsmPayloads.RouteReplacedPayload(field(event, "newClOrdId"));
+      case RouteReplaceRequested ->
+          new RouteFsmPayloads.RouteReplaceRequestedPayload(
+              field(event, "newClOrdId"), parseLong(field(event, "newRouteQty")), null);
+      default -> null;
+    };
+  }
+
+  /**
+   * The payload the cascaded order event needs, built from the same journal fields.
+   *
+   * <p>A route fill and the order fill it cascades describe the same execution, so they read the
+   * same {@code lastQty} / {@code lastPx} / {@code execId} off the input event. Deriving the order
+   * payload from the route's would be indirection with no extra truth in it.
+   */
+  private static @Nullable Object cascadePayload(OrderFsmEvent fsmEvent, JournalEvent event) {
+    return payloadFor(fsmEvent, event);
   }
 
   /**

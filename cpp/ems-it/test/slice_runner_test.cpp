@@ -357,6 +357,134 @@ TEST(SliceRunner, ARefusedRouteDoesNotConsumeAnIdentifier) {
     EXPECT_EQ(nth_of(out, "RouteAccepted").fields.at("routeId"), "RTE-0000000001");
 }
 
+// ── Route lifecycle (component 6b) ───────────────────────────────────────────
+
+JournalEvent route_event(std::uint64_t seq, const std::string& route_id,
+                         const std::string& name) {
+    return event(seq, "RouteEvent",
+                 {{"event", name},
+                  {"execId", "E-1"},
+                  {"lastPx", "15000"},
+                  {"lastQty", "100"},
+                  {"routeId", route_id}});
+}
+
+/// A live route with its parent order, ready for venue events.
+std::vector<JournalEvent> working_route() {
+    auto input = routable_order("C-A", "1000");
+    input.push_back(event(4, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "400"}, {"venueMic", "XNAS"}}));
+    input.push_back(route_event(5, "RTE-0000000001", "RouteAcknowledged"));
+    return input;
+}
+
+/// The last transition of a given machine.
+const JournalEvent& last_transition(const std::vector<JournalEvent>& out, std::string_view fsm) {
+    const JournalEvent* found = nullptr;
+    for (const auto& e : out) {
+        if (e.type == "FsmTransition" && e.fields.at("fsm") == fsm) {
+            found = &e;
+        }
+    }
+    if (found == nullptr) {
+        throw std::runtime_error("no transition for " + std::string(fsm));
+    }
+    return *found;
+}
+
+std::size_t transitions_of(const std::vector<JournalEvent>& out, std::string_view fsm) {
+    std::size_t n = 0;
+    for (const auto& e : out) {
+        if (e.type == "FsmTransition" && e.fields.at("fsm") == fsm) {
+            ++n;
+        }
+    }
+    return n;
+}
+
+/// The cascade: a venue fill on a route moves the parent ORDER, and the mapping
+/// comes from the schema's emit_event effects rather than a table in this file.
+TEST(SliceRunner, ARouteFillCascadesToTheParentOrder) {
+    DeterministicIds ids{0};
+    auto input = working_route();
+    input.push_back(route_event(6, "RTE-0000000001", "RouteFilled"));
+    const auto out = run_slice(input, ids);
+
+    const auto& route = last_transition(out, "route");
+    EXPECT_EQ(route.fields.at("to"), "FILLED");
+
+    const auto& order = last_transition(out, "order");
+    EXPECT_EQ(order.fields.at("event"), "FullFill");
+    EXPECT_EQ(order.fields.at("to"), "FILLED");
+    // The route moves first, then the order it cascaded to. Order is part of the
+    // cross-language contract.
+    EXPECT_LT(route.seq, order.seq);
+}
+
+/// **A declined event cascades nothing.** The generated effects are empty on a
+/// no-transition, so a route that refuses an event cannot move the order.
+TEST(SliceRunner, ADeclinedRouteEventCascadesNothing) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(event(4, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "400"}, {"venueMic", "XNAS"}}));
+    // A route in SENT has no rule for RouteCanceled.
+    input.push_back(route_event(5, "RTE-0000000001", "RouteCanceled"));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(last_transition(out, "route").fields.at("applied"), "false");
+    // Exactly one order transition: the ValidationPassed from OrderNew.
+    EXPECT_EQ(transitions_of(out, "order"), 1U);
+}
+
+TEST(SliceRunner, AnEventForAnUnknownRouteIsIgnored) {
+    DeterministicIds ids{0};
+    auto input = working_route();
+    input.push_back(route_event(6, "RTE-9999999999", "RouteFilled"));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(nth_of(out, "RouteEventIgnored").fields.at("reason"), "unknown route");
+}
+
+TEST(SliceRunner, AnUnknownRouteEventNameIsIgnored) {
+    DeterministicIds ids{0};
+    auto input = working_route();
+    input.push_back(route_event(6, "RTE-0000000001", "NotARouteEvent"));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(nth_of(out, "RouteEventIgnored").fields.at("reason"), "unknown FSM event");
+}
+
+/// T-7: a route the venue refused holds no quantity, so the order can be
+/// re-routed for the full amount. Before component 6b this was EMS-RTE-4003.
+TEST(SliceRunner, ARejectedRouteReleasesItsQuantity) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(event(4, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "1000"}, {"venueMic", "XNAS"}}));
+    input.push_back(route_event(5, "RTE-0000000001", "RouteRejected"));
+    input.push_back(event(6, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "1000"}, {"venueMic", "XNYS"}}));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(count_of(out, "RouteAccepted"), 2U);
+    EXPECT_EQ(count_of(out, "RouteRejected"), 0U);
+}
+
+/// A FILLED route keeps its quantity — releasing it would let the order be
+/// over-filled. The mirror of the test above, and the reason the releasing set is
+/// an allowlist rather than "any terminal state".
+TEST(SliceRunner, AFilledRouteDoesNotReleaseItsQuantity) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(event(4, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "1000"}, {"venueMic", "XNAS"}}));
+    input.push_back(route_event(5, "RTE-0000000001", "RouteAcknowledged"));
+    input.push_back(route_event(6, "RTE-0000000001", "RouteFilled"));
+    input.push_back(event(7, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "1000"}, {"venueMic", "XNYS"}}));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(count_of(out, "RouteAccepted"), 1U);
+    // The order is FILLED by the cascade, so it is refused as un-routable before
+    // the quantity check is even reached.
+    EXPECT_EQ(nth_of(out, "RouteRejected").fields.at("code"), "EMS-RTE-4002");
+}
+
 TEST(SliceRunner, OutputSequenceIsContiguousFromOne) {
     DeterministicIds ids{0};
     const auto out = run_slice({logon("order-entry"), event(9, "Heartbeat")}, ids);

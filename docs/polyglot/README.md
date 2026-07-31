@@ -118,7 +118,16 @@ scripts/dev/demo-polyglot.sh
 
 Builds `ems-slice` in all three languages, runs the same input journal through each, shows the
 three sha256 sums matching, then re-runs Rust with a different seed so you can watch the differ
-catch a one-character divergence. ~90 seconds cold, a few seconds with `--no-build`.
+catch a one-character divergence. Step 6 then walks **every stage the slice has reached**, one row
+per corpus case, checking each against its committed expectation as well as against the other two
+implementations. ~90 seconds cold, a few seconds with `--no-build`.
+
+```bash
+scripts/dev/demo-polyglot.sh --no-build --case component-07-route-lifecycle
+```
+
+Deep-dives one stage instead of the first. The stage list is read from the corpus directory, not
+kept in the script — a new component's case appears in the demo the moment it lands.
 
 ## How to pick this up
 
@@ -145,10 +154,13 @@ reached by a corpus case in all three languages, **6a** `ems-oms` route creation
 projected onto a named venue, `PENDING -RouteSent-> SENT`, with four reject codes and the property
 that a refused route consumes no route id.
 
-**6b** — the venue lifecycle, which drives the remaining 28 route transitions and propagates route
-events back to the order FSM — is next. Until it lands, `route` stays out of scope in
-`fsm-coverage` with a stated reason rather than counted at 1/29: a partial-coverage exemption
-written once is an exemption nobody removes.
+**6b** the route venue lifecycle — all 29 route transitions, plus the first **cross-FSM cascade**:
+a venue event on a route moves the parent order, and the mapping is read from the schema's
+`emit_event` effects rather than written by hand in three languages. `fsm-coverage` now asserts
+**31/31 order and 29/29 route** transitions.
+
+**7** the venue edge (nothing speaks FIX yet — route events arrive as journal entries) and **8**
+allocation are what remain.
 
 Each plan is written for someone with zero context on this codebase: exact files, exact commands,
 test-first steps, and a commit at the end of every task.

@@ -30,6 +30,7 @@ For what is *being built next* in the port, see its
 | [T-4](#t-4) | Digest-pinned CI container image | nothing | [gate.md](polyglot/gate.md) recorded deviation |
 | [T-5](#t-5) | `ReflectiveBlpapiDriver` takes a `TimeSource` | nothing | [clock-baseline.txt](../scripts/ci/clock-baseline.txt) |
 | [T-6](#t-6) | Study-guide index + completeness check | components 6–8 | [ADR 0005](decisions/0005-study-guide-with-enforced-anchors.md) |
+| [T-8](#t-8) | Java's `noTransition` returns a null context | nothing | found building component 6b-i |
 
 ---
 
@@ -155,24 +156,6 @@ it.
 
 ---
 
-## T-7 — Release routed quantity when a route dies unfilled
-
-`SliceRouteBook.routedQty` sums **every** route for an order, including terminal ones. For a filled
-route that is right — the quantity was consumed. For a route the venue rejected, cancelled or
-expired it is wrong: nothing is committed anywhere, and that quantity ought to be routable again.
-Today an order whose only route was rejected can never be re-routed.
-
-**Why:** the distinction cannot be tested yet. Component 6a creates routes and nothing moves them out
-of `SENT`, so `REJECTED`, `CANCELED`, `EXPIRED` and `SUPERSEDED` are unreachable. Writing the rule
-now means shipping a branch no corpus case can execute, which is the thing the conformance gate
-exists to make impossible to do quietly.
-
-**Done when:** component 6b can drive a route to each unfilled terminal state, `routedQty` excludes
-those states in all three languages, and a corpus case re-routes an order whose first route the venue
-rejected — with the second route accepted and byte-identical across Java, Rust and C++.
-
----
-
 ## T-8 — Java's `noTransition` returns a null context; Rust and C++ return the unchanged one
 
 `TransitionResult.noTransition(currentState)` passes `null` for `newContext`. The Rust and C++
@@ -200,6 +183,7 @@ golden hashes are re-pinned with the diff reviewed.
 
 | Item | Outcome |
 |---|---|
+| T-7 — release routed quantity when a route dies unfilled | Done — `routedQty` skips `REJECTED`/`CANCELED`/`EXPIRED`/`SUPERSEDED` in all three languages; `component-07-route-lifecycle` re-routes an order whose first route the venue refused. `FILLED` stays counted. |
 | Coverage instrumentation for Rust and C++ | Done — `cargo-llvm-cov` (91.9%) and `gcov`/`gcovr` (79%), both in `gate.sh full`. See [status.md](polyglot/status.md). |
 | Make business logic clock-injectable | Done — `TimeSource`, and `no_raw_clock.py` enforces it. |
 | Slice reuses the production AAA | Done — the duplicate `io.crossasset.ems.aaa.slice` package was deleted. |
