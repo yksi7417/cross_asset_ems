@@ -1,0 +1,11 @@
+{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","price":"1250000","qty":"100","sessionId":"7","side":"BUY"},"seq":1,"type":"OrderNew"}
+{"fields":{"desk":"DESK1","firm":"FIRM1","sessionId":"7","tags":"market-data","user":"trader1"},"seq":2,"type":"SessionLogon"}
+{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","price":"1250000","qty":"100","sessionId":"7","side":"BUY","tag":"order-entry"},"seq":3,"type":"OrderNew"}
+{"fields":{"desk":"DESK1","deskTags":"market-data","firm":"FIRM1","firmTags":"market-data,order-entry","sessionId":"8","tags":"market-data,order-entry","user":"trader2"},"seq":4,"type":"SessionLogon"}
+{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","price":"1250000","qty":"100","sessionId":"8","side":"BUY","tag":"order-entry"},"seq":5,"type":"OrderNew"}
+{"fields":{"desk":"DESK1","deskTags":"market-data,order-entry","firm":"FIRM1","firmTags":"market-data,order-entry","sessionId":"9","tags":"market-data","user":"trader3"},"seq":6,"type":"SessionLogon"}
+{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","price":"1250000","qty":"100","sessionId":"9","side":"BUY","tag":"order-entry"},"seq":7,"type":"OrderNew"}
+{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","price":"1250000","qty":"100","sessionId":"9","side":"BUY"},"seq":8,"type":"OrderNew"}
+{"fields":{"desk":"DESK1","firm":"FIRM1","sessionId":"9","tags":"market-data,order-entry","user":"trader3b"},"seq":9,"type":"SessionLogon"}
+{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","price":"1250000","qty":"100","sessionId":"9","side":"BUY","tag":"order-entry"},"seq":10,"type":"OrderNew"}
+{"fields":{"account":"ACC9","sessionId":"not-a-number"},"seq":11,"type":"OrderNew"}

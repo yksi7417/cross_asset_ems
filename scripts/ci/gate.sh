@@ -41,6 +41,7 @@ FAST_STEPS=(
     java-test
     java-format
     java-nullmarked
+    java-clock
     cpp-build
     cpp-test
     rust-format
@@ -309,6 +310,8 @@ run_step() {
         step_run schema-lint do_schema_lint ;;
     java-nullmarked)
         step_run java-nullmarked python3 scripts/ci/checks/nullmarked_ratchet.py ;;
+    java-clock)
+        step_run java-clock python3 scripts/ci/checks/no_raw_clock.py ;;
     cpp-build)
         step_needs_tool cpp-build cmake 'cmake not installed' -- \
             do_cpp_configure_build "$CPP_BUILD_DIR" ;;

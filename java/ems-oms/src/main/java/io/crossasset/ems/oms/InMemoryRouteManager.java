@@ -4,6 +4,8 @@
  */
 package io.crossasset.ems.oms;
 
+import io.crossasset.ems.core.clock.SystemTimeSource;
+import io.crossasset.ems.core.clock.TimeSource;
 import io.crossasset.ems.fsm.generated.OrderFsmEvent;
 import io.crossasset.ems.fsm.generated.OrderFsmPayloads;
 import io.crossasset.ems.fsm.generated.RouteFsmContext;
@@ -34,8 +36,20 @@ public final class InMemoryRouteManager implements RouteManager {
   private final ConcurrentHashMap<String, Route> routes = new ConcurrentHashMap<>();
   private final AtomicLong routeIdSeq = new AtomicLong(1);
 
+  private final TimeSource timeSource;
+
+  /** Route timestamps come from wall time. */
   public InMemoryRouteManager(StagedOrderManager som) {
+    this(som, SystemTimeSource.INSTANCE);
+  }
+
+  /**
+   * @param timeSource where route timestamps come from. Inject a deterministic one for replay and
+   *     for tests that assert on timing.
+   */
+  public InMemoryRouteManager(StagedOrderManager som, TimeSource timeSource) {
     this.som = Objects.requireNonNull(som, "som");
+    this.timeSource = Objects.requireNonNull(timeSource, "timeSource");
   }
 
   @Override
@@ -103,11 +117,7 @@ public final class InMemoryRouteManager implements RouteManager {
 
     Route route =
         new Route(
-            routeId,
-            request.orderId(),
-            tr.newState(),
-            tr.newContext(),
-            System.currentTimeMillis() * 1_000L);
+            routeId, request.orderId(), tr.newState(), tr.newContext(), timeSource.nowMicros());
     routes.put(routeId, route);
 
     som.markRouting(request.orderId());

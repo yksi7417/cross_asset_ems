@@ -1,0 +1,12 @@
+[package]
+name = "ems-aaa"
+description = "Session lookup and the entitlement decision, sized for the deterministic slice."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

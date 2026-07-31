@@ -5,29 +5,36 @@
 package io.crossasset.ems.core.clock;
 
 /**
- * The sole source of time for all business logic.
+ * A {@link TimeSource} that can also schedule callbacks.
  *
  * <p>Components must <em>never</em> call {@code System.currentTimeMillis()} or {@code
- * System.nanoTime()} directly. They receive a {@code Clock} at construction and use it exclusively
- * for all temporal operations. This allows tests and the replay engine to substitute a {@link
+ * System.nanoTime()} directly. They receive a {@code TimeSource} — or this, when they need
+ * scheduling — at construction, which lets tests and the replay engine substitute a {@link
  * SimulatedClock} that advances deterministically.
+ *
+ * <p>Most components need only {@link TimeSource}. Depend on {@code Clock} solely when you actually
+ * schedule something: a wall-clock implementation of {@code schedule} needs a timer thread, and
+ * that cost should not be forced on a component that just wants to stamp an event.
  *
  * <h3>Implementations</h3>
  *
  * <ul>
  *   <li>{@link SimulatedClock} — deterministic, manually driven; used by tests and replay.
- *   <li>A live {@code SystemClock} (wall-clock aligned with offset corrections) belongs to a later
- *       phase per {@code arch-time-replay-server}.
+ *   <li>For time alone, {@link SystemTimeSource} (wall clock) or {@link FixedTimeSource} (stub).
+ *   <li>A live scheduling {@code Clock} with offset correction belongs to a later phase per {@code
+ *       arch-time-replay-server}.
  * </ul>
  *
- * <p>Task 3.6 — sim-clock interface.
+ * <p>Task 3.6 — sim-clock interface. TimeSource split out when the AAA and OMS services were made
+ * clock-injectable.
  */
-public interface Clock {
+public interface Clock extends TimeSource {
 
   /**
    * Returns the current time. Monotonic in live mode; advanced explicitly in simulated mode. Never
    * returns a value less than a prior call on the same instance.
    */
+  @Override
   Timestamp now();
 
   /**
