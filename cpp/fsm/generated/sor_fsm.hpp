@@ -2,9 +2,11 @@
 // Source: schemas/fsm/sorfsm.fsm.yaml
 // Re-run: python3 tools/codegen/fsm_codegen.py
 #pragma once
+#include <array>
 #include <cstdint>
 #include <string>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <variant>
 #include <vector>
@@ -144,11 +146,63 @@ struct SorFsmContext {
   std::string sorStrategyId{};
 };
 
+// ── Effects ──────────────────────────────────────────────────────────────────
+//
+// A side effect a transition asks for, as the schema declares it.
+//
+// STUDY: effects-as-static-data
+//
+// Every value comes from the YAML, so a transition's effects are compile-time
+// data: the generator emits `static constexpr` arrays and `transition` returns a
+// span over one of them. Nothing is allocated and nothing has to be kept alive.
+//
+// The honest caveat, which Rust does not have: this is a struct with a `kind`
+// tag, not a sum type. An `EmitEvent` still *has* an `args` field and a
+// `PublishFixMessage` still has a `targetFsm` — both empty, and nothing stops a
+// caller reading them. Java models this as a sealed interface of records and
+// Rust as an enum, where both are unrepresentable. `std::variant` could express
+// it, at the cost of every read becoming a visit; the tag was chosen because the
+// only consumer switches on the kind anyway.
+//
+// The kind and arg types are prefixed like everything else here for a concrete
+// reason: a translation unit that drives two machines includes two of these
+// headers, and an unprefixed `FsmEffectKind` in the shared namespace would be a
+// redefinition. Rust has no such problem — each machine is its own module.
+enum class SorFsmEffectKind : uint8_t {
+  EmitEvent,
+  PublishEventLog,
+  PublishFixMessage,
+  ScheduleTimer,
+  CancelTimer,
+  Notify,
+  ChainIdentityStamp,
+};
+
+/// One `key: value` pair from an effect's `args` map in the schema.
+struct SorFsmEffectArg {
+  std::string_view key{};
+  std::string_view value{};
+};
+
+struct SorFsmEffect {
+  SorFsmEffectKind kind{};
+  /// EmitEvent only — the machine the event is for. Empty otherwise.
+  std::string_view targetFsm{};
+  /// EmitEvent and PublishEventLog — the event name. Empty otherwise.
+  std::string_view event{};
+  /// Everything else — the raw `args` map. Empty for the two above.
+  std::span<const SorFsmEffectArg> args{};
+};
+
 // ── TransitionResult ──────────────────────────────────────────────────────────
 struct SorFsmTransitionResult {
   SorFsmState newState;
   SorFsmContext newContext;
-  // effects: deferred — C++ effect dispatch not yet generated (Java has full effects)
+  /// What the schema asks the caller to do, in the order it declares them.
+  ///
+  /// A span over static storage, so copying the result copies a pointer and a
+  /// length. Empty when no transition matched.
+  std::span<const SorFsmEffect> effects;
   bool isNoTransition;
 };
 
@@ -180,6 +234,45 @@ struct SorFsmPayloads {
   };
 };
 
+// ── Effect tables ────────────────────────────────────────────────────────────
+//
+// One table per transition that asks for something. `transition` returns a span
+// over the matching table, so the effects cost nothing to return and outlive any
+// caller.
+inline constexpr std::array<SorFsmEffect, 1> kSorFsmEffects0 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRouteSent", {}}}};
+inline constexpr std::array<SorFsmEffectArg, 2> kSorFsmEffectArgs1_2 = {{SorFsmEffectArg{"signal", "dispatch_sor_children"}, SorFsmEffectArg{"route_id", "{{ context.route_id }}"}}};
+inline constexpr std::array<SorFsmEffect, 3> kSorFsmEffects1 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorStrategySelected", {}}, {SorFsmEffectKind::PublishEventLog, {}, "SorWheelSelectionLogged", {}}, {SorFsmEffectKind::Notify, {}, {}, kSorFsmEffectArgs1_2}}};
+inline constexpr std::array<SorFsmEffect, 1> kSorFsmEffects2 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRoutePendingNewAtVenue", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects3 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRouteWorking", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "ValidationPassed", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects4 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRouteWorking", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "ValidationPassed", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects5 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRouteRejected", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "ValidationFailed", {}}}};
+inline constexpr std::array<SorFsmEffectArg, 2> kSorFsmEffectArgs6_1 = {{SorFsmEffectArg{"signal", "dispatch_sor_children"}, SorFsmEffectArg{"route_id", "{{ context.route_id }}"}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects6 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorPlanAdjusted", {}}, {SorFsmEffectKind::Notify, {}, {}, kSorFsmEffectArgs6_1}}};
+inline constexpr std::array<SorFsmEffect, 1> kSorFsmEffects7 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorReplaceRequested", {}}}};
+inline constexpr std::array<SorFsmEffect, 1> kSorFsmEffects8 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorReplacePendingAtVenue", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects9 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRouteReplaced", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "ReplaceAccepted", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects10 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorReplaceRejected", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "ReplaceRejected", {}}}};
+inline constexpr std::array<SorFsmEffect, 1> kSorFsmEffects11 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorCancelRequested", {}}}};
+inline constexpr std::array<SorFsmEffect, 1> kSorFsmEffects12 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorCancelRequested", {}}}};
+inline constexpr std::array<SorFsmEffect, 1> kSorFsmEffects13 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRouteCanceled", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects14 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorCancelRejected", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "CancelRejected", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects15 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorCancelRejected", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "CancelRejected", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects16 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRoutePartiallyFilled", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "PartialFill", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects17 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRoutePartiallyFilled", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "PartialFill", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects18 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRoutePartiallyFilled", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "PartialFill", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects19 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRouteFilled", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "FullFill", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects20 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRouteFilled", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "FullFill", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects21 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRouteExpired", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "OrderExpired", {}}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects22 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRouteExpired", {}}, {SorFsmEffectKind::EmitEvent, "OrderFsm", "OrderExpired", {}}}};
+inline constexpr std::array<SorFsmEffect, 1> kSorFsmEffects23 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRouteSuperseded", {}}}};
+inline constexpr std::array<SorFsmEffect, 1> kSorFsmEffects24 = {{{SorFsmEffectKind::PublishEventLog, {}, "SorRouteSuperseded", {}}}};
+inline constexpr std::array<SorFsmEffectArg, 2> kSorFsmEffectArgs25_0 = {{SorFsmEffectArg{"channel", "ops-alerts"}, SorFsmEffectArg{"message", "SOR route anomaly — manual triage required"}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects25 = {{{SorFsmEffectKind::Notify, {}, {}, kSorFsmEffectArgs25_0}, {SorFsmEffectKind::PublishEventLog, {}, "SorRouteAnomaly", {}}}};
+inline constexpr std::array<SorFsmEffectArg, 2> kSorFsmEffectArgs26_0 = {{SorFsmEffectArg{"channel", "ops-alerts"}, SorFsmEffectArg{"message", "SOR route anomaly in PENDING_REPLACE — manual triage required"}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects26 = {{{SorFsmEffectKind::Notify, {}, {}, kSorFsmEffectArgs26_0}, {SorFsmEffectKind::PublishEventLog, {}, "SorRouteAnomaly", {}}}};
+inline constexpr std::array<SorFsmEffectArg, 2> kSorFsmEffectArgs27_0 = {{SorFsmEffectArg{"channel", "ops-alerts"}, SorFsmEffectArg{"message", "SOR route anomaly in PENDING_CANCEL — manual triage required"}}};
+inline constexpr std::array<SorFsmEffect, 2> kSorFsmEffects27 = {{{SorFsmEffectKind::Notify, {}, {}, kSorFsmEffectArgs27_0}, {SorFsmEffectKind::PublishEventLog, {}, "SorRouteAnomaly", {}}}};
+
 // ── Transition implementation (inline) ──────────────────────────────────────
 inline SorFsmTransitionResult transition(
     SorFsmState state,
@@ -190,171 +283,171 @@ inline SorFsmTransitionResult transition(
   case SorFsmState::PENDING:
     switch (event) {
     case SorFsmEvent::RouteSent:
-      return {SorFsmState::SENT, ctx, false};
+      return {SorFsmState::SENT, ctx, kSorFsmEffects0, false};
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   case SorFsmState::SENT:
     switch (event) {
     case SorFsmEvent::SorStrategyDecided:
-      return {SorFsmState::SENT, ctx, false};
+      return {SorFsmState::SENT, ctx, kSorFsmEffects1, false};
     case SorFsmEvent::RoutePendingNewAtVenue:
-      return {SorFsmState::PENDING_NEW_AT_VENUE, ctx, false};
+      return {SorFsmState::PENDING_NEW_AT_VENUE, ctx, kSorFsmEffects2, false};
     case SorFsmEvent::RouteAcknowledged:
-      return {SorFsmState::WORKING, ctx, false};
+      return {SorFsmState::WORKING, ctx, kSorFsmEffects4, false};
     case SorFsmEvent::RouteRejected:
-      return {SorFsmState::REJECTED, ctx, false};
+      return {SorFsmState::REJECTED, ctx, kSorFsmEffects5, false};
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   case SorFsmState::PENDING_NEW_AT_VENUE:
     switch (event) {
     case SorFsmEvent::RouteAcknowledged:
-      return {SorFsmState::WORKING, ctx, false};
+      return {SorFsmState::WORKING, ctx, kSorFsmEffects3, false};
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   case SorFsmState::WORKING:
     switch (event) {
     case SorFsmEvent::SorPlanAdjusted:
-      return {SorFsmState::WORKING, ctx, false};
+      return {SorFsmState::WORKING, ctx, kSorFsmEffects6, false};
     case SorFsmEvent::RouteReplaceRequested: {
       [[maybe_unused]] const auto* p = static_cast<const SorFsmPayloads::RouteReplaceRequestedPayload*>(rawPayload);
-      return {SorFsmState::PENDING_REPLACE_AT_VENUE, ctx, false};
+      return {SorFsmState::PENDING_REPLACE_AT_VENUE, ctx, kSorFsmEffects7, false};
     }
     case SorFsmEvent::RouteCancelRequested: {
       auto newCtx = ctx;
       newCtx.preCancelStatus = "0";
-      return {SorFsmState::PENDING_CANCEL_AT_VENUE, newCtx, false};
+      return {SorFsmState::PENDING_CANCEL_AT_VENUE, newCtx, kSorFsmEffects11, false};
     }
     case SorFsmEvent::RoutePartiallyFilled: {
       const auto* p = static_cast<const SorFsmPayloads::RoutePartiallyFilledPayload*>(rawPayload);
       auto newCtx = ctx;
       newCtx.cumQty = (ctx.cumQty + p->lastQty);
       newCtx.leavesQty = (ctx.leavesQty - p->lastQty);
-      return {SorFsmState::PARTIALLY_FILLED, newCtx, false};
+      return {SorFsmState::PARTIALLY_FILLED, newCtx, kSorFsmEffects16, false};
     }
     case SorFsmEvent::RouteFilled: {
       const auto* p = static_cast<const SorFsmPayloads::RouteFilledPayload*>(rawPayload);
       auto newCtx = ctx;
       newCtx.cumQty = (ctx.cumQty + p->lastQty);
       newCtx.leavesQty = static_cast<uint64_t>(0);
-      return {SorFsmState::FILLED, newCtx, false};
+      return {SorFsmState::FILLED, newCtx, kSorFsmEffects19, false};
     }
     case SorFsmEvent::RouteExpired:
-      return {SorFsmState::EXPIRED, ctx, false};
+      return {SorFsmState::EXPIRED, ctx, kSorFsmEffects21, false};
     case SorFsmEvent::RouteSuperseded:
-      return {SorFsmState::SUPERSEDED, ctx, false};
+      return {SorFsmState::SUPERSEDED, ctx, kSorFsmEffects23, false};
     case SorFsmEvent::RouteAnomaly:
-      return {SorFsmState::ANOMALY, ctx, false};
+      return {SorFsmState::ANOMALY, ctx, kSorFsmEffects25, false};
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   case SorFsmState::PENDING_REPLACE_AT_VENUE:
     switch (event) {
     case SorFsmEvent::RouteReplacePendingAtVenue:
-      return {SorFsmState::PENDING_REPLACE_AT_VENUE, ctx, false};
+      return {SorFsmState::PENDING_REPLACE_AT_VENUE, ctx, kSorFsmEffects8, false};
     case SorFsmEvent::RouteReplaced: {
       [[maybe_unused]] const auto* p = static_cast<const SorFsmPayloads::RouteReplacedPayload*>(rawPayload);
-      return {SorFsmState::WORKING, ctx, false};
+      return {SorFsmState::WORKING, ctx, kSorFsmEffects9, false};
     }
     case SorFsmEvent::RouteReplaceRejected: {
       [[maybe_unused]] const auto* p = static_cast<const SorFsmPayloads::RouteReplaceRejectedPayload*>(rawPayload);
-      return {SorFsmState::WORKING, ctx, false};
+      return {SorFsmState::WORKING, ctx, kSorFsmEffects10, false};
     }
     case SorFsmEvent::RoutePartiallyFilled: {
       const auto* p = static_cast<const SorFsmPayloads::RoutePartiallyFilledPayload*>(rawPayload);
       auto newCtx = ctx;
       newCtx.cumQty = (ctx.cumQty + p->lastQty);
       newCtx.leavesQty = (ctx.leavesQty - p->lastQty);
-      return {SorFsmState::PARTIALLY_FILLED, newCtx, false};
+      return {SorFsmState::PARTIALLY_FILLED, newCtx, kSorFsmEffects18, false};
     }
     case SorFsmEvent::RouteSuperseded:
-      return {SorFsmState::SUPERSEDED, ctx, false};
+      return {SorFsmState::SUPERSEDED, ctx, kSorFsmEffects24, false};
     case SorFsmEvent::RouteAnomaly:
-      return {SorFsmState::ANOMALY, ctx, false};
+      return {SorFsmState::ANOMALY, ctx, kSorFsmEffects26, false};
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   case SorFsmState::PENDING_CANCEL_AT_VENUE:
     switch (event) {
     case SorFsmEvent::RouteCanceled:
-      return {SorFsmState::CANCELED, ctx, false};
+      return {SorFsmState::CANCELED, ctx, kSorFsmEffects13, false};
     case SorFsmEvent::RouteCancelRejected: {
       [[maybe_unused]] const auto* p = static_cast<const SorFsmPayloads::RouteCancelRejectedPayload*>(rawPayload);
       if ((ctx.preCancelStatus.has_value() && *ctx.preCancelStatus == "0")) {
-        return {SorFsmState::WORKING, ctx, false};
+        return {SorFsmState::WORKING, ctx, kSorFsmEffects14, false};
       }
       if ((ctx.preCancelStatus.has_value() && *ctx.preCancelStatus == "1")) {
-        return {SorFsmState::PARTIALLY_FILLED, ctx, false};
+        return {SorFsmState::PARTIALLY_FILLED, ctx, kSorFsmEffects15, false};
       }
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
     case SorFsmEvent::RouteAnomaly:
-      return {SorFsmState::ANOMALY, ctx, false};
+      return {SorFsmState::ANOMALY, ctx, kSorFsmEffects27, false};
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   case SorFsmState::PARTIALLY_FILLED:
     switch (event) {
     case SorFsmEvent::RouteCancelRequested: {
       auto newCtx = ctx;
       newCtx.preCancelStatus = "1";
-      return {SorFsmState::PENDING_CANCEL_AT_VENUE, newCtx, false};
+      return {SorFsmState::PENDING_CANCEL_AT_VENUE, newCtx, kSorFsmEffects12, false};
     }
     case SorFsmEvent::RoutePartiallyFilled: {
       const auto* p = static_cast<const SorFsmPayloads::RoutePartiallyFilledPayload*>(rawPayload);
       auto newCtx = ctx;
       newCtx.cumQty = (ctx.cumQty + p->lastQty);
       newCtx.leavesQty = (ctx.leavesQty - p->lastQty);
-      return {SorFsmState::PARTIALLY_FILLED, newCtx, false};
+      return {SorFsmState::PARTIALLY_FILLED, newCtx, kSorFsmEffects17, false};
     }
     case SorFsmEvent::RouteFilled: {
       const auto* p = static_cast<const SorFsmPayloads::RouteFilledPayload*>(rawPayload);
       auto newCtx = ctx;
       newCtx.cumQty = (ctx.cumQty + p->lastQty);
       newCtx.leavesQty = static_cast<uint64_t>(0);
-      return {SorFsmState::FILLED, newCtx, false};
+      return {SorFsmState::FILLED, newCtx, kSorFsmEffects20, false};
     }
     case SorFsmEvent::RouteExpired:
-      return {SorFsmState::EXPIRED, ctx, false};
+      return {SorFsmState::EXPIRED, ctx, kSorFsmEffects22, false};
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   case SorFsmState::FILLED:
     switch (event) {
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   case SorFsmState::CANCELED:
     switch (event) {
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   case SorFsmState::REJECTED:
     switch (event) {
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   case SorFsmState::EXPIRED:
     switch (event) {
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   case SorFsmState::SUPERSEDED:
     switch (event) {
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   case SorFsmState::ANOMALY:
     switch (event) {
     default:
-      return {state, ctx, true};
+      return {state, ctx, {}, true};
     }
   default:
-    return {state, ctx, true};
+    return {state, ctx, {}, true};
   }
-  return {state, ctx, true};
+  return {state, ctx, {}, true};
 }
 
 } // namespace crossasset::ems::fsm

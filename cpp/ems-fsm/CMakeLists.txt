@@ -12,3 +12,7 @@ add_executable(ems-fsm-compile-test test/fsm_compile_test.cpp)
 target_link_libraries(ems-fsm-compile-test PRIVATE ems-fsm)
 enable_testing()
 add_test(NAME ems-fsm-compile-test COMMAND ems-fsm-compile-test)
+
+# Behavioural coverage of the generated effect tables. The compile-verify above
+# proves the headers parse; this proves they answer correctly.
+ems_add_test(ems-fsm-effects-test SOURCES test/fsm_effects_test.cpp LIBS ems-fsm)

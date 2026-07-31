@@ -20,6 +20,15 @@ to the C++ emitter so state and event names could reach the journal. The diff
 was pure insertion: no existing line changed, which is what made the update
 safe to make rather than a signal that something had broken.
 
+They were updated a second time when effects landed in the Rust and C++
+emitters. That diff was *not* pure insertion — every return site in every
+generated `transition` gained a field — so it was reviewed differently: the
+removed lines were filtered down to confirm they were all `return {...}` sites
+plus the obsolete "effects: deferred" comment, and nothing behavioural moved.
+Rust hashes were added at the same time. The Rust tree had been generated for
+several commits with no pin at all, which meant the emitter this test exists to
+protect was the one emitter it did not cover.
+
 Run: python3 -m unittest discover -s tools/codegen -p 'test_*.py'
 """
 
@@ -31,6 +40,7 @@ import unittest
 
 JAVA_GENERATED = pathlib.Path("java/ems-fsm/src/main/generated")
 CPP_GENERATED = pathlib.Path("cpp/fsm/generated")
+RUST_GENERATED = pathlib.Path("rust/ems-fsm/src/generated")
 
 JAVA_GOLDEN = {
     "io/crossasset/ems/fsm/generated/MultiLegFsmContext.java": "44e30180f7b785a055fff8aff463385721a70062d7fff55e5f0f5701ef804cf7",
@@ -67,11 +77,20 @@ JAVA_GOLDEN = {
 }
 
 CPP_GOLDEN = {
-    "multileg_fsm.hpp": "f95d319c20f4a9084e38cc78a67437807739efb461484d6822d293e4f037422f",
-    "order_fsm.hpp": "69ea6aa72a3aa46236f8f5b995a2474f42a066bb651941faaac70ed09a2e10c6",
-    "route_fsm.hpp": "15f4e3914681b6e180ff04116d0522d905473bdcbc8a99ee3a3485e9c31b3ccd",
-    "sor_fsm.hpp": "bc3caaea9c75b415149d1bb4c7896be79dc0f5c4f26b8613e6e071d024074e2d",
-    "venuesession_fsm.hpp": "e2172e1da238b1287633c8cf9432fcfabc2c46527771d127d39f12d6621cdae0",
+    "multileg_fsm.hpp": "74baa476fb65bea025108eed169fa4d6c25d481fe2d9a5fd720e81a5e0afa622",
+    "order_fsm.hpp": "e44ca8c1394173398cf04212226646a10b88a3b85198b5693e1a995e9f6b869e",
+    "route_fsm.hpp": "f21e2606ad4492c057742f0c103bc6ffe6413ea0299f523abfe25888404ab11b",
+    "sor_fsm.hpp": "99956129bce2455f2b69fda70637510cb1fb34a99b61e9563225cffed1850136",
+    "venuesession_fsm.hpp": "3a9debfae9854a2d6288cd4f088504c590dcfcec5cbaca553591fe8597017fa9",
+}
+
+RUST_GOLDEN = {
+    "mod.rs": "716d96c5b64d038a92d7dd7a2c25e14db57279b740732d44951b431a5147d73a",
+    "multi_leg_fsm.rs": "fc6513a4abd1230a4c4a6951b68aacd296428b90e4cc82a2cd10cae53826cf66",
+    "order_fsm.rs": "86282d48c377e1bb5814f14a0a672a9e2bb2c28a2ef1bf8807ef4676070be593",
+    "route_fsm.rs": "f05bc3e752046a6c123a7e8ccc3770e6abf594f4098da730ec2a51c9ca80a14f",
+    "sor_fsm.rs": "674217c0844ac1b17ce9317248add42c3591198c7104179daa98f3b62249d179",
+    "venue_session_fsm.rs": "4d99f0bb10dd1fc38f5a51dad89cb1493b6b9490cae749daf5b24e5c886307f0",
 }
 
 
@@ -102,6 +121,15 @@ class TestGeneratedOutputIsUnchanged(unittest.TestCase):
         for name, expected in sorted(CPP_GOLDEN.items()):
             with self.subTest(file=name):
                 self.assertEqual(sha256(CPP_GENERATED / name), expected)
+
+    def test_rust_file_set_is_unchanged(self):
+        actual = {p.name for p in RUST_GENERATED.glob("*.rs")}
+        self.assertEqual(actual, set(RUST_GOLDEN), "generated Rust file set changed")
+
+    def test_rust_file_contents_are_unchanged(self):
+        for name, expected in sorted(RUST_GOLDEN.items()):
+            with self.subTest(file=name):
+                self.assertEqual(sha256(RUST_GENERATED / name), expected)
 
 
 if __name__ == "__main__":

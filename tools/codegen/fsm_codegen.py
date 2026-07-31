@@ -857,9 +857,11 @@ CPP_HEADER_TEMPLATE = """\
 // Source: schemas/fsm/{source}.fsm.yaml
 // Re-run: python3 tools/codegen/fsm_codegen.py
 #pragma once
+#include <array>
 #include <cstdint>
 #include <string>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <variant>
 #include <vector>
@@ -910,11 +912,63 @@ struct {prefix}FsmContext {{
 {ctx_fields}
 }};
 
+// ── Effects ──────────────────────────────────────────────────────────────────
+//
+// A side effect a transition asks for, as the schema declares it.
+//
+// STUDY: effects-as-static-data
+//
+// Every value comes from the YAML, so a transition's effects are compile-time
+// data: the generator emits `static constexpr` arrays and `transition` returns a
+// span over one of them. Nothing is allocated and nothing has to be kept alive.
+//
+// The honest caveat, which Rust does not have: this is a struct with a `kind`
+// tag, not a sum type. An `EmitEvent` still *has* an `args` field and a
+// `PublishFixMessage` still has a `targetFsm` — both empty, and nothing stops a
+// caller reading them. Java models this as a sealed interface of records and
+// Rust as an enum, where both are unrepresentable. `std::variant` could express
+// it, at the cost of every read becoming a visit; the tag was chosen because the
+// only consumer switches on the kind anyway.
+//
+// The kind and arg types are prefixed like everything else here for a concrete
+// reason: a translation unit that drives two machines includes two of these
+// headers, and an unprefixed `FsmEffectKind` in the shared namespace would be a
+// redefinition. Rust has no such problem — each machine is its own module.
+enum class {prefix}FsmEffectKind : uint8_t {{
+  EmitEvent,
+  PublishEventLog,
+  PublishFixMessage,
+  ScheduleTimer,
+  CancelTimer,
+  Notify,
+  ChainIdentityStamp,
+}};
+
+/// One `key: value` pair from an effect's `args` map in the schema.
+struct {prefix}FsmEffectArg {{
+  std::string_view key{{}};
+  std::string_view value{{}};
+}};
+
+struct {prefix}FsmEffect {{
+  {prefix}FsmEffectKind kind{{}};
+  /// EmitEvent only — the machine the event is for. Empty otherwise.
+  std::string_view targetFsm{{}};
+  /// EmitEvent and PublishEventLog — the event name. Empty otherwise.
+  std::string_view event{{}};
+  /// Everything else — the raw `args` map. Empty for the two above.
+  std::span<const {prefix}FsmEffectArg> args{{}};
+}};
+
 // ── TransitionResult ──────────────────────────────────────────────────────────
 struct {prefix}FsmTransitionResult {{
   {prefix}FsmState newState;
   {prefix}FsmContext newContext;
-  // effects: deferred — C++ effect dispatch not yet generated (Java has full effects)
+  /// What the schema asks the caller to do, in the order it declares them.
+  ///
+  /// A span over static storage, so copying the result copies a pointer and a
+  /// length. Empty when no transition matched.
+  std::span<const {prefix}FsmEffect> effects;
   bool isNoTransition;
 }};
 
@@ -1140,6 +1194,84 @@ def gen_cpp_payload_struct(fsm: dict, prefix: str) -> str:
     return "\n".join(lines)
 
 
+CPP_EFFECT_VARIANTS = {
+    "publish_fix_message": "PublishFixMessage",
+    "schedule_timer": "ScheduleTimer",
+    "cancel_timer": "CancelTimer",
+    "notify": "Notify",
+    "chain_identity_stamp": "ChainIdentityStamp",
+}
+
+
+def gen_cpp_effect_tables(fsm: dict, prefix: str) -> tuple[str, dict[int, str | None]]:
+    """Emit one ``inline constexpr`` table per transition that has effects.
+
+    Returns the table source and a map from transition identity to the symbol
+    that holds its effects — ``None`` where a transition asks for nothing, so
+    the caller emits an empty span rather than a table of length zero.
+
+    Namespace scope rather than function-local statics: a `static constexpr`
+    declared inside a `switch` case would need its own block, and the brace
+    bookkeeping in the transition emitter is already the fiddliest part of it.
+    """
+    lines: list[str] = []
+    symbols: dict[int, str | None] = {}
+
+    for index, row in enumerate(fsm["transitions"]):
+        effects = [e for e in row.get("effects", []) if e["kind"] != "update_context"]
+        if not effects:
+            symbols[id(row)] = None
+            continue
+
+        entries = []
+        for position, effect in enumerate(effects):
+            kind = effect["kind"]
+            args = effect.get("args", {})
+            if kind == "publish_event_log":
+                entries.append(
+                    f'{{{prefix}FsmEffectKind::PublishEventLog, {{}}, "{args.get("event", "")}", {{}}}}'
+                )
+            elif kind == "emit_event":
+                entries.append(
+                    f"{{{prefix}FsmEffectKind::EmitEvent, "
+                    f'"{args.get("target_fsm", "")}", "{args.get("event", "")}", {{}}}}'
+                )
+            else:
+                variant = CPP_EFFECT_VARIANTS.get(kind)
+                if variant is None:
+                    raise ValueError(f"Unknown effect kind: {kind!r}")
+                arg_symbol = f"k{prefix}FsmEffectArgs{index}_{position}"
+                pairs = ", ".join(
+                    f'{prefix}FsmEffectArg{{"{k}", "{v}"}}' for k, v in args.items()
+                )
+                lines.append(
+                    f"inline constexpr std::array<{prefix}FsmEffectArg, {len(args)}> "
+                    f"{arg_symbol} = {{{{{pairs}}}}};"
+                )
+                entries.append(
+                    f"{{{prefix}FsmEffectKind::{variant}, {{}}, {{}}, {arg_symbol}}}"
+                )
+
+        symbol = f"k{prefix}FsmEffects{index}"
+        lines.append(
+            f"inline constexpr std::array<{prefix}FsmEffect, {len(entries)}> "
+            f"{symbol} = {{{{{', '.join(entries)}}}}};"
+        )
+        symbols[id(row)] = symbol
+
+    if not lines:
+        return "", symbols
+
+    header = [
+        "// ── Effect tables ────────────────────────────────────────────────────────────",
+        "//",
+        "// One table per transition that asks for something. `transition` returns a span",
+        "// over the matching table, so the effects cost nothing to return and outlive any",
+        "// caller.",
+    ]
+    return "\n".join(header + lines) + "\n", symbols
+
+
 def gen_cpp_transition_impl(fsm: dict, prefix: str) -> str:
     """Generate the inline transition() function body for a C++ header."""
     ctx_schema = fsm["context_schema"]
@@ -1154,7 +1286,10 @@ def gen_cpp_transition_impl(fsm: dict, prefix: str) -> str:
     for t in fsm["transitions"]:
         from_map[t["from"]].append(t)
 
+    tables, effect_symbols = gen_cpp_effect_tables(fsm, prefix)
+
     lines = [
+        tables,
         "// ── Transition implementation (inline) ──────────────────────────────────────",
         f"inline {prefix}FsmTransitionResult transition(",
         f"    {prefix}FsmState state,",
@@ -1217,32 +1352,39 @@ def gen_cpp_transition_impl(fsm: dict, prefix: str) -> str:
                         cpp_expr = compile_update_expr_cpp(yaml_expr, field, finfo, ctx_schema)
                         update_stmts.append(f"newCtx.{snake_to_camel(field)} = {cpp_expr};")
 
+                symbol = effect_symbols.get(id(row))
+                effects = symbol if symbol else "{}"
+
                 if guard:
                     cpp_guard = compile_guard_cpp(guard, ctx_schema)
                     lines.append(f"      if ({cpp_guard}) {{")
                     for stmt in update_stmts:
                         lines.append(f"        {stmt}")
-                    lines.append(f"        return {{{prefix}FsmState::{to_state}, {return_ctx}, false}};")
+                    lines.append(
+                        f"        return {{{prefix}FsmState::{to_state}, {return_ctx}, {effects}, false}};"
+                    )
                     lines.append("      }")
                 else:
                     for stmt in update_stmts:
                         lines.append(f"      {stmt}")
-                    lines.append(f"      return {{{prefix}FsmState::{to_state}, {return_ctx}, false}};")
+                    lines.append(
+                        f"      return {{{prefix}FsmState::{to_state}, {return_ctx}, {effects}, false}};"
+                    )
 
             if all_guarded:
-                lines.append("      return {state, ctx, true};")
+                lines.append("      return {state, ctx, {}, true};")
 
             if use_braces:
                 lines.append("    }")
 
         lines.append("    default:")
-        lines.append("      return {state, ctx, true};")
+        lines.append("      return {state, ctx, {}, true};")
         lines.append("    }")  # end inner switch(event)
 
     lines.append("  default:")
-    lines.append("    return {state, ctx, true};")
+    lines.append("    return {state, ctx, {}, true};")
     lines.append("  }")  # end outer switch(state)
-    lines.append("  return {state, ctx, true};")
+    lines.append("  return {state, ctx, {}, true};")
     lines.append("}")
     lines.append("")
 
@@ -1627,6 +1769,93 @@ def gen_rust_payload_structs(fsm: dict, prefix: str) -> str:
     return "\n\n".join(out)
 
 
+def effect_to_rust(effect: dict, prefix: str) -> str | None:
+    """Render one effect as a Rust const expression.
+
+    Every field is ``&'static str`` because every value comes from the YAML and
+    is therefore known at compile time. That is what lets a transition's effects
+    be a ``&'static [..]`` with no allocation and no lifetime to manage.
+    """
+    kind = effect["kind"]
+    args = effect.get("args", {})
+
+    def arg_slice() -> str:
+        parts = ", ".join(f'("{k}", "{v}")' for k, v in args.items())
+        return f"&[{parts}]"
+
+    if kind == "update_context":
+        # Not an effect the caller sees: the runner applies it to the context.
+        return None
+    if kind == "publish_event_log":
+        return f'{prefix}FsmEffect::PublishEventLog {{ event: "{args.get("event", "")}" }}'
+    if kind == "emit_event":
+        return (
+            f"{prefix}FsmEffect::EmitEvent {{ "
+            f'target_fsm: "{args.get("target_fsm", "")}", '
+            f'event: "{args.get("event", "")}" }}'
+        )
+    variant = {
+        "publish_fix_message": "PublishFixMessage",
+        "schedule_timer": "ScheduleTimer",
+        "cancel_timer": "CancelTimer",
+        "notify": "Notify",
+        "chain_identity_stamp": "ChainIdentityStamp",
+    }.get(kind)
+    if variant is None:
+        raise ValueError(f"Unknown effect kind: {kind!r}")
+    return f"{prefix}FsmEffect::{variant}({arg_slice()})"
+
+
+def rust_effects_expr(effects: list, prefix: str) -> str:
+    """The ``&'static [Effect]`` literal for one transition's effects."""
+    rendered = [e for e in (effect_to_rust(x, prefix) for x in effects) if e]
+    if not rendered:
+        return "&[]"
+    return "&[" + ", ".join(rendered) + "]"
+
+
+def gen_rust_effects(prefix: str) -> str:
+    """The effect enum for one machine.
+
+    A sum type, so an ``EmitEvent`` carrying a timer's arguments does not
+    compile. Java models the same thing as a sealed interface of records; C++
+    cannot, and its generated struct leaves the unused fields empty instead —
+    see ``70_concepts/idioms/effects-as-static-data.md``.
+    """
+    return f"""\
+/// A side effect a transition asks for, as the schema declares it.
+///
+/// Every field is `&'static str`: the values come from the YAML, so a
+/// transition's effects are compile-time data. `apply` returns
+/// `&'static [{prefix}FsmEffect]` — no allocation, and nothing to keep alive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum {prefix}FsmEffect {{
+    /// Cascade an event to another FSM instance.
+    EmitEvent {{
+        /// The machine the event is for, as the schema names it.
+        target_fsm: &'static str,
+        /// The event to apply there.
+        event: &'static str,
+    }},
+    /// Append an event-log audit record.
+    PublishEventLog {{
+        /// The log event name.
+        event: &'static str,
+    }},
+    /// Emit an outbound FIX message.
+    PublishFixMessage(&'static [(&'static str, &'static str)]),
+    /// Schedule a timer.
+    ScheduleTimer(&'static [(&'static str, &'static str)]),
+    /// Cancel a pending timer.
+    CancelTimer(&'static [(&'static str, &'static str)]),
+    /// Notify subscribers.
+    Notify(&'static [(&'static str, &'static str)]),
+    /// Stamp identity chaining trace fields.
+    ChainIdentityStamp(&'static [(&'static str, &'static str)]),
+}}
+"""
+
+
 def gen_rust_transition(fsm: dict, prefix: str) -> str:
     """The exhaustive transition function.
 
@@ -1722,8 +1951,10 @@ def gen_rust_transition(fsm: dict, prefix: str) -> str:
                     ret_ctx = "next"
                 else:
                     ret_ctx = "ctx.clone()"
+                effects = rust_effects_expr(row.get("effects", []), prefix)
                 ret = (f"{prefix}FsmTransitionResult {{ new_state: Self::{to_variant}, "
-                       f"new_context: {ret_ctx}, is_no_transition: false }}")
+                       f"new_context: {ret_ctx}, effects: {effects}, "
+                       f"is_no_transition: false }}")
                 if guard:
                     lines.append(f"                    if {compile_guard_rust(guard, ctx_schema)} {{")
                     for stmt in body:
@@ -1804,6 +2035,7 @@ def gen_rust_module(fsm: dict) -> str:
         event_names=event_names,
         event_from_name=event_from_name,
         ctx_fields="\n".join(ctx_fields),
+        effects=gen_rust_effects(prefix),
         payloads=payloads,
         transition=transition,
     )
@@ -1897,17 +2129,43 @@ pub struct {prefix}FsmTransitionResult {{
     pub new_state: {prefix}FsmState,
     /// The context after the event.
     pub new_context: {prefix}FsmContext,
+    /// What the schema asks the caller to do, in the order it declares them.
+    ///
+    /// Static data, not an owned list: the values are all literals from the
+    /// YAML, so there is nothing to allocate and nothing to free. Empty when no
+    /// transition matched.
+    pub effects: &'static [{prefix}FsmEffect],
     /// True when no transition matched — the event is ignored, not an error.
     pub is_no_transition: bool,
 }}
 
 impl {prefix}FsmTransitionResult {{
-    /// No rule matched: state and context are unchanged.
+    /// No rule matched: state and context are unchanged, and nothing is asked for.
     #[must_use]
     pub fn no_transition(state: {prefix}FsmState, ctx: &{prefix}FsmContext) -> Self {{
-        Self {{ new_state: state, new_context: ctx.clone(), is_no_transition: true }}
+        Self {{
+            new_state: state,
+            new_context: ctx.clone(),
+            effects: &[],
+            is_no_transition: true,
+        }}
+    }}
+
+    /// The events this transition cascades to another machine, in schema order.
+    ///
+    /// The common reason to look at effects at all: a route reaching `WORKING`
+    /// tells the order machine so. Returning `(target, event)` pairs rather than
+    /// the effects themselves keeps the caller from matching on variants it does
+    /// not handle.
+    pub fn emitted_events(&self) -> impl Iterator<Item = (&'static str, &'static str)> + '_ {{
+        self.effects.iter().filter_map(|effect| match effect {{
+            {prefix}FsmEffect::EmitEvent {{ target_fsm, event }} => Some((*target_fsm, *event)),
+            _ => None,
+        }})
     }}
 }}
+
+{effects}
 
 {payloads}
 

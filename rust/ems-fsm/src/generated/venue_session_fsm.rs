@@ -200,17 +200,73 @@ pub struct VenueSessionFsmTransitionResult {
     pub new_state: VenueSessionFsmState,
     /// The context after the event.
     pub new_context: VenueSessionFsmContext,
+    /// What the schema asks the caller to do, in the order it declares them.
+    ///
+    /// Static data, not an owned list: the values are all literals from the
+    /// YAML, so there is nothing to allocate and nothing to free. Empty when no
+    /// transition matched.
+    pub effects: &'static [VenueSessionFsmEffect],
     /// True when no transition matched — the event is ignored, not an error.
     pub is_no_transition: bool,
 }
 
 impl VenueSessionFsmTransitionResult {
-    /// No rule matched: state and context are unchanged.
+    /// No rule matched: state and context are unchanged, and nothing is asked for.
     #[must_use]
     pub fn no_transition(state: VenueSessionFsmState, ctx: &VenueSessionFsmContext) -> Self {
-        Self { new_state: state, new_context: ctx.clone(), is_no_transition: true }
+        Self {
+            new_state: state,
+            new_context: ctx.clone(),
+            effects: &[],
+            is_no_transition: true,
+        }
+    }
+
+    /// The events this transition cascades to another machine, in schema order.
+    ///
+    /// The common reason to look at effects at all: a route reaching `WORKING`
+    /// tells the order machine so. Returning `(target, event)` pairs rather than
+    /// the effects themselves keeps the caller from matching on variants it does
+    /// not handle.
+    pub fn emitted_events(&self) -> impl Iterator<Item = (&'static str, &'static str)> + '_ {
+        self.effects.iter().filter_map(|effect| match effect {
+            VenueSessionFsmEffect::EmitEvent { target_fsm, event } => Some((*target_fsm, *event)),
+            _ => None,
+        })
     }
 }
+
+/// A side effect a transition asks for, as the schema declares it.
+///
+/// Every field is `&'static str`: the values come from the YAML, so a
+/// transition's effects are compile-time data. `apply` returns
+/// `&'static [VenueSessionFsmEffect]` — no allocation, and nothing to keep alive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VenueSessionFsmEffect {
+    /// Cascade an event to another FSM instance.
+    EmitEvent {
+        /// The machine the event is for, as the schema names it.
+        target_fsm: &'static str,
+        /// The event to apply there.
+        event: &'static str,
+    },
+    /// Append an event-log audit record.
+    PublishEventLog {
+        /// The log event name.
+        event: &'static str,
+    },
+    /// Emit an outbound FIX message.
+    PublishFixMessage(&'static [(&'static str, &'static str)]),
+    /// Schedule a timer.
+    ScheduleTimer(&'static [(&'static str, &'static str)]),
+    /// Cancel a pending timer.
+    CancelTimer(&'static [(&'static str, &'static str)]),
+    /// Notify subscribers.
+    Notify(&'static [(&'static str, &'static str)]),
+    /// Stamp identity chaining trace fields.
+    ChainIdentityStamp(&'static [(&'static str, &'static str)]),
+}
+
 
 /// This machine has no event payloads. The type exists so `apply` has a
 /// uniform signature across every generated machine.
@@ -239,57 +295,57 @@ impl VenueSessionFsmState {
         match self {
             Self::Disconnected => match event {
                 VenueSessionFsmEvent::ConnectRequested => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Connecting, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Connecting, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::Notify(&[("signal", "initiate_tcp"), ("session_id", "{{ context.session_id }}")])], is_no_transition: false }
                 }
                 _ => VenueSessionFsmTransitionResult::no_transition(self, ctx),
             },
             Self::Connecting => match event {
                 VenueSessionFsmEvent::TcpConnected => {
-                    VenueSessionFsmTransitionResult { new_state: Self::LogonSent, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::LogonSent, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::Notify(&[("signal", "send_logon"), ("session_id", "{{ context.session_id }}")]), VenueSessionFsmEffect::ScheduleTimer(&[("name", "logon_timer"), ("duration_secs", "30")])], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::TcpFailed => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::PublishEventLog { event: "TcpConnectionFailed" }, VenueSessionFsmEffect::ScheduleTimer(&[("name", "reconnect_backoff"), ("duration_secs", "5")])], is_no_transition: false }
                 }
                 _ => VenueSessionFsmTransitionResult::no_transition(self, ctx),
             },
             Self::LogonSent => match event {
                 VenueSessionFsmEvent::LogonAcknowledged => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Active, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Active, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::CancelTimer(&[("name", "logon_timer")]), VenueSessionFsmEffect::ScheduleTimer(&[("name", "heartbeat_rx_timer"), ("duration_secs", "{{ context.heartbeat_interval_secs }}")]), VenueSessionFsmEffect::PublishEventLog { event: "SessionActive" }], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::LogonRejected => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::CancelTimer(&[("name", "logon_timer")]), VenueSessionFsmEffect::Notify(&[("signal", "close_socket"), ("session_id", "{{ context.session_id }}")]), VenueSessionFsmEffect::PublishEventLog { event: "LogonRejected" }], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::UnexpectedDisconnect => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::PublishEventLog { event: "UnexpectedDisconnect" }], is_no_transition: false }
                 }
                 _ => VenueSessionFsmTransitionResult::no_transition(self, ctx),
             },
             Self::Active => match event {
                 VenueSessionFsmEvent::HeartbeatReceived => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Active, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Active, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::CancelTimer(&[("name", "heartbeat_rx_timer")]), VenueSessionFsmEffect::ScheduleTimer(&[("name", "heartbeat_rx_timer"), ("duration_secs", "{{ context.heartbeat_interval_secs }}")])], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::HeartbeatOverdue => {
                     let mut next = ctx.clone();
                     next.test_request_outstanding = true;
-                    VenueSessionFsmTransitionResult { new_state: Self::TestRequestSent, new_context: next, is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::TestRequestSent, new_context: next, effects: &[VenueSessionFsmEffect::Notify(&[("signal", "send_test_request"), ("session_id", "{{ context.session_id }}")]), VenueSessionFsmEffect::ScheduleTimer(&[("name", "test_request_timer"), ("duration_secs", "{{ context.heartbeat_interval_secs }}")])], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::GapDetected => {
-                    VenueSessionFsmTransitionResult { new_state: Self::ResendInProgress, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::ResendInProgress, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::Notify(&[("signal", "send_resend_request"), ("session_id", "{{ context.session_id }}")]), VenueSessionFsmEffect::PublishEventLog { event: "GapDetected" }], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::InboundResendRequest => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Active, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Active, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::Notify(&[("signal", "send_resend_messages"), ("session_id", "{{ context.session_id }}")])], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::SequenceResetReceived => {
-                    VenueSessionFsmTransitionResult { new_state: Self::SequenceResetting, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::SequenceResetting, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::PublishEventLog { event: "SequenceResetReceived" }], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::LogoutRequested => {
-                    VenueSessionFsmTransitionResult { new_state: Self::LogoutInProgress, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::LogoutInProgress, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::Notify(&[("signal", "send_logout"), ("session_id", "{{ context.session_id }}")]), VenueSessionFsmEffect::ScheduleTimer(&[("name", "logout_timer"), ("duration_secs", "10")]), VenueSessionFsmEffect::PublishEventLog { event: "LogoutInitiated" }], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::LogoutReceived => {
-                    VenueSessionFsmTransitionResult { new_state: Self::LogoutInProgress, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::LogoutInProgress, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::Notify(&[("signal", "send_logout"), ("session_id", "{{ context.session_id }}")]), VenueSessionFsmEffect::ScheduleTimer(&[("name", "logout_timer"), ("duration_secs", "5")]), VenueSessionFsmEffect::PublishEventLog { event: "LogoutEchoSent" }], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::UnexpectedDisconnect => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::PublishEventLog { event: "UnexpectedDisconnect" }], is_no_transition: false }
                 }
                 _ => VenueSessionFsmTransitionResult::no_transition(self, ctx),
             },
@@ -297,13 +353,13 @@ impl VenueSessionFsmState {
                 VenueSessionFsmEvent::TestRequestResponse => {
                     let mut next = ctx.clone();
                     next.test_request_outstanding = false;
-                    VenueSessionFsmTransitionResult { new_state: Self::Active, new_context: next, is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Active, new_context: next, effects: &[VenueSessionFsmEffect::CancelTimer(&[("name", "test_request_timer")]), VenueSessionFsmEffect::ScheduleTimer(&[("name", "heartbeat_rx_timer"), ("duration_secs", "{{ context.heartbeat_interval_secs }}")])], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::TestRequestTimeout => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::Notify(&[("signal", "close_socket"), ("session_id", "{{ context.session_id }}")]), VenueSessionFsmEffect::PublishEventLog { event: "SessionStale" }], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::UnexpectedDisconnect => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::PublishEventLog { event: "UnexpectedDisconnect" }], is_no_transition: false }
                 }
                 _ => VenueSessionFsmTransitionResult::no_transition(self, ctx),
             },
@@ -312,13 +368,13 @@ impl VenueSessionFsmState {
                     let mut next = ctx.clone();
                     next.resend_window_low = 0;
                     next.resend_window_high = 0;
-                    VenueSessionFsmTransitionResult { new_state: Self::Active, new_context: next, is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Active, new_context: next, effects: &[VenueSessionFsmEffect::PublishEventLog { event: "ResendComplete" }], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::SequenceResetReceived => {
-                    VenueSessionFsmTransitionResult { new_state: Self::SequenceResetting, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::SequenceResetting, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::PublishEventLog { event: "SequenceResetReceived" }], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::UnexpectedDisconnect => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::PublishEventLog { event: "UnexpectedDisconnect" }], is_no_transition: false }
                 }
                 _ => VenueSessionFsmTransitionResult::no_transition(self, ctx),
             },
@@ -327,19 +383,19 @@ impl VenueSessionFsmState {
                     let mut next = ctx.clone();
                     next.resend_window_low = 0;
                     next.resend_window_high = 0;
-                    VenueSessionFsmTransitionResult { new_state: Self::Active, new_context: next, is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Active, new_context: next, effects: &[VenueSessionFsmEffect::PublishEventLog { event: "SequenceResetApplied" }], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::UnexpectedDisconnect => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::PublishEventLog { event: "UnexpectedDisconnect" }], is_no_transition: false }
                 }
                 _ => VenueSessionFsmTransitionResult::no_transition(self, ctx),
             },
             Self::LogoutInProgress => match event {
                 VenueSessionFsmEvent::LogoutEchoed => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::CancelTimer(&[("name", "logout_timer")]), VenueSessionFsmEffect::Notify(&[("signal", "close_socket"), ("session_id", "{{ context.session_id }}")]), VenueSessionFsmEffect::PublishEventLog { event: "SessionClosed" }], is_no_transition: false }
                 }
                 VenueSessionFsmEvent::UnexpectedDisconnect => {
-                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), is_no_transition: false }
+                    VenueSessionFsmTransitionResult { new_state: Self::Disconnected, new_context: ctx.clone(), effects: &[VenueSessionFsmEffect::PublishEventLog { event: "UnexpectedDisconnect" }], is_no_transition: false }
                 }
                 _ => VenueSessionFsmTransitionResult::no_transition(self, ctx),
             },

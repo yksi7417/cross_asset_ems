@@ -2,7 +2,7 @@
 type: idiom
 status: draft
 language: cross
-anchor: rust/ems-fsm/src/generated/order_fsm.rs:351
+anchor: rust/ems-fsm/src/generated/order_fsm.rs:407
 tags: [concept/idioms, lang/rust, lang/java, lang/cpp, theme/types, theme/codegen]
 ---
 
@@ -60,7 +60,7 @@ Two things are worth being precise about, because it would be easy to overclaim:
 
 ## Where it lives
 
-`rust/ems-fsm/src/generated/order_fsm.rs:351` — `OrderFsmState::apply`, the exhaustive
+`rust/ems-fsm/src/generated/order_fsm.rs:407` — `OrderFsmState::apply`, the exhaustive
 `match self`. Compare `java/ems-fsm/src/main/generated/` and `cpp/fsm/generated/order_fsm.hpp`,
 generated from the same YAML by the same script.
 

@@ -235,17 +235,73 @@ pub struct RouteFsmTransitionResult {
     pub new_state: RouteFsmState,
     /// The context after the event.
     pub new_context: RouteFsmContext,
+    /// What the schema asks the caller to do, in the order it declares them.
+    ///
+    /// Static data, not an owned list: the values are all literals from the
+    /// YAML, so there is nothing to allocate and nothing to free. Empty when no
+    /// transition matched.
+    pub effects: &'static [RouteFsmEffect],
     /// True when no transition matched — the event is ignored, not an error.
     pub is_no_transition: bool,
 }
 
 impl RouteFsmTransitionResult {
-    /// No rule matched: state and context are unchanged.
+    /// No rule matched: state and context are unchanged, and nothing is asked for.
     #[must_use]
     pub fn no_transition(state: RouteFsmState, ctx: &RouteFsmContext) -> Self {
-        Self { new_state: state, new_context: ctx.clone(), is_no_transition: true }
+        Self {
+            new_state: state,
+            new_context: ctx.clone(),
+            effects: &[],
+            is_no_transition: true,
+        }
+    }
+
+    /// The events this transition cascades to another machine, in schema order.
+    ///
+    /// The common reason to look at effects at all: a route reaching `WORKING`
+    /// tells the order machine so. Returning `(target, event)` pairs rather than
+    /// the effects themselves keeps the caller from matching on variants it does
+    /// not handle.
+    pub fn emitted_events(&self) -> impl Iterator<Item = (&'static str, &'static str)> + '_ {
+        self.effects.iter().filter_map(|effect| match effect {
+            RouteFsmEffect::EmitEvent { target_fsm, event } => Some((*target_fsm, *event)),
+            _ => None,
+        })
     }
 }
+
+/// A side effect a transition asks for, as the schema declares it.
+///
+/// Every field is `&'static str`: the values come from the YAML, so a
+/// transition's effects are compile-time data. `apply` returns
+/// `&'static [RouteFsmEffect]` — no allocation, and nothing to keep alive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RouteFsmEffect {
+    /// Cascade an event to another FSM instance.
+    EmitEvent {
+        /// The machine the event is for, as the schema names it.
+        target_fsm: &'static str,
+        /// The event to apply there.
+        event: &'static str,
+    },
+    /// Append an event-log audit record.
+    PublishEventLog {
+        /// The log event name.
+        event: &'static str,
+    },
+    /// Emit an outbound FIX message.
+    PublishFixMessage(&'static [(&'static str, &'static str)]),
+    /// Schedule a timer.
+    ScheduleTimer(&'static [(&'static str, &'static str)]),
+    /// Cancel a pending timer.
+    CancelTimer(&'static [(&'static str, &'static str)]),
+    /// Notify subscribers.
+    Notify(&'static [(&'static str, &'static str)]),
+    /// Stamp identity chaining trace fields.
+    ChainIdentityStamp(&'static [(&'static str, &'static str)]),
+}
+
 
 /// Payload carried by [`RouteFsmEvent::RouteReplaceRequested`].
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -344,36 +400,36 @@ impl RouteFsmState {
         match self {
             Self::Pending => match event {
                 RouteFsmEvent::RouteSent => {
-                    RouteFsmTransitionResult { new_state: Self::Sent, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Sent, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteSent" }], is_no_transition: false }
                 }
                 _ => RouteFsmTransitionResult::no_transition(self, ctx),
             },
             Self::Sent => match event {
                 RouteFsmEvent::RoutePendingNewAtVenue => {
-                    RouteFsmTransitionResult { new_state: Self::PendingNewAtVenue, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::PendingNewAtVenue, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RoutePendingNewAtVenue" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteAcknowledged => {
-                    RouteFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteWorking" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "ValidationPassed" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteRejected => {
-                    RouteFsmTransitionResult { new_state: Self::Rejected, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Rejected, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteRejected" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "ValidationFailed" }], is_no_transition: false }
                 }
                 _ => RouteFsmTransitionResult::no_transition(self, ctx),
             },
             Self::PendingNewAtVenue => match event {
                 RouteFsmEvent::RouteAcknowledged => {
-                    RouteFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteWorking" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "ValidationPassed" }], is_no_transition: false }
                 }
                 _ => RouteFsmTransitionResult::no_transition(self, ctx),
             },
             Self::Working => match event {
                 RouteFsmEvent::RouteReplaceRequested => {
-                    RouteFsmTransitionResult { new_state: Self::PendingReplaceAtVenue, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::PendingReplaceAtVenue, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteReplaceRequested" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteCancelRequested => {
                     let mut next = ctx.clone();
                     next.pre_cancel_status = Some("0".to_owned());
-                    RouteFsmTransitionResult { new_state: Self::PendingCancelAtVenue, new_context: next, is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::PendingCancelAtVenue, new_context: next, effects: &[RouteFsmEffect::PublishEventLog { event: "RouteCancelRequested" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RoutePartiallyFilled => {
                     let Some(RouteFsmPayload::RoutePartiallyFilled(p)) = payload else {
@@ -382,7 +438,7 @@ impl RouteFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = ctx.leaves_qty - p.last_qty;
-                    RouteFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[RouteFsmEffect::PublishEventLog { event: "RoutePartiallyFilled" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "PartialFill" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteFilled => {
                     let Some(RouteFsmPayload::RouteFilled(p)) = payload else {
@@ -391,28 +447,28 @@ impl RouteFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = 0;
-                    RouteFsmTransitionResult { new_state: Self::Filled, new_context: next, is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Filled, new_context: next, effects: &[RouteFsmEffect::PublishEventLog { event: "RouteFilled" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "FullFill" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteExpired => {
-                    RouteFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteExpired" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "OrderExpired" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteSuperseded => {
-                    RouteFsmTransitionResult { new_state: Self::Superseded, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Superseded, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteSuperseded" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteAnomaly => {
-                    RouteFsmTransitionResult { new_state: Self::Anomaly, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Anomaly, new_context: ctx.clone(), effects: &[RouteFsmEffect::Notify(&[("channel", "ops-alerts"), ("message", "Route anomaly detected — manual triage required")]), RouteFsmEffect::PublishEventLog { event: "RouteAnomaly" }], is_no_transition: false }
                 }
                 _ => RouteFsmTransitionResult::no_transition(self, ctx),
             },
             Self::PendingReplaceAtVenue => match event {
                 RouteFsmEvent::RouteReplacePendingAtVenue => {
-                    RouteFsmTransitionResult { new_state: Self::PendingReplaceAtVenue, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::PendingReplaceAtVenue, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteReplacePendingAtVenue" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteReplaced => {
-                    RouteFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteReplaced" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "ReplaceAccepted" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteReplaceRejected => {
-                    RouteFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteReplaceRejected" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "ReplaceRejected" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RoutePartiallyFilled => {
                     let Some(RouteFsmPayload::RoutePartiallyFilled(p)) = payload else {
@@ -421,7 +477,7 @@ impl RouteFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = ctx.leaves_qty - p.last_qty;
-                    RouteFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[RouteFsmEffect::PublishEventLog { event: "RoutePartiallyFilled" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "PartialFill" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteFilled => {
                     let Some(RouteFsmPayload::RouteFilled(p)) = payload else {
@@ -430,26 +486,26 @@ impl RouteFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = 0;
-                    RouteFsmTransitionResult { new_state: Self::Filled, new_context: next, is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Filled, new_context: next, effects: &[RouteFsmEffect::PublishEventLog { event: "RouteFilled" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "FullFill" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteSuperseded => {
-                    RouteFsmTransitionResult { new_state: Self::Superseded, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Superseded, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteSuperseded" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteAnomaly => {
-                    RouteFsmTransitionResult { new_state: Self::Anomaly, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Anomaly, new_context: ctx.clone(), effects: &[RouteFsmEffect::Notify(&[("channel", "ops-alerts"), ("message", "Route anomaly in PENDING_REPLACE — manual triage required")]), RouteFsmEffect::PublishEventLog { event: "RouteAnomaly" }], is_no_transition: false }
                 }
                 _ => RouteFsmTransitionResult::no_transition(self, ctx),
             },
             Self::PendingCancelAtVenue => match event {
                 RouteFsmEvent::RouteCanceled => {
-                    RouteFsmTransitionResult { new_state: Self::Canceled, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Canceled, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteCanceled" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteCancelRejected => {
                     if ctx.pre_cancel_status.as_deref() == Some("0") {
-                        return RouteFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), is_no_transition: false };
+                        return RouteFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteCancelRejected" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "CancelRejected" }], is_no_transition: false };
                     }
                     if ctx.pre_cancel_status.as_deref() == Some("1") {
-                        return RouteFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: ctx.clone(), is_no_transition: false };
+                        return RouteFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteCancelRejected" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "CancelRejected" }], is_no_transition: false };
                     }
                     RouteFsmTransitionResult::no_transition(self, ctx)
                 }
@@ -461,7 +517,7 @@ impl RouteFsmState {
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = ctx.leaves_qty - p.last_qty;
                     next.pre_cancel_status = Some("1".to_owned());
-                    RouteFsmTransitionResult { new_state: Self::PendingCancelAtVenue, new_context: next, is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::PendingCancelAtVenue, new_context: next, effects: &[RouteFsmEffect::PublishEventLog { event: "RoutePartiallyFilled" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "PartialFill" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteFilled => {
                     let Some(RouteFsmPayload::RouteFilled(p)) = payload else {
@@ -470,10 +526,10 @@ impl RouteFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = 0;
-                    RouteFsmTransitionResult { new_state: Self::Filled, new_context: next, is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Filled, new_context: next, effects: &[RouteFsmEffect::PublishEventLog { event: "RouteFilled" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "FullFill" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteAnomaly => {
-                    RouteFsmTransitionResult { new_state: Self::Anomaly, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Anomaly, new_context: ctx.clone(), effects: &[RouteFsmEffect::Notify(&[("channel", "ops-alerts"), ("message", "Route anomaly in PENDING_CANCEL — manual triage required")]), RouteFsmEffect::PublishEventLog { event: "RouteAnomaly" }], is_no_transition: false }
                 }
                 _ => RouteFsmTransitionResult::no_transition(self, ctx),
             },
@@ -481,7 +537,7 @@ impl RouteFsmState {
                 RouteFsmEvent::RouteCancelRequested => {
                     let mut next = ctx.clone();
                     next.pre_cancel_status = Some("1".to_owned());
-                    RouteFsmTransitionResult { new_state: Self::PendingCancelAtVenue, new_context: next, is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::PendingCancelAtVenue, new_context: next, effects: &[RouteFsmEffect::PublishEventLog { event: "RouteCancelRequested" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RoutePartiallyFilled => {
                     let Some(RouteFsmPayload::RoutePartiallyFilled(p)) = payload else {
@@ -490,7 +546,7 @@ impl RouteFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = ctx.leaves_qty - p.last_qty;
-                    RouteFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[RouteFsmEffect::PublishEventLog { event: "RoutePartiallyFilled" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "PartialFill" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteFilled => {
                     let Some(RouteFsmPayload::RouteFilled(p)) = payload else {
@@ -499,10 +555,10 @@ impl RouteFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = 0;
-                    RouteFsmTransitionResult { new_state: Self::Filled, new_context: next, is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Filled, new_context: next, effects: &[RouteFsmEffect::PublishEventLog { event: "RouteFilled" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "FullFill" }], is_no_transition: false }
                 }
                 RouteFsmEvent::RouteExpired => {
-                    RouteFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), is_no_transition: false }
+                    RouteFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), effects: &[RouteFsmEffect::PublishEventLog { event: "RouteExpired" }, RouteFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "OrderExpired" }], is_no_transition: false }
                 }
                 _ => RouteFsmTransitionResult::no_transition(self, ctx),
             },

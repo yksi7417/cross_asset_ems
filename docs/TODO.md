@@ -173,6 +173,29 @@ rejected — with the second route accepted and byte-identical across Java, Rust
 
 ---
 
+## T-8 — Java's `noTransition` returns a null context; Rust and C++ return the unchanged one
+
+`TransitionResult.noTransition(currentState)` passes `null` for `newContext`. The Rust and C++
+generators both return the context unchanged instead. Three implementations of the same generated
+contract disagree about what a declined event leaves behind.
+
+**Why:** it is latent rather than live — every caller checks `isNoTransition()` before reading
+`newContext()`, so nothing dereferences the null today. Fixing it means changing the generated Java
+`TransitionResult`, which re-pins the Java golden hashes and touches the 861 pre-existing FSM tests.
+That is a bigger blast radius than the component that found it (6b-i, effect generation) should
+carry, and bundling it would make both changes harder to review.
+
+Worth being precise about the risk: `newContext` is not `@Nullable`, so NullAway will not stop a
+future caller from dereferencing it. The first person to read the context after a declined event
+gets an NPE in Java and a valid value in the other two — and the conformance gate would only catch
+it if a corpus case happened to reach that path.
+
+**Done when:** the generator emits `noTransition(currentState, ctx)` in Java, all three languages
+return the unchanged context for a declined event, a test in each language asserts it, and the Java
+golden hashes are re-pinned with the diff reviewed.
+
+---
+
 ## Completed
 
 | Item | Outcome |

@@ -227,17 +227,73 @@ pub struct OrderFsmTransitionResult {
     pub new_state: OrderFsmState,
     /// The context after the event.
     pub new_context: OrderFsmContext,
+    /// What the schema asks the caller to do, in the order it declares them.
+    ///
+    /// Static data, not an owned list: the values are all literals from the
+    /// YAML, so there is nothing to allocate and nothing to free. Empty when no
+    /// transition matched.
+    pub effects: &'static [OrderFsmEffect],
     /// True when no transition matched — the event is ignored, not an error.
     pub is_no_transition: bool,
 }
 
 impl OrderFsmTransitionResult {
-    /// No rule matched: state and context are unchanged.
+    /// No rule matched: state and context are unchanged, and nothing is asked for.
     #[must_use]
     pub fn no_transition(state: OrderFsmState, ctx: &OrderFsmContext) -> Self {
-        Self { new_state: state, new_context: ctx.clone(), is_no_transition: true }
+        Self {
+            new_state: state,
+            new_context: ctx.clone(),
+            effects: &[],
+            is_no_transition: true,
+        }
+    }
+
+    /// The events this transition cascades to another machine, in schema order.
+    ///
+    /// The common reason to look at effects at all: a route reaching `WORKING`
+    /// tells the order machine so. Returning `(target, event)` pairs rather than
+    /// the effects themselves keeps the caller from matching on variants it does
+    /// not handle.
+    pub fn emitted_events(&self) -> impl Iterator<Item = (&'static str, &'static str)> + '_ {
+        self.effects.iter().filter_map(|effect| match effect {
+            OrderFsmEffect::EmitEvent { target_fsm, event } => Some((*target_fsm, *event)),
+            _ => None,
+        })
     }
 }
+
+/// A side effect a transition asks for, as the schema declares it.
+///
+/// Every field is `&'static str`: the values come from the YAML, so a
+/// transition's effects are compile-time data. `apply` returns
+/// `&'static [OrderFsmEffect]` — no allocation, and nothing to keep alive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrderFsmEffect {
+    /// Cascade an event to another FSM instance.
+    EmitEvent {
+        /// The machine the event is for, as the schema names it.
+        target_fsm: &'static str,
+        /// The event to apply there.
+        event: &'static str,
+    },
+    /// Append an event-log audit record.
+    PublishEventLog {
+        /// The log event name.
+        event: &'static str,
+    },
+    /// Emit an outbound FIX message.
+    PublishFixMessage(&'static [(&'static str, &'static str)]),
+    /// Schedule a timer.
+    ScheduleTimer(&'static [(&'static str, &'static str)]),
+    /// Cancel a pending timer.
+    CancelTimer(&'static [(&'static str, &'static str)]),
+    /// Notify subscribers.
+    Notify(&'static [(&'static str, &'static str)]),
+    /// Stamp identity chaining trace fields.
+    ChainIdentityStamp(&'static [(&'static str, &'static str)]),
+}
+
 
 /// Payload carried by [`OrderFsmEvent::ReplaceRequested`].
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -358,10 +414,10 @@ impl OrderFsmState {
         match self {
             Self::PendingNew => match event {
                 OrderFsmEvent::ValidationPassed => {
-                    OrderFsmTransitionResult { new_state: Self::New, new_context: ctx.clone(), is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::New, new_context: ctx.clone(), effects: &[OrderFsmEffect::ChainIdentityStamp(&[]), OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "0"), ("ord_status", "0")]), OrderFsmEffect::PublishEventLog { event: "OrderAccepted" }], is_no_transition: false }
                 }
                 OrderFsmEvent::ValidationFailed => {
-                    OrderFsmTransitionResult { new_state: Self::Rejected, new_context: ctx.clone(), is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::Rejected, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "j")]), OrderFsmEffect::PublishEventLog { event: "OrderRejected" }], is_no_transition: false }
                 }
                 _ => OrderFsmTransitionResult::no_transition(self, ctx),
             },
@@ -370,12 +426,12 @@ impl OrderFsmState {
                     let mut next = ctx.clone();
                     next.pre_replace_status = Some("0".to_owned());
                     next.order_version = ctx.order_version + 1;
-                    OrderFsmTransitionResult { new_state: Self::PendingReplace, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::PendingReplace, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "E"), ("ord_status", "E")]), OrderFsmEffect::PublishEventLog { event: "OrderReplaceRequested" }], is_no_transition: false }
                 }
                 OrderFsmEvent::CancelRequested => {
                     let mut next = ctx.clone();
                     next.pre_cancel_status = Some("0".to_owned());
-                    OrderFsmTransitionResult { new_state: Self::PendingCancel, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::PendingCancel, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "6"), ("ord_status", "6")]), OrderFsmEffect::PublishEventLog { event: "OrderCancelRequested" }], is_no_transition: false }
                 }
                 OrderFsmEvent::PartialFill => {
                     let Some(OrderFsmPayload::PartialFill(p)) = payload else {
@@ -384,7 +440,7 @@ impl OrderFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = ctx.leaves_qty - p.last_qty;
-                    OrderFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "1")]), OrderFsmEffect::PublishEventLog { event: "OrderPartiallyFilled" }], is_no_transition: false }
                 }
                 OrderFsmEvent::FullFill => {
                     let Some(OrderFsmPayload::FullFill(p)) = payload else {
@@ -393,13 +449,13 @@ impl OrderFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = 0;
-                    OrderFsmTransitionResult { new_state: Self::Filled, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::Filled, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "2")]), OrderFsmEffect::PublishEventLog { event: "OrderFilled" }], is_no_transition: false }
                 }
                 OrderFsmEvent::OrderExpired => {
-                    OrderFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "C"), ("ord_status", "C")]), OrderFsmEffect::PublishEventLog { event: "OrderExpired" }], is_no_transition: false }
                 }
                 OrderFsmEvent::DoneForDay => {
-                    OrderFsmTransitionResult { new_state: Self::DoneForDay, new_context: ctx.clone(), is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::DoneForDay, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "3"), ("ord_status", "3")]), OrderFsmEffect::PublishEventLog { event: "OrderDoneForDay" }], is_no_transition: false }
                 }
                 _ => OrderFsmTransitionResult::no_transition(self, ctx),
             },
@@ -407,14 +463,14 @@ impl OrderFsmState {
                 OrderFsmEvent::ReplaceAccepted => {
                     let mut next = ctx.clone();
                     next.pre_replace_status = None;
-                    OrderFsmTransitionResult { new_state: Self::Replaced, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::Replaced, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "5"), ("ord_status", "0")]), OrderFsmEffect::PublishEventLog { event: "OrderReplaced" }], is_no_transition: false }
                 }
                 OrderFsmEvent::ReplaceRejected => {
                     if ctx.pre_replace_status.as_deref() == Some("0") {
-                        return OrderFsmTransitionResult { new_state: Self::New, new_context: ctx.clone(), is_no_transition: false };
+                        return OrderFsmTransitionResult { new_state: Self::New, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "9")]), OrderFsmEffect::PublishEventLog { event: "OrderReplaceRejected" }], is_no_transition: false };
                     }
                     if ctx.pre_replace_status.as_deref() == Some("5") {
-                        return OrderFsmTransitionResult { new_state: Self::Replaced, new_context: ctx.clone(), is_no_transition: false };
+                        return OrderFsmTransitionResult { new_state: Self::Replaced, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "9")]), OrderFsmEffect::PublishEventLog { event: "OrderReplaceRejected" }], is_no_transition: false };
                     }
                     OrderFsmTransitionResult::no_transition(self, ctx)
                 }
@@ -425,7 +481,7 @@ impl OrderFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = ctx.leaves_qty - p.last_qty;
-                    OrderFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "1")]), OrderFsmEffect::PublishEventLog { event: "OrderPartiallyFilled" }], is_no_transition: false }
                 }
                 OrderFsmEvent::FullFill => {
                     let Some(OrderFsmPayload::FullFill(p)) = payload else {
@@ -434,7 +490,7 @@ impl OrderFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = 0;
-                    OrderFsmTransitionResult { new_state: Self::Filled, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::Filled, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "2")]), OrderFsmEffect::PublishEventLog { event: "OrderFilled" }], is_no_transition: false }
                 }
                 _ => OrderFsmTransitionResult::no_transition(self, ctx),
             },
@@ -443,12 +499,12 @@ impl OrderFsmState {
                     let mut next = ctx.clone();
                     next.pre_replace_status = Some("5".to_owned());
                     next.order_version = ctx.order_version + 1;
-                    OrderFsmTransitionResult { new_state: Self::PendingReplace, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::PendingReplace, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "E"), ("ord_status", "E")]), OrderFsmEffect::PublishEventLog { event: "OrderReplaceRequested" }], is_no_transition: false }
                 }
                 OrderFsmEvent::CancelRequested => {
                     let mut next = ctx.clone();
                     next.pre_cancel_status = Some("5".to_owned());
-                    OrderFsmTransitionResult { new_state: Self::PendingCancel, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::PendingCancel, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "6"), ("ord_status", "6")]), OrderFsmEffect::PublishEventLog { event: "OrderCancelRequested" }], is_no_transition: false }
                 }
                 OrderFsmEvent::PartialFill => {
                     let Some(OrderFsmPayload::PartialFill(p)) = payload else {
@@ -457,7 +513,7 @@ impl OrderFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = ctx.leaves_qty - p.last_qty;
-                    OrderFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "1")]), OrderFsmEffect::PublishEventLog { event: "OrderPartiallyFilled" }], is_no_transition: false }
                 }
                 OrderFsmEvent::FullFill => {
                     let Some(OrderFsmPayload::FullFill(p)) = payload else {
@@ -466,26 +522,26 @@ impl OrderFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = 0;
-                    OrderFsmTransitionResult { new_state: Self::Filled, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::Filled, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "2")]), OrderFsmEffect::PublishEventLog { event: "OrderFilled" }], is_no_transition: false }
                 }
                 OrderFsmEvent::OrderExpired => {
-                    OrderFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "C"), ("ord_status", "C")]), OrderFsmEffect::PublishEventLog { event: "OrderExpired" }], is_no_transition: false }
                 }
                 _ => OrderFsmTransitionResult::no_transition(self, ctx),
             },
             Self::PendingCancel => match event {
                 OrderFsmEvent::CancelAccepted => {
-                    OrderFsmTransitionResult { new_state: Self::Canceled, new_context: ctx.clone(), is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::Canceled, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "4"), ("ord_status", "4")]), OrderFsmEffect::PublishEventLog { event: "OrderCanceled" }, OrderFsmEffect::EmitEvent { target_fsm: "RouteFsm", event: "RouteCancelRequested" }], is_no_transition: false }
                 }
                 OrderFsmEvent::CancelRejected => {
                     if ctx.pre_cancel_status.as_deref() == Some("0") {
-                        return OrderFsmTransitionResult { new_state: Self::New, new_context: ctx.clone(), is_no_transition: false };
+                        return OrderFsmTransitionResult { new_state: Self::New, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "9")]), OrderFsmEffect::PublishEventLog { event: "OrderCancelRejected" }], is_no_transition: false };
                     }
                     if ctx.pre_cancel_status.as_deref() == Some("5") {
-                        return OrderFsmTransitionResult { new_state: Self::Replaced, new_context: ctx.clone(), is_no_transition: false };
+                        return OrderFsmTransitionResult { new_state: Self::Replaced, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "9")]), OrderFsmEffect::PublishEventLog { event: "OrderCancelRejected" }], is_no_transition: false };
                     }
                     if ctx.pre_cancel_status.as_deref() == Some("1") {
-                        return OrderFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: ctx.clone(), is_no_transition: false };
+                        return OrderFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "9")]), OrderFsmEffect::PublishEventLog { event: "OrderCancelRejected" }], is_no_transition: false };
                     }
                     OrderFsmTransitionResult::no_transition(self, ctx)
                 }
@@ -496,7 +552,7 @@ impl OrderFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = ctx.leaves_qty - p.last_qty;
-                    OrderFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "1")]), OrderFsmEffect::PublishEventLog { event: "OrderPartiallyFilled" }], is_no_transition: false }
                 }
                 OrderFsmEvent::FullFill => {
                     let Some(OrderFsmPayload::FullFill(p)) = payload else {
@@ -505,7 +561,7 @@ impl OrderFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = 0;
-                    OrderFsmTransitionResult { new_state: Self::Filled, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::Filled, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "2")]), OrderFsmEffect::PublishEventLog { event: "OrderFilled" }], is_no_transition: false }
                 }
                 _ => OrderFsmTransitionResult::no_transition(self, ctx),
             },
@@ -513,7 +569,7 @@ impl OrderFsmState {
                 OrderFsmEvent::CancelRequested => {
                     let mut next = ctx.clone();
                     next.pre_cancel_status = Some("1".to_owned());
-                    OrderFsmTransitionResult { new_state: Self::PendingCancel, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::PendingCancel, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "6"), ("ord_status", "6")]), OrderFsmEffect::PublishEventLog { event: "OrderCancelRequested" }], is_no_transition: false }
                 }
                 OrderFsmEvent::PartialFill => {
                     let Some(OrderFsmPayload::PartialFill(p)) = payload else {
@@ -522,7 +578,7 @@ impl OrderFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = ctx.leaves_qty - p.last_qty;
-                    OrderFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "1")]), OrderFsmEffect::PublishEventLog { event: "OrderPartiallyFilled" }], is_no_transition: false }
                 }
                 OrderFsmEvent::FullFill => {
                     let Some(OrderFsmPayload::FullFill(p)) = payload else {
@@ -531,22 +587,22 @@ impl OrderFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = 0;
-                    OrderFsmTransitionResult { new_state: Self::Filled, new_context: next, is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::Filled, new_context: next, effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "2")]), OrderFsmEffect::PublishEventLog { event: "OrderFilled" }], is_no_transition: false }
                 }
                 OrderFsmEvent::OrderExpired => {
-                    OrderFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "C"), ("ord_status", "C")]), OrderFsmEffect::PublishEventLog { event: "OrderExpired" }], is_no_transition: false }
                 }
                 OrderFsmEvent::DoneForDay => {
-                    OrderFsmTransitionResult { new_state: Self::DoneForDay, new_context: ctx.clone(), is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::DoneForDay, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "3"), ("ord_status", "3")]), OrderFsmEffect::PublishEventLog { event: "OrderDoneForDay" }], is_no_transition: false }
                 }
                 _ => OrderFsmTransitionResult::no_transition(self, ctx),
             },
             Self::Filled => match event {
                 OrderFsmEvent::TradeCorrect => {
-                    OrderFsmTransitionResult { new_state: Self::TradeCorrected, new_context: ctx.clone(), is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::TradeCorrected, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "G")]), OrderFsmEffect::PublishEventLog { event: "TradeCorrected" }], is_no_transition: false }
                 }
                 OrderFsmEvent::TradeCancelBust => {
-                    OrderFsmTransitionResult { new_state: Self::TradeCanceled, new_context: ctx.clone(), is_no_transition: false }
+                    OrderFsmTransitionResult { new_state: Self::TradeCanceled, new_context: ctx.clone(), effects: &[OrderFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "H")]), OrderFsmEffect::PublishEventLog { event: "TradeCanceled" }], is_no_transition: false }
                 }
                 _ => OrderFsmTransitionResult::no_transition(self, ctx),
             },

@@ -169,17 +169,73 @@ pub struct MultiLegFsmTransitionResult {
     pub new_state: MultiLegFsmState,
     /// The context after the event.
     pub new_context: MultiLegFsmContext,
+    /// What the schema asks the caller to do, in the order it declares them.
+    ///
+    /// Static data, not an owned list: the values are all literals from the
+    /// YAML, so there is nothing to allocate and nothing to free. Empty when no
+    /// transition matched.
+    pub effects: &'static [MultiLegFsmEffect],
     /// True when no transition matched — the event is ignored, not an error.
     pub is_no_transition: bool,
 }
 
 impl MultiLegFsmTransitionResult {
-    /// No rule matched: state and context are unchanged.
+    /// No rule matched: state and context are unchanged, and nothing is asked for.
     #[must_use]
     pub fn no_transition(state: MultiLegFsmState, ctx: &MultiLegFsmContext) -> Self {
-        Self { new_state: state, new_context: ctx.clone(), is_no_transition: true }
+        Self {
+            new_state: state,
+            new_context: ctx.clone(),
+            effects: &[],
+            is_no_transition: true,
+        }
+    }
+
+    /// The events this transition cascades to another machine, in schema order.
+    ///
+    /// The common reason to look at effects at all: a route reaching `WORKING`
+    /// tells the order machine so. Returning `(target, event)` pairs rather than
+    /// the effects themselves keeps the caller from matching on variants it does
+    /// not handle.
+    pub fn emitted_events(&self) -> impl Iterator<Item = (&'static str, &'static str)> + '_ {
+        self.effects.iter().filter_map(|effect| match effect {
+            MultiLegFsmEffect::EmitEvent { target_fsm, event } => Some((*target_fsm, *event)),
+            _ => None,
+        })
     }
 }
+
+/// A side effect a transition asks for, as the schema declares it.
+///
+/// Every field is `&'static str`: the values come from the YAML, so a
+/// transition's effects are compile-time data. `apply` returns
+/// `&'static [MultiLegFsmEffect]` — no allocation, and nothing to keep alive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MultiLegFsmEffect {
+    /// Cascade an event to another FSM instance.
+    EmitEvent {
+        /// The machine the event is for, as the schema names it.
+        target_fsm: &'static str,
+        /// The event to apply there.
+        event: &'static str,
+    },
+    /// Append an event-log audit record.
+    PublishEventLog {
+        /// The log event name.
+        event: &'static str,
+    },
+    /// Emit an outbound FIX message.
+    PublishFixMessage(&'static [(&'static str, &'static str)]),
+    /// Schedule a timer.
+    ScheduleTimer(&'static [(&'static str, &'static str)]),
+    /// Cancel a pending timer.
+    CancelTimer(&'static [(&'static str, &'static str)]),
+    /// Notify subscribers.
+    Notify(&'static [(&'static str, &'static str)]),
+    /// Stamp identity chaining trace fields.
+    ChainIdentityStamp(&'static [(&'static str, &'static str)]),
+}
+
 
 /// Payload carried by [`MultiLegFsmEvent::LegFilled`].
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -256,41 +312,41 @@ impl MultiLegFsmState {
         match self {
             Self::Staged => match event {
                 MultiLegFsmEvent::LegsValidated => {
-                    MultiLegFsmTransitionResult { new_state: Self::Ready, new_context: ctx.clone(), is_no_transition: false }
+                    MultiLegFsmTransitionResult { new_state: Self::Ready, new_context: ctx.clone(), effects: &[MultiLegFsmEffect::PublishEventLog { event: "MultiLegValidated" }], is_no_transition: false }
                 }
                 MultiLegFsmEvent::LegsValidationFailed => {
-                    MultiLegFsmTransitionResult { new_state: Self::Rejected, new_context: ctx.clone(), is_no_transition: false }
+                    MultiLegFsmTransitionResult { new_state: Self::Rejected, new_context: ctx.clone(), effects: &[MultiLegFsmEffect::PublishFixMessage(&[("msg_type", "j")]), MultiLegFsmEffect::PublishEventLog { event: "MultiLegRejected" }], is_no_transition: false }
                 }
                 _ => MultiLegFsmTransitionResult::no_transition(self, ctx),
             },
             Self::Ready => match event {
                 MultiLegFsmEvent::FirstLegDispatched => {
-                    MultiLegFsmTransitionResult { new_state: Self::LegsWorking, new_context: ctx.clone(), is_no_transition: false }
+                    MultiLegFsmTransitionResult { new_state: Self::LegsWorking, new_context: ctx.clone(), effects: &[MultiLegFsmEffect::PublishEventLog { event: "MultiLegExecutionStarted" }], is_no_transition: false }
                 }
                 MultiLegFsmEvent::CancelRequested => {
-                    MultiLegFsmTransitionResult { new_state: Self::Canceled, new_context: ctx.clone(), is_no_transition: false }
+                    MultiLegFsmTransitionResult { new_state: Self::Canceled, new_context: ctx.clone(), effects: &[MultiLegFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "4"), ("ord_status", "4")]), MultiLegFsmEffect::PublishEventLog { event: "MultiLegCanceled" }], is_no_transition: false }
                 }
                 _ => MultiLegFsmTransitionResult::no_transition(self, ctx),
             },
             Self::LegsWorking => match event {
                 MultiLegFsmEvent::LegPartiallyFilled => {
-                    MultiLegFsmTransitionResult { new_state: Self::LegsWorking, new_context: ctx.clone(), is_no_transition: false }
+                    MultiLegFsmTransitionResult { new_state: Self::LegsWorking, new_context: ctx.clone(), effects: &[MultiLegFsmEffect::PublishEventLog { event: "LegPartiallyFilled" }], is_no_transition: false }
                 }
                 MultiLegFsmEvent::LegFilled => {
                     if ((ctx.legs_filled + 1) == ctx.total_legs) && (ctx.legs_rejected == 0) && (ctx.legs_canceled == 0) {
                         let mut next = ctx.clone();
                         next.legs_filled = ctx.legs_filled + 1;
-                        return MultiLegFsmTransitionResult { new_state: Self::Filled, new_context: next, is_no_transition: false };
+                        return MultiLegFsmTransitionResult { new_state: Self::Filled, new_context: next, effects: &[MultiLegFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "2")]), MultiLegFsmEffect::PublishEventLog { event: "MultiLegFilled" }], is_no_transition: false };
                     }
                     if (ctx.execution_mode.as_str() == "LEGS_INDEPENDENT") && ((((ctx.legs_filled + 1) + ctx.legs_rejected) + ctx.legs_canceled) == ctx.total_legs) && ((ctx.legs_rejected > 0) || (ctx.legs_canceled > 0)) {
                         let mut next = ctx.clone();
                         next.legs_filled = ctx.legs_filled + 1;
-                        return MultiLegFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false };
+                        return MultiLegFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[MultiLegFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "1")]), MultiLegFsmEffect::PublishEventLog { event: "MultiLegPartiallyFilled" }], is_no_transition: false };
                     }
                     if (((ctx.legs_filled + 1) + ctx.legs_rejected) + ctx.legs_canceled) < ctx.total_legs {
                         let mut next = ctx.clone();
                         next.legs_filled = ctx.legs_filled + 1;
-                        return MultiLegFsmTransitionResult { new_state: Self::LegsWorking, new_context: next, is_no_transition: false };
+                        return MultiLegFsmTransitionResult { new_state: Self::LegsWorking, new_context: next, effects: &[MultiLegFsmEffect::PublishEventLog { event: "LegFilled" }], is_no_transition: false };
                     }
                     MultiLegFsmTransitionResult::no_transition(self, ctx)
                 }
@@ -298,27 +354,27 @@ impl MultiLegFsmState {
                     if ctx.execution_mode.as_str() == "ALL_OR_NONE" {
                         let mut next = ctx.clone();
                         next.legs_rejected = ctx.legs_rejected + 1;
-                        return MultiLegFsmTransitionResult { new_state: Self::Rejected, new_context: next, is_no_transition: false };
+                        return MultiLegFsmTransitionResult { new_state: Self::Rejected, new_context: next, effects: &[MultiLegFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "8"), ("ord_status", "8")]), MultiLegFsmEffect::PublishEventLog { event: "MultiLegRejected" }, MultiLegFsmEffect::EmitEvent { target_fsm: "RouteFsm", event: "RouteCancelRequested" }], is_no_transition: false };
                     }
                     if ctx.execution_mode.as_str() == "SEQUENCED" {
                         let mut next = ctx.clone();
                         next.legs_rejected = ctx.legs_rejected + 1;
-                        return MultiLegFsmTransitionResult { new_state: Self::Rejected, new_context: next, is_no_transition: false };
+                        return MultiLegFsmTransitionResult { new_state: Self::Rejected, new_context: next, effects: &[MultiLegFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "8"), ("ord_status", "8")]), MultiLegFsmEffect::PublishEventLog { event: "MultiLegRejected" }], is_no_transition: false };
                     }
                     if (ctx.execution_mode.as_str() == "LEGS_INDEPENDENT") && (ctx.legs_filled > 0) && ((((ctx.legs_filled + ctx.legs_rejected) + 1) + ctx.legs_canceled) == ctx.total_legs) {
                         let mut next = ctx.clone();
                         next.legs_rejected = ctx.legs_rejected + 1;
-                        return MultiLegFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false };
+                        return MultiLegFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[MultiLegFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "1")]), MultiLegFsmEffect::PublishEventLog { event: "MultiLegPartiallyFilled" }], is_no_transition: false };
                     }
                     if (ctx.execution_mode.as_str() == "LEGS_INDEPENDENT") && (ctx.legs_filled == 0) && (((ctx.legs_rejected + 1) + ctx.legs_canceled) == ctx.total_legs) {
                         let mut next = ctx.clone();
                         next.legs_rejected = ctx.legs_rejected + 1;
-                        return MultiLegFsmTransitionResult { new_state: Self::Canceled, new_context: next, is_no_transition: false };
+                        return MultiLegFsmTransitionResult { new_state: Self::Canceled, new_context: next, effects: &[MultiLegFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "4"), ("ord_status", "4")]), MultiLegFsmEffect::PublishEventLog { event: "MultiLegCanceled" }], is_no_transition: false };
                     }
                     if (ctx.execution_mode.as_str() == "LEGS_INDEPENDENT") && ((((ctx.legs_filled + ctx.legs_rejected) + 1) + ctx.legs_canceled) < ctx.total_legs) {
                         let mut next = ctx.clone();
                         next.legs_rejected = ctx.legs_rejected + 1;
-                        return MultiLegFsmTransitionResult { new_state: Self::LegsWorking, new_context: next, is_no_transition: false };
+                        return MultiLegFsmTransitionResult { new_state: Self::LegsWorking, new_context: next, effects: &[MultiLegFsmEffect::PublishEventLog { event: "LegRejected" }], is_no_transition: false };
                     }
                     MultiLegFsmTransitionResult::no_transition(self, ctx)
                 }
@@ -326,22 +382,22 @@ impl MultiLegFsmState {
                     if (ctx.legs_filled > 0) && ((((ctx.legs_filled + ctx.legs_rejected) + ctx.legs_canceled) + 1) == ctx.total_legs) {
                         let mut next = ctx.clone();
                         next.legs_canceled = ctx.legs_canceled + 1;
-                        return MultiLegFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false };
+                        return MultiLegFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[MultiLegFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "F"), ("ord_status", "1")]), MultiLegFsmEffect::PublishEventLog { event: "MultiLegPartiallyFilled" }], is_no_transition: false };
                     }
                     if (ctx.legs_filled == 0) && (((ctx.legs_rejected + ctx.legs_canceled) + 1) == ctx.total_legs) {
                         let mut next = ctx.clone();
                         next.legs_canceled = ctx.legs_canceled + 1;
-                        return MultiLegFsmTransitionResult { new_state: Self::Canceled, new_context: next, is_no_transition: false };
+                        return MultiLegFsmTransitionResult { new_state: Self::Canceled, new_context: next, effects: &[MultiLegFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "4"), ("ord_status", "4")]), MultiLegFsmEffect::PublishEventLog { event: "MultiLegCanceled" }], is_no_transition: false };
                     }
                     if (((ctx.legs_filled + ctx.legs_rejected) + ctx.legs_canceled) + 1) < ctx.total_legs {
                         let mut next = ctx.clone();
                         next.legs_canceled = ctx.legs_canceled + 1;
-                        return MultiLegFsmTransitionResult { new_state: Self::LegsWorking, new_context: next, is_no_transition: false };
+                        return MultiLegFsmTransitionResult { new_state: Self::LegsWorking, new_context: next, effects: &[MultiLegFsmEffect::PublishEventLog { event: "LegCanceled" }], is_no_transition: false };
                     }
                     MultiLegFsmTransitionResult::no_transition(self, ctx)
                 }
                 MultiLegFsmEvent::CancelRequested => {
-                    MultiLegFsmTransitionResult { new_state: Self::Canceled, new_context: ctx.clone(), is_no_transition: false }
+                    MultiLegFsmTransitionResult { new_state: Self::Canceled, new_context: ctx.clone(), effects: &[MultiLegFsmEffect::PublishFixMessage(&[("msg_type", "8"), ("exec_type", "4"), ("ord_status", "4")]), MultiLegFsmEffect::PublishEventLog { event: "MultiLegCanceled" }, MultiLegFsmEffect::EmitEvent { target_fsm: "RouteFsm", event: "RouteCancelRequested" }], is_no_transition: false }
                 }
                 _ => MultiLegFsmTransitionResult::no_transition(self, ctx),
             },

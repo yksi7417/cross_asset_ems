@@ -94,11 +94,24 @@ the marker **and** the note in the same commit.
 
 ## Notes
 
-No idiom notes yet — they land as the Rust and C++ slices land (sub-projects 4 and 5). Expected
-candidates are listed in [ADR 0005](../../docs/decisions/0005-study-guide-with-enforced-anchors.md):
-CRTP vs. virtual dispatch, `std::expected` without exceptions, `std::bit_cast` in SBE decode,
-typestate FSM encoding, `Cow` in the FIX decoder, newtype-wrapped scaled prices, and the
-cross-language contrast for "an order that may or may not have a price".
+| Note | Languages | The question it answers |
+|---|---|---|
+| [effects-as-static-data](effects-as-static-data.md) | cross | Generated data outlives its caller — who *proves* the reference is still valid? |
+| [expected-without-exceptions](expected-without-exceptions.md) | cpp | Returning failure without throwing, and without a sentinel value |
+| [fsm-state-exhaustiveness](fsm-state-exhaustiveness.md) | cross | One schema, three languages: what happens when someone adds a state? |
+| [option-vs-nullable](option-vs-nullable.md) | cross | "This order may not have a price" in three type systems |
+| [span-at-boundaries](span-at-boundaries.md) | cpp | Passing a view of memory you do not own |
+| [unrepresentable-invalid-state](unrepresentable-invalid-state.md) | cross | Making the bad value fail to compile rather than fail a check |
+| [virtual-dtor-and-rule-of-zero](virtual-dtor-and-rule-of-zero.md) | cpp | Who owns the destructor when there is a base class |
+
+Still expected, per [ADR 0005](../../docs/decisions/0005-study-guide-with-enforced-anchors.md), as
+the remaining components land: CRTP vs. virtual dispatch, `std::bit_cast` in SBE decode, typestate
+FSM encoding, `Cow` in the FIX decoder, and newtype-wrapped scaled prices.
+
+**This table is hand-maintained.** `study_guide.py` enforces that every note has a live anchor and
+every marker has a note; it does *not* yet check that every note is reachable from here. That gap is
+[T-6](../../docs/TODO.md) — until it closes, a note added without a row goes unlisted and nothing
+complains.
 
 ## Related
 

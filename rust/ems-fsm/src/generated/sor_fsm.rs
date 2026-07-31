@@ -245,17 +245,73 @@ pub struct SorFsmTransitionResult {
     pub new_state: SorFsmState,
     /// The context after the event.
     pub new_context: SorFsmContext,
+    /// What the schema asks the caller to do, in the order it declares them.
+    ///
+    /// Static data, not an owned list: the values are all literals from the
+    /// YAML, so there is nothing to allocate and nothing to free. Empty when no
+    /// transition matched.
+    pub effects: &'static [SorFsmEffect],
     /// True when no transition matched — the event is ignored, not an error.
     pub is_no_transition: bool,
 }
 
 impl SorFsmTransitionResult {
-    /// No rule matched: state and context are unchanged.
+    /// No rule matched: state and context are unchanged, and nothing is asked for.
     #[must_use]
     pub fn no_transition(state: SorFsmState, ctx: &SorFsmContext) -> Self {
-        Self { new_state: state, new_context: ctx.clone(), is_no_transition: true }
+        Self {
+            new_state: state,
+            new_context: ctx.clone(),
+            effects: &[],
+            is_no_transition: true,
+        }
+    }
+
+    /// The events this transition cascades to another machine, in schema order.
+    ///
+    /// The common reason to look at effects at all: a route reaching `WORKING`
+    /// tells the order machine so. Returning `(target, event)` pairs rather than
+    /// the effects themselves keeps the caller from matching on variants it does
+    /// not handle.
+    pub fn emitted_events(&self) -> impl Iterator<Item = (&'static str, &'static str)> + '_ {
+        self.effects.iter().filter_map(|effect| match effect {
+            SorFsmEffect::EmitEvent { target_fsm, event } => Some((*target_fsm, *event)),
+            _ => None,
+        })
     }
 }
+
+/// A side effect a transition asks for, as the schema declares it.
+///
+/// Every field is `&'static str`: the values come from the YAML, so a
+/// transition's effects are compile-time data. `apply` returns
+/// `&'static [SorFsmEffect]` — no allocation, and nothing to keep alive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SorFsmEffect {
+    /// Cascade an event to another FSM instance.
+    EmitEvent {
+        /// The machine the event is for, as the schema names it.
+        target_fsm: &'static str,
+        /// The event to apply there.
+        event: &'static str,
+    },
+    /// Append an event-log audit record.
+    PublishEventLog {
+        /// The log event name.
+        event: &'static str,
+    },
+    /// Emit an outbound FIX message.
+    PublishFixMessage(&'static [(&'static str, &'static str)]),
+    /// Schedule a timer.
+    ScheduleTimer(&'static [(&'static str, &'static str)]),
+    /// Cancel a pending timer.
+    CancelTimer(&'static [(&'static str, &'static str)]),
+    /// Notify subscribers.
+    Notify(&'static [(&'static str, &'static str)]),
+    /// Stamp identity chaining trace fields.
+    ChainIdentityStamp(&'static [(&'static str, &'static str)]),
+}
+
 
 /// Payload carried by [`SorFsmEvent::RouteReplaceRequested`].
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -354,42 +410,42 @@ impl SorFsmState {
         match self {
             Self::Pending => match event {
                 SorFsmEvent::RouteSent => {
-                    SorFsmTransitionResult { new_state: Self::Sent, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Sent, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorRouteSent" }], is_no_transition: false }
                 }
                 _ => SorFsmTransitionResult::no_transition(self, ctx),
             },
             Self::Sent => match event {
                 SorFsmEvent::SorStrategyDecided => {
-                    SorFsmTransitionResult { new_state: Self::Sent, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Sent, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorStrategySelected" }, SorFsmEffect::PublishEventLog { event: "SorWheelSelectionLogged" }, SorFsmEffect::Notify(&[("signal", "dispatch_sor_children"), ("route_id", "{{ context.route_id }}")])], is_no_transition: false }
                 }
                 SorFsmEvent::RoutePendingNewAtVenue => {
-                    SorFsmTransitionResult { new_state: Self::PendingNewAtVenue, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::PendingNewAtVenue, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorRoutePendingNewAtVenue" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteAcknowledged => {
-                    SorFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorRouteWorking" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "ValidationPassed" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteRejected => {
-                    SorFsmTransitionResult { new_state: Self::Rejected, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Rejected, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorRouteRejected" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "ValidationFailed" }], is_no_transition: false }
                 }
                 _ => SorFsmTransitionResult::no_transition(self, ctx),
             },
             Self::PendingNewAtVenue => match event {
                 SorFsmEvent::RouteAcknowledged => {
-                    SorFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorRouteWorking" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "ValidationPassed" }], is_no_transition: false }
                 }
                 _ => SorFsmTransitionResult::no_transition(self, ctx),
             },
             Self::Working => match event {
                 SorFsmEvent::SorPlanAdjusted => {
-                    SorFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorPlanAdjusted" }, SorFsmEffect::Notify(&[("signal", "dispatch_sor_children"), ("route_id", "{{ context.route_id }}")])], is_no_transition: false }
                 }
                 SorFsmEvent::RouteReplaceRequested => {
-                    SorFsmTransitionResult { new_state: Self::PendingReplaceAtVenue, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::PendingReplaceAtVenue, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorReplaceRequested" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteCancelRequested => {
                     let mut next = ctx.clone();
                     next.pre_cancel_status = Some("0".to_owned());
-                    SorFsmTransitionResult { new_state: Self::PendingCancelAtVenue, new_context: next, is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::PendingCancelAtVenue, new_context: next, effects: &[SorFsmEffect::PublishEventLog { event: "SorCancelRequested" }], is_no_transition: false }
                 }
                 SorFsmEvent::RoutePartiallyFilled => {
                     let Some(SorFsmPayload::RoutePartiallyFilled(p)) = payload else {
@@ -398,7 +454,7 @@ impl SorFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = ctx.leaves_qty - p.last_qty;
-                    SorFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[SorFsmEffect::PublishEventLog { event: "SorRoutePartiallyFilled" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "PartialFill" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteFilled => {
                     let Some(SorFsmPayload::RouteFilled(p)) = payload else {
@@ -407,28 +463,28 @@ impl SorFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = 0;
-                    SorFsmTransitionResult { new_state: Self::Filled, new_context: next, is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Filled, new_context: next, effects: &[SorFsmEffect::PublishEventLog { event: "SorRouteFilled" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "FullFill" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteExpired => {
-                    SorFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorRouteExpired" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "OrderExpired" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteSuperseded => {
-                    SorFsmTransitionResult { new_state: Self::Superseded, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Superseded, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorRouteSuperseded" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteAnomaly => {
-                    SorFsmTransitionResult { new_state: Self::Anomaly, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Anomaly, new_context: ctx.clone(), effects: &[SorFsmEffect::Notify(&[("channel", "ops-alerts"), ("message", "SOR route anomaly — manual triage required")]), SorFsmEffect::PublishEventLog { event: "SorRouteAnomaly" }], is_no_transition: false }
                 }
                 _ => SorFsmTransitionResult::no_transition(self, ctx),
             },
             Self::PendingReplaceAtVenue => match event {
                 SorFsmEvent::RouteReplacePendingAtVenue => {
-                    SorFsmTransitionResult { new_state: Self::PendingReplaceAtVenue, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::PendingReplaceAtVenue, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorReplacePendingAtVenue" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteReplaced => {
-                    SorFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorRouteReplaced" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "ReplaceAccepted" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteReplaceRejected => {
-                    SorFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorReplaceRejected" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "ReplaceRejected" }], is_no_transition: false }
                 }
                 SorFsmEvent::RoutePartiallyFilled => {
                     let Some(SorFsmPayload::RoutePartiallyFilled(p)) = payload else {
@@ -437,31 +493,31 @@ impl SorFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = ctx.leaves_qty - p.last_qty;
-                    SorFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[SorFsmEffect::PublishEventLog { event: "SorRoutePartiallyFilled" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "PartialFill" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteSuperseded => {
-                    SorFsmTransitionResult { new_state: Self::Superseded, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Superseded, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorRouteSuperseded" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteAnomaly => {
-                    SorFsmTransitionResult { new_state: Self::Anomaly, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Anomaly, new_context: ctx.clone(), effects: &[SorFsmEffect::Notify(&[("channel", "ops-alerts"), ("message", "SOR route anomaly in PENDING_REPLACE — manual triage required")]), SorFsmEffect::PublishEventLog { event: "SorRouteAnomaly" }], is_no_transition: false }
                 }
                 _ => SorFsmTransitionResult::no_transition(self, ctx),
             },
             Self::PendingCancelAtVenue => match event {
                 SorFsmEvent::RouteCanceled => {
-                    SorFsmTransitionResult { new_state: Self::Canceled, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Canceled, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorRouteCanceled" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteCancelRejected => {
                     if ctx.pre_cancel_status.as_deref() == Some("0") {
-                        return SorFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), is_no_transition: false };
+                        return SorFsmTransitionResult { new_state: Self::Working, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorCancelRejected" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "CancelRejected" }], is_no_transition: false };
                     }
                     if ctx.pre_cancel_status.as_deref() == Some("1") {
-                        return SorFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: ctx.clone(), is_no_transition: false };
+                        return SorFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorCancelRejected" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "CancelRejected" }], is_no_transition: false };
                     }
                     SorFsmTransitionResult::no_transition(self, ctx)
                 }
                 SorFsmEvent::RouteAnomaly => {
-                    SorFsmTransitionResult { new_state: Self::Anomaly, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Anomaly, new_context: ctx.clone(), effects: &[SorFsmEffect::Notify(&[("channel", "ops-alerts"), ("message", "SOR route anomaly in PENDING_CANCEL — manual triage required")]), SorFsmEffect::PublishEventLog { event: "SorRouteAnomaly" }], is_no_transition: false }
                 }
                 _ => SorFsmTransitionResult::no_transition(self, ctx),
             },
@@ -469,7 +525,7 @@ impl SorFsmState {
                 SorFsmEvent::RouteCancelRequested => {
                     let mut next = ctx.clone();
                     next.pre_cancel_status = Some("1".to_owned());
-                    SorFsmTransitionResult { new_state: Self::PendingCancelAtVenue, new_context: next, is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::PendingCancelAtVenue, new_context: next, effects: &[SorFsmEffect::PublishEventLog { event: "SorCancelRequested" }], is_no_transition: false }
                 }
                 SorFsmEvent::RoutePartiallyFilled => {
                     let Some(SorFsmPayload::RoutePartiallyFilled(p)) = payload else {
@@ -478,7 +534,7 @@ impl SorFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = ctx.leaves_qty - p.last_qty;
-                    SorFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::PartiallyFilled, new_context: next, effects: &[SorFsmEffect::PublishEventLog { event: "SorRoutePartiallyFilled" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "PartialFill" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteFilled => {
                     let Some(SorFsmPayload::RouteFilled(p)) = payload else {
@@ -487,10 +543,10 @@ impl SorFsmState {
                     let mut next = ctx.clone();
                     next.cum_qty = ctx.cum_qty + p.last_qty;
                     next.leaves_qty = 0;
-                    SorFsmTransitionResult { new_state: Self::Filled, new_context: next, is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Filled, new_context: next, effects: &[SorFsmEffect::PublishEventLog { event: "SorRouteFilled" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "FullFill" }], is_no_transition: false }
                 }
                 SorFsmEvent::RouteExpired => {
-                    SorFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), is_no_transition: false }
+                    SorFsmTransitionResult { new_state: Self::Expired, new_context: ctx.clone(), effects: &[SorFsmEffect::PublishEventLog { event: "SorRouteExpired" }, SorFsmEffect::EmitEvent { target_fsm: "OrderFsm", event: "OrderExpired" }], is_no_transition: false }
                 }
                 _ => SorFsmTransitionResult::no_transition(self, ctx),
             },
