@@ -1,0 +1,5 @@
+{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","price":"1250000","qty":"100","side":"BUY"},"seq":1,"type":"OrderNew"}
+{"fields":{"account":"ACC2","figi":"BBG000BPH459","price":"18750000","qty":"25","side":"SELL"},"seq":2,"type":"OrderNew"}
+{"fields":{"note":"session still up"},"seq":3,"type":"Heartbeat"}
+{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","ignored":"not echoed","price":"1249500","qty":"400","side":"BUY"},"seq":4,"type":"OrderNew"}
+{"fields":{"text":"café — ☕ \"quoted\" back\\slash"},"seq":5,"type":"Note"}

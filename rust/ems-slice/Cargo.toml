@@ -1,0 +1,18 @@
+[package]
+name = "ems-slice"
+description = "The ems-slice binary: a pure function from an input event journal to an output event journal."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ems-slice"
+path = "src/main.rs"
+
+[dependencies]
+ems-core = { path = "../ems-core", version = "0.1.0" }
+ems-transport = { path = "../ems-transport", version = "0.1.0" }
+
+[lints]
+workspace = true

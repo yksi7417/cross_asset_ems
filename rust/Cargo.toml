@@ -1,0 +1,30 @@
+# Cargo workspace for the polyglot port.
+#
+# Members are added ONE AT A TIME, as each crate gains behaviour and tests.
+# No empty module stubs are committed here — that is the direct lesson of the
+# cpp/ tree, which has carried fifteen of them and a green CI check since 2026-06.
+# See docs/decisions/0001-reinstate-rust-three-language-port.md.
+
+[workspace]
+resolver = "2"
+members = ["ems-core", "ems-transport", "ems-slice"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.80"
+license = "Apache-2.0"
+
+[workspace.lints.rust]
+# The memory-safety half of the demonstration. Exactly one crate may ever relax
+# this — the optional ems-transport-aeron FFI crate, if it is ever built — and
+# that exception is reviewed line by line.
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+# Panicking paths are banned outside tests: the slice binary turns errors into
+# an exit code or a journal event, never a panic.
+unwrap_used = "deny"
+expect_used = "deny"
