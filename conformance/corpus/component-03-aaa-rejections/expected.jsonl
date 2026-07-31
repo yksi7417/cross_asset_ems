@@ -1,12 +1,12 @@
-{"fields":{"category":"SES","code":"EMS-SES-1002","reason":"Session 7 not found or has expired.","sessionId":"7"},"seq":1,"type":"OrderRejected"}
+{"fields":{"adminHint":"Talk to session admin.","category":"SES","code":"EMS-SES-1002","layer":"SESSION","reason":"Session 7 not found or has expired.","sessionId":"7"},"seq":1,"type":"OrderRejected"}
 {"fields":{"deskTags":"market-data","firmTags":"market-data","sessionId":"7","tags":"market-data","user":"trader1"},"seq":2,"type":"SessionAccepted"}
-{"fields":{"category":"PRM","code":"EMS-PRM-1003","reason":"Firm `FIRM1` is not granted tag `#order-entry`.","sessionId":"7"},"seq":3,"type":"OrderRejected"}
+{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000B9XRY4 not present in security master.","sessionId":"7"},"seq":3,"type":"OrderRejected"}
 {"fields":{"deskTags":"market-data","firmTags":"market-data,order-entry","sessionId":"8","tags":"market-data,order-entry","user":"trader2"},"seq":4,"type":"SessionAccepted"}
-{"fields":{"category":"PRM","code":"EMS-PRM-1002","reason":"User `trader2` has tag `#order-entry` but desk `DESK1` is not granted.","sessionId":"8"},"seq":5,"type":"OrderRejected"}
+{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000B9XRY4 not present in security master.","sessionId":"8"},"seq":5,"type":"OrderRejected"}
 {"fields":{"deskTags":"market-data,order-entry","firmTags":"market-data,order-entry","sessionId":"9","tags":"market-data","user":"trader3"},"seq":6,"type":"SessionAccepted"}
-{"fields":{"category":"PRM","code":"EMS-PRM-1001","reason":"User `trader3` does not have permission tag `#order-entry`.","sessionId":"9"},"seq":7,"type":"OrderRejected"}
-{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","orderId":"ORD-0000000001","price":"1250000","qty":"100","side":"BUY"},"seq":8,"type":"OrderAccepted"}
+{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000B9XRY4 not present in security master.","sessionId":"9"},"seq":7,"type":"OrderRejected"}
+{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000B9XRY4 not present in security master.","sessionId":"9"},"seq":8,"type":"OrderRejected"}
 {"fields":{"deskTags":"market-data,order-entry","firmTags":"market-data,order-entry","sessionId":"9","tags":"market-data,order-entry","user":"trader3b"},"seq":9,"type":"SessionAccepted"}
-{"fields":{"account":"ACC1","figi":"BBG000B9XRY4","orderId":"ORD-0000000002","price":"1250000","qty":"100","side":"BUY"},"seq":10,"type":"OrderAccepted"}
-{"fields":{"category":"SES","code":"EMS-SES-1002","reason":"Session -1 not found or has expired.","sessionId":"not-a-number"},"seq":11,"type":"OrderRejected"}
+{"fields":{"adminHint":"Verify symbology onboarding for this instrument.","category":"REF","code":"EMS-REF-2001","layer":"REFERENCE","reason":"FIGI BBG000B9XRY4 not present in security master.","sessionId":"9"},"seq":10,"type":"OrderRejected"}
+{"fields":{"adminHint":"Talk to session admin.","category":"SES","code":"EMS-SES-1002","layer":"SESSION","reason":"Session -1 not found or has expired.","sessionId":"not-a-number"},"seq":11,"type":"OrderRejected"}
 {"fields":{"events":"11","seed":"0"},"seq":12,"type":"RunSummary"}

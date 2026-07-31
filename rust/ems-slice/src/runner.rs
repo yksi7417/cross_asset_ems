@@ -2,9 +2,16 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use ems_aaa::{AaaService, AuthorizationResult, Identity, CODE_SESSION_NOT_FOUND};
+use ems_aaa::{AaaService, Identity};
 use ems_core::{DeterministicIds, JournalEvent};
+use ems_validator::{
+    validate, InstrumentStatus, SecurityMaster, ValidationRequest, ValidationResult,
+};
 
+/// Input event adding an instrument to the security master.
+const TYPE_INSTRUMENT_CREATED: &str = "InstrumentCreated";
+/// Output event acknowledging one.
+const TYPE_INSTRUMENT_ACCEPTED: &str = "InstrumentAccepted";
 /// Input event registering a session and its entitlements.
 const TYPE_SESSION_LOGON: &str = "SessionLogon";
 /// Output event acknowledging a logon.
@@ -43,13 +50,15 @@ const ECHOED_FIELDS: [&str; 5] = ["account", "figi", "price", "qty", "side"];
 pub fn run(input: &[JournalEvent], ids: &mut DeterministicIds) -> Vec<JournalEvent> {
     let mut output = Vec::with_capacity(input.len() + 1);
     let mut aaa = AaaService::new();
+    let mut securities = SecurityMaster::new();
     let mut seq: u64 = 0;
 
     for event in input {
         seq += 1;
         let emitted = match event.event_type.as_str() {
+            TYPE_INSTRUMENT_CREATED => on_instrument_created(event, seq, &mut securities),
             TYPE_SESSION_LOGON => on_session_logon(event, seq, &mut aaa),
-            TYPE_ORDER_NEW => on_order_new(event, seq, &aaa, ids),
+            TYPE_ORDER_NEW => on_order_new(event, seq, &aaa, &securities, ids),
             _ => event.with_seq(seq),
         };
         output.push(emitted);
@@ -124,31 +133,79 @@ fn join_tags(tags: &BTreeSet<String>) -> String {
     tags.iter().cloned().collect::<Vec<_>>().join(",")
 }
 
+/// Adds an instrument to the security master.
+///
+/// An unrecognised status is treated as inactive, so a malformed instrument
+/// makes orders on it fail the REFERENCE layer rather than failing the run.
+fn on_instrument_created(
+    event: &JournalEvent,
+    seq: u64,
+    securities: &mut SecurityMaster,
+) -> JournalEvent {
+    let figi = field(event, "figi");
+    let raw = field(event, "status");
+    let status = match raw.as_str() {
+        "ACTIVE" => InstrumentStatus::Active,
+        "SUSPENDED" => InstrumentStatus::Inactive("SUSPENDED"),
+        "EXPIRED" => InstrumentStatus::Inactive("EXPIRED"),
+        "MATURED" => InstrumentStatus::Inactive("MATURED"),
+        "DEFAULTED" => InstrumentStatus::Inactive("DEFAULTED"),
+        _ => InstrumentStatus::Inactive("UNKNOWN"),
+    };
+    securities.add(&figi, status);
+
+    let mut fields = BTreeMap::new();
+    fields.insert("figi".to_owned(), figi);
+    fields.insert(
+        "status".to_owned(),
+        match status {
+            InstrumentStatus::Active => "ACTIVE".to_owned(),
+            InstrumentStatus::Inactive(name) => name.to_owned(),
+        },
+    );
+    JournalEvent {
+        seq,
+        event_type: TYPE_INSTRUMENT_ACCEPTED.to_owned(),
+        fields,
+    }
+}
+
 fn on_order_new(
     event: &JournalEvent,
     seq: u64,
     aaa: &AaaService,
+    securities: &SecurityMaster,
     ids: &mut DeterministicIds,
 ) -> JournalEvent {
-    let session_id = parse_session_id(event);
-    let Some(session) = session_id.and_then(|id| aaa.session(id)) else {
-        return reject(
-            seq,
-            event,
-            CODE_SESSION_NOT_FOUND,
-            "SES",
-            &format!(
-                "Session {} not found or has expired.",
-                session_id_display(session_id)
-            ),
-        );
+    // The whole decision is the pipeline's. SESSION, IDENTITY, REFERENCE and
+    // PERMISSION run in that fixed order and the first failure short-circuits,
+    // so the reject the journal carries names the outermost thing that was
+    // wrong — which is the one worth telling a trader about.
+    let request = ValidationRequest {
+        request_id: field(event, "clOrdId"),
+        session_id: parse_session_id(event),
+        tag: non_empty(event, "tag"),
+        figi: non_empty(event, "figi"),
     };
 
-    let tag = field(event, "tag");
-    // The three-layer AND-gate decides this, and its reject code names the
-    // outermost missing layer: firm (1003), desk (1002) or user (1001).
-    if let AuthorizationResult::Deny { code, message, .. } = aaa.authorize(session, &tag) {
-        return reject(seq, event, &code, "PRM", &message);
+    if let ValidationResult::Reject {
+        code,
+        category,
+        layer,
+        message,
+        admin_hint,
+        ..
+    } = validate(&request, aaa, securities)
+    {
+        return reject_from(
+            seq,
+            event,
+            &code,
+            &category,
+            layer.name(),
+            &message,
+            admin_hint.as_deref(),
+        );
     }
 
     // Only an accepted order consumes an identifier. If a rejected one did, the
@@ -168,16 +225,27 @@ fn on_order_new(
     }
 }
 
-fn reject(
+/// Turns a pipeline rejection into a journal event.
+///
+/// The layer is carried explicitly: two rejections can share a code and differ
+/// in which layer produced them once later layers land, and a journal that
+/// omitted it would make those two indistinguishable on replay.
+fn reject_from(
     seq: u64,
     event: &JournalEvent,
     code: &str,
     category: &str,
+    layer: &str,
     reason: &str,
+    admin_hint: Option<&str>,
 ) -> JournalEvent {
     let mut fields = BTreeMap::new();
+    if let Some(hint) = admin_hint {
+        fields.insert("adminHint".to_owned(), hint.to_owned());
+    }
     fields.insert("category".to_owned(), category.to_owned());
     fields.insert("code".to_owned(), code.to_owned());
+    fields.insert("layer".to_owned(), layer.to_owned());
     fields.insert("reason".to_owned(), reason.to_owned());
     fields.insert("sessionId".to_owned(), field(event, "sessionId"));
     JournalEvent {
@@ -185,6 +253,12 @@ fn reject(
         event_type: TYPE_ORDER_REJECTED.to_owned(),
         fields,
     }
+}
+
+/// The field's value, or `None` when absent or empty — the pipeline reads that
+/// as "skip the layer this feeds".
+fn non_empty(event: &JournalEvent, key: &str) -> Option<String> {
+    event.fields.get(key).filter(|v| !v.is_empty()).cloned()
 }
 
 /// `None` for a missing or non-numeric session id.
@@ -199,11 +273,6 @@ fn parse_session_id(event: &JournalEvent) -> Option<u64> {
 /// echoed as `-1`, matching what Java's `Long.parseLong` fallback produces.
 fn session_id_text(session_id: Option<u64>) -> String {
     session_id.map_or_else(|| "-1".to_owned(), |id| id.to_string())
-}
-
-/// The id as it appears in a rejection reason.
-fn session_id_display(session_id: Option<u64>) -> String {
-    session_id_text(session_id)
 }
 
 fn field(event: &JournalEvent, key: &str) -> String {
@@ -289,7 +358,8 @@ mod tests {
 
         assert_eq!(
             encode(&out[0]),
-            "{\"fields\":{\"category\":\"SES\",\"code\":\"EMS-SES-1002\",\
+            "{\"fields\":{\"adminHint\":\"Talk to session admin.\",\"category\":\"SES\",\
+             \"code\":\"EMS-SES-1002\",\"layer\":\"SESSION\",\
              \"reason\":\"Session 99 not found or has expired.\",\"sessionId\":\"99\"},\
              \"seq\":1,\"type\":\"OrderRejected\"}"
         );

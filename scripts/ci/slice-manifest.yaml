@@ -24,7 +24,7 @@ cpp:
   ems-fsm: stub
   ems-transport: done
   ems-aaa: done
-  ems-validator: stub
+  ems-validator: done
   ems-oms: stub
   ems-venue-connectivity: stub
   ems-posttrade: stub
@@ -45,4 +45,5 @@ rust:
   ems-core: done
   ems-transport: done
   ems-aaa: done
+  ems-validator: done
   ems-slice: done

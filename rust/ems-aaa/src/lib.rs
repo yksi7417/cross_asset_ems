@@ -76,6 +76,9 @@ pub enum AuthorizationResult {
         message: String,
         /// Which layer refused.
         level: DenialLevel,
+        /// Who can grant the missing permission. Reaches the journal via the
+        /// validator, which wraps it as ``"Talk to {admin_hint}."``
+        admin_hint: String,
     },
 }
 
@@ -186,6 +189,7 @@ impl AaaService {
                 code: CODE_FIRM_NOT_GRANTED.to_owned(),
                 message: format!("Firm `{}` is not granted tag `#{tag}`.", identity.firm),
                 level: DenialLevel::Firm,
+                admin_hint: format!("{} admin", identity.firm),
             };
         }
 
@@ -200,6 +204,7 @@ impl AaaService {
                     identity.user, identity.desk
                 ),
                 level: DenialLevel::Desk,
+                admin_hint: format!("{} admin", identity.desk),
             };
         }
 
@@ -211,6 +216,7 @@ impl AaaService {
                     identity.user
                 ),
                 level: DenialLevel::User,
+                admin_hint: format!("tag admin for #{tag}"),
             };
         }
 
@@ -309,6 +315,7 @@ mod tests {
                 code,
                 message,
                 level,
+                ..
             } => {
                 assert_eq!(code, "EMS-PRM-1003");
                 assert_eq!(level, DenialLevel::Firm);
@@ -336,6 +343,7 @@ mod tests {
                 code,
                 message,
                 level,
+                ..
             } => {
                 assert_eq!(code, "EMS-PRM-1002");
                 assert_eq!(level, DenialLevel::Desk);
@@ -366,6 +374,7 @@ mod tests {
                 code,
                 message,
                 level,
+                ..
             } => {
                 assert_eq!(code, "EMS-PRM-1001");
                 assert_eq!(level, DenialLevel::User);

@@ -4,6 +4,7 @@
  */
 package io.crossasset.ems.it.slice;
 
+import io.crossasset.ems.aaa.AaaService;
 import io.crossasset.ems.aaa.Identity;
 import io.crossasset.ems.aaa.InMemoryAaaEventLog;
 import io.crossasset.ems.aaa.InMemoryAaaService;
@@ -12,7 +13,6 @@ import io.crossasset.ems.aaa.TraceContext;
 import io.crossasset.ems.aaa.identity.Desk;
 import io.crossasset.ems.aaa.identity.Firm;
 import io.crossasset.ems.aaa.identity.InMemoryIdentityRepository;
-import io.crossasset.ems.aaa.permission.AuthorizationResult;
 import io.crossasset.ems.aaa.permission.InMemoryTagPermissionStore;
 import io.crossasset.ems.aaa.permission.TagPermissionEvaluator;
 import io.crossasset.ems.core.clock.FixedTimeSource;
@@ -104,12 +104,14 @@ final class SliceAaa {
     return sessions.sessionInfo(sessionId);
   }
 
-  /** Runs the production three-layer AND-gate. An empty tag requires no entitlement. */
-  AuthorizationResult authorize(Session session, String tag) {
-    if (tag.isEmpty()) {
-      return new AuthorizationResult.Allow();
-    }
-    return evaluator.authorize(session.identity(), tag);
+  /** The session store, as the validator pipeline's SESSION layer consumes it. */
+  AaaService aaaService() {
+    return sessions;
+  }
+
+  /** The three-layer AND-gate, as the validator pipeline's PERMISSION layer consumes it. */
+  TagPermissionEvaluator evaluator() {
+    return evaluator;
   }
 
   /**
