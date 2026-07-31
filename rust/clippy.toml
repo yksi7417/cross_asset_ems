@@ -1,0 +1,8 @@
+# Iteration order of these types can reach the output journal, and the
+# conformance gate compares that journal byte-for-byte across three languages.
+# Use BTreeMap / BTreeSet.
+# See docs/decisions/0003-shared-schemas-corpus-harness.md.
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "iteration order reaches the journal — use BTreeMap" },
+    { path = "std::collections::HashSet", reason = "iteration order reaches the journal — use BTreeSet" },
+]

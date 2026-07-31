@@ -111,6 +111,17 @@ def has_definition(path: pathlib.Path) -> bool:
     return False
 
 
+def has_inline_rust_tests(path: pathlib.Path) -> bool:
+    """True for a Rust file carrying a `#[cfg(test)]` module that asserts."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    if "#[cfg(test)]" not in text:
+        return False
+    return any(marker in text for marker in ASSERTION_MARKERS)
+
+
 def _walk(module_dir: pathlib.Path) -> list[pathlib.Path]:
     return [p for p in sorted(module_dir.rglob("*")) if p.is_file()]
 
@@ -138,6 +149,11 @@ def module_evidence(language: str, module_dir: pathlib.Path) -> dict[str, bool]:
 
         if suffix in impl_ext and has_content(path):
             has_impl = True
+            # Rust unit tests live in an inline `#[cfg(test)] mod tests` beside
+            # the code, not in a separate file. Requiring a tests/ directory
+            # would push Rust away from its own idiom to satisfy a checker.
+            if language == "rust" and has_inline_rust_tests(path):
+                has_asserting_test = True
         elif suffix in header_ext and has_definition(path):
             has_header_definition = True
 
