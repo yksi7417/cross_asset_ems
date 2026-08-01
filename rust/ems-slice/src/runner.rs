@@ -76,6 +76,12 @@ const TYPE_FIX_OUT: &str = "FixOut";
 const TYPE_EXECUTION_REPORT: &str = "ExecutionReport";
 /// Output event for an `ExecutionReport` that reached no route.
 const TYPE_EXECUTION_REPORT_IGNORED: &str = "ExecutionReportIgnored";
+/// Input event distributing an order's filled quantity across accounts.
+const TYPE_ALLOCATE: &str = "Allocate";
+/// Output event: one account's share of a fill.
+const TYPE_ALLOCATION_RECORD: &str = "AllocationRecord";
+/// Output event refusing an allocation.
+const TYPE_ALLOCATION_REJECTED: &str = "AllocationRejected";
 /// Catalog code: no such order to route.
 const CODE_ROUTE_UNKNOWN_ORDER: &str = "EMS-RTE-4001";
 /// Catalog code: the order is not in a state that can be routed.
@@ -86,6 +92,12 @@ const CODE_ROUTE_QTY_INVALID: &str = "EMS-RTE-4003";
 const CODE_ROUTE_CLORDID_COLLISION: &str = "EMS-RTE-2005";
 /// Catalog code: the venue's FIX session cannot currently take an order.
 const CODE_VENUE_SESSION_NOT_ACTIVE: &str = "EMS-VEN-5001";
+/// Catalog code: no such order to allocate.
+const CODE_ALLOC_UNKNOWN_ORDER: &str = "EMS-ALC-6001";
+/// Catalog code: the order has no filled quantity to allocate.
+const CODE_ALLOC_NOTHING_FILLED: &str = "EMS-ALC-6002";
+/// Catalog code: the share list is empty, malformed, or sums to nothing.
+const CODE_ALLOC_BAD_SHARES: &str = "EMS-ALC-6003";
 /// Final output event: makes the seed and the input size visible in the journal.
 const TYPE_RUN_SUMMARY: &str = "RunSummary";
 
@@ -109,9 +121,13 @@ const ECHOED_FIELDS: [&str; 5] = ["account", "figi", "price", "qty", "side"];
 /// translated by `ExecType` into a route event and **cascades to the order
 /// FSM** via the schema's `emit_event` effects.
 ///
-/// There is still no allocation — a fill stops at the order. That is component
-/// 8, the last one. `FixOut` records intent and identifying tags, not a
-/// wire-format FIX string; a byte-exact encoder is out of scope for the slice.
+/// An `Allocate` distributes an order's filled quantity across accounts by the
+/// largest-remainder method, reading `cum_qty` from the order FSM's own
+/// context. **With that, the slice is complete**: every component of the
+/// cash-equity order path in ADR 0002's scope is implemented and
+/// conformance-checked in all three languages. `FixOut` records intent and
+/// identifying tags, not a wire-format FIX string — a byte-exact encoder stays
+/// out of scope by decision, not omission.
 ///
 /// Kept in lockstep with `java/ems-it/.../SliceRunner.java` and
 /// `cpp/ems-it/src/slice_runner.cpp`.
@@ -193,6 +209,9 @@ pub fn run(input: &[JournalEvent], ids: &mut DeterministicIds) -> Vec<JournalEve
                     &mut routes,
                     &mut output,
                 );
+            }
+            TYPE_ALLOCATE => {
+                seq = on_allocate(event, seq, &orders, &order_ids, &mut output);
             }
             _ => {
                 seq += 1;
@@ -623,6 +642,151 @@ fn push_route_accepted(journal: RouteJournal<'_>, output: &mut Vec<JournalEvent>
         fields: fix,
     });
     journal.seq + 3
+}
+
+/// One account's claim on a fill: `weight_bps` out of the total weight.
+struct AllocShare {
+    account: String,
+    weight_bps: u64,
+}
+
+/// Parses `"ACC1:5000,ACC2:3000"`. Malformed entries are dropped, not fatal.
+fn parse_shares(raw: &str) -> Vec<AllocShare> {
+    raw.split(',')
+        .filter_map(|part| {
+            let (account, weight) = part.split_once(':')?;
+            let account = account.trim();
+            let weight_bps = weight.trim().parse::<u64>().ok()?;
+            (!account.is_empty() && weight_bps > 0).then(|| AllocShare {
+                account: account.to_owned(),
+                weight_bps,
+            })
+        })
+        .collect()
+}
+
+/// Distributes an order's filled quantity across accounts.
+///
+/// **Largest-remainder method.** Each account gets the floor of its
+/// proportional share; the lots lost to flooring go one each to the accounts
+/// with the largest division remainders, ties broken by larger weight then
+/// instruction order. Floors alone under-allocate and naive rounding can
+/// over-allocate — this is the standard way to make the parts sum exactly to
+/// the whole, and the tie-break rules are what make three languages produce
+/// identical bytes.
+fn on_allocate(
+    event: &JournalEvent,
+    seq: u64,
+    orders: &BTreeMap<String, (OrderFsmState, OrderFsmContext)>,
+    order_ids: &BTreeMap<String, String>,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
+    let cl_ord_id = field(event, "clOrdId");
+
+    let (Some((_, context)), Some(order_id)) = (orders.get(&cl_ord_id), order_ids.get(&cl_ord_id))
+    else {
+        return reject_allocation(
+            event,
+            seq,
+            CODE_ALLOC_UNKNOWN_ORDER,
+            "no such order",
+            output,
+        );
+    };
+
+    // cum_qty is maintained by the order FSM's own update_context effects on
+    // fills, so what is allocated is what the machine says was executed — not a
+    // number re-derived from the fill events by a second code path.
+    let filled = context.cum_qty;
+    if filled == 0 {
+        return reject_allocation(
+            event,
+            seq,
+            CODE_ALLOC_NOTHING_FILLED,
+            "order has no filled quantity",
+            output,
+        );
+    }
+
+    let shares = parse_shares(&field(event, "shares"));
+    let total_weight: u64 = shares.iter().map(|s| s.weight_bps).sum();
+    if shares.is_empty() || total_weight == 0 {
+        return reject_allocation(
+            event,
+            seq,
+            CODE_ALLOC_BAD_SHARES,
+            "shares are empty or sum to nothing",
+            output,
+        );
+    }
+
+    // Floor pass: every account gets its proportional floor, and the remainder
+    // of each division is kept to decide who absorbs the lots flooring lost.
+    let n = shares.len();
+    let mut qty = vec![0_u64; n];
+    let mut remainder = vec![0_u64; n];
+    let mut allocated = 0_u64;
+    for (i, share) in shares.iter().enumerate() {
+        let numerator = filled * share.weight_bps;
+        qty[i] = numerator / total_weight;
+        remainder[i] = numerator % total_weight;
+        allocated += qty[i];
+    }
+
+    // Residual pass: largest remainder first, ties by larger weight then by
+    // instruction order. Every rule is load-bearing — an unstated tie-break is
+    // a divergence waiting for the first corpus case that hits it.
+    let residual = filled - allocated;
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by(|&a, &b| {
+        remainder[b]
+            .cmp(&remainder[a])
+            .then(shares[b].weight_bps.cmp(&shares[a].weight_bps))
+            .then(a.cmp(&b))
+    });
+    for k in 0..residual {
+        let index = usize::try_from(k).unwrap_or(usize::MAX) % n;
+        qty[order[index]] += 1;
+    }
+
+    // One record per account, in instruction order. The venue's fill arrived as
+    // one quantity; this is the slice's answer to whose it is.
+    let mut seq = seq;
+    for (i, share) in shares.iter().enumerate() {
+        let mut fields = BTreeMap::new();
+        fields.insert("account".to_owned(), share.account.clone());
+        fields.insert("clOrdId".to_owned(), cl_ord_id.clone());
+        fields.insert("orderId".to_owned(), order_id.clone());
+        fields.insert("qty".to_owned(), qty[i].to_string());
+        fields.insert("weightBps".to_owned(), share.weight_bps.to_string());
+        seq += 1;
+        output.push(JournalEvent {
+            seq,
+            event_type: TYPE_ALLOCATION_RECORD.to_owned(),
+            fields,
+        });
+    }
+    seq
+}
+
+/// Refuses an allocation. Nothing is recorded against any account.
+fn reject_allocation(
+    event: &JournalEvent,
+    seq: u64,
+    code: &str,
+    reason: &str,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
+    let mut fields = BTreeMap::new();
+    fields.insert("clOrdId".to_owned(), field(event, "clOrdId"));
+    fields.insert("code".to_owned(), code.to_owned());
+    fields.insert("reason".to_owned(), reason.to_owned());
+    output.push(JournalEvent {
+        seq: seq + 1,
+        event_type: TYPE_ALLOCATION_REJECTED.to_owned(),
+        fields,
+    });
+    seq + 1
 }
 
 /// Drives one venue's FIX session.
@@ -1909,6 +2073,135 @@ mod tests {
 
         let ignored = nth_of(&out, "ExecutionReportIgnored", 0);
         assert_eq!(ignored.fields["reason"], "unknown route ClOrdID");
+    }
+
+    // ── Allocation (component 9) ─────────────────────────────────────────────
+
+    /// A filled order ready to allocate.
+    fn filled_order() -> Vec<JournalEvent> {
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-A", "1000"));
+        input.push(event(
+            5,
+            "ExecutionReport",
+            &[("clOrdId", "C-A-1"), ("execType", "0"), ("ordStatus", "0")],
+        ));
+        input.push(event(
+            6,
+            "ExecutionReport",
+            &[
+                ("clOrdId", "C-A-1"),
+                ("execId", "X-1"),
+                ("execType", "F"),
+                ("lastPx", "15000"),
+                ("lastQty", "1000"),
+                ("ordStatus", "2"),
+            ],
+        ));
+        input
+    }
+
+    fn allocations(out: &[JournalEvent]) -> Vec<(String, u64)> {
+        out.iter()
+            .filter(|e| e.event_type == "AllocationRecord")
+            .map(|e| {
+                (
+                    e.fields["account"].clone(),
+                    e.fields["qty"].parse::<u64>().unwrap(),
+                )
+            })
+            .collect()
+    }
+
+    /// Conservation: the parts sum exactly to the filled quantity, whatever the
+    /// weights. Floors alone under-allocate; naive rounding over-allocates.
+    #[test]
+    fn allocations_sum_exactly_to_the_filled_quantity() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = filled_order();
+        input.push(event(
+            7,
+            "Allocate",
+            &[("clOrdId", "C-A"), ("shares", "A:3333,B:3333,C:3334")],
+        ));
+        let out = run(&input, &mut ids);
+
+        let allocs = allocations(&out);
+        assert_eq!(allocs.iter().map(|(_, q)| q).sum::<u64>(), 1000);
+    }
+
+    /// The tie-break chain, end to end: equal remainders, equal weights —
+    /// instruction order decides, and the first account gets the odd lot.
+    #[test]
+    fn a_full_tie_is_broken_by_instruction_order() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "5");
+        input.push(route_new(4, "C-A", "5"));
+        input.push(event(
+            5,
+            "ExecutionReport",
+            &[("clOrdId", "C-A-1"), ("execType", "0"), ("ordStatus", "0")],
+        ));
+        input.push(event(
+            6,
+            "ExecutionReport",
+            &[
+                ("clOrdId", "C-A-1"),
+                ("execId", "X-1"),
+                ("execType", "F"),
+                ("lastPx", "15000"),
+                ("lastQty", "5"),
+                ("ordStatus", "2"),
+            ],
+        ));
+        input.push(event(
+            7,
+            "Allocate",
+            &[("clOrdId", "C-A"), ("shares", "FIRST:5000,SECOND:5000")],
+        ));
+        let out = run(&input, &mut ids);
+
+        assert_eq!(
+            allocations(&out),
+            vec![("FIRST".to_owned(), 3), ("SECOND".to_owned(), 2)]
+        );
+    }
+
+    /// An unfilled order has nothing to allocate — 6002, not an empty success.
+    #[test]
+    fn an_unfilled_order_cannot_be_allocated() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(event(
+            5,
+            "Allocate",
+            &[("clOrdId", "C-A"), ("shares", "A:10000")],
+        ));
+        let out = run(&input, &mut ids);
+
+        assert_eq!(
+            nth_of(&out, "AllocationRejected", 0).fields["code"],
+            "EMS-ALC-6002"
+        );
+        assert_eq!(count_of(&out, "AllocationRecord"), 0);
+    }
+
+    /// Malformed share entries are dropped; a list with nothing left is 6003.
+    #[test]
+    fn a_share_list_with_nothing_usable_is_refused() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = filled_order();
+        input.push(event(
+            7,
+            "Allocate",
+            &[("clOrdId", "C-A"), ("shares", "garbage,x:notanumber,:5000")],
+        ));
+        let out = run(&input, &mut ids);
+
+        assert_eq!(
+            nth_of(&out, "AllocationRejected", 0).fields["code"],
+            "EMS-ALC-6003"
+        );
     }
 
     /// The routing analogue of `a_rejected_order_does_not_consume_an_identifier`:

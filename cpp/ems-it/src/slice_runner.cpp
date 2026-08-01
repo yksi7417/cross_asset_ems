@@ -1,5 +1,6 @@
 #include "ems_it/slice_runner.hpp"
 
+#include <algorithm>
 #include <array>
 #include <optional>
 #include <set>
@@ -68,8 +69,20 @@ constexpr std::string_view kTypeFixOut = "FixOut";
 constexpr std::string_view kTypeExecutionReport = "ExecutionReport";
 /// Output event for an ExecutionReport that reached no route.
 constexpr std::string_view kTypeExecutionReportIgnored = "ExecutionReportIgnored";
+/// Input event distributing an order's filled quantity across accounts.
+constexpr std::string_view kTypeAllocate = "Allocate";
+/// Output event: one account's share of a fill.
+constexpr std::string_view kTypeAllocationRecord = "AllocationRecord";
+/// Output event refusing an allocation.
+constexpr std::string_view kTypeAllocationRejected = "AllocationRejected";
 /// Catalog code: the venue's FIX session cannot currently take an order.
 constexpr std::string_view kCodeVenueSessionNotActive = "EMS-VEN-5001";
+/// Catalog code: no such order to allocate.
+constexpr std::string_view kCodeAllocUnknownOrder = "EMS-ALC-6001";
+/// Catalog code: the order has no filled quantity to allocate.
+constexpr std::string_view kCodeAllocNothingFilled = "EMS-ALC-6002";
+/// Catalog code: the share list is empty, malformed, or sums to nothing.
+constexpr std::string_view kCodeAllocBadShares = "EMS-ALC-6003";
 /// Final output event: makes the seed and the input size visible in the journal.
 constexpr std::string_view kTypeRunSummary = "RunSummary";
 
@@ -934,6 +947,156 @@ std::uint64_t on_execution_report(const core::JournalEvent& event, std::uint64_t
     return on_route_event(translated, seq, orders, order_ids, routes, output);
 }
 
+/// One account's claim on a fill: weightBps out of the total weight.
+struct AllocShare {
+    std::string account;
+    std::uint64_t weightBps;
+};
+
+/// Parses "ACC1:5000,ACC2:3000". Malformed entries are dropped, not fatal.
+std::vector<AllocShare> parse_shares(const std::string& raw) {
+    std::vector<AllocShare> shares;
+    std::size_t start = 0;
+    while (start <= raw.size()) {
+        const std::size_t comma = raw.find(',', start);
+        const std::size_t stop = (comma == std::string::npos) ? raw.size() : comma;
+        const std::string part = raw.substr(start, stop - start);
+        const std::size_t colon = part.find(':');
+        if (colon != std::string::npos && colon > 0) {
+            std::string account = part.substr(0, colon);
+            const auto first = account.find_first_not_of(" \t");
+            const auto last = account.find_last_not_of(" \t");
+            account = (first == std::string::npos)
+                          ? std::string{}
+                          : account.substr(first, last - first + 1U);
+            const std::string weight_raw = part.substr(colon + 1U);
+            bool numeric = !weight_raw.empty();
+            std::uint64_t weight = 0;
+            for (const char c : weight_raw) {
+                if (c == ' ' || c == '\t') {
+                    continue;
+                }
+                if (c < '0' || c > '9') {
+                    numeric = false;
+                    break;
+                }
+                weight = (weight * 10U) + static_cast<std::uint64_t>(c - '0');
+            }
+            if (numeric && !account.empty() && weight > 0U) {
+                shares.push_back(AllocShare{account, weight});
+            }
+        }
+        if (comma == std::string::npos) {
+            break;
+        }
+        start = comma + 1U;
+    }
+    return shares;
+}
+
+/// Refuses an allocation. Nothing is recorded against any account.
+std::uint64_t reject_allocation(const core::JournalEvent& event, std::uint64_t seq,
+                                std::string_view code, const std::string& reason,
+                                std::vector<core::JournalEvent>& output) {
+    std::map<std::string, std::string> fields;
+    fields.emplace("clOrdId", field(event, "clOrdId"));
+    fields.emplace("code", std::string(code));
+    fields.emplace("reason", reason);
+    output.push_back(
+        core::JournalEvent{seq + 1U, std::string(kTypeAllocationRejected), std::move(fields)});
+    return seq + 1U;
+}
+
+/// Distributes an order's filled quantity across accounts.
+///
+/// **Largest-remainder method.** Each account gets the floor of its
+/// proportional share; the lots lost to flooring go one each to the accounts
+/// with the largest division remainders, ties broken by larger weight then
+/// instruction order. Floors alone under-allocate and naive rounding can
+/// over-allocate — this is the standard way to make the parts sum exactly to
+/// the whole, and the tie-break rules are what make three languages produce
+/// identical bytes.
+std::uint64_t on_allocate(const core::JournalEvent& event, std::uint64_t seq,
+                          const OrderBook& orders,
+                          const std::map<std::string, std::string>& order_ids,
+                          std::vector<core::JournalEvent>& output) {
+    const std::string cl_ord_id = field(event, "clOrdId");
+
+    const auto parent = orders.find(cl_ord_id);
+    const auto assigned = order_ids.find(cl_ord_id);
+    if (parent == orders.end() || assigned == order_ids.end()) {
+        return reject_allocation(event, seq, kCodeAllocUnknownOrder, "no such order", output);
+    }
+
+    // cumQty is maintained by the order FSM's own update_context effects on
+    // fills, so what is allocated is what the machine says was executed — not a
+    // number re-derived from the fill events by a second code path.
+    const std::uint64_t filled = parent->second.second.cumQty;
+    if (filled == 0U) {
+        return reject_allocation(event, seq, kCodeAllocNothingFilled,
+                                 "order has no filled quantity", output);
+    }
+
+    const auto shares = parse_shares(field(event, "shares"));
+    std::uint64_t total_weight = 0;
+    for (const auto& share : shares) {
+        total_weight += share.weightBps;
+    }
+    if (shares.empty() || total_weight == 0U) {
+        return reject_allocation(event, seq, kCodeAllocBadShares,
+                                 "shares are empty or sum to nothing", output);
+    }
+
+    // Floor pass: every account gets its proportional floor, and the remainder
+    // of each division is kept to decide who absorbs the lots flooring lost.
+    const std::size_t n = shares.size();
+    std::vector<std::uint64_t> qty(n, 0);
+    std::vector<std::uint64_t> remainder(n, 0);
+    std::uint64_t allocated = 0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const std::uint64_t numerator = filled * shares[i].weightBps;
+        qty[i] = numerator / total_weight;
+        remainder[i] = numerator % total_weight;
+        allocated += qty[i];
+    }
+
+    // Residual pass: largest remainder first, ties by larger weight then by
+    // instruction order. Every rule is load-bearing — an unstated tie-break is
+    // a divergence waiting for the first corpus case that hits it.
+    const std::uint64_t residual = filled - allocated;
+    std::vector<std::size_t> order(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        order[i] = i;
+    }
+    std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+        if (remainder[a] != remainder[b]) {
+            return remainder[a] > remainder[b];
+        }
+        if (shares[a].weightBps != shares[b].weightBps) {
+            return shares[a].weightBps > shares[b].weightBps;
+        }
+        return a < b;
+    });
+    for (std::uint64_t k = 0; k < residual; ++k) {
+        ++qty[order[k % n]];
+    }
+
+    // One record per account, in instruction order. The venue's fill arrived as
+    // one quantity; this is the slice's answer to whose it is.
+    for (std::size_t i = 0; i < n; ++i) {
+        std::map<std::string, std::string> fields;
+        fields.emplace("account", shares[i].account);
+        fields.emplace("clOrdId", cl_ord_id);
+        fields.emplace("orderId", assigned->second);
+        fields.emplace("qty", std::to_string(qty[i]));
+        fields.emplace("weightBps", std::to_string(shares[i].weightBps));
+        output.push_back(core::JournalEvent{seq + 1U, std::string(kTypeAllocationRecord),
+                                            std::move(fields)});
+        seq += 1U;
+    }
+    return seq;
+}
+
 std::uint64_t on_order_new(const core::JournalEvent& event, std::uint64_t seq,
                            const aaa::AaaService& service,
                            const validator::SecurityMaster& securities,
@@ -1014,6 +1177,8 @@ std::vector<core::JournalEvent> run_slice(const std::vector<core::JournalEvent>&
             seq = on_venue_session(event, seq, sessions, output);
         } else if (event.type == kTypeExecutionReport) {
             seq = on_execution_report(event, seq, orders, order_ids, routes, output);
+        } else if (event.type == kTypeAllocate) {
+            seq = on_allocate(event, seq, orders, order_ids, output);
         } else {
             core::JournalEvent copy = event;
             copy.seq = ++seq;

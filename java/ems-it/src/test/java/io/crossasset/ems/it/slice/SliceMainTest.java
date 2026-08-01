@@ -584,6 +584,65 @@ class SliceMainTest {
         .contains("unknown route ClOrdID");
   }
 
+  // ── Allocation (component 9) ───────────────────────────────────────────────
+
+  /** A filled order ready to allocate: routed, acknowledged, fully executed. */
+  private static String filledOrder() {
+    return orderNew("C-A", "1000")
+        + routeNew("C-A", "1000", "")
+        + executionReport("C-A-1", "0", ",\"ordStatus\":\"0\"")
+        + executionReport(
+            "C-A-1",
+            "F",
+            ",\"execId\":\"X-1\",\"lastPx\":\"15000\",\"lastQty\":\"1000\","
+                + "\"ordStatus\":\"2\"");
+  }
+
+  private static String allocate(String clOrdId, String shares) {
+    return "{\"fields\":{\"clOrdId\":\""
+        + clOrdId
+        + "\",\"shares\":\""
+        + shares
+        + "\"},\"seq\":7,\"type\":\"Allocate\"}\n";
+  }
+
+  /**
+   * Conservation: the parts sum exactly to the filled quantity. 3333/3333/3334 floors to 33+33+33
+   * over 100 — the lost lot goes to the largest remainder.
+   */
+  @Test
+  void allocationsSumExactlyToTheFilledQuantity() throws IOException {
+    String out = routed(filledOrder() + allocate("C-A", "A:3333,B:3333,C:3334"));
+
+    assertThat(out).contains("\"account\":\"A\"").contains("\"account\":\"C\",\"clOrdId\":\"C-A\"");
+    long total =
+        out.lines()
+            .filter(line -> line.contains("AllocationRecord"))
+            .mapToLong(
+                line -> {
+                  int at = line.indexOf("\"qty\":\"") + 7;
+                  return Long.parseLong(line.substring(at, line.indexOf('\"', at)));
+                })
+            .sum();
+    assertThat(total).isEqualTo(1000L);
+  }
+
+  /** An unfilled order has nothing to allocate — 6002, not an empty success. */
+  @Test
+  void anUnfilledOrderCannotBeAllocated() throws IOException {
+    String out = routed(orderNew("C-A", "1000") + allocate("C-A", "A:10000"));
+
+    assertThat(out).contains("\"code\":\"EMS-ALC-6002\"").doesNotContain("AllocationRecord");
+  }
+
+  /** Malformed share entries are dropped; a list with nothing left is 6003. */
+  @Test
+  void aShareListWithNothingUsableIsRefused() throws IOException {
+    String out = routed(filledOrder() + allocate("C-A", "garbage,x:notanumber,:5000"));
+
+    assertThat(out).contains("\"code\":\"EMS-ALC-6003\"");
+  }
+
   @Test
   void emptyInputStillProducesARunSummary() throws IOException {
     Path input = tmp.resolve("empty.jsonl");

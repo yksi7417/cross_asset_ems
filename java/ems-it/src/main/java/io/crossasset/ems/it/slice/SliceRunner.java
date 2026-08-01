@@ -41,9 +41,12 @@ import org.jspecify.annotations.Nullable;
  * is translated by {@code ExecType} into a route event and <strong>cascades to the order
  * FSM</strong> via the schema's {@code emit_event} effects.
  *
- * <p>There is still no allocation — a fill stops at the order. That is component 8, the last one.
- * {@code FixOut} records intent and identifying tags, not a wire-format FIX string; a byte-exact
- * encoder is out of scope for the slice.
+ * <p>An {@code Allocate} distributes an order's filled quantity across accounts by the
+ * largest-remainder method, reading {@code cumQty} from the order FSM's own context. <strong>With
+ * that, the slice is complete</strong>: every component of the cash-equity order path in ADR 0002's
+ * scope is implemented and conformance-checked in all three languages. {@code FixOut} records
+ * intent and identifying tags, not a wire-format FIX string — a byte-exact encoder stays out of
+ * scope by decision, not omission.
  *
  * <p>Kept in lockstep with {@code rust/ems-slice/src/runner.rs} and {@code
  * cpp/ems-it/src/slice_runner.cpp}.
@@ -129,6 +132,15 @@ public final class SliceRunner {
   /** Output event for an ExecutionReport that reached no route. */
   private static final String TYPE_EXECUTION_REPORT_IGNORED = "ExecutionReportIgnored";
 
+  /** Input event distributing an order's filled quantity across accounts. */
+  private static final String TYPE_ALLOCATE = "Allocate";
+
+  /** Output event: one account's share of a fill. */
+  private static final String TYPE_ALLOCATION_RECORD = "AllocationRecord";
+
+  /** Output event refusing an allocation. */
+  private static final String TYPE_ALLOCATION_REJECTED = "AllocationRejected";
+
   /** Final output event: makes the seed and the input size visible in the journal itself. */
   private static final String TYPE_RUN_SUMMARY = "RunSummary";
 
@@ -149,6 +161,15 @@ public final class SliceRunner {
 
   /** Catalog code: the venue's FIX session cannot currently take an order. */
   private static final String CODE_VENUE_SESSION_NOT_ACTIVE = "EMS-VEN-5001";
+
+  /** Catalog code: no such order to allocate. */
+  private static final String CODE_ALLOC_UNKNOWN_ORDER = "EMS-ALC-6001";
+
+  /** Catalog code: the order has no filled quantity to allocate. */
+  private static final String CODE_ALLOC_NOTHING_FILLED = "EMS-ALC-6002";
+
+  /** Catalog code: the share list is empty, malformed, or sums to nothing. */
+  private static final String CODE_ALLOC_BAD_SHARES = "EMS-ALC-6003";
 
   /**
    * Fields copied from {@code OrderNew} onto {@code OrderAccepted}, in this order.
@@ -206,6 +227,7 @@ public final class SliceRunner {
         case TYPE_ROUTE_EVENT -> seq = onRouteEvent(event, seq, output);
         case TYPE_VENUE_SESSION -> seq = onVenueSession(event, seq, output);
         case TYPE_EXECUTION_REPORT -> seq = onExecutionReport(event, seq, output);
+        case TYPE_ALLOCATE -> seq = onAllocate(event, seq, output);
         default -> output.add(event.withSeq(++seq));
       }
     }
@@ -462,6 +484,130 @@ public final class SliceRunner {
       fix.put("price", Long.toString(price));
     }
     output.add(new JournalEvent(++seq, TYPE_FIX_OUT, fix));
+    return seq;
+  }
+
+  /** One account's claim on a fill: {@code weightBps} out of the total weight. */
+  private record Share(String account, long weightBps) {}
+
+  /**
+   * Distributes an order's filled quantity across accounts.
+   *
+   * <p><strong>Largest-remainder method.</strong> Each account gets the floor of its proportional
+   * share; the lots lost to flooring go one each to the accounts with the largest division
+   * remainders, ties broken by larger weight then instruction order. Floors alone under-allocate,
+   * and naive rounding can over-allocate — this is the standard way to make the parts sum exactly
+   * to the whole, and the tie-break rules are what make three languages produce identical bytes.
+   *
+   * <p>Shares arrive inline as {@code "ACC1:5000,ACC2:3000"} — account and weight in basis points.
+   * The weights need not sum to 10000: they are relative, and requiring a fixed total would just
+   * push the arithmetic onto whoever writes the instruction.
+   */
+  private long onAllocate(JournalEvent event, long seq, List<JournalEvent> output) {
+    String clOrdId = field(event, "clOrdId");
+
+    Optional<SliceOrderBook.Entry> parent = orders.get(clOrdId);
+    String orderId = orderIds.get(clOrdId);
+    if (parent.isEmpty() || orderId == null) {
+      return rejectAllocation(event, seq, output, CODE_ALLOC_UNKNOWN_ORDER, "no such order");
+    }
+
+    // cumQty is maintained by the order FSM's own update_context effects on
+    // fills, so what is allocated here is what the machine says was executed —
+    // not a number re-derived from the fill events by a second code path.
+    long filled = parent.get().context().cumQty();
+    if (filled <= 0) {
+      return rejectAllocation(
+          event, seq, output, CODE_ALLOC_NOTHING_FILLED, "order has no filled quantity");
+    }
+
+    List<Share> shares = parseShares(field(event, "shares"));
+    long totalWeight = shares.stream().mapToLong(Share::weightBps).sum();
+    if (shares.isEmpty() || totalWeight <= 0) {
+      return rejectAllocation(
+          event, seq, output, CODE_ALLOC_BAD_SHARES, "shares are empty or sum to nothing");
+    }
+
+    // Floor pass: every account gets its proportional floor, and the remainder
+    // of each division is kept to decide who absorbs the lots flooring lost.
+    int n = shares.size();
+    long[] qty = new long[n];
+    long[] remainder = new long[n];
+    long allocated = 0;
+    for (int i = 0; i < n; i++) {
+      long numerator = filled * shares.get(i).weightBps();
+      qty[i] = numerator / totalWeight;
+      remainder[i] = numerator % totalWeight;
+      allocated += qty[i];
+    }
+
+    // Residual pass: largest remainder first, ties by larger weight then by
+    // instruction order. Every rule here is load-bearing — an unstated tie-break
+    // is a divergence waiting for the first corpus case that hits it.
+    long residual = filled - allocated;
+    Integer[] order = new Integer[n];
+    for (int i = 0; i < n; i++) {
+      order[i] = i;
+    }
+    java.util.Arrays.sort(
+        order,
+        java.util.Comparator.<Integer>comparingLong(i -> remainder[i])
+            .reversed()
+            .thenComparing(
+                java.util.Comparator.<Integer>comparingLong(i -> shares.get(i).weightBps())
+                    .reversed())
+            .thenComparingInt(i -> i));
+    for (int k = 0; k < residual; k++) {
+      qty[order[(int) (k % (long) n)]]++;
+    }
+
+    // One record per account, in instruction order. The venue's fill arrived as
+    // one quantity; this is the slice's answer to whose it is.
+    for (int i = 0; i < n; i++) {
+      TreeMap<String, String> fields = new TreeMap<>();
+      fields.put("account", shares.get(i).account());
+      fields.put("clOrdId", clOrdId);
+      fields.put("orderId", orderId);
+      fields.put("qty", Long.toString(qty[i]));
+      fields.put("weightBps", Long.toString(shares.get(i).weightBps()));
+      output.add(new JournalEvent(++seq, TYPE_ALLOCATION_RECORD, fields));
+    }
+    return seq;
+  }
+
+  /** Parses {@code "ACC1:5000,ACC2:3000"}. Malformed entries are dropped, not fatal. */
+  private static List<Share> parseShares(String raw) {
+    List<Share> shares = new ArrayList<>();
+    if (raw.isEmpty()) {
+      return shares;
+    }
+    for (String part : raw.split(",", -1)) {
+      int colon = part.indexOf(':');
+      if (colon <= 0) {
+        continue;
+      }
+      String account = part.substring(0, colon).trim();
+      long weight;
+      try {
+        weight = Long.parseLong(part.substring(colon + 1).trim());
+      } catch (NumberFormatException e) {
+        continue;
+      }
+      if (!account.isEmpty() && weight > 0) {
+        shares.add(new Share(account, weight));
+      }
+    }
+    return shares;
+  }
+
+  /** Refuses an allocation. Nothing is recorded against any account. */
+  private long rejectAllocation(
+      JournalEvent event, long seq, List<JournalEvent> output, String code, String reason) {
+    TreeMap<String, String> fields = new TreeMap<>();
+    fields.put("clOrdId", field(event, "clOrdId"));
+    fields.put("code", code);
+    fields.put("reason", reason);
+    output.add(new JournalEvent(++seq, TYPE_ALLOCATION_REJECTED, fields));
     return seq;
   }
 

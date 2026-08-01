@@ -637,6 +637,101 @@ TEST(SliceRunner, AReportForAnUnknownClOrdIdIsIgnored) {
     EXPECT_EQ(nth_of(out, "ExecutionReportIgnored").fields.at("reason"), "unknown route ClOrdID");
 }
 
+// ── Allocation (component 9) ─────────────────────────────────────────────────
+
+/// A filled order ready to allocate.
+std::vector<JournalEvent> filled_order() {
+    auto input = routable_order("C-A", "1000");
+    input.push_back(
+        event(4, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "1000"}, {"venueMic", "XNAS"}}));
+    input.push_back(event(5, "ExecutionReport",
+                          {{"clOrdId", "C-A-1"}, {"execType", "0"}, {"ordStatus", "0"}}));
+    input.push_back(event(6, "ExecutionReport",
+                          {{"clOrdId", "C-A-1"},
+                           {"execId", "X-1"},
+                           {"execType", "F"},
+                           {"lastPx", "15000"},
+                           {"lastQty", "1000"},
+                           {"ordStatus", "2"}}));
+    return input;
+}
+
+std::vector<std::pair<std::string, std::uint64_t>> allocations(
+    const std::vector<JournalEvent>& out) {
+    std::vector<std::pair<std::string, std::uint64_t>> result;
+    for (const auto& e : out) {
+        if (e.type == "AllocationRecord") {
+            result.emplace_back(e.fields.at("account"),
+                                std::stoull(e.fields.at("qty")));
+        }
+    }
+    return result;
+}
+
+/// Conservation: the parts sum exactly to the filled quantity, whatever the
+/// weights. Floors alone under-allocate; naive rounding over-allocates.
+TEST(SliceRunner, AllocationsSumExactlyToTheFilledQuantity) {
+    DeterministicIds ids{0};
+    auto input = filled_order();
+    input.push_back(
+        event(7, "Allocate", {{"clOrdId", "C-A"}, {"shares", "A:3333,B:3333,C:3334"}}));
+    const auto out = run_slice(input, ids);
+
+    std::uint64_t total = 0;
+    for (const auto& [account, qty] : allocations(out)) {
+        total += qty;
+    }
+    EXPECT_EQ(total, 1000U);
+}
+
+/// The tie-break chain, end to end: equal remainders, equal weights —
+/// instruction order decides, and the first account gets the odd lot.
+TEST(SliceRunner, AFullTieIsBrokenByInstructionOrder) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "5");
+    input.push_back(
+        event(4, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "5"}, {"venueMic", "XNAS"}}));
+    input.push_back(event(5, "ExecutionReport",
+                          {{"clOrdId", "C-A-1"}, {"execType", "0"}, {"ordStatus", "0"}}));
+    input.push_back(event(6, "ExecutionReport",
+                          {{"clOrdId", "C-A-1"},
+                           {"execId", "X-1"},
+                           {"execType", "F"},
+                           {"lastPx", "15000"},
+                           {"lastQty", "5"},
+                           {"ordStatus", "2"}}));
+    input.push_back(
+        event(7, "Allocate", {{"clOrdId", "C-A"}, {"shares", "FIRST:5000,SECOND:5000"}}));
+    const auto out = run_slice(input, ids);
+
+    const auto allocs = allocations(out);
+    ASSERT_EQ(allocs.size(), 2U);
+    EXPECT_EQ(allocs[0], (std::pair<std::string, std::uint64_t>{"FIRST", 3U}));
+    EXPECT_EQ(allocs[1], (std::pair<std::string, std::uint64_t>{"SECOND", 2U}));
+}
+
+/// An unfilled order has nothing to allocate — 6002, not an empty success.
+TEST(SliceRunner, AnUnfilledOrderCannotBeAllocated) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(event(5, "Allocate", {{"clOrdId", "C-A"}, {"shares", "A:10000"}}));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(nth_of(out, "AllocationRejected").fields.at("code"), "EMS-ALC-6002");
+    EXPECT_EQ(count_of(out, "AllocationRecord"), 0U);
+}
+
+/// Malformed share entries are dropped; a list with nothing left is 6003.
+TEST(SliceRunner, AShareListWithNothingUsableIsRefused) {
+    DeterministicIds ids{0};
+    auto input = filled_order();
+    input.push_back(
+        event(7, "Allocate", {{"clOrdId", "C-A"}, {"shares", "garbage,x:notanumber,:5000"}}));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(nth_of(out, "AllocationRejected").fields.at("code"), "EMS-ALC-6003");
+}
+
 TEST(SliceRunner, OutputSequenceIsContiguousFromOne) {
     DeterministicIds ids{0};
     const auto out = run_slice({logon("order-entry"), event(9, "Heartbeat")}, ids);

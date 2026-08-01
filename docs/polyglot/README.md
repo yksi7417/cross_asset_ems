@@ -65,8 +65,8 @@ Six sub-projects. Each has its own plan and its own PR; each ends with the full 
 | 1 | **[Gate skeleton](../superpowers/plans/2026-07-30-polyglot-01-gate-skeleton.md)** | `scripts/ci/gate.sh`, hooks rewired, CI restructured to call it, anti-stub and study-guide checks, ErrorProne/NullAway on Java. No new language code. | — | **complete** |
 | 2 | **[Conformance harness + corpus](../superpowers/plans/2026-07-30-polyglot-02-conformance-harness.md)** | `conformance/`, the `ems-slice` CLI contract, harness, differ, first corpus cases generated from Java. | 1 | **harness + differ + first case live**; corpus grows per component |
 | 3 | **[Rust codegen emitter](../superpowers/plans/2026-07-30-polyglot-03-rust-codegen-emitter.md)** | Rust emitter in `fsm_codegen.py`, three-way sync check, `rust/` workspace with `ems-fsm` only. | 1 | **complete** |
-| 4 | **[Rust slice](../superpowers/plans/2026-07-30-polyglot-04-rust-slice.md)** | Full slice in Rust. Rust gate + conformance green. | 2, 3 | **in progress** — `ems-core`, `ems-transport`, `ems-aaa`, `ems-validator`, `ems-slice` |
-| 5 | **[C++ slice](../superpowers/plans/2026-07-30-polyglot-05-cpp-slice.md)** | Full slice in C++, replacing the stubs. C++ gate + conformance green. | 2 | **in progress** — `ems-core`, `ems-transport`, `ems-aaa`, `ems-validator`, `ems-it` |
+| 4 | **[Rust slice](../superpowers/plans/2026-07-30-polyglot-04-rust-slice.md)** | Full slice in Rust. Rust gate + conformance green. | 2, 3 | **complete** — all 8 components, 24/24 conformance |
+| 5 | **[C++ slice](../superpowers/plans/2026-07-30-polyglot-05-cpp-slice.md)** | Full slice in C++, replacing the stubs. C++ gate + conformance green. | 2 | **complete** — all 8 components, 24/24 conformance |
 | 6 | **[Study guide](../superpowers/plans/2026-07-30-polyglot-06-study-guide.md)** | `70_concepts/idioms/`, notes for every idiom found in 4 and 5, integrity check. | 4, 5 | **6 notes written**; index and completeness check outstanding |
 
 **Rust before C++ is deliberate.** Rust's compiler catches at build time the class of error the
@@ -161,7 +161,14 @@ a venue event on a route moves the parent order, and the mapping is read from th
 
 **7** the venue edge — the session FSM (24/24 transitions), the `ACTIVE`-only routing gate,
 `FixOut` on dispatch, and inbound `ExecutionReport`s translated by `ExecType` into route events
-that cascade to the order. **8** allocation is the last remaining component.
+that cascade to the order, **8** allocation by the largest-remainder method, conservation and
+tie-breaks pinned byte-exactly.
+
+**The slice is complete.** Every component of the cash-equity order path in ADR 0002's scope is
+implemented and conformance-checked in all three languages — 24 of 24 conformance runs, three FSMs
+at full transition coverage (31 order + 29 route + 24 venue-session). What ADR 0002 excludes stays
+excluded by decision. Remaining work is registered in [`docs/TODO.md`](../TODO.md): triangulation
+(T-3) is now unblocked, and the study-guide index (T-6) has its components.
 
 Each plan is written for someone with zero context on this codebase: exact files, exact commands,
 test-first steps, and a commit at the end of every task.

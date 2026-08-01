@@ -19,7 +19,7 @@ to:
 
 | | Java | Rust | C++ |
 |---|---:|---:|---:|
-| **Tests passing** | **2,395** | **115** | **93** |
+| **Tests passing** | **2,398** | **119** | **97** |
 | Failures / errors / skipped | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
 | Suites | 14 modules | 9 | 7 ctest targets |
 
@@ -152,7 +152,7 @@ The end-to-end path, exercised through the actual binary.
 
 | | Java | Rust | C++ |
 |---|---|---|---|
-| Tests | 36 | 36 | 34 |
+| Tests | 39 | 40 | 38 |
 | File | [`SliceMainTest.java`](../../java/ems-it/src/test/java/io/crossasset/ems/it/slice/SliceMainTest.java) | [`runner.rs`](../../rust/ems-slice/src/runner.rs) · [`main.rs`](../../rust/ems-slice/src/main.rs) | [`slice_runner_test.cpp`](../../cpp/ems-it/test/slice_runner_test.cpp) |
 
 | | Evidence |
@@ -192,7 +192,9 @@ each other, at the byte level.**
 
 | [`component-08-venue-edge`](../../conformance/corpus/component-08-venue-edge/case.md) | all **24** session transitions across 13 venues — six of them exist only to lose the socket from six different states; the `ACTIVE`-only routing gate with "never connected" vs "DISCONNECTED" kept apart; the `ExecType` table incl. **`F` disambiguated by `OrdStatus`**; an unmapped ExecType, an unknown ClOrdID and an undefined session event | 🟢🟡🔴 |
 
-**21 of 21** — seven cases × three implementations, byte-identical.
+| [`component-09-allocation`](../../conformance/corpus/component-09-allocation/case.md) | largest-remainder allocation: even split, a lost lot absorbed by the largest remainder, **a full tie broken by instruction order**, relative weights, a partial fill allocating `cumQty` only; unknown order, unfilled order, and a share list with nothing usable | 🟢🟡🔴 |
+
+**24 of 24** — eight cases × three implementations, byte-identical.
 
 ```bash
 conformance/harness/run.sh
@@ -226,7 +228,7 @@ lane.
 
 ## Feature matrix
 
-Eight components make up the cash-equity slice. All but allocation are done in all three languages.
+Eight components make up the cash-equity slice. **All eight are done in all three languages.**
 
 | # | Component | Java | Rust | C++ | Cross-language proof |
 |---|---|:---:|:---:|:---:|---|
@@ -239,10 +241,7 @@ Eight components make up the cash-equity slice. All but allocation are done in a
 | 6a | Route creation (`ems-oms`) | ✅ | ✅ | ✅ | `component-06`; 4 reject codes, ids survive refusals |
 | 6b | Route venue lifecycle + cross-FSM cascade | ✅ | ✅ | ✅ | `component-07`; `fsm-coverage` asserts 29/29 |
 | 7 | Venue edge — session FSM, FIX out, ExecutionReport in | ✅ | ✅ | ✅ | `component-08`; `fsm-coverage` asserts 24/24 |
-| 8 | Fill handling / allocation | ✅ † | ❌ | ❌ | — |
-
-† Java's ✅ in rows 6–8 is the pre-existing production tree, not slice work — no cross-language claim
-attaches to it.
+| 8 | Allocation (largest-remainder) | ✅ | ✅ | ✅ | `component-09`; conservation + tie-breaks pinned |
 
 ### Cross-cutting properties
 
