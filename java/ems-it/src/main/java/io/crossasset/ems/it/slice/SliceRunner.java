@@ -14,6 +14,8 @@ import io.crossasset.ems.fsm.generated.RouteFsmEffect;
 import io.crossasset.ems.fsm.generated.RouteFsmEvent;
 import io.crossasset.ems.fsm.generated.RouteFsmPayloads;
 import io.crossasset.ems.fsm.generated.RouteFsmState;
+import io.crossasset.ems.fsm.generated.VenueSessionFsmEvent;
+import io.crossasset.ems.fsm.generated.VenueSessionFsmState;
 import io.crossasset.ems.instrument.LifecycleStatus;
 import io.crossasset.ems.validator.LayeredValidatorPipeline;
 import io.crossasset.ems.validator.ValidationRequest;
@@ -29,20 +31,19 @@ import org.jspecify.annotations.Nullable;
 /**
  * The slice, as far as it has been built.
  *
- * <p><strong>Today it covers components 1–6b</strong>: the journal codec, deterministic
- * identifiers, the transport seam, the AAA entitlement decision, the layered validation pipeline,
- * the order FSM, route creation and the route venue lifecycle. A {@code SessionLogon} registers a
- * session; an {@code OrderNew} becomes an {@code OrderAccepted} carrying a generated order id or an
- * {@code OrderRejected} carrying a catalog reject code; an {@code OrderEvent} drives the order FSM;
- * a {@code RouteNew} projects an accepted order onto a venue; a {@code RouteEvent} drives the route
- * FSM and <strong>cascades to the order FSM</strong> via the schema's {@code emit_event} effects.
- * Everything else passes through with its sequence renumbered, and a {@code RunSummary} closes the
- * journal.
+ * <p><strong>Today it covers components 1–7</strong>: the journal codec, deterministic identifiers,
+ * the transport seam, the AAA entitlement decision, the layered validation pipeline, the order FSM,
+ * routing, and the venue edge. A {@code SessionLogon} registers a session; an {@code OrderNew}
+ * becomes an {@code OrderAccepted} or an {@code OrderRejected}; an {@code OrderEvent} drives the
+ * order FSM; a {@code RouteNew} projects an accepted order onto a venue — refused with {@code
+ * EMS-VEN-5001} unless that venue's FIX session is {@code ACTIVE}, and emitting a {@code FixOut}
+ * when accepted; a {@code VenueSession} drives the session FSM; an inbound {@code ExecutionReport}
+ * is translated by {@code ExecType} into a route event and <strong>cascades to the order
+ * FSM</strong> via the schema's {@code emit_event} effects.
  *
- * <p>There is still no venue edge — nothing here speaks FIX, and {@code RouteEvent}s arrive as
- * journal entries rather than from a session — and no allocation. Those are components 7 and 8.
- * Pretending otherwise in the output would make the conformance corpus lie about what is
- * implemented.
+ * <p>There is still no allocation — a fill stops at the order. That is component 8, the last one.
+ * {@code FixOut} records intent and identifying tags, not a wire-format FIX string; a byte-exact
+ * encoder is out of scope for the slice.
  *
  * <p>Kept in lockstep with {@code rust/ems-slice/src/runner.rs} and {@code
  * cpp/ems-it/src/slice_runner.cpp}.
@@ -109,6 +110,25 @@ public final class SliceRunner {
   /** Output event for a route action that reached no route. */
   private static final String TYPE_ROUTE_EVENT_IGNORED = "RouteEventIgnored";
 
+  /** Input event driving one venue's FIX session. */
+  private static final String TYPE_VENUE_SESSION = "VenueSession";
+
+  /**
+   * Output event: the outbound FIX message a dispatched route produces.
+   *
+   * <p>The journal records that a message was produced and its identifying tags, not a wire-format
+   * string. A byte-exact FIX encoder is a component of its own; recording the intent here keeps the
+   * conformance gate meaningful without three languages having to agree on tag ordering and
+   * checksums as well.
+   */
+  private static final String TYPE_FIX_OUT = "FixOut";
+
+  /** Input event: an inbound FIX ExecutionReport from a venue. */
+  private static final String TYPE_EXECUTION_REPORT = "ExecutionReport";
+
+  /** Output event for an ExecutionReport that reached no route. */
+  private static final String TYPE_EXECUTION_REPORT_IGNORED = "ExecutionReportIgnored";
+
   /** Final output event: makes the seed and the input size visible in the journal itself. */
   private static final String TYPE_RUN_SUMMARY = "RunSummary";
 
@@ -127,6 +147,9 @@ public final class SliceRunner {
   /** Catalog code: the route's ClOrdID is already in use. */
   private static final String CODE_ROUTE_CLORDID_COLLISION = "EMS-RTE-2005";
 
+  /** Catalog code: the venue's FIX session cannot currently take an order. */
+  private static final String CODE_VENUE_SESSION_NOT_ACTIVE = "EMS-VEN-5001";
+
   /**
    * Fields copied from {@code OrderNew} onto {@code OrderAccepted}, in this order.
    *
@@ -142,6 +165,7 @@ public final class SliceRunner {
   private final SliceSecurityMaster securityMaster = new SliceSecurityMaster();
   private final SliceOrderBook orders = new SliceOrderBook();
   private final SliceRouteBook routes = new SliceRouteBook();
+  private final SliceVenueSessions venues = new SliceVenueSessions();
 
   /**
    * The order id we assigned to each accepted order, by the client's ClOrdID.
@@ -180,6 +204,8 @@ public final class SliceRunner {
         case TYPE_ORDER_EVENT -> seq = onOrderEvent(event, seq, output);
         case TYPE_ROUTE_NEW -> seq = onRouteNew(event, seq, output);
         case TYPE_ROUTE_EVENT -> seq = onRouteEvent(event, seq, output);
+        case TYPE_VENUE_SESSION -> seq = onVenueSession(event, seq, output);
+        case TYPE_EXECUTION_REPORT -> seq = onExecutionReport(event, seq, output);
         default -> output.add(event.withSeq(++seq));
       }
     }
@@ -316,6 +342,20 @@ public final class SliceRunner {
     String venueMic = field(event, "venueMic");
     long qty = parseLong(field(event, "qty"));
 
+    // The venue gate runs first. A route to a venue that cannot take it is refused
+    // before any of the order-side checks, because the answer does not depend on
+    // them — and telling a trader "your order is fine, the venue is down" is more
+    // useful than a quantity complaint.
+    if (!venues.isActive(venueMic)) {
+      return rejectRoute(
+          event,
+          seq,
+          output,
+          CODE_VENUE_SESSION_NOT_ACTIVE,
+          "venue session is "
+              + venues.stateOf(venueMic).map(VenueSessionFsmState::name).orElse("never connected"));
+    }
+
     Optional<SliceOrderBook.Entry> parent = orders.get(clOrdId);
     if (parent.isEmpty()) {
       return rejectRoute(event, seq, output, CODE_ROUTE_UNKNOWN_ORDER, "no such order");
@@ -408,6 +448,134 @@ public final class SliceRunner {
       fields.put("price", Long.toString(price));
     }
     output.add(new JournalEvent(++seq, TYPE_ROUTE_ACCEPTED, fields));
+
+    // 35=D goes out last: the journal reads in the order things happened, and the
+    // message is a consequence of the route existing rather than the cause of it.
+    TreeMap<String, String> fix = new TreeMap<>();
+    fix.put("clOrdId", routeClOrdId);
+    fix.put("msgType", "D");
+    fix.put("orderQty", Long.toString(qty));
+    fix.put("side", Integer.toString(parent.get().context().side()));
+    fix.put("symbol", parent.get().context().instrumentId());
+    fix.put("venueMic", venueMic);
+    if (price != null) {
+      fix.put("price", Long.toString(price));
+    }
+    output.add(new JournalEvent(++seq, TYPE_FIX_OUT, fix));
+    return seq;
+  }
+
+  /**
+   * Drives one venue's FIX session.
+   *
+   * <p>A venue we have never heard of starts in the schema's initial state rather than being
+   * refused, so {@code ConnectRequested} is reachable by a corpus case. Unknown event names are
+   * recorded as no-transitions rather than being dropped: a session that ignored something is a
+   * fact an operator needs.
+   */
+  private long onVenueSession(JournalEvent event, long seq, List<JournalEvent> output) {
+    String venueMic = field(event, "venueMic");
+    String raw = field(event, "event");
+
+    VenueSessionFsmEvent fsmEvent = toVenueSessionEvent(raw);
+    if (fsmEvent == null) {
+      TreeMap<String, String> fields = new TreeMap<>();
+      fields.put("event", raw);
+      fields.put("reason", "unknown FSM event");
+      fields.put("venueMic", venueMic);
+      output.add(new JournalEvent(++seq, "VenueSessionEventIgnored", fields));
+      return seq;
+    }
+
+    VenueSessionFsmState before =
+        venues.stateOf(venueMic).orElse(VenueSessionFsmState.DISCONNECTED);
+    var result = venues.apply(venueMic, fsmEvent);
+
+    TreeMap<String, String> fields = new TreeMap<>();
+    fields.put("applied", Boolean.toString(!result.isNoTransition()));
+    fields.put("event", fsmEvent.name());
+    fields.put("from", before.name());
+    fields.put("fsm", "venue_session");
+    fields.put("to", venues.stateOf(venueMic).orElse(before).name());
+    fields.put("venueMic", venueMic);
+    output.add(new JournalEvent(++seq, TYPE_FSM_TRANSITION, fields));
+    return seq;
+  }
+
+  /** Maps a journal event name to a venue-session FSM event. Null for anything the schema omits. */
+  private static @Nullable VenueSessionFsmEvent toVenueSessionEvent(String name) {
+    for (VenueSessionFsmEvent candidate : VenueSessionFsmEvent.values()) {
+      if (candidate.name().equals(name)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Translates an inbound FIX ExecutionReport into a route event and applies it.
+   *
+   * <p>This is the whole venue edge in one method: FIX vocabulary on the way in, the slice's own
+   * vocabulary on the way out. {@code ExecType} is the discriminator, and {@code OrdStatus}
+   * separates the two cases that share one — a trade is a partial fill or the final one depending
+   * on whether anything is left.
+   *
+   * <p>The report names a route by <strong>ClOrdID</strong>, because that is what a venue knows. It
+   * has never seen our route id.
+   */
+  private long onExecutionReport(JournalEvent event, long seq, List<JournalEvent> output) {
+    String clOrdId = field(event, "clOrdId");
+    String execType = field(event, "execType");
+
+    RouteFsmEvent fsmEvent = fromExecType(execType, field(event, "ordStatus"));
+    if (fsmEvent == null) {
+      return ignoreReport(seq, clOrdId, execType, "unmapped ExecType", output);
+    }
+
+    String routeId = routes.routeIdForClOrdId(clOrdId).orElse("");
+    if (routeId.isEmpty()) {
+      return ignoreReport(seq, clOrdId, execType, "unknown route ClOrdID", output);
+    }
+
+    // Re-uses the route-event path, so an ExecutionReport and a hand-written
+    // RouteEvent cannot drift apart — including the cascade to the parent order.
+    TreeMap<String, String> translated = new TreeMap<>(event.fields());
+    translated.put("event", fsmEvent.name());
+    translated.put("routeId", routeId);
+    return onRouteEvent(new JournalEvent(event.seq(), TYPE_ROUTE_EVENT, translated), seq, output);
+  }
+
+  /**
+   * FIX {@code ExecType} (tag 150) to a route FSM event.
+   *
+   * <p>An explicit table, not a name-matching convention. The FIX values are one character and the
+   * schema's event names are not, so there is no derivation to be had — and a wrong guess here is a
+   * venue message silently applied to the wrong transition.
+   */
+  private static @Nullable RouteFsmEvent fromExecType(String execType, String ordStatus) {
+    return switch (execType) {
+      case "0" -> RouteFsmEvent.RouteAcknowledged;
+      case "4" -> RouteFsmEvent.RouteCanceled;
+      case "5" -> RouteFsmEvent.RouteReplaced;
+      case "8" -> RouteFsmEvent.RouteRejected;
+      case "A" -> RouteFsmEvent.RoutePendingNewAtVenue;
+      case "C" -> RouteFsmEvent.RouteExpired;
+      case "E" -> RouteFsmEvent.RouteReplacePendingAtVenue;
+      // ExecType=F is a trade. OrdStatus=2 means nothing is left, so it is the
+      // final fill; anything else leaves the route open.
+      case "F" ->
+          "2".equals(ordStatus) ? RouteFsmEvent.RouteFilled : RouteFsmEvent.RoutePartiallyFilled;
+      default -> null;
+    };
+  }
+
+  private static long ignoreReport(
+      long seq, String clOrdId, String execType, String reason, List<JournalEvent> output) {
+    TreeMap<String, String> fields = new TreeMap<>();
+    fields.put("clOrdId", clOrdId);
+    fields.put("execType", execType);
+    fields.put("reason", reason);
+    output.add(new JournalEvent(++seq, TYPE_EXECUTION_REPORT_IGNORED, fields));
     return seq;
   }
 

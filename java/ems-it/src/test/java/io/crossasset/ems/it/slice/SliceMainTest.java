@@ -212,6 +212,28 @@ class SliceMainTest {
       "{\"fields\":{\"figi\":\"BBG1\",\"status\":\"ACTIVE\"},\"seq\":2,"
           + "\"type\":\"InstrumentCreated\"}\n";
 
+  private static String venueSession(String venue, String name) {
+    return "{\"fields\":{\"event\":\""
+        + name
+        + "\",\"venueMic\":\""
+        + venue
+        + "\"},\"seq\":2,\"type\":\"VenueSession\"}\n";
+  }
+
+  /**
+   * Logs the venues the routing tests use on. The venue gate (component 8) refuses a route to
+   * anything but an {@code ACTIVE} session.
+   */
+  private static String venuesUp() {
+    StringBuilder events = new StringBuilder();
+    for (String venue : new String[] {"XNAS", "XNYS", "XLON"}) {
+      for (String name : new String[] {"ConnectRequested", "TcpConnected", "LogonAcknowledged"}) {
+        events.append(venueSession(venue, name));
+      }
+    }
+    return events.toString();
+  }
+
   /** An order on that instrument for {@code qty}, accepted as {@code ORD-0000000001}. */
   private static String orderNew(String clOrdId, String qty) {
     return "{\"fields\":{\"clOrdId\":\""
@@ -235,7 +257,7 @@ class SliceMainTest {
   private String routed(String journal) throws IOException {
     Path input = tmp.resolve("in.jsonl");
     Path output = tmp.resolve("out.jsonl");
-    Files.writeString(input, LOGON + INSTRUMENT + journal);
+    Files.writeString(input, LOGON + INSTRUMENT + venuesUp() + journal);
     assertThat(run("--input", input.toString(), "--output", output.toString())).isZero();
     return Files.readString(output, StandardCharsets.UTF_8);
   }
@@ -433,6 +455,133 @@ class SliceMainTest {
     // The order is FILLED by the cascade, so it is refused as un-routable before
     // the quantity check is even reached.
     assertThat(out).contains("\"code\":\"EMS-RTE-4002\"").doesNotContain("RTE-0000000002");
+  }
+
+  // ── Venue edge (component 8) ───────────────────────────────────────────────
+
+  private static String executionReport(String clOrdId, String execType, String extra) {
+    return "{\"fields\":{\"clOrdId\":\""
+        + clOrdId
+        + "\",\"execType\":\""
+        + execType
+        + "\""
+        + extra
+        + "},\"seq\":6,\"type\":\"ExecutionReport\"}\n";
+  }
+
+  /**
+   * The gate: a route to a venue that is not {@code ACTIVE} is refused with 5001 before any
+   * order-side check runs. {@code LOGON_SENT} is the dangerous half-open case — a socket exists,
+   * sequence numbers do not, and it looks usable.
+   */
+  @Test
+  void aRouteToAnInactiveVenueIsRefused() throws IOException {
+    Path input = tmp.resolve("in.jsonl");
+    Path output = tmp.resolve("out.jsonl");
+    Files.writeString(
+        input,
+        LOGON
+            + INSTRUMENT
+            + venueSession("XNAS", "ConnectRequested")
+            + venueSession("XNAS", "TcpConnected")
+            + orderNew("C-A", "1000")
+            + routeNew("C-A", "400", ""));
+    assertThat(run("--input", input.toString(), "--output", output.toString())).isZero();
+
+    assertThat(Files.readString(output, StandardCharsets.UTF_8))
+        .contains("\"code\":\"EMS-VEN-5001\"")
+        .contains("venue session is LOGON_SENT")
+        .doesNotContain("RouteAccepted");
+  }
+
+  /** Never-connected and disconnected read differently, though the gate refuses both. */
+  @Test
+  void aNeverConnectedVenueReadsDifferentlyFromADeadOne() throws IOException {
+    String out =
+        routed(
+            orderNew("C-A", "1000")
+                + "{\"fields\":{\"clOrdId\":\"C-A\",\"qty\":\"100\","
+                + "\"venueMic\":\"XJPX\"},\"seq\":5,\"type\":\"RouteNew\"}\n");
+
+    assertThat(out).contains("venue session is never connected");
+  }
+
+  /** An accepted route emits the outbound 35=D, after the acceptance. */
+  @Test
+  void anAcceptedRouteEmitsFixOut() throws IOException {
+    String out = routed(orderNew("C-A", "1000") + routeNew("C-A", "400", ""));
+
+    assertThat(out)
+        .contains("\"type\":\"FixOut\"")
+        .contains("\"msgType\":\"D\"")
+        .contains("\"orderQty\":\"400\"")
+        .contains("\"symbol\":\"BBG1\"");
+    // Message follows acceptance: a consequence, not a cause.
+    assertThat(out.indexOf("RouteAccepted")).isLessThan(out.indexOf("FixOut"));
+  }
+
+  /**
+   * The full inbound chain: one ExecutionReport moves two machines, and neither mapping is written
+   * in the runner — ExecType comes from the explicit table, the cascade from the schema's effects.
+   */
+  @Test
+  void anExecutionReportDrivesRouteAndOrder() throws IOException {
+    String out =
+        routed(
+            orderNew("C-A", "1000")
+                + routeNew("C-A", "1000", "")
+                + executionReport("C-A-1", "0", ",\"ordStatus\":\"0\"")
+                + executionReport(
+                    "C-A-1",
+                    "F",
+                    ",\"execId\":\"X-1\",\"lastPx\":\"15000\",\"lastQty\":\"1000\","
+                        + "\"ordStatus\":\"2\""));
+
+    assertThat(out)
+        .contains("\"event\":\"RouteFilled\"")
+        .contains("\"clOrdId\":\"C-A\",\"event\":\"FullFill\"");
+  }
+
+  /**
+   * {@code ExecType=F} needs {@code OrdStatus} to disambiguate: 2 is the final fill, anything else
+   * leaves the route open. Getting this wrong strands quantity forever.
+   */
+  @Test
+  void aTradeWithLeavesIsAPartialFill() throws IOException {
+    String out =
+        routed(
+            orderNew("C-A", "1000")
+                + routeNew("C-A", "1000", "")
+                + executionReport("C-A-1", "0", ",\"ordStatus\":\"0\"")
+                + executionReport(
+                    "C-A-1",
+                    "F",
+                    ",\"execId\":\"X-1\",\"lastPx\":\"15000\",\"lastQty\":\"100\","
+                        + "\"ordStatus\":\"1\""));
+
+    assertThat(out)
+        .contains("\"event\":\"RoutePartiallyFilled\"")
+        .doesNotContain("\"event\":\"RouteFilled\"");
+  }
+
+  @Test
+  void anUnmappedExecTypeIsIgnored() throws IOException {
+    String out =
+        routed(
+            orderNew("C-A", "1000")
+                + routeNew("C-A", "400", "")
+                + executionReport("C-A-1", "Z", ""));
+
+    assertThat(out).contains("\"type\":\"ExecutionReportIgnored\"").contains("unmapped ExecType");
+  }
+
+  @Test
+  void aReportForAnUnknownClOrdIdIsIgnored() throws IOException {
+    String out = routed(orderNew("C-A", "1000") + executionReport("NOT-A-ROUTE", "0", ""));
+
+    assertThat(out)
+        .contains("\"type\":\"ExecutionReportIgnored\"")
+        .contains("unknown route ClOrdID");
   }
 
   @Test

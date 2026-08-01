@@ -11,13 +11,14 @@ use ems_fsm::generated::route_fsm::{
 };
 use ems_fsm::{
     OrderFsmContext, OrderFsmEvent, OrderFsmPayload, OrderFsmState, RouteFsmContext, RouteFsmEvent,
-    RouteFsmPayload, RouteFsmState,
+    RouteFsmPayload, RouteFsmState, VenueSessionFsmEvent, VenueSessionFsmState,
 };
 use ems_validator::{
     validate, InstrumentStatus, SecurityMaster, ValidationRequest, ValidationResult,
 };
 
 use crate::routes::RouteBook;
+use crate::venues::VenueSessions;
 
 /// Input event adding an instrument to the security master.
 const TYPE_INSTRUMENT_CREATED: &str = "InstrumentCreated";
@@ -60,6 +61,21 @@ const TYPE_ROUTE_REJECTED: &str = "RouteRejected";
 const TYPE_ROUTE_EVENT: &str = "RouteEvent";
 /// Output event for a route action that reached no route.
 const TYPE_ROUTE_EVENT_IGNORED: &str = "RouteEventIgnored";
+/// Input event driving one venue's FIX session.
+const TYPE_VENUE_SESSION: &str = "VenueSession";
+/// Output event for a session action the schema does not define.
+const TYPE_VENUE_SESSION_IGNORED: &str = "VenueSessionEventIgnored";
+/// Output event: the outbound FIX message a dispatched route produces.
+///
+/// The journal records that a message was produced and its identifying tags, not
+/// a wire-format string. A byte-exact FIX encoder is a component of its own;
+/// recording the intent keeps the conformance gate meaningful without three
+/// languages having to agree on tag ordering and checksums as well.
+const TYPE_FIX_OUT: &str = "FixOut";
+/// Input event: an inbound FIX `ExecutionReport` from a venue.
+const TYPE_EXECUTION_REPORT: &str = "ExecutionReport";
+/// Output event for an `ExecutionReport` that reached no route.
+const TYPE_EXECUTION_REPORT_IGNORED: &str = "ExecutionReportIgnored";
 /// Catalog code: no such order to route.
 const CODE_ROUTE_UNKNOWN_ORDER: &str = "EMS-RTE-4001";
 /// Catalog code: the order is not in a state that can be routed.
@@ -68,6 +84,8 @@ const CODE_ROUTE_ORDER_NOT_ROUTABLE: &str = "EMS-RTE-4002";
 const CODE_ROUTE_QTY_INVALID: &str = "EMS-RTE-4003";
 /// Catalog code: the route's `ClOrdID` is already in use.
 const CODE_ROUTE_CLORDID_COLLISION: &str = "EMS-RTE-2005";
+/// Catalog code: the venue's FIX session cannot currently take an order.
+const CODE_VENUE_SESSION_NOT_ACTIVE: &str = "EMS-VEN-5001";
 /// Final output event: makes the seed and the input size visible in the journal.
 const TYPE_RUN_SUMMARY: &str = "RunSummary";
 
@@ -80,19 +98,20 @@ const ECHOED_FIELDS: [&str; 5] = ["account", "figi", "price", "qty", "side"];
 
 /// Runs the slice over `input`, returning the output journal.
 ///
-/// **Today this covers components 1–6b**: the journal codec, deterministic
+/// **Today this covers components 1–7**: the journal codec, deterministic
 /// identifiers, the transport seam, the AAA entitlement decision, the layered
-/// validation pipeline, the order FSM, route creation and the route venue
-/// lifecycle. A `SessionLogon` registers a session; an `OrderNew` becomes an
-/// `OrderAccepted` carrying a generated order id or an `OrderRejected` carrying
-/// a catalog reject code; an `OrderEvent` drives the order FSM; a `RouteNew`
-/// projects an accepted order onto a venue; a `RouteEvent` drives the route FSM
-/// and **cascades to the order FSM** via the schema's `emit_event` effects.
+/// validation pipeline, the order FSM, routing, and the venue edge. A
+/// `SessionLogon` registers a session; an `OrderNew` becomes an `OrderAccepted`
+/// or an `OrderRejected`; an `OrderEvent` drives the order FSM; a `RouteNew`
+/// projects an accepted order onto a venue — refused with `EMS-VEN-5001` unless
+/// that venue's FIX session is `ACTIVE`, and emitting a `FixOut` when accepted;
+/// a `VenueSession` drives the session FSM; an inbound `ExecutionReport` is
+/// translated by `ExecType` into a route event and **cascades to the order
+/// FSM** via the schema's `emit_event` effects.
 ///
-/// There is still no venue edge — nothing here speaks FIX, and `RouteEvent`s
-/// arrive as journal entries rather than from a session — and no allocation.
-/// Those are components 7 and 8. Pretending otherwise in the output would make
-/// the conformance corpus lie about what is implemented.
+/// There is still no allocation — a fill stops at the order. That is component
+/// 8, the last one. `FixOut` records intent and identifying tags, not a
+/// wire-format FIX string; a byte-exact encoder is out of scope for the slice.
 ///
 /// Kept in lockstep with `java/ems-it/.../SliceRunner.java` and
 /// `cpp/ems-it/src/slice_runner.cpp`.
@@ -107,6 +126,7 @@ pub fn run(input: &[JournalEvent], ids: &mut DeterministicIds) -> Vec<JournalEve
     // PENDING_NEW -> REJECTED transition without consuming an order id.
     let mut orders: BTreeMap<String, (OrderFsmState, OrderFsmContext)> = BTreeMap::new();
     let mut routes = RouteBook::new();
+    let mut venues = VenueSessions::new();
     // The order id we assigned to each accepted order, by the client's ClOrdID.
     // A runner-level index rather than a field on the order book: the FSM context
     // is the schema's shape and this is ours. A rejected order has no entry, so a
@@ -147,11 +167,25 @@ pub fn run(input: &[JournalEvent], ids: &mut DeterministicIds) -> Vec<JournalEve
                     &orders,
                     &order_ids,
                     &mut routes,
+                    &venues,
                     &mut output,
                 );
             }
             TYPE_ROUTE_EVENT => {
                 seq = on_route_event(
+                    event,
+                    seq,
+                    &mut orders,
+                    &order_ids,
+                    &mut routes,
+                    &mut output,
+                );
+            }
+            TYPE_VENUE_SESSION => {
+                seq = on_venue_session(event, seq, &mut venues, &mut output);
+            }
+            TYPE_EXECUTION_REPORT => {
+                seq = on_execution_report(
                     event,
                     seq,
                     &mut orders,
@@ -387,11 +421,20 @@ fn on_route_new(
     orders: &BTreeMap<String, (OrderFsmState, OrderFsmContext)>,
     order_ids: &BTreeMap<String, String>,
     routes: &mut RouteBook,
+    venues: &VenueSessions,
     output: &mut Vec<JournalEvent>,
 ) -> u64 {
     let cl_ord_id = field(event, "clOrdId");
     let venue_mic = field(event, "venueMic");
     let qty = field(event, "qty").parse::<u64>().unwrap_or(0);
+
+    // The venue gate runs first. A route to a venue that cannot take it is
+    // refused before any of the order-side checks, because the answer does not
+    // depend on them — and telling a trader "your order is fine, the venue is
+    // down" is more useful than a quantity complaint.
+    if let Some(reason) = venue_gate_refusal(venues, &venue_mic) {
+        return reject_route(event, seq, CODE_VENUE_SESSION_NOT_ACTIVE, &reason, output);
+    }
 
     let Some((state, context)) = orders.get(&cl_ord_id) else {
         return reject_route(
@@ -481,6 +524,8 @@ fn on_route_new(
         },
     );
 
+    let instrument_id = context.instrument_id.clone();
+    let side = context.side;
     push_route_accepted(
         RouteJournal {
             seq,
@@ -493,6 +538,8 @@ fn on_route_new(
             venue_mic: &venue_mic,
             qty,
             price,
+            instrument_id: &instrument_id,
+            side,
         },
         output,
     )
@@ -515,6 +562,8 @@ struct RouteJournal<'a> {
     venue_mic: &'a str,
     qty: u64,
     price: Option<i64>,
+    instrument_id: &'a str,
+    side: u8,
 }
 
 /// Records the dispatch transition and the acknowledgement, in that order.
@@ -555,7 +604,157 @@ fn push_route_accepted(journal: RouteJournal<'_>, output: &mut Vec<JournalEvent>
         event_type: TYPE_ROUTE_ACCEPTED.to_owned(),
         fields,
     });
-    journal.seq + 2
+
+    // 35=D goes out last: the journal reads in the order things happened, and the
+    // message is a consequence of the route existing rather than the cause of it.
+    let mut fix = BTreeMap::new();
+    fix.insert("clOrdId".to_owned(), journal.route_cl_ord_id.to_owned());
+    fix.insert("msgType".to_owned(), "D".to_owned());
+    fix.insert("orderQty".to_owned(), journal.qty.to_string());
+    fix.insert("side".to_owned(), journal.side.to_string());
+    fix.insert("symbol".to_owned(), journal.instrument_id.to_owned());
+    fix.insert("venueMic".to_owned(), journal.venue_mic.to_owned());
+    if let Some(value) = journal.price {
+        fix.insert("price".to_owned(), value.to_string());
+    }
+    output.push(JournalEvent {
+        seq: journal.seq + 3,
+        event_type: TYPE_FIX_OUT.to_owned(),
+        fields: fix,
+    });
+    journal.seq + 3
+}
+
+/// Drives one venue's FIX session.
+///
+/// A venue we have never heard of starts in the schema's initial state rather
+/// than being refused, so `ConnectRequested` is reachable by a corpus case.
+fn on_venue_session(
+    event: &JournalEvent,
+    seq: u64,
+    venues: &mut VenueSessions,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
+    let venue_mic = field(event, "venueMic");
+    let raw = field(event, "event");
+
+    let Some(fsm_event) = VenueSessionFsmEvent::from_name(&raw) else {
+        let mut fields = BTreeMap::new();
+        fields.insert("event".to_owned(), raw);
+        fields.insert("reason".to_owned(), "unknown FSM event".to_owned());
+        fields.insert("venueMic".to_owned(), venue_mic);
+        output.push(JournalEvent {
+            seq: seq + 1,
+            event_type: TYPE_VENUE_SESSION_IGNORED.to_owned(),
+            fields,
+        });
+        return seq + 1;
+    };
+
+    let before = venues
+        .state_of(&venue_mic)
+        .unwrap_or(VenueSessionFsmState::Disconnected);
+    let result = venues.apply(&venue_mic, fsm_event);
+
+    let mut fields = BTreeMap::new();
+    fields.insert("applied".to_owned(), (!result.is_no_transition).to_string());
+    fields.insert("event".to_owned(), fsm_event.name().to_owned());
+    fields.insert("from".to_owned(), before.name().to_owned());
+    fields.insert("fsm".to_owned(), "venue_session".to_owned());
+    fields.insert(
+        "to".to_owned(),
+        venues
+            .state_of(&venue_mic)
+            .unwrap_or(before)
+            .name()
+            .to_owned(),
+    );
+    fields.insert("venueMic".to_owned(), venue_mic);
+    output.push(JournalEvent {
+        seq: seq + 1,
+        event_type: TYPE_FSM_TRANSITION.to_owned(),
+        fields,
+    });
+    seq + 1
+}
+
+/// FIX `ExecType` (tag 150) to a route FSM event.
+///
+/// An explicit table, not a name-matching convention. The FIX values are one
+/// character and the schema's event names are not, so there is no derivation to
+/// be had — and a wrong guess here is a venue message silently applied to the
+/// wrong transition.
+fn from_exec_type(exec_type: &str, ord_status: &str) -> Option<RouteFsmEvent> {
+    match exec_type {
+        "0" => Some(RouteFsmEvent::RouteAcknowledged),
+        "4" => Some(RouteFsmEvent::RouteCanceled),
+        "5" => Some(RouteFsmEvent::RouteReplaced),
+        "8" => Some(RouteFsmEvent::RouteRejected),
+        "A" => Some(RouteFsmEvent::RoutePendingNewAtVenue),
+        "C" => Some(RouteFsmEvent::RouteExpired),
+        "E" => Some(RouteFsmEvent::RouteReplacePendingAtVenue),
+        // ExecType=F is a trade. OrdStatus=2 means nothing is left, so it is the
+        // final fill; anything else leaves the route open.
+        "F" if ord_status == "2" => Some(RouteFsmEvent::RouteFilled),
+        "F" => Some(RouteFsmEvent::RoutePartiallyFilled),
+        _ => None,
+    }
+}
+
+/// Translates an inbound FIX `ExecutionReport` into a route event and applies it.
+///
+/// This is the whole venue edge in one function: FIX vocabulary on the way in,
+/// the slice's own vocabulary on the way out. The report names a route by
+/// **`ClOrdID`**, because that is what a venue knows — it has never seen our
+/// route id.
+fn on_execution_report(
+    event: &JournalEvent,
+    seq: u64,
+    orders: &mut BTreeMap<String, (OrderFsmState, OrderFsmContext)>,
+    order_ids: &BTreeMap<String, String>,
+    routes: &mut RouteBook,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
+    let cl_ord_id = field(event, "clOrdId");
+    let exec_type = field(event, "execType");
+
+    let Some(fsm_event) = from_exec_type(&exec_type, &field(event, "ordStatus")) else {
+        return push_report_ignored(seq, &cl_ord_id, &exec_type, "unmapped ExecType", output);
+    };
+    let Some(route_id) = routes.route_id_for_cl_ord_id(&cl_ord_id) else {
+        return push_report_ignored(seq, &cl_ord_id, &exec_type, "unknown route ClOrdID", output);
+    };
+
+    // Re-uses the route-event path, so an ExecutionReport and a hand-written
+    // RouteEvent cannot drift apart — including the cascade to the parent order.
+    let mut fields = event.fields.clone();
+    fields.insert("event".to_owned(), fsm_event.name().to_owned());
+    fields.insert("routeId".to_owned(), route_id);
+    let translated = JournalEvent {
+        seq: event.seq,
+        event_type: TYPE_ROUTE_EVENT.to_owned(),
+        fields,
+    };
+    on_route_event(&translated, seq, orders, order_ids, routes, output)
+}
+
+fn push_report_ignored(
+    seq: u64,
+    cl_ord_id: &str,
+    exec_type: &str,
+    reason: &str,
+    output: &mut Vec<JournalEvent>,
+) -> u64 {
+    let mut fields = BTreeMap::new();
+    fields.insert("clOrdId".to_owned(), cl_ord_id.to_owned());
+    fields.insert("execType".to_owned(), exec_type.to_owned());
+    fields.insert("reason".to_owned(), reason.to_owned());
+    output.push(JournalEvent {
+        seq: seq + 1,
+        event_type: TYPE_EXECUTION_REPORT_IGNORED.to_owned(),
+        fields,
+    });
+    seq + 1
 }
 
 /// Applies a venue action to a live route, and cascades what the schema says.
@@ -725,6 +924,20 @@ fn route_payload_for(fsm_event: RouteFsmEvent, event: &JournalEvent) -> Option<R
         )),
         _ => None,
     }
+}
+
+/// Why the venue gate refuses `venue_mic`, or `None` when it is `ACTIVE`.
+///
+/// "Never connected" and a named dead state are different facts to a trader,
+/// even though the gate refuses both.
+fn venue_gate_refusal(venues: &VenueSessions, venue_mic: &str) -> Option<String> {
+    if venues.is_active(venue_mic) {
+        return None;
+    }
+    let state = venues
+        .state_of(venue_mic)
+        .map_or_else(|| "never connected".to_owned(), |s| s.name().to_owned());
+    Some(format!("venue session is {state}"))
 }
 
 /// States an order can be routed from.
@@ -1183,26 +1396,38 @@ mod tests {
     /// Every routing test needs the same three events before it can say anything
     /// about a route, and spelling them out per test buries the line that differs.
     fn routable_order(cl_ord_id: &str, qty: &str) -> Vec<JournalEvent> {
-        vec![
+        let mut input = vec![
             logon("order-entry"),
             event(
                 2,
                 "InstrumentCreated",
                 &[("figi", "BBG1"), ("status", "ACTIVE")],
             ),
-            event(
-                3,
-                "OrderNew",
-                &[
-                    ("clOrdId", cl_ord_id),
-                    ("figi", "BBG1"),
-                    ("qty", qty),
-                    ("sessionId", "7"),
-                    ("side", "BUY"),
-                    ("tag", "order-entry"),
-                ],
-            ),
-        ]
+        ];
+        // The venue gate (component 8) refuses a route to anything but an ACTIVE
+        // session, so every routing fixture logs the venues on first.
+        for venue in ["XNAS", "XNYS", "XLON"] {
+            for name in ["ConnectRequested", "TcpConnected", "LogonAcknowledged"] {
+                input.push(event(
+                    0,
+                    "VenueSession",
+                    &[("event", name), ("venueMic", venue)],
+                ));
+            }
+        }
+        input.push(event(
+            3,
+            "OrderNew",
+            &[
+                ("clOrdId", cl_ord_id),
+                ("figi", "BBG1"),
+                ("qty", qty),
+                ("sessionId", "7"),
+                ("side", "BUY"),
+                ("tag", "order-entry"),
+            ],
+        ));
+        input
     }
 
     fn route_new(seq: u64, cl_ord_id: &str, qty: &str) -> JournalEvent {
@@ -1228,9 +1453,12 @@ mod tests {
         // are different orders to a venue.
         assert!(!accepted.fields.contains_key("price"));
 
-        // The route is dispatched on creation, not merely created.
-        let transition = nth_of(&out, "FsmTransition", 1);
-        assert_eq!(transition.fields["fsm"], "route");
+        // The route is dispatched on creation, not merely created. Found by
+        // machine, not by position — the venue-session transitions land first.
+        let transition = out
+            .iter()
+            .find(|e| e.event_type == "FsmTransition" && e.fields["fsm"] == "route")
+            .expect("a route transition");
         assert_eq!(transition.fields["from"], "PENDING");
         assert_eq!(transition.fields["to"], "SENT");
         assert_eq!(transition.fields["applied"], "true");
@@ -1287,6 +1515,21 @@ mod tests {
         let out = run(
             &[
                 logon("order-entry"),
+                event(
+                    0,
+                    "VenueSession",
+                    &[("event", "ConnectRequested"), ("venueMic", "XNAS")],
+                ),
+                event(
+                    0,
+                    "VenueSession",
+                    &[("event", "TcpConnected"), ("venueMic", "XNAS")],
+                ),
+                event(
+                    0,
+                    "VenueSession",
+                    &[("event", "LogonAcknowledged"), ("venueMic", "XNAS")],
+                ),
                 event(
                     2,
                     "OrderNew",
@@ -1471,6 +1714,201 @@ mod tests {
             nth_of(&out, "RouteRejected", 0).fields["code"],
             "EMS-RTE-4002"
         );
+    }
+
+    // ── Venue edge (component 8) ─────────────────────────────────────────────
+
+    fn venue_session(venue: &str, name: &str) -> JournalEvent {
+        event(0, "VenueSession", &[("event", name), ("venueMic", venue)])
+    }
+
+    /// The gate: a route to a venue that is not ACTIVE is refused with 5001,
+    /// before any order-side check runs.
+    #[test]
+    fn a_route_to_an_inactive_venue_is_refused() {
+        let mut ids = DeterministicIds::new(0);
+        // Session reaches LOGON_SENT only: a socket exists, sequence numbers do
+        // not. The dangerous half-open case, because it looks usable.
+        let out = run(
+            &[
+                logon("order-entry"),
+                event(
+                    2,
+                    "InstrumentCreated",
+                    &[("figi", "BBG1"), ("status", "ACTIVE")],
+                ),
+                venue_session("XNAS", "ConnectRequested"),
+                venue_session("XNAS", "TcpConnected"),
+                event(
+                    3,
+                    "OrderNew",
+                    &[
+                        ("clOrdId", "C-A"),
+                        ("figi", "BBG1"),
+                        ("qty", "1000"),
+                        ("sessionId", "7"),
+                        ("side", "BUY"),
+                        ("tag", "order-entry"),
+                    ],
+                ),
+                route_new(4, "C-A", "400"),
+            ],
+            &mut ids,
+        );
+
+        let rejected = nth_of(&out, "RouteRejected", 0);
+        assert_eq!(rejected.fields["code"], "EMS-VEN-5001");
+        assert_eq!(rejected.fields["reason"], "venue session is LOGON_SENT");
+        assert_eq!(count_of(&out, "RouteAccepted"), 0);
+    }
+
+    /// Never-connected and disconnected read differently in the journal, even
+    /// though the gate refuses both.
+    #[test]
+    fn a_never_connected_venue_reads_differently_from_a_dead_one() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(event(
+            0,
+            "RouteNew",
+            &[("clOrdId", "C-A"), ("qty", "100"), ("venueMic", "XJPX")],
+        ));
+        let out = run(&input, &mut ids);
+
+        assert_eq!(
+            nth_of(&out, "RouteRejected", 0).fields["reason"],
+            "venue session is never connected"
+        );
+    }
+
+    /// An accepted route emits the outbound 35=D, after the acceptance.
+    #[test]
+    fn an_accepted_route_emits_fix_out() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-A", "400"));
+        let out = run(&input, &mut ids);
+
+        let fix = nth_of(&out, "FixOut", 0);
+        assert_eq!(fix.fields["msgType"], "D");
+        assert_eq!(fix.fields["clOrdId"], "C-A-1");
+        assert_eq!(fix.fields["orderQty"], "400");
+        assert_eq!(fix.fields["symbol"], "BBG1");
+        // Message follows acceptance: a consequence, not a cause.
+        let accepted = nth_of(&out, "RouteAccepted", 0);
+        assert!(accepted.seq < fix.seq);
+    }
+
+    /// The full inbound chain: one `ExecutionReport` moves two machines, and
+    /// neither mapping is written in the runner.
+    #[test]
+    fn an_execution_report_drives_route_and_order() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-A", "1000"));
+        input.push(event(
+            5,
+            "ExecutionReport",
+            &[
+                ("clOrdId", "C-A-1"),
+                ("execType", "0"),
+                ("ordStatus", "0"),
+                ("venueMic", "XNAS"),
+            ],
+        ));
+        input.push(event(
+            6,
+            "ExecutionReport",
+            &[
+                ("clOrdId", "C-A-1"),
+                ("execId", "X-1"),
+                ("execType", "F"),
+                ("lastPx", "15000"),
+                ("lastQty", "1000"),
+                ("ordStatus", "2"),
+                ("venueMic", "XNAS"),
+            ],
+        ));
+        let out = run(&input, &mut ids);
+
+        let route = out
+            .iter()
+            .rfind(|e| e.event_type == "FsmTransition" && e.fields["fsm"] == "route")
+            .expect("a route transition");
+        assert_eq!(route.fields["event"], "RouteFilled");
+        assert_eq!(route.fields["to"], "FILLED");
+
+        let order = out
+            .iter()
+            .rfind(|e| e.event_type == "FsmTransition" && e.fields["fsm"] == "order")
+            .expect("an order transition");
+        assert_eq!(order.fields["event"], "FullFill");
+        assert_eq!(order.fields["to"], "FILLED");
+    }
+
+    /// `ExecType=F` needs `OrdStatus` to disambiguate: 2 is the final fill, anything
+    /// else leaves the route open. Getting this wrong strands quantity forever.
+    #[test]
+    fn a_trade_with_leaves_is_a_partial_fill() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-A", "1000"));
+        input.push(event(
+            5,
+            "ExecutionReport",
+            &[("clOrdId", "C-A-1"), ("execType", "0"), ("ordStatus", "0")],
+        ));
+        input.push(event(
+            6,
+            "ExecutionReport",
+            &[
+                ("clOrdId", "C-A-1"),
+                ("execId", "X-1"),
+                ("execType", "F"),
+                ("lastPx", "15000"),
+                ("lastQty", "100"),
+                ("ordStatus", "1"),
+            ],
+        ));
+        let out = run(&input, &mut ids);
+
+        let route = out
+            .iter()
+            .rfind(|e| e.event_type == "FsmTransition" && e.fields["fsm"] == "route")
+            .expect("a route transition");
+        assert_eq!(route.fields["event"], "RoutePartiallyFilled");
+        assert_eq!(route.fields["to"], "PARTIALLY_FILLED");
+    }
+
+    #[test]
+    fn an_unmapped_exec_type_is_ignored() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(route_new(4, "C-A", "400"));
+        input.push(event(
+            5,
+            "ExecutionReport",
+            &[("clOrdId", "C-A-1"), ("execType", "Z")],
+        ));
+        let out = run(&input, &mut ids);
+
+        let ignored = nth_of(&out, "ExecutionReportIgnored", 0);
+        assert_eq!(ignored.fields["reason"], "unmapped ExecType");
+    }
+
+    #[test]
+    fn a_report_for_an_unknown_cl_ord_id_is_ignored() {
+        let mut ids = DeterministicIds::new(0);
+        let mut input = routable_order("C-A", "1000");
+        input.push(event(
+            5,
+            "ExecutionReport",
+            &[("clOrdId", "NOT-A-ROUTE"), ("execType", "0")],
+        ));
+        let out = run(&input, &mut ids);
+
+        let ignored = nth_of(&out, "ExecutionReportIgnored", 0);
+        assert_eq!(ignored.fields["reason"], "unknown route ClOrdID");
     }
 
     /// The routing analogue of `a_rejected_order_does_not_consume_an_identifier`:

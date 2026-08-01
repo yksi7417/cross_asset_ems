@@ -159,8 +159,9 @@ a venue event on a route moves the parent order, and the mapping is read from th
 `emit_event` effects rather than written by hand in three languages. `fsm-coverage` now asserts
 **31/31 order and 29/29 route** transitions.
 
-**7** the venue edge (nothing speaks FIX yet — route events arrive as journal entries) and **8**
-allocation are what remain.
+**7** the venue edge — the session FSM (24/24 transitions), the `ACTIVE`-only routing gate,
+`FixOut` on dispatch, and inbound `ExecutionReport`s translated by `ExecType` into route events
+that cascade to the order. **8** allocation is the last remaining component.
 
 Each plan is written for someone with zero context on this codebase: exact files, exact commands,
 test-first steps, and a commit at the end of every task.

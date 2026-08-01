@@ -19,7 +19,7 @@ to:
 
 | | Java | Rust | C++ |
 |---|---:|---:|---:|
-| **Tests passing** | **2,388** | **104** | **86** |
+| **Tests passing** | **2,395** | **115** | **93** |
 | Failures / errors / skipped | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
 | Suites | 14 modules | 9 | 7 ctest targets |
 
@@ -152,7 +152,7 @@ The end-to-end path, exercised through the actual binary.
 
 | | Java | Rust | C++ |
 |---|---|---|---|
-| Tests | 29 | 29 | 27 |
+| Tests | 36 | 36 | 34 |
 | File | [`SliceMainTest.java`](../../java/ems-it/src/test/java/io/crossasset/ems/it/slice/SliceMainTest.java) | [`runner.rs`](../../rust/ems-slice/src/runner.rs) · [`main.rs`](../../rust/ems-slice/src/main.rs) | [`slice_runner_test.cpp`](../../cpp/ems-it/test/slice_runner_test.cpp) |
 
 | | Evidence |
@@ -190,7 +190,9 @@ each other, at the byte level.**
 | [`component-06-routing`](../../conformance/corpus/component-06-routing/case.md) | route creation: a limit route, a market route taking the exact remainder, and **six refusals** — over-route, zero qty, unknown order, rejected order, ClOrdID collision, filled order — with the route ids unshifted by any of them | 🟢🟡🔴 |
 | [`component-07-route-lifecycle`](../../conformance/corpus/component-07-route-lifecycle/case.md) | all **29** route transitions across 18 routes, plus the **cross-FSM cascade** — a venue fill on a route moves the parent order via the schema's `emit_event` effects; two cancel-rejects landing in different states purely by guard; an unknown route, an unknown event name, and a terminal route declining venue chatter | 🟢🟡🔴 |
 
-**18 of 18** — six cases × three implementations, byte-identical.
+| [`component-08-venue-edge`](../../conformance/corpus/component-08-venue-edge/case.md) | all **24** session transitions across 13 venues — six of them exist only to lose the socket from six different states; the `ACTIVE`-only routing gate with "never connected" vs "DISCONNECTED" kept apart; the `ExecType` table incl. **`F` disambiguated by `OrdStatus`**; an unmapped ExecType, an unknown ClOrdID and an undefined session event | 🟢🟡🔴 |
+
+**21 of 21** — seven cases × three implementations, byte-identical.
 
 ```bash
 conformance/harness/run.sh
@@ -224,7 +226,7 @@ lane.
 
 ## Feature matrix
 
-Eight components make up the cash-equity slice. Seven are done in all three languages.
+Eight components make up the cash-equity slice. All but allocation are done in all three languages.
 
 | # | Component | Java | Rust | C++ | Cross-language proof |
 |---|---|:---:|:---:|:---:|---|
@@ -236,7 +238,7 @@ Eight components make up the cash-equity slice. Seven are done in all three lang
 | 5b | FSM wired into the slice runner | ✅ | ✅ | ✅ | `component-05`; `fsm-coverage` asserts 31/31 |
 | 6a | Route creation (`ems-oms`) | ✅ | ✅ | ✅ | `component-06`; 4 reject codes, ids survive refusals |
 | 6b | Route venue lifecycle + cross-FSM cascade | ✅ | ✅ | ✅ | `component-07`; `fsm-coverage` asserts 29/29 |
-| 7 | Venue edge (FIX out, ExecutionReport in) | ✅ † | ❌ | ❌ | — |
+| 7 | Venue edge — session FSM, FIX out, ExecutionReport in | ✅ | ✅ | ✅ | `component-08`; `fsm-coverage` asserts 24/24 |
 | 8 | Fill handling / allocation | ✅ † | ❌ | ❌ | — |
 
 † Java's ✅ in rows 6–8 is the pre-existing production tree, not slice work — no cross-language claim

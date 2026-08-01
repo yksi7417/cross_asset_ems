@@ -138,6 +138,21 @@ final class SliceRouteBook {
     return Optional.ofNullable(routes.get(routeId));
   }
 
+  /**
+   * The route carrying {@code clOrdId}, or empty when none does.
+   *
+   * <p>The lookup a venue message needs: an ExecutionReport names a ClOrdID, because that is what
+   * the venue was given. It has never seen our route id.
+   */
+  Optional<String> routeIdForClOrdId(String clOrdId) {
+    for (var candidate : routes.entrySet()) {
+      if (candidate.getValue().context().clOrdId().equals(clOrdId)) {
+        return Optional.of(candidate.getKey());
+      }
+    }
+    return Optional.empty();
+  }
+
   /** Whether any route already carries {@code clOrdId} — FIX requires them to be unique. */
   boolean hasClOrdId(String clOrdId) {
     for (Entry entry : routes.values()) {

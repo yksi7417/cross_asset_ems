@@ -135,6 +135,18 @@ impl RouteBook {
             .count()
     }
 
+    /// The route carrying `cl_ord_id`, or `None` when none does.
+    ///
+    /// The lookup a venue message needs: an `ExecutionReport` names a `ClOrdID`,
+    /// because that is what the venue was given. It has never seen our route id.
+    #[must_use]
+    pub fn route_id_for_cl_ord_id(&self, cl_ord_id: &str) -> Option<String> {
+        self.routes
+            .iter()
+            .find(|(_, entry)| entry.context.cl_ord_id == cl_ord_id)
+            .map(|(route_id, _)| route_id.clone())
+    }
+
     /// Whether any route already carries `cl_ord_id` — FIX requires them unique.
     #[must_use]
     pub fn has_cl_ord_id(&self, cl_ord_id: &str) -> bool {

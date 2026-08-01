@@ -12,6 +12,7 @@
 #include "ems_validator/validator.hpp"
 #include "order_fsm.hpp"
 #include "route_fsm.hpp"
+#include "venuesession_fsm.hpp"
 
 namespace ems::it {
 namespace {
@@ -54,6 +55,21 @@ constexpr std::string_view kTypeRouteRejected = "RouteRejected";
 constexpr std::string_view kTypeRouteEvent = "RouteEvent";
 /// Output event for a route action that reached no route.
 constexpr std::string_view kTypeRouteEventIgnored = "RouteEventIgnored";
+/// Input event driving one venue's FIX session.
+constexpr std::string_view kTypeVenueSession = "VenueSession";
+/// Output event for a session action the schema does not define.
+constexpr std::string_view kTypeVenueSessionIgnored = "VenueSessionEventIgnored";
+/// Output event: the outbound FIX message a dispatched route produces.
+///
+/// The journal records that a message was produced and its identifying tags, not
+/// a wire-format string. A byte-exact FIX encoder is a component of its own.
+constexpr std::string_view kTypeFixOut = "FixOut";
+/// Input event: an inbound FIX ExecutionReport from a venue.
+constexpr std::string_view kTypeExecutionReport = "ExecutionReport";
+/// Output event for an ExecutionReport that reached no route.
+constexpr std::string_view kTypeExecutionReportIgnored = "ExecutionReportIgnored";
+/// Catalog code: the venue's FIX session cannot currently take an order.
+constexpr std::string_view kCodeVenueSessionNotActive = "EMS-VEN-5001";
 /// Final output event: makes the seed and the input size visible in the journal.
 constexpr std::string_view kTypeRunSummary = "RunSummary";
 
@@ -353,6 +369,113 @@ std::uint64_t on_order_event(const core::JournalEvent& event, std::uint64_t seq,
     return emit_transition(cl_ord_id, *fsm_event, payload, it->second.second, seq, orders, output);
 }
 
+/// One FIX session per venue, keyed on the MIC.
+///
+/// **A venue with no session is not a venue with a broken session.** The routing
+/// gate cannot tell them apart and should not have to; the journal can, because
+/// "we never connected" and "we connected and got logged out" are different
+/// things to tell an operator.
+using SessionBook = std::map<std::string, std::pair<crossasset::ems::fsm::VenueSessionFsmState,
+                                                    crossasset::ems::fsm::VenueSessionFsmContext>>;
+
+crossasset::ems::fsm::VenueSessionFsmContext session_context(const std::string& venue_mic) {
+    crossasset::ems::fsm::VenueSessionFsmContext ctx;
+    ctx.sessionId = "SES-" + venue_mic;
+    ctx.nextExpectedSeqIn = 1;
+    ctx.nextSendSeqOut = 1;
+    ctx.heartbeatIntervalSecs = 30;
+    ctx.testRequestOutstanding = false;
+    ctx.resendWindowLow = 0;
+    ctx.resendWindowHigh = 0;
+    ctx.venueMic = venue_mic;
+    return ctx;
+}
+
+/// Whether `venue_mic` can currently take an order.
+///
+/// ACTIVE only. A session in LOGON_SENT has a TCP connection and no agreed
+/// sequence numbers; one in RESEND_IN_PROGRESS is mid-gap-fill. Sending a new
+/// order into either is how you end up with an order the venue has and the EMS
+/// cannot account for.
+bool session_is_active(const SessionBook& sessions, const std::string& venue_mic) {
+    const auto it = sessions.find(venue_mic);
+    return it != sessions.end() &&
+           it->second.first == crossasset::ems::fsm::VenueSessionFsmState::ACTIVE;
+}
+
+/// Drives one venue's FIX session.
+std::uint64_t on_venue_session(const core::JournalEvent& event, std::uint64_t seq,
+                               SessionBook& sessions,
+                               std::vector<core::JournalEvent>& output) {
+    namespace f = crossasset::ems::fsm;
+    const std::string venue_mic = field(event, "venueMic");
+    const std::string raw = field(event, "event");
+
+    const auto fsm_event = f::VenueSessionFsmEventFromName(raw);
+    if (!fsm_event.has_value()) {
+        std::map<std::string, std::string> fields;
+        fields.emplace("event", raw);
+        fields.emplace("reason", "unknown FSM event");
+        fields.emplace("venueMic", venue_mic);
+        output.push_back(
+            core::JournalEvent{seq + 1U, std::string(kTypeVenueSessionIgnored), std::move(fields)});
+        return seq + 1U;
+    }
+
+    // A venue we have never heard of starts in the schema's initial state rather
+    // than being refused, so ConnectRequested is reachable by a corpus case.
+    auto found = sessions.find(venue_mic);
+    if (found == sessions.end()) {
+        found = sessions
+                    .insert_or_assign(venue_mic,
+                                      std::make_pair(f::VenueSessionFsmState::DISCONNECTED,
+                                                     session_context(venue_mic)))
+                    .first;
+    }
+
+    const f::VenueSessionFsmState before = found->second.first;
+    const auto result = f::transition(before, *fsm_event, found->second.second, nullptr);
+    if (!result.isNoTransition) {
+        sessions.insert_or_assign(venue_mic, std::make_pair(result.newState, result.newContext));
+    }
+
+    std::map<std::string, std::string> fields;
+    fields.emplace("applied", result.isNoTransition ? "false" : "true");
+    fields.emplace("event", f::name(*fsm_event));
+    fields.emplace("from", f::name(before));
+    fields.emplace("fsm", "venue_session");
+    fields.emplace("to", f::name(result.isNoTransition ? before : result.newState));
+    fields.emplace("venueMic", venue_mic);
+    output.push_back(
+        core::JournalEvent{seq + 1U, std::string(kTypeFsmTransition), std::move(fields)});
+    return seq + 1U;
+}
+
+/// FIX ExecType (tag 150) to a route FSM event.
+///
+/// An explicit table, not a name-matching convention. The FIX values are one
+/// character and the schema's event names are not, so there is no derivation to
+/// be had — and a wrong guess here is a venue message silently applied to the
+/// wrong transition.
+std::optional<crossasset::ems::fsm::RouteFsmEvent> from_exec_type(const std::string& exec_type,
+                                                                  const std::string& ord_status) {
+    namespace f = crossasset::ems::fsm;
+    if (exec_type == "0") return f::RouteFsmEvent::RouteAcknowledged;
+    if (exec_type == "4") return f::RouteFsmEvent::RouteCanceled;
+    if (exec_type == "5") return f::RouteFsmEvent::RouteReplaced;
+    if (exec_type == "8") return f::RouteFsmEvent::RouteRejected;
+    if (exec_type == "A") return f::RouteFsmEvent::RoutePendingNewAtVenue;
+    if (exec_type == "C") return f::RouteFsmEvent::RouteExpired;
+    if (exec_type == "E") return f::RouteFsmEvent::RouteReplacePendingAtVenue;
+    // ExecType=F is a trade. OrdStatus=2 means nothing is left, so it is the
+    // final fill; anything else leaves the route open.
+    if (exec_type == "F") {
+        return ord_status == "2" ? f::RouteFsmEvent::RouteFilled
+                                 : f::RouteFsmEvent::RoutePartiallyFilled;
+    }
+    return std::nullopt;
+}
+
 /// Every route the run has created, keyed on route id.
 ///
 /// **One map, no derived indexes.** "How much have we routed for this order" and
@@ -456,11 +579,25 @@ bool is_routable(crossasset::ems::fsm::OrderFsmState state) {
 std::uint64_t on_route_new(const core::JournalEvent& event, std::uint64_t seq,
                            core::DeterministicIds& ids, const OrderBook& orders,
                            const std::map<std::string, std::string>& order_ids, RouteBook& routes,
+                           const SessionBook& sessions,
                            std::vector<core::JournalEvent>& output) {
     namespace f = crossasset::ems::fsm;
     const std::string cl_ord_id = field(event, "clOrdId");
     const std::string venue_mic = field(event, "venueMic");
     const auto qty = static_cast<std::uint64_t>(parse_i64(field(event, "qty")));
+
+    // The venue gate runs first. A route to a venue that cannot take it is refused
+    // before any of the order-side checks, because the answer does not depend on
+    // them — and telling a trader "your order is fine, the venue is down" is more
+    // useful than a quantity complaint.
+    if (!session_is_active(sessions, venue_mic)) {
+        const auto session = sessions.find(venue_mic);
+        const std::string state = session == sessions.end()
+                                      ? std::string("never connected")
+                                      : std::string(f::name(session->second.first));
+        return reject_route(event, seq, kCodeVenueSessionNotActive, "venue session is " + state,
+                            output);
+    }
 
     const auto parent = orders.find(cl_ord_id);
     if (parent == orders.end()) {
@@ -561,7 +698,34 @@ std::uint64_t on_route_new(const core::JournalEvent& event, std::uint64_t seq,
     fields.emplace("venueMic", venue_mic);
     output.push_back(
         core::JournalEvent{seq + 2U, std::string(kTypeRouteAccepted), std::move(fields)});
-    return seq + 2U;
+
+    // 35=D goes out last: the journal reads in the order things happened, and the
+    // message is a consequence of the route existing rather than the cause of it.
+    std::map<std::string, std::string> fix;
+    fix.emplace("clOrdId", route_cl_ord_id);
+    fix.emplace("msgType", "D");
+    fix.emplace("orderQty", std::to_string(qty));
+    if (price.has_value()) {
+        fix.emplace("price", std::to_string(parse_i64(*price)));
+    }
+    fix.emplace("side", std::to_string(static_cast<int>(parent->second.second.side)));
+    fix.emplace("symbol", parent->second.second.instrumentId);
+    fix.emplace("venueMic", venue_mic);
+    output.push_back(core::JournalEvent{seq + 3U, std::string(kTypeFixOut), std::move(fix)});
+    return seq + 3U;
+}
+
+/// The route carrying `cl_ord_id`, or empty when none does.
+///
+/// An ExecutionReport names a ClOrdID, because that is what the venue was given.
+/// It has never seen our route id.
+std::string route_id_for_cl_ord_id(const RouteBook& routes, const std::string& cl_ord_id) {
+    for (const auto& [route_id, entry] : routes) {
+        if (entry.second.clOrdId == cl_ord_id) {
+            return route_id;
+        }
+    }
+    return {};
 }
 
 /// The client identifier for one of our order ids.
@@ -726,6 +890,50 @@ std::uint64_t on_route_event(const core::JournalEvent& event, std::uint64_t seq,
     return seq;
 }
 
+/// Translates an inbound FIX ExecutionReport into a route event and applies it.
+///
+/// The whole venue edge in one function: FIX vocabulary on the way in, the
+/// slice's own vocabulary on the way out. The report names a route by ClOrdID,
+/// because that is what a venue knows — it has never seen our route id.
+std::uint64_t on_execution_report(const core::JournalEvent& event, std::uint64_t seq,
+                                  OrderBook& orders,
+                                  const std::map<std::string, std::string>& order_ids,
+                                  RouteBook& routes,
+                                  std::vector<core::JournalEvent>& output) {
+    namespace f = crossasset::ems::fsm;
+    const std::string cl_ord_id = field(event, "clOrdId");
+    const std::string exec_type = field(event, "execType");
+
+    const auto fsm_event = from_exec_type(exec_type, field(event, "ordStatus"));
+    std::string reason;
+    std::string route_id;
+    if (!fsm_event.has_value()) {
+        reason = "unmapped ExecType";
+    } else {
+        route_id = route_id_for_cl_ord_id(routes, cl_ord_id);
+        if (route_id.empty()) {
+            reason = "unknown route ClOrdID";
+        }
+    }
+    if (!reason.empty()) {
+        std::map<std::string, std::string> fields;
+        fields.emplace("clOrdId", cl_ord_id);
+        fields.emplace("execType", exec_type);
+        fields.emplace("reason", reason);
+        output.push_back(core::JournalEvent{seq + 1U, std::string(kTypeExecutionReportIgnored),
+                                            std::move(fields)});
+        return seq + 1U;
+    }
+
+    // Re-uses the route-event path, so an ExecutionReport and a hand-written
+    // RouteEvent cannot drift apart — including the cascade to the parent order.
+    core::JournalEvent translated = event;
+    translated.type = std::string(kTypeRouteEvent);
+    translated.fields.insert_or_assign("event", std::string(f::name(*fsm_event)));
+    translated.fields.insert_or_assign("routeId", route_id);
+    return on_route_event(translated, seq, orders, order_ids, routes, output);
+}
+
 std::uint64_t on_order_new(const core::JournalEvent& event, std::uint64_t seq,
                            const aaa::AaaService& service,
                            const validator::SecurityMaster& securities,
@@ -781,6 +989,7 @@ std::vector<core::JournalEvent> run_slice(const std::vector<core::JournalEvent>&
     validator::SecurityMaster securities;
     OrderBook orders;
     RouteBook routes;
+    SessionBook sessions;
     // The order id we assigned to each accepted order, by the client's ClOrdID.
     // A runner-level index rather than a field on the order book: the FSM context
     // is the schema's shape and this is ours. A rejected order has no entry, so a
@@ -798,9 +1007,13 @@ std::vector<core::JournalEvent> run_slice(const std::vector<core::JournalEvent>&
         } else if (event.type == kTypeOrderEvent) {
             seq = on_order_event(event, seq, orders, output);
         } else if (event.type == kTypeRouteNew) {
-            seq = on_route_new(event, seq, ids, orders, order_ids, routes, output);
+            seq = on_route_new(event, seq, ids, orders, order_ids, routes, sessions, output);
         } else if (event.type == kTypeRouteEvent) {
             seq = on_route_event(event, seq, orders, order_ids, routes, output);
+        } else if (event.type == kTypeVenueSession) {
+            seq = on_venue_session(event, seq, sessions, output);
+        } else if (event.type == kTypeExecutionReport) {
+            seq = on_execution_report(event, seq, orders, order_ids, routes, output);
         } else {
             core::JournalEvent copy = event;
             copy.seq = ++seq;

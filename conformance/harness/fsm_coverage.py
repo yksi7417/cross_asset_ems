@@ -35,12 +35,15 @@ SCHEMA_DIR = pathlib.Path("schemas/fsm")
 # Machines the slice drives. The others are real and generated in all three
 # languages, but nothing in the slice sends them events yet, so requiring corpus
 # coverage would mean writing cases for behaviour that does not exist.
-IN_SCOPE = {"order": "order.fsm.yaml", "route": "route.fsm.yaml"}
+IN_SCOPE = {
+    "order": "order.fsm.yaml",
+    "route": "route.fsm.yaml",
+    "venue_session": "venue_session.fsm.yaml",
+}
 
 OUT_OF_SCOPE_REASON = {
     "sor": "SOR is out of the slice entirely (ADR 0002)",
     "multileg": "multi-leg is out of the slice entirely (ADR 0002)",
-    "venue_session": "the venue edge is component 7",
 }
 
 

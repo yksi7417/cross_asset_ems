@@ -13,6 +13,7 @@
 
 mod routes;
 mod runner;
+mod venues;
 
 use std::path::PathBuf;
 use std::process::ExitCode;

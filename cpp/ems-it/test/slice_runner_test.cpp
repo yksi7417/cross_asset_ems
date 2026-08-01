@@ -230,16 +230,29 @@ TEST(SliceRunner, SeedShiftsGeneratedIdentifiers) {
 /// Every routing test needs the same three events before it can say anything
 /// about a route, and spelling them out per test buries the one line that
 /// differs.
+JournalEvent venue_session(const std::string& venue, const std::string& name) {
+    return event(0, "VenueSession", {{"event", name}, {"venueMic", venue}});
+}
+
 std::vector<JournalEvent> routable_order(const std::string& cl_ord_id, const std::string& qty) {
-    return {logon("order-entry"),
-            event(2, "InstrumentCreated", {{"figi", "BBG1"}, {"status", "ACTIVE"}}),
-            event(3, "OrderNew",
-                  {{"clOrdId", cl_ord_id},
-                   {"figi", "BBG1"},
-                   {"qty", qty},
-                   {"sessionId", "7"},
-                   {"side", "BUY"},
-                   {"tag", "order-entry"}})};
+    std::vector<JournalEvent> input = {
+        logon("order-entry"),
+        event(2, "InstrumentCreated", {{"figi", "BBG1"}, {"status", "ACTIVE"}})};
+    // The venue gate (component 8) refuses a route to anything but an ACTIVE
+    // session, so every routing fixture logs the venues on first.
+    for (const auto* venue : {"XNAS", "XNYS", "XLON"}) {
+        for (const auto* name : {"ConnectRequested", "TcpConnected", "LogonAcknowledged"}) {
+            input.push_back(venue_session(venue, name));
+        }
+    }
+    input.push_back(event(3, "OrderNew",
+                          {{"clOrdId", cl_ord_id},
+                           {"figi", "BBG1"},
+                           {"qty", qty},
+                           {"sessionId", "7"},
+                           {"side", "BUY"},
+                           {"tag", "order-entry"}}));
+    return input;
 }
 
 TEST(SliceRunner, RoutingAnAcceptedOrderDispatchesIt) {
@@ -258,12 +271,20 @@ TEST(SliceRunner, RoutingAnAcceptedOrderDispatchesIt) {
     // are different orders to a venue.
     EXPECT_EQ(accepted.fields.count("price"), 0U);
 
-    // The route is dispatched on creation, not merely created.
-    const auto& transition = nth_of(out, "FsmTransition", 1);
-    EXPECT_EQ(transition.fields.at("fsm"), "route");
-    EXPECT_EQ(transition.fields.at("from"), "PENDING");
-    EXPECT_EQ(transition.fields.at("to"), "SENT");
-    EXPECT_EQ(transition.fields.at("applied"), "true");
+    // The route is dispatched on creation, not merely created. Found by
+    // machine, not by position — the venue-session transitions land first.
+    const JournalEvent* transition = nullptr;
+    for (const auto& e : out) {
+        if (e.type == "FsmTransition" && e.fields.at("fsm") == "route") {
+            transition = &e;
+            break;
+        }
+    }
+    ASSERT_NE(transition, nullptr);
+    EXPECT_EQ(transition->fields.at("fsm"), "route");
+    EXPECT_EQ(transition->fields.at("from"), "PENDING");
+    EXPECT_EQ(transition->fields.at("to"), "SENT");
+    EXPECT_EQ(transition->fields.at("applied"), "true");
 }
 
 TEST(SliceRunner, RoutingMoreThanTheOrderHoldsIsRefused) {
@@ -307,6 +328,9 @@ TEST(SliceRunner, RoutingARejectedOrderSaysTheOrderIsRejected) {
     DeterministicIds ids{0};
     const auto out = run_slice(
         {logon("order-entry"),
+         venue_session("XNAS", "ConnectRequested"),
+         venue_session("XNAS", "TcpConnected"),
+         venue_session("XNAS", "LogonAcknowledged"),
          event(2, "OrderNew",
                {{"clOrdId", "C-Z"},
                 {"figi", "BBG-NOT-LISTED"},
@@ -483,6 +507,134 @@ TEST(SliceRunner, AFilledRouteDoesNotReleaseItsQuantity) {
     // The order is FILLED by the cascade, so it is refused as un-routable before
     // the quantity check is even reached.
     EXPECT_EQ(nth_of(out, "RouteRejected").fields.at("code"), "EMS-RTE-4002");
+}
+
+// ── Venue edge (component 8) ─────────────────────────────────────────────────
+
+/// The gate: a route to a venue that is not ACTIVE is refused with 5001, before
+/// any order-side check runs. LOGON_SENT is the dangerous half-open case — a
+/// socket exists, sequence numbers do not, and it looks usable.
+TEST(SliceRunner, ARouteToAnInactiveVenueIsRefused) {
+    DeterministicIds ids{0};
+    const auto out = run_slice(
+        {logon("order-entry"),
+         event(2, "InstrumentCreated", {{"figi", "BBG1"}, {"status", "ACTIVE"}}),
+         venue_session("XNAS", "ConnectRequested"),
+         venue_session("XNAS", "TcpConnected"),
+         event(3, "OrderNew",
+               {{"clOrdId", "C-A"},
+                {"figi", "BBG1"},
+                {"qty", "1000"},
+                {"sessionId", "7"},
+                {"side", "BUY"},
+                {"tag", "order-entry"}}),
+         event(4, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "400"}, {"venueMic", "XNAS"}})},
+        ids);
+
+    const auto& rejected = nth_of(out, "RouteRejected");
+    EXPECT_EQ(rejected.fields.at("code"), "EMS-VEN-5001");
+    EXPECT_EQ(rejected.fields.at("reason"), "venue session is LOGON_SENT");
+    EXPECT_EQ(count_of(out, "RouteAccepted"), 0U);
+}
+
+/// Never-connected and disconnected read differently in the journal, even
+/// though the gate refuses both.
+TEST(SliceRunner, ANeverConnectedVenueReadsDifferentlyFromADeadOne) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(
+        event(0, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "100"}, {"venueMic", "XJPX"}}));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(nth_of(out, "RouteRejected").fields.at("reason"),
+              "venue session is never connected");
+}
+
+/// An accepted route emits the outbound 35=D, after the acceptance.
+TEST(SliceRunner, AnAcceptedRouteEmitsFixOut) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(
+        event(4, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "400"}, {"venueMic", "XNAS"}}));
+    const auto out = run_slice(input, ids);
+
+    const auto& fix = nth_of(out, "FixOut");
+    EXPECT_EQ(fix.fields.at("msgType"), "D");
+    EXPECT_EQ(fix.fields.at("clOrdId"), "C-A-1");
+    EXPECT_EQ(fix.fields.at("orderQty"), "400");
+    EXPECT_EQ(fix.fields.at("symbol"), "BBG1");
+    // Message follows acceptance: a consequence, not a cause.
+    EXPECT_LT(nth_of(out, "RouteAccepted").seq, fix.seq);
+}
+
+/// The full inbound chain: one ExecutionReport moves two machines, and neither
+/// mapping is written in the runner.
+TEST(SliceRunner, AnExecutionReportDrivesRouteAndOrder) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(
+        event(4, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "1000"}, {"venueMic", "XNAS"}}));
+    input.push_back(event(5, "ExecutionReport",
+                          {{"clOrdId", "C-A-1"}, {"execType", "0"}, {"ordStatus", "0"}}));
+    input.push_back(event(6, "ExecutionReport",
+                          {{"clOrdId", "C-A-1"},
+                           {"execId", "X-1"},
+                           {"execType", "F"},
+                           {"lastPx", "15000"},
+                           {"lastQty", "1000"},
+                           {"ordStatus", "2"}}));
+    const auto out = run_slice(input, ids);
+
+    const auto& route = last_transition(out, "route");
+    EXPECT_EQ(route.fields.at("event"), "RouteFilled");
+    EXPECT_EQ(route.fields.at("to"), "FILLED");
+
+    const auto& order = last_transition(out, "order");
+    EXPECT_EQ(order.fields.at("event"), "FullFill");
+    EXPECT_EQ(order.fields.at("to"), "FILLED");
+}
+
+/// ExecType=F needs OrdStatus to disambiguate: 2 is the final fill, anything
+/// else leaves the route open. Getting this wrong strands quantity forever.
+TEST(SliceRunner, ATradeWithLeavesIsAPartialFill) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(
+        event(4, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "1000"}, {"venueMic", "XNAS"}}));
+    input.push_back(event(5, "ExecutionReport",
+                          {{"clOrdId", "C-A-1"}, {"execType", "0"}, {"ordStatus", "0"}}));
+    input.push_back(event(6, "ExecutionReport",
+                          {{"clOrdId", "C-A-1"},
+                           {"execId", "X-1"},
+                           {"execType", "F"},
+                           {"lastPx", "15000"},
+                           {"lastQty", "100"},
+                           {"ordStatus", "1"}}));
+    const auto out = run_slice(input, ids);
+
+    const auto& route = last_transition(out, "route");
+    EXPECT_EQ(route.fields.at("event"), "RoutePartiallyFilled");
+    EXPECT_EQ(route.fields.at("to"), "PARTIALLY_FILLED");
+}
+
+TEST(SliceRunner, AnUnmappedExecTypeIsIgnored) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(
+        event(4, "RouteNew", {{"clOrdId", "C-A"}, {"qty", "400"}, {"venueMic", "XNAS"}}));
+    input.push_back(event(5, "ExecutionReport", {{"clOrdId", "C-A-1"}, {"execType", "Z"}}));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(nth_of(out, "ExecutionReportIgnored").fields.at("reason"), "unmapped ExecType");
+}
+
+TEST(SliceRunner, AReportForAnUnknownClOrdIdIsIgnored) {
+    DeterministicIds ids{0};
+    auto input = routable_order("C-A", "1000");
+    input.push_back(event(5, "ExecutionReport", {{"clOrdId", "NOT-A-ROUTE"}, {"execType", "0"}}));
+    const auto out = run_slice(input, ids);
+
+    EXPECT_EQ(nth_of(out, "ExecutionReportIgnored").fields.at("reason"), "unknown route ClOrdID");
 }
 
 TEST(SliceRunner, OutputSequenceIsContiguousFromOne) {
