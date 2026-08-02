@@ -225,21 +225,20 @@ echo "    scripts/dev/demo-polyglot.sh --no-build --case <name>"
 
 step "What this does and does not prove"
 cat <<'EOF'
-Proved: three independent implementations agree, byte for byte, on everything
-the slice does so far — the journal codec, deterministic identifiers, the
-transport seam, the AAA entitlement gate, the layered validation pipeline, the
-order FSM (all 31 transitions), route creation, and the route venue lifecycle
-(all 29 transitions) including the cascade from a route event to the parent
-order.
+Proved: three independent implementations agree, byte for byte, on the ENTIRE
+cash-equity slice — journal codec, deterministic identifiers, the transport
+seam, the AAA entitlement gate, the layered validation pipeline, the order FSM
+(31/31 transitions), routing, the route lifecycle (29/29) with its cascade to
+the parent order, the venue edge (24/24 session transitions, FIX out,
+ExecutionReport in), and allocation by largest remainder. Every case is also
+triangulated: a divergence is reported as a named 2-1 split, and "all three
+agree but the committed expectation differs" is its own verdict — so Java gets
+no special treatment beyond generating the expectations.
 
-NOT proved: anything about the venue edge or allocation. Nothing here speaks
-FIX — route events arrive as journal entries rather than from a session — and
-nothing allocates a fill to an account. Those are components 7 and 8, landing
-one at a time and verified the same way.
-
-Also not proved: that Java is right. Java generates each case's expected.jsonl,
-so a Java bug faithfully reproduced by both ports passes. That is recorded as
-T-3 in docs/TODO.md, with the triangulation that would fix it.
+NOT proved: anything ADR 0002 excludes — SOR, algos, multi-leg, compliance,
+positions, the trader desktop, the six other asset classes. Excluded by
+decision, not omission. FixOut records intent and identifying tags, not
+wire-format FIX; a byte-exact encoder would be its own component.
 
 Run the real gate, which does all of the above plus lint, sanitizers and the
 study-guide check:
