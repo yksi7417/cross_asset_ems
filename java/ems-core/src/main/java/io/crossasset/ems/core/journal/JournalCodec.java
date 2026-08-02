@@ -282,6 +282,14 @@ public final class JournalCodec {
         value = value * 16 + digit;
       }
       pos += 4;
+      // Surrogate halves are legal JSON escapes but not Unicode scalar values,
+      // and both ports reject them — pairs included, because astral characters
+      // travel as literal UTF-8 in this format. Returning (char) value here
+      // used to accept a lone \ud800 that Rust and C++ refused: a journal the
+      // reference read and the ports would not (T-9).
+      if (value >= 0xD800 && value <= 0xDFFF) {
+        throw fail("unicode escape is not a scalar value");
+      }
       return (char) value;
     }
 

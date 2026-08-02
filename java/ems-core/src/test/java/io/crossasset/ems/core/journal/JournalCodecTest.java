@@ -107,6 +107,79 @@ class JournalCodecTest {
     assertThat(JournalCodec.read(path)).hasSize(1);
   }
 
+  // ── Hostile-input cases the ports had first (T-9) ──────────────────────────
+  //
+  // These four existed in the Rust and C++ suites before they existed here. The
+  // reference is not exempt from the standard its ports are held to — and the
+  // lone-surrogate case found a real acceptance the ports refused.
+
+  @Test
+  void duplicateTopLevelKeyIsRejected() throws IOException {
+    Path path = tmp.resolve("dup.jsonl");
+    Files.writeString(path, "{\"fields\":{},\"seq\":1,\"seq\":2,\"type\":\"A\"}\n");
+
+    assertThatThrownBy(() -> JournalCodec.read(path))
+        .isInstanceOf(MalformedJournalException.class)
+        .hasMessageContaining("duplicate");
+  }
+
+  /**
+   * A lone surrogate escape does not encode a Unicode scalar value, and both ports reject it —
+   * including as a pair, because astral characters travel as literal UTF-8 in this format. Until
+   * T-9 the Java parser returned {@code (char) value} and quietly accepted what Rust and C++
+   * refused: a journal existed that the reference read and the ports would not.
+   */
+  @Test
+  void loneSurrogateEscapeIsRejected() throws IOException {
+    Path path = tmp.resolve("surrogate.jsonl");
+    Files.writeString(path, "{\"fields\":{},\"seq\":1,\"type\":\"\\ud800\"}\n");
+
+    assertThatThrownBy(() -> JournalCodec.read(path))
+        .isInstanceOf(MalformedJournalException.class)
+        .hasMessageContaining("scalar value");
+  }
+
+  /** Anything a file can contain is data; the only permitted failure is the typed one. */
+  @Test
+  void hostileInputNeverThrowsAnythingButMalformed() throws IOException {
+    List<String> cases =
+        List.of(
+            "{",
+            "}",
+            "{\"",
+            "{\"fields\"",
+            "{\"fields\":",
+            "{\"fields\":{",
+            "{\"fields\":{\"a\"",
+            "{\"fields\":{\"a\":",
+            "{\"fields\":{\"a\":\"",
+            "{\"fields\":{},\"seq\":",
+            "{\"fields\":{},\"seq\":99999999999999999999999,\"type\":\"A\"}",
+            "{\"fields\":{},\"seq\":1,\"type\":\"\\u\"}",
+            "{\"fields\":{},\"seq\":1,\"type\":\"\\uZZZZ\"}",
+            "{\"fields\":{},\"seq\":1,\"type\":\"\\q\"}",
+            "\u0000",
+            "[]",
+            "null");
+    for (String hostile : cases) {
+      Path path = tmp.resolve("hostile.jsonl");
+      Files.writeString(path, hostile + "\n");
+      assertThatThrownBy(() -> JournalCodec.read(path), "input: %s", hostile)
+          .isInstanceOf(MalformedJournalException.class);
+    }
+  }
+
+  @Test
+  void veryLongValueIsHandledWithoutError() throws IOException {
+    String longValue = "x".repeat(100_000);
+    Path path = tmp.resolve("long.jsonl");
+    Files.writeString(
+        path, "{\"fields\":{\"a\":\"" + longValue + "\"},\"seq\":1,\"type\":\"A\"}\n");
+
+    List<JournalEvent> events = JournalCodec.read(path);
+    assertThat(events.get(0).fields().get("a")).hasSize(100_000);
+  }
+
   @Test
   void malformedLineReportsItsLineNumber() throws IOException {
     Path path = tmp.resolve("bad.jsonl");
