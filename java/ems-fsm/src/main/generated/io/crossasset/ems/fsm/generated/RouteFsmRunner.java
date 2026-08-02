@@ -44,7 +44,7 @@ public final class RouteFsmRunner {
             ctx,
             List.of(new RouteFsmEffect.PublishEventLog("RouteSent")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case SENT -> switch (event) {
         case RoutePendingNewAtVenue -> {
@@ -65,7 +65,7 @@ public final class RouteFsmRunner {
             ctx,
             List.of(new RouteFsmEffect.PublishEventLog("RouteRejected"), new RouteFsmEffect.EmitEvent("OrderFsm", "ValidationFailed")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case PENDING_NEW_AT_VENUE -> switch (event) {
         case RouteAcknowledged -> {
@@ -74,7 +74,7 @@ public final class RouteFsmRunner {
             ctx,
             List.of(new RouteFsmEffect.PublishEventLog("RouteWorking"), new RouteFsmEffect.EmitEvent("OrderFsm", "ValidationPassed")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case WORKING -> switch (event) {
         case RouteReplaceRequested -> {
@@ -122,7 +122,7 @@ public final class RouteFsmRunner {
             ctx,
             List.of(new RouteFsmEffect.Notify(Map.of("channel", "ops-alerts", "message", "Route anomaly detected — manual triage required")), new RouteFsmEffect.PublishEventLog("RouteAnomaly")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case PENDING_REPLACE_AT_VENUE -> switch (event) {
         case RouteReplacePendingAtVenue -> {
@@ -171,7 +171,7 @@ public final class RouteFsmRunner {
             ctx,
             List.of(new RouteFsmEffect.Notify(Map.of("channel", "ops-alerts", "message", "Route anomaly in PENDING_REPLACE — manual triage required")), new RouteFsmEffect.PublishEventLog("RouteAnomaly")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case PENDING_CANCEL_AT_VENUE -> switch (event) {
         case RouteCanceled -> {
@@ -194,7 +194,7 @@ public final class RouteFsmRunner {
               ctx,
               List.of(new RouteFsmEffect.PublishEventLog("RouteCancelRejected"), new RouteFsmEffect.EmitEvent("OrderFsm", "CancelRejected")));
           }
-          yield TransitionResult.noTransition(state);
+          yield TransitionResult.noTransition(state, ctx);
         }
         case RoutePartiallyFilled -> {
           var payload = (RouteFsmPayloads.RoutePartiallyFilledPayload) rawPayload;
@@ -216,7 +216,7 @@ public final class RouteFsmRunner {
             ctx,
             List.of(new RouteFsmEffect.Notify(Map.of("channel", "ops-alerts", "message", "Route anomaly in PENDING_CANCEL — manual triage required")), new RouteFsmEffect.PublishEventLog("RouteAnomaly")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case PARTIALLY_FILLED -> switch (event) {
         case RouteCancelRequested -> {
@@ -245,25 +245,25 @@ public final class RouteFsmRunner {
             ctx,
             List.of(new RouteFsmEffect.PublishEventLog("RouteExpired"), new RouteFsmEffect.EmitEvent("OrderFsm", "OrderExpired")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case FILLED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case CANCELED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case REJECTED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case EXPIRED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case SUPERSEDED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case ANOMALY -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
     };
   }

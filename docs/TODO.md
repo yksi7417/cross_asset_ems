@@ -27,7 +27,6 @@ For what is *being built next* in the port, see its
 | [T-1](#t-1) | MSan-instrumented libc++ so `cpp-msan` actually runs | nothing | [ADR 0008](decisions/0008-msan-nightly-only.md) |
 | [T-2](#t-2) | Nightly failure notification | T-1 landing makes it matter | [ADR 0008](decisions/0008-msan-nightly-only.md) |
 | [T-4](#t-4) | Digest-pinned CI container image | nothing | [gate.md](polyglot/gate.md) recorded deviation |
-| [T-8](#t-8) | Java's `noTransition` returns a null context | nothing | found building component 6b-i |
 
 ---
 
@@ -86,33 +85,11 @@ Recorded as a deviation in [`gate.md`](polyglot/gate.md) rather than glossed ove
 
 ---
 
-## T-8 — Java's `noTransition` returns a null context; Rust and C++ return the unchanged one
-
-`TransitionResult.noTransition(currentState)` passes `null` for `newContext`. The Rust and C++
-generators both return the context unchanged instead. Three implementations of the same generated
-contract disagree about what a declined event leaves behind.
-
-**Why:** it is latent rather than live — every caller checks `isNoTransition()` before reading
-`newContext()`, so nothing dereferences the null today. Fixing it means changing the generated Java
-`TransitionResult`, which re-pins the Java golden hashes and touches the 861 pre-existing FSM tests.
-That is a bigger blast radius than the component that found it (6b-i, effect generation) should
-carry, and bundling it would make both changes harder to review.
-
-Worth being precise about the risk: `newContext` is not `@Nullable`, so NullAway will not stop a
-future caller from dereferencing it. The first person to read the context after a declined event
-gets an NPE in Java and a valid value in the other two — and the conformance gate would only catch
-it if a corpus case happened to reach that path.
-
-**Done when:** the generator emits `noTransition(currentState, ctx)` in Java, all three languages
-return the unchanged context for a declined event, a test in each language asserts it, and the Java
-golden hashes are re-pinned with the diff reviewed.
-
----
-
 ## Completed
 
 | Item | Outcome |
 |---|---|
+| T-8 — Java's `noTransition` returned a null context | Done — the generator now emits `noTransition(currentState, ctx)`; all three languages return the unchanged context for a declined event, each pins it with a test, the Java golden hashes were re-pinned with the diff reviewed (two shapes only), and all 861 pre-existing FSM tests were green before the re-pin. No hand-written callers existed — the blast radius the register predicted never materialised. |
 | T-6 — study-guide index + completeness check | Done — the Notes table in `70_concepts/idioms/README.md` is the index, and `study_guide.py` now enforces completeness: five required headings, no placeholders, no empty sections, every note linked from the README. Five new tests, each watched failing. |
 | T-5 — `ReflectiveBlpapiDriver` takes a `TimeSource` | Done — injected, wall-clock singleton in the default constructor, baseline entry removed. The baseline now holds only I/O deadlines and demo entry points; the one honest-debt entry is gone. |
 | T-3 — triangulate the corpus | Done — `triangulate.py` reports UNANIMOUS / **2-1 SPLIT naming the minority** / STALE EXPECTATION / NO AGREEMENT; wired into `run.sh` for every case; both blocking verdicts watched failing through the real harness before being trusted. The reference gets no special treatment — a test pins that Java itself can be the named minority. |

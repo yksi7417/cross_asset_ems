@@ -152,4 +152,18 @@ TEST(RouteFsmEffects, EffectsOutliveTheResultThatReturnedThem) {
     EXPECT_EQ(effects[1].event, "ValidationPassed");
 }
 
+/// The no-transition contract, pinned three ways (T-8).
+///
+/// A declined event returns the *unchanged context*. C++ always did this; Java
+/// used to return null. The Java and Rust sides carry the mirror of this test.
+TEST(RouteFsmEffects, ADeclinedEventReturnsTheUnchangedContext) {
+    RouteFsmContext ctx;
+    ctx.orderId = "ORD-KEEP";
+    const auto result = transition(RouteFsmState::PENDING, RouteFsmEvent::RouteFilled, ctx);
+
+    EXPECT_TRUE(result.isNoTransition);
+    EXPECT_EQ(result.newContext.orderId, "ORD-KEEP");
+    EXPECT_TRUE(result.effects.empty());
+}
+
 }  // namespace

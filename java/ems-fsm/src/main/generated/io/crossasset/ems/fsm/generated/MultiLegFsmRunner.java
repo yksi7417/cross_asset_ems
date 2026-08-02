@@ -50,7 +50,7 @@ public final class MultiLegFsmRunner {
             ctx,
             List.of(new MultiLegFsmEffect.PublishFixMessage(Map.of("msg_type", "j")), new MultiLegFsmEffect.PublishEventLog("MultiLegRejected")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case READY -> switch (event) {
         case FirstLegDispatched -> {
@@ -65,7 +65,7 @@ public final class MultiLegFsmRunner {
             ctx,
             List.of(new MultiLegFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "4", "ord_status", "4")), new MultiLegFsmEffect.PublishEventLog("MultiLegCanceled")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case LEGS_WORKING -> switch (event) {
         case LegPartiallyFilled -> {
@@ -95,7 +95,7 @@ public final class MultiLegFsmRunner {
               ctx.with(ctx.orderId(), ctx.multilegKind(), ctx.executionMode(), ctx.totalLegs(), (ctx.legsFilled() + 1), ctx.legsRejected(), ctx.legsCanceled(), ctx.packageId()),
               List.of(new MultiLegFsmEffect.PublishEventLog("LegFilled")));
           }
-          yield TransitionResult.noTransition(state);
+          yield TransitionResult.noTransition(state, ctx);
         }
         case LegRejected -> {
           var payload = (MultiLegFsmPayloads.LegRejectedPayload) rawPayload;
@@ -129,7 +129,7 @@ public final class MultiLegFsmRunner {
               ctx.with(ctx.orderId(), ctx.multilegKind(), ctx.executionMode(), ctx.totalLegs(), ctx.legsFilled(), (ctx.legsRejected() + 1), ctx.legsCanceled(), ctx.packageId()),
               List.of(new MultiLegFsmEffect.PublishEventLog("LegRejected")));
           }
-          yield TransitionResult.noTransition(state);
+          yield TransitionResult.noTransition(state, ctx);
         }
         case LegCanceled -> {
           var payload = (MultiLegFsmPayloads.LegCanceledPayload) rawPayload;
@@ -151,7 +151,7 @@ public final class MultiLegFsmRunner {
               ctx.with(ctx.orderId(), ctx.multilegKind(), ctx.executionMode(), ctx.totalLegs(), ctx.legsFilled(), ctx.legsRejected(), (ctx.legsCanceled() + 1), ctx.packageId()),
               List.of(new MultiLegFsmEffect.PublishEventLog("LegCanceled")));
           }
-          yield TransitionResult.noTransition(state);
+          yield TransitionResult.noTransition(state, ctx);
         }
         case CancelRequested -> {
           yield TransitionResult.of(
@@ -159,19 +159,19 @@ public final class MultiLegFsmRunner {
             ctx,
             List.of(new MultiLegFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "4", "ord_status", "4")), new MultiLegFsmEffect.PublishEventLog("MultiLegCanceled"), new MultiLegFsmEffect.EmitEvent("RouteFsm", "RouteCancelRequested")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case FILLED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case PARTIALLY_FILLED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case CANCELED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case REJECTED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
     };
   }

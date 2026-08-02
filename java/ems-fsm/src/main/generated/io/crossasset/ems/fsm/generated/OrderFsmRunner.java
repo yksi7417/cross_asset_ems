@@ -50,7 +50,7 @@ public final class OrderFsmRunner {
             ctx,
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "j")), new OrderFsmEffect.PublishEventLog("OrderRejected")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case NEW -> switch (event) {
         case ReplaceRequested -> {
@@ -92,7 +92,7 @@ public final class OrderFsmRunner {
             ctx,
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "3", "ord_status", "3")), new OrderFsmEffect.PublishEventLog("OrderDoneForDay")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case PENDING_REPLACE -> switch (event) {
         case ReplaceAccepted -> {
@@ -116,7 +116,7 @@ public final class OrderFsmRunner {
               ctx,
               List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "9")), new OrderFsmEffect.PublishEventLog("OrderReplaceRejected")));
           }
-          yield TransitionResult.noTransition(state);
+          yield TransitionResult.noTransition(state, ctx);
         }
         case PartialFill -> {
           var payload = (OrderFsmPayloads.PartialFillPayload) rawPayload;
@@ -132,7 +132,7 @@ public final class OrderFsmRunner {
             ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), 0L, ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "F", "ord_status", "2")), new OrderFsmEffect.PublishEventLog("OrderFilled")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case REPLACED -> switch (event) {
         case ReplaceRequested -> {
@@ -168,7 +168,7 @@ public final class OrderFsmRunner {
             ctx,
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "C", "ord_status", "C")), new OrderFsmEffect.PublishEventLog("OrderExpired")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case PENDING_CANCEL -> switch (event) {
         case CancelAccepted -> {
@@ -197,7 +197,7 @@ public final class OrderFsmRunner {
               ctx,
               List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "9")), new OrderFsmEffect.PublishEventLog("OrderCancelRejected")));
           }
-          yield TransitionResult.noTransition(state);
+          yield TransitionResult.noTransition(state, ctx);
         }
         case PartialFill -> {
           var payload = (OrderFsmPayloads.PartialFillPayload) rawPayload;
@@ -213,7 +213,7 @@ public final class OrderFsmRunner {
             ctx.with(ctx.orderId(), ctx.clOrdId(), ctx.origClOrdId(), ctx.instrumentId(), ctx.side(), ctx.orderQty(), ctx.price(), (ctx.cumQty() + payload.lastQty()), 0L, ctx.account(), ctx.tif(), ctx.initialClOrdId(), ctx.chainId(), ctx.orderVersion(), ctx.preCancelStatus(), ctx.preReplaceStatus()),
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "F", "ord_status", "2")), new OrderFsmEffect.PublishEventLog("OrderFilled")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case PARTIALLY_FILLED -> switch (event) {
         case CancelRequested -> {
@@ -248,7 +248,7 @@ public final class OrderFsmRunner {
             ctx,
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "3", "ord_status", "3")), new OrderFsmEffect.PublishEventLog("OrderDoneForDay")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case FILLED -> switch (event) {
         case TradeCorrect -> {
@@ -265,25 +265,25 @@ public final class OrderFsmRunner {
             ctx,
             List.of(new OrderFsmEffect.PublishFixMessage(Map.of("msg_type", "8", "exec_type", "H")), new OrderFsmEffect.PublishEventLog("TradeCanceled")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case CANCELED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case REJECTED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case EXPIRED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case DONE_FOR_DAY -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case TRADE_CORRECTED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case TRADE_CANCELED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
     };
   }

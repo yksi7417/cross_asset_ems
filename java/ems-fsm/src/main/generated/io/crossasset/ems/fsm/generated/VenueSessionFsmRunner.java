@@ -44,7 +44,7 @@ public final class VenueSessionFsmRunner {
             ctx,
             List.of(new VenueSessionFsmEffect.Notify(Map.of("signal", "initiate_tcp", "session_id", "{{ context.session_id }}"))));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case CONNECTING -> switch (event) {
         case TcpConnected -> {
@@ -59,7 +59,7 @@ public final class VenueSessionFsmRunner {
             ctx,
             List.of(new VenueSessionFsmEffect.PublishEventLog("TcpConnectionFailed"), new VenueSessionFsmEffect.ScheduleTimer(Map.of("name", "reconnect_backoff", "duration_secs", "5"))));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case LOGON_SENT -> switch (event) {
         case LogonAcknowledged -> {
@@ -80,7 +80,7 @@ public final class VenueSessionFsmRunner {
             ctx,
             List.of(new VenueSessionFsmEffect.PublishEventLog("UnexpectedDisconnect")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case ACTIVE -> switch (event) {
         case HeartbeatReceived -> {
@@ -131,7 +131,7 @@ public final class VenueSessionFsmRunner {
             ctx,
             List.of(new VenueSessionFsmEffect.PublishEventLog("UnexpectedDisconnect")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case TEST_REQUEST_SENT -> switch (event) {
         case TestRequestResponse -> {
@@ -152,7 +152,7 @@ public final class VenueSessionFsmRunner {
             ctx,
             List.of(new VenueSessionFsmEffect.PublishEventLog("UnexpectedDisconnect")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case RESEND_IN_PROGRESS -> switch (event) {
         case ResendComplete -> {
@@ -173,7 +173,7 @@ public final class VenueSessionFsmRunner {
             ctx,
             List.of(new VenueSessionFsmEffect.PublishEventLog("UnexpectedDisconnect")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case SEQUENCE_RESETTING -> switch (event) {
         case ResendComplete -> {
@@ -188,7 +188,7 @@ public final class VenueSessionFsmRunner {
             ctx,
             List.of(new VenueSessionFsmEffect.PublishEventLog("UnexpectedDisconnect")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case LOGOUT_IN_PROGRESS -> switch (event) {
         case LogoutEchoed -> {
@@ -203,7 +203,7 @@ public final class VenueSessionFsmRunner {
             ctx,
             List.of(new VenueSessionFsmEffect.PublishEventLog("UnexpectedDisconnect")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
     };
   }

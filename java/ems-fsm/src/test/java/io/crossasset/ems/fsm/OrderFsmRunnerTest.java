@@ -50,6 +50,27 @@ class OrderFsmRunnerTest {
     return fire(state, event, ctx, null);
   }
 
+  // ── (0) The no-transition contract (T-8) ─────────────────────────────────
+
+  /**
+   * A declined event returns the <em>unchanged context</em>, not null.
+   *
+   * <p>Rust and C++ always did; Java returning null was a three-way divergence in one generated
+   * contract, latent only because every caller checked {@code isNoTransition()} first — and {@code
+   * newContext} is not {@code @Nullable}, so nothing would have stopped the first caller that did
+   * not. This test is what keeps the three answers the same.
+   */
+  @Test
+  void aDeclinedEventReturnsTheUnchangedContext() {
+    OrderFsmContext ctx = minimal();
+    // A FILLED order has no rule for ValidationPassed.
+    var result = fire(FILLED, ValidationPassed, ctx);
+
+    assertTrue(result.isNoTransition());
+    assertSame(ctx, result.newContext(), "the context must come back as-is, never null");
+    assertTrue(result.effects().isEmpty(), "a declined event asks for nothing");
+  }
+
   // ── (1) Guarded PENDING_REPLACE branches ────────────────────────────────
 
   @Test

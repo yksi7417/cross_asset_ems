@@ -756,12 +756,12 @@ def gen_runner(fsm: dict, prefix: str) -> str:
             # After all guarded branches, if any had guards, emit fallthrough
             has_guards = any(r.get("guard") for r in rows)
             if has_guards:
-                lines.append("          yield TransitionResult.noTransition(state);")
+                lines.append("          yield TransitionResult.noTransition(state, ctx);")
 
             lines.append("        }")  # end case EVENTNAME
 
         # Events with no transitions from this state → noTransition
-        lines.append("        default -> TransitionResult.noTransition(state);")
+        lines.append("        default -> TransitionResult.noTransition(state, ctx);")
         lines.append("      };")  # end case STATENAME switch(event)
 
     lines += [
@@ -800,9 +800,17 @@ public record TransitionResult<S, C, E>(
     return new TransitionResult<>(newState, newContext, effects, false);
   }}
 
-  /** No matching transition — state + context unchanged, no effects. */
-  public static <S, C, E> TransitionResult<S, C, E> noTransition(S currentState) {{
-    return new TransitionResult<>(currentState, null, List.of(), true);
+  /**
+   * No matching transition — state and context unchanged, no effects.
+   *
+   * <p>The context comes back as-is rather than as {{@code null}}. Rust and C++ always returned the
+   * unchanged context for a declined event; Java returning {{@code null}} was a three-way divergence
+   * in one generated contract (T-8), latent only because every caller checked
+   * {{@code isNoTransition()}} first — and {{@code newContext}} is not {{@code @Nullable}}, so nothing
+   * would have stopped the first caller that did not.
+   */
+  public static <S, C, E> TransitionResult<S, C, E> noTransition(S currentState, C ctx) {{
+    return new TransitionResult<>(currentState, ctx, List.of(), true);
   }}
 }}
 """

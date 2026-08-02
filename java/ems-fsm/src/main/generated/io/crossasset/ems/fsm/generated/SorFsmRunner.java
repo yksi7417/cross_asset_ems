@@ -44,7 +44,7 @@ public final class SorFsmRunner {
             ctx,
             List.of(new SorFsmEffect.PublishEventLog("SorRouteSent")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case SENT -> switch (event) {
         case SorStrategyDecided -> {
@@ -71,7 +71,7 @@ public final class SorFsmRunner {
             ctx,
             List.of(new SorFsmEffect.PublishEventLog("SorRouteRejected"), new SorFsmEffect.EmitEvent("OrderFsm", "ValidationFailed")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case PENDING_NEW_AT_VENUE -> switch (event) {
         case RouteAcknowledged -> {
@@ -80,7 +80,7 @@ public final class SorFsmRunner {
             ctx,
             List.of(new SorFsmEffect.PublishEventLog("SorRouteWorking"), new SorFsmEffect.EmitEvent("OrderFsm", "ValidationPassed")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case WORKING -> switch (event) {
         case SorPlanAdjusted -> {
@@ -134,7 +134,7 @@ public final class SorFsmRunner {
             ctx,
             List.of(new SorFsmEffect.Notify(Map.of("channel", "ops-alerts", "message", "SOR route anomaly — manual triage required")), new SorFsmEffect.PublishEventLog("SorRouteAnomaly")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case PENDING_REPLACE_AT_VENUE -> switch (event) {
         case RouteReplacePendingAtVenue -> {
@@ -176,7 +176,7 @@ public final class SorFsmRunner {
             ctx,
             List.of(new SorFsmEffect.Notify(Map.of("channel", "ops-alerts", "message", "SOR route anomaly in PENDING_REPLACE — manual triage required")), new SorFsmEffect.PublishEventLog("SorRouteAnomaly")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case PENDING_CANCEL_AT_VENUE -> switch (event) {
         case RouteCanceled -> {
@@ -199,7 +199,7 @@ public final class SorFsmRunner {
               ctx,
               List.of(new SorFsmEffect.PublishEventLog("SorCancelRejected"), new SorFsmEffect.EmitEvent("OrderFsm", "CancelRejected")));
           }
-          yield TransitionResult.noTransition(state);
+          yield TransitionResult.noTransition(state, ctx);
         }
         case RouteAnomaly -> {
           yield TransitionResult.of(
@@ -207,7 +207,7 @@ public final class SorFsmRunner {
             ctx,
             List.of(new SorFsmEffect.Notify(Map.of("channel", "ops-alerts", "message", "SOR route anomaly in PENDING_CANCEL — manual triage required")), new SorFsmEffect.PublishEventLog("SorRouteAnomaly")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case PARTIALLY_FILLED -> switch (event) {
         case RouteCancelRequested -> {
@@ -236,25 +236,25 @@ public final class SorFsmRunner {
             ctx,
             List.of(new SorFsmEffect.PublishEventLog("SorRouteExpired"), new SorFsmEffect.EmitEvent("OrderFsm", "OrderExpired")));
         }
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case FILLED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case CANCELED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case REJECTED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case EXPIRED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case SUPERSEDED -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
       case ANOMALY -> switch (event) {
-        default -> TransitionResult.noTransition(state);
+        default -> TransitionResult.noTransition(state, ctx);
       };
     };
   }

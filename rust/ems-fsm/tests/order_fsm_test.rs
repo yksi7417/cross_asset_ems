@@ -175,3 +175,21 @@ fn the_context_is_not_mutated_in_place() {
     assert_eq!(before, ctx());
     let _ = result;
 }
+
+/// The no-transition contract, pinned three ways (T-8).
+///
+/// A declined event returns the *unchanged context*. Rust always did this;
+/// Java used to return null, a three-way divergence in one generated contract.
+/// The Java side now has the mirror of this test, and this one exists so the
+/// contract cannot regress here either.
+#[test]
+fn a_declined_event_returns_the_unchanged_context() {
+    let mut context = ctx();
+    context.account = "ACC-KEEP".to_owned();
+    // A Filled order has no rule for ValidationPassed.
+    let result = OrderFsmState::Filled.apply(OrderFsmEvent::ValidationPassed, &context, None);
+
+    assert!(result.is_no_transition);
+    assert_eq!(result.new_context, context);
+    assert!(result.effects.is_empty());
+}
