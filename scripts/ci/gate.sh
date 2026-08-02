@@ -461,7 +461,16 @@ run_step() {
         fi ;;
     rust-miri)
         if have_rust_tree; then
-            step_needs_tool rust-miri cargo 'cargo not installed' -- \
+            # -Zmiri-disable-isolation: the journal tests exercise real file
+            # I/O (tmp dirs, remove_dir_all), and Miri's isolated mode forbids
+            # the syscalls today's std uses for that (statx/openat2). The
+            # alternative — cfg_attr(miri, ignore) on every I/O test — would
+            # shrink what Miri checks; disabling isolation keeps all of them
+            # under the interpreter and costs only syscall determinism, which
+            # none of these tests rely on. This failed for real on 2026-08-02:
+            # a toolchain update changed which syscalls std reaches for, and
+            # the nightly lane went red with nobody watching (exactly T-2).
+            MIRIFLAGS=-Zmiri-disable-isolation step_needs_tool rust-miri cargo 'cargo not installed' -- \
                 cargo +nightly miri test --manifest-path rust/Cargo.toml
         else
             step_skip rust-miri 'rust/ not present — sub-project 3'
