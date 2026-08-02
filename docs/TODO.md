@@ -27,7 +27,6 @@ For what is *being built next* in the port, see its
 | [T-1](#t-1) | MSan-instrumented libc++ so `cpp-msan` actually runs | nothing | [ADR 0008](decisions/0008-msan-nightly-only.md) |
 | [T-2](#t-2) | Nightly failure notification | T-1 landing makes it matter | [ADR 0008](decisions/0008-msan-nightly-only.md) |
 | [T-4](#t-4) | Digest-pinned CI container image | nothing | [gate.md](polyglot/gate.md) recorded deviation |
-| [T-5](#t-5) | `ReflectiveBlpapiDriver` takes a `TimeSource` | nothing | [clock-baseline.txt](../scripts/ci/clock-baseline.txt) |
 | [T-6](#t-6) | Study-guide index + completeness check | components 6–8 | [ADR 0005](decisions/0005-study-guide-with-enforced-anchors.md) |
 | [T-8](#t-8) | Java's `noTransition` returns a null context | nothing | found building component 6b-i |
 
@@ -88,24 +87,6 @@ Recorded as a deviation in [`gate.md`](polyglot/gate.md) rather than glossed ove
 
 ---
 
-## T-5 — `ReflectiveBlpapiDriver` takes a `TimeSource`
-
-**Why:** it is the one entry in [`scripts/ci/clock-baseline.txt`](../scripts/ci/clock-baseline.txt)
-that is **honest debt rather than an exemption on merit**. Every other baselined file reads the wall
-clock for an I/O deadline or is a demo entry point; this one stamps a market-data tick with
-`System.currentTimeMillis()`, which is a genuine business timestamp.
-
-It is baselined only because `ems-market-data` is outside the cash-equity slice (ADR 0002), so
-fixing it now would be scope creep.
-
-**What it takes:** inject a `TimeSource`, thread it to the `onTick` call, remove the baseline entry.
-The `no_raw_clock` check will fail on a *stale* baseline entry, so the removal is enforced rather
-than optional.
-
-**Done when:** the entry is gone from the baseline and the check still passes.
-
----
-
 ## T-6 — Study-guide index and completeness check
 
 **Why:** there are six idiom notes and no index, so the section is a directory listing rather than
@@ -154,6 +135,7 @@ golden hashes are re-pinned with the diff reviewed.
 
 | Item | Outcome |
 |---|---|
+| T-5 — `ReflectiveBlpapiDriver` takes a `TimeSource` | Done — injected, wall-clock singleton in the default constructor, baseline entry removed. The baseline now holds only I/O deadlines and demo entry points; the one honest-debt entry is gone. |
 | T-3 — triangulate the corpus | Done — `triangulate.py` reports UNANIMOUS / **2-1 SPLIT naming the minority** / STALE EXPECTATION / NO AGREEMENT; wired into `run.sh` for every case; both blocking verdicts watched failing through the real harness before being trusted. The reference gets no special treatment — a test pins that Java itself can be the named minority. |
 | T-7 — release routed quantity when a route dies unfilled | Done — `routedQty` skips `REJECTED`/`CANCELED`/`EXPIRED`/`SUPERSEDED` in all three languages; `component-07-route-lifecycle` re-routes an order whose first route the venue refused. `FILLED` stays counted. |
 | Coverage instrumentation for Rust and C++ | Done — `cargo-llvm-cov` (91.9%) and `gcov`/`gcovr` (79%), both in `gate.sh full`. See [status.md](polyglot/status.md). |

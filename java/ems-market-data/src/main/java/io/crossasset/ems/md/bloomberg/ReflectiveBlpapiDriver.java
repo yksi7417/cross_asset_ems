@@ -4,6 +4,8 @@
  */
 package io.crossasset.ems.md.bloomberg;
 
+import io.crossasset.ems.core.clock.SystemTimeSource;
+import io.crossasset.ems.core.clock.TimeSource;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -27,10 +29,31 @@ public final class ReflectiveBlpapiDriver implements BlpapiDriver {
 
   private static final String PKG = "com.bloomberglp.blpapi.";
 
+  /**
+   * Stamps inbound ticks. This is a business timestamp — it reaches consumers as the tick's time —
+   * not an I/O deadline, which is why the raw {@code System.currentTimeMillis()} it replaced was
+   * the one honest piece of debt in {@code clock-baseline.txt} rather than an exemption on merit.
+   */
+  private final TimeSource timeSource;
+
   private Object session;
   private Class<?> sessionClass;
   private Class<?> correlationIdClass;
   private DriverEvents events;
+
+  /** Production wiring: ticks are stamped from the wall clock. */
+  public ReflectiveBlpapiDriver() {
+    this(SystemTimeSource.INSTANCE);
+  }
+
+  /**
+   * Injectable for tests and replay. The driver itself cannot run in CI (the BLPAPI jar is not in
+   * the hermetic build), but the seam still matters: it is what keeps the tick timestamp a {@code
+   * TimeSource} decision rather than a hard-coded clock read.
+   */
+  public ReflectiveBlpapiDriver(TimeSource timeSource) {
+    this.timeSource = Objects.requireNonNull(timeSource, "timeSource");
+  }
 
   @Override
   public synchronized void connect(BloombergConfig config, DriverEvents events) {
@@ -166,7 +189,7 @@ public final class ReflectiveBlpapiDriver implements BlpapiDriver {
       }
     }
     if (!values.isEmpty()) {
-      events.onTick(correlationId, values, System.currentTimeMillis());
+      events.onTick(correlationId, values, timeSource.now().epochMillis());
     }
   }
 
