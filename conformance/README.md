@@ -3,11 +3,16 @@
 This directory is how "the three implementations are the same system" becomes a testable claim
 instead of a sentence in a README.
 
-**Status: live, and narrow.** The harness, the differ and the first corpus case exist, and
-`scripts/ci/gate.sh full` runs them against all three implementations. What is narrow is the
-*slice*: `ems-slice` currently implements the journal codec and deterministic identifiers only.
-Coverage grows one component at a time — see [`docs/polyglot/README.md`](../docs/polyglot/README.md)
-and [ADR 0003](../docs/decisions/0003-shared-schemas-corpus-harness.md).
+**Status: live, and complete.** Eight corpus cases cover every component of the cash-equity slice
+— journal codec, AAA, validation, the order FSM (31/31 transitions), routing, the route lifecycle
+(29/29), the venue edge (24/24 session transitions), and allocation. `scripts/ci/gate.sh full`
+runs all of them against all three implementations, byte-for-byte and three-way. See
+[`docs/polyglot/README.md`](../docs/polyglot/README.md) and
+[ADR 0003](../docs/decisions/0003-shared-schemas-corpus-harness.md).
+
+(This paragraph has been stale before — it claimed "journal codec and identifiers only" while six
+further components were live. Nothing checks prose against the corpus directory; when they
+disagree, trust `run.sh --list`.)
 
 ```bash
 conformance/harness/run.sh          # every case, every implementation
@@ -62,9 +67,26 @@ For every case and every implementation: run `ems-slice`, diff actual output aga
 `expected.jsonl` **byte-for-byte**. Any difference fails.
 
 Java is the reference that generates `expected.jsonl`; C++ and Rust must match it exactly. This
-proves *equivalence*, not *correctness* — a Java bug both ports faithfully reproduce passes. The
-counterweight is review: corpus cases are checked against the FSM schemas and the reject-code
-catalog, so a case can fail review for asserting the wrong behaviour.
+proves *equivalence*, not *correctness* — a Java bug both ports faithfully reproduce passes. Two
+counterweights:
+
+**Review.** Corpus cases are checked against the FSM schemas and the reject-code catalog, so a case
+can fail review for asserting the wrong behaviour.
+
+**Triangulation** ([`triangulate.py`](harness/triangulate.py), T-3). After the per-implementation
+diffs, every case is judged *symmetrically*: do the implementations agree with **each other**? Four
+verdicts:
+
+| Verdict | Meaning | Blocks |
+|---|---|---|
+| `UNANIMOUS` | all agree, and match the committed expectation | no |
+| `2-1 SPLIT` | one stands alone — **named, but not convicted**: two independent implementations rarely make the same mistake, but the majority could share a bug | yes |
+| `STALE EXPECTATION` | all agree with each other and not with `expected.jsonl` — the verdict the reference-diff can never produce, because every implementation passes it in unison | yes |
+| `NO AGREEMENT` | every output differs from every other | yes |
+
+The reference gets no special treatment: a unit test pins that Java itself can be the named
+minority. Both blocking verdicts were watched failing through the real harness before being
+trusted.
 
 Run it via the gate, never directly:
 

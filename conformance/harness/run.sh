@@ -24,6 +24,7 @@ cd "$REPO_ROOT" || exit 2
 
 CORPUS_DIR=conformance/corpus
 DIFFER=conformance/harness/differ.py
+TRIANGULATE=conformance/harness/triangulate.py
 
 # Implementation name → binary path. Kept in this order so failures read
 # reference-first.
@@ -180,6 +181,9 @@ for case_name in "${SELECTED_CASES[@]}"; do
         continue
     fi
 
+    # Outputs that both ran and matched, as name=path pairs for triangulation.
+    triangle_args=()
+
     for i in "${!FOUND_NAMES[@]}"; do
         impl=${FOUND_NAMES[$i]}
         binary=${FOUND_PATHS[$i]}
@@ -193,6 +197,8 @@ for case_name in "${SELECTED_CASES[@]}"; do
             continue
         fi
 
+        triangle_args+=("$impl=$actual")
+
         if python3 "$DIFFER" "$expected" "$actual"; then
             printf '%s✔%s %-40s %s%s%s\n' \
                 "$C_GREEN" "$C_RESET" "$case_name" "$C_DIM" "$impl" "$C_RESET"
@@ -202,6 +208,20 @@ for case_name in "${SELECTED_CASES[@]}"; do
             failures=$((failures + 1))
         fi
     done
+
+    # Triangulate whenever two or more implementations produced output. The
+    # per-implementation diff above privileges the committed expectation; this
+    # asks the symmetric question — do they agree with EACH OTHER — and a
+    # divergence is reported as a named 2-1 split rather than "rust != java"
+    # (ADR 0009 / T-3). Redundant when every diff above already passed, decisive
+    # when it did not: it says which implementation to go and read.
+    if [ "${#triangle_args[@]}" -ge 2 ]; then
+        if ! python3 "$TRIANGULATE" --expected "$expected" "${triangle_args[@]}"; then
+            printf '%s✘ %-40s %-5s not unanimous%s\n' \
+                "$C_RED" "$case_name" "3-way" "$C_RESET"
+            failures=$((failures + 1))
+        fi
+    fi
 done
 
 echo

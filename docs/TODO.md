@@ -26,7 +26,6 @@ For what is *being built next* in the port, see its
 |---|---|---|---|
 | [T-1](#t-1) | MSan-instrumented libc++ so `cpp-msan` actually runs | nothing | [ADR 0008](decisions/0008-msan-nightly-only.md) |
 | [T-2](#t-2) | Nightly failure notification | T-1 landing makes it matter | [ADR 0008](decisions/0008-msan-nightly-only.md) |
-| [T-3](#t-3) | Triangulate the corpus instead of privileging Java | all three slices complete | [ADR 0009](decisions/0009-corpus-authority-java-with-triangulation-later.md) |
 | [T-4](#t-4) | Digest-pinned CI container image | nothing | [gate.md](polyglot/gate.md) recorded deviation |
 | [T-5](#t-5) | `ReflectiveBlpapiDriver` takes a `TimeSource` | nothing | [clock-baseline.txt](../scripts/ci/clock-baseline.txt) |
 | [T-6](#t-6) | Study-guide index + completeness check | components 6–8 | [ADR 0005](decisions/0005-study-guide-with-enforced-anchors.md) |
@@ -68,34 +67,6 @@ things. `IMPL/HERMES.md` documents an existing Discord path; reuse it rather tha
 second channel.
 
 **Done when:** a failing nightly produces a message someone receives.
-
----
-
-## T-3 — Triangulate the corpus
-
-**Why:** Java generates `expected.jsonl`, so a Java bug faithfully reproduced by both ports passes
-the gate. ADR 0009 accepted that for now and recorded the fix.
-
-Once all three implementations are complete, the stronger question is not "do they match Java" but
-"do all three agree":
-
-- **2-1 disagreement** → strong evidence the odd one out is wrong. Two independent implementations
-  rarely make the same mistake.
-- **3-way agreement on something the schema forbids** → the spec was read the same wrong way three
-  times. That is a finding about the *schema's clarity*, not the code.
-
-**What it takes:**
-- A differ mode that treats three outputs symmetrically rather than diffing two against a
-  privileged third.
-- A policy for what a 2-1 split means procedurally — it should block, and it should name the
-  minority implementation without asserting it is wrong.
-- No new binaries: `conformance/harness/run.sh` already runs all three.
-
-**Blocked by:** components 6–8. Triangulating three implementations of five components proves less
-than triangulating three of eight.
-
-**Done when:** the harness reports agreement three ways, and a deliberate one-language divergence
-is reported as a 2-1 split rather than "Rust ≠ Java".
 
 ---
 
@@ -183,6 +154,7 @@ golden hashes are re-pinned with the diff reviewed.
 
 | Item | Outcome |
 |---|---|
+| T-3 — triangulate the corpus | Done — `triangulate.py` reports UNANIMOUS / **2-1 SPLIT naming the minority** / STALE EXPECTATION / NO AGREEMENT; wired into `run.sh` for every case; both blocking verdicts watched failing through the real harness before being trusted. The reference gets no special treatment — a test pins that Java itself can be the named minority. |
 | T-7 — release routed quantity when a route dies unfilled | Done — `routedQty` skips `REJECTED`/`CANCELED`/`EXPIRED`/`SUPERSEDED` in all three languages; `component-07-route-lifecycle` re-routes an order whose first route the venue refused. `FILLED` stays counted. |
 | Coverage instrumentation for Rust and C++ | Done — `cargo-llvm-cov` (91.9%) and `gcov`/`gcovr` (79%), both in `gate.sh full`. See [status.md](polyglot/status.md). |
 | Make business logic clock-injectable | Done — `TimeSource`, and `no_raw_clock.py` enforces it. |
