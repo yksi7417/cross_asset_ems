@@ -17,9 +17,18 @@ This check asserts both directions:
 * every ``STUDY:`` marker in source has a matching note;
 * every note's anchor still resolves to a line carrying that note's marker.
 
-So moving marked code without updating the note fails the build. An unenforced
-study guide rots into a lie within weeks, and a rotted study guide is worse than
-none — see docs/decisions/0005-study-guide-with-enforced-anchors.md.
+And, since T-6, that each note is **complete** rather than merely present:
+
+* the five required headings from the README template all appear;
+* no section is empty, and no note contains ``TODO``/``TBD`` — a heading with
+  nothing under it is a promise, not documentation;
+* every note is linked from the section README, so nothing publishes into a
+  directory nobody browses.
+
+So moving marked code without updating the note fails the build, and so does
+committing a skeleton. An unenforced study guide rots into a lie within weeks,
+and a rotted study guide is worse than none — see
+docs/decisions/0005-study-guide-with-enforced-anchors.md.
 
 Usage:
     python3 scripts/ci/checks/study_guide.py [--root PATH]
@@ -53,6 +62,21 @@ ANCHOR_RE = re.compile(r"^anchor:\s*(\S+):(\d+)\s*$")
 
 # Notes that are section furniture rather than idiom notes.
 NON_NOTE_FILES = {"README.md", "index.md", "idioms-index.md"}
+
+# The headings every note must carry, from the template in the section README.
+# "Related" is deliberately not required — a first note on a new theme has
+# nothing to relate to yet, and a mandatory section invites a filler link.
+REQUIRED_HEADINGS = (
+    "## The idiom",
+    "## Why it was needed here",
+    "## What the naive version gets wrong",
+    "## Where it lives",
+    "## Cross-language contrast",
+)
+
+# Placeholder text that marks a section as unwritten. Word-boundary matched so
+# prose about "the TODO register" does not trip it, but a bare TODO does.
+PLACEHOLDER_RE = re.compile(r"\b(TODO|TBD|FIXME)\b")
 
 
 def _iter_source_files(root: pathlib.Path):
@@ -123,6 +147,44 @@ def _line_at(root: pathlib.Path, relative: str, lineno: int) -> str | None:
     return lines[lineno - 1]
 
 
+def _completeness(root: pathlib.Path, found_notes: dict[str, dict]) -> list[str]:
+    """One message per incomplete note: missing heading, empty section, placeholder."""
+    errors: list[str] = []
+
+    readme = root / IDIOMS_DIR / "README.md"
+    readme_text = readme.read_text(encoding="utf-8", errors="replace") if readme.is_file() else ""
+
+    for slug, note in sorted(found_notes.items()):
+        text = (root / note["path"]).read_text(encoding="utf-8", errors="replace")
+
+        for heading in REQUIRED_HEADINGS:
+            if not re.search(rf"^{re.escape(heading)}\s*$", text, re.M):
+                errors.append(f"{note['path']}: missing required section {heading!r}")
+
+        match = PLACEHOLDER_RE.search(text)
+        if match:
+            errors.append(
+                f"{note['path']}: contains placeholder {match.group(1)!r} — "
+                f"an unwritten section is a promise, not documentation"
+            )
+
+        # An empty section: a heading whose body, up to the next heading or
+        # EOF, has no non-blank line.
+        for m in re.finditer(r"^(## [^\n]+)\n(.*?)(?=^## |\Z)", text, re.M | re.S):
+            if not m.group(2).strip():
+                errors.append(f"{note['path']}: section {m.group(1)!r} is empty")
+
+        # Reachable from the README, so nothing publishes into a directory
+        # nobody browses. A link is `(slug.md)` in the notes table.
+        if f"{slug}.md" not in readme_text:
+            errors.append(
+                f"{note['path']}: not linked from {IDIOMS_DIR}/README.md — "
+                f"add a row to the Notes table"
+            )
+
+    return errors
+
+
 def check(root: pathlib.Path) -> list[str]:
     """Return a list of violation messages. Empty list means the guide is honest."""
     root = pathlib.Path(root)
@@ -136,6 +198,8 @@ def check(root: pathlib.Path) -> list[str]:
                 f"{sites[0]}: STUDY marker {slug!r} has no note at "
                 f"{IDIOMS_DIR}/{slug}.md"
             )
+
+    errors.extend(_completeness(root, found_notes))
 
     for slug, note in sorted(found_notes.items()):
         anchor = note["anchor"]

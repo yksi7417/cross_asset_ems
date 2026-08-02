@@ -108,10 +108,11 @@ Still expected, per [ADR 0005](../../docs/decisions/0005-study-guide-with-enforc
 the remaining components land: CRTP vs. virtual dispatch, `std::bit_cast` in SBE decode, typestate
 FSM encoding, `Cow` in the FIX decoder, and newtype-wrapped scaled prices.
 
-**This table is hand-maintained.** `study_guide.py` enforces that every note has a live anchor and
-every marker has a note; it does *not* yet check that every note is reachable from here. That gap is
-[T-6](../../docs/TODO.md) — until it closes, a note added without a row goes unlisted and nothing
-complains.
+**This table is enforced, not trusted** (T-6, closed). `study_guide.py` fails the build when a note
+is missing any of the five template headings, contains a placeholder or an empty section, or has no
+row here — so a note added without a row breaks CI rather than going quietly unlisted. "Related" is
+deliberately not required: a first note on a new theme has nothing to relate to yet, and a mandatory
+section invites a filler link.
 
 ## Related
 

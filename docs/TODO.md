@@ -27,7 +27,6 @@ For what is *being built next* in the port, see its
 | [T-1](#t-1) | MSan-instrumented libc++ so `cpp-msan` actually runs | nothing | [ADR 0008](decisions/0008-msan-nightly-only.md) |
 | [T-2](#t-2) | Nightly failure notification | T-1 landing makes it matter | [ADR 0008](decisions/0008-msan-nightly-only.md) |
 | [T-4](#t-4) | Digest-pinned CI container image | nothing | [gate.md](polyglot/gate.md) recorded deviation |
-| [T-6](#t-6) | Study-guide index + completeness check | components 6–8 | [ADR 0005](decisions/0005-study-guide-with-enforced-anchors.md) |
 | [T-8](#t-8) | Java's `noTransition` returns a null context | nothing | found building component 6b-i |
 
 ---
@@ -87,27 +86,6 @@ Recorded as a deviation in [`gate.md`](polyglot/gate.md) rather than glossed ove
 
 ---
 
-## T-6 — Study-guide index and completeness check
-
-**Why:** there are six idiom notes and no index, so the section is a directory listing rather than
-something browsable. ADR 0005 also specified checks the integrity checker does not yet do: it
-verifies a note *exists* and its anchor resolves, but not that the note *says* anything.
-
-**What it takes** (from [plan 06](superpowers/plans/2026-07-30-polyglot-06-study-guide.md)):
-- `70_concepts/idioms/idioms-index.md`, grouped three ways — by language, by theme, by module —
-  because three kinds of reader arrive three different ways.
-- Extend `study_guide.py`: every note has all five required headings; no note contains `TODO`/`TBD`
-  or an empty section; every note is reachable from the index.
-- The three cross-language contrast notes that have no single usage site.
-
-**Blocked by:** components 6–8, which is where the remaining idioms will surface. Writing the index
-before the notes exist means writing it twice.
-
-**Done when:** `study_guide.py` enforces completeness, not just existence, and its own tests prove
-it.
-
----
-
 ## T-8 — Java's `noTransition` returns a null context; Rust and C++ return the unchanged one
 
 `TransitionResult.noTransition(currentState)` passes `null` for `newContext`. The Rust and C++
@@ -135,6 +113,7 @@ golden hashes are re-pinned with the diff reviewed.
 
 | Item | Outcome |
 |---|---|
+| T-6 — study-guide index + completeness check | Done — the Notes table in `70_concepts/idioms/README.md` is the index, and `study_guide.py` now enforces completeness: five required headings, no placeholders, no empty sections, every note linked from the README. Five new tests, each watched failing. |
 | T-5 — `ReflectiveBlpapiDriver` takes a `TimeSource` | Done — injected, wall-clock singleton in the default constructor, baseline entry removed. The baseline now holds only I/O deadlines and demo entry points; the one honest-debt entry is gone. |
 | T-3 — triangulate the corpus | Done — `triangulate.py` reports UNANIMOUS / **2-1 SPLIT naming the minority** / STALE EXPECTATION / NO AGREEMENT; wired into `run.sh` for every case; both blocking verdicts watched failing through the real harness before being trusted. The reference gets no special treatment — a test pins that Java itself can be the named minority. |
 | T-7 — release routed quantity when a route dies unfilled | Done — `routedQty` skips `REJECTED`/`CANCELED`/`EXPIRED`/`SUPERSEDED` in all three languages; `component-07-route-lifecycle` re-routes an order whose first route the venue refused. `FILLED` stays counted. |
