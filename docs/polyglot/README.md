@@ -14,6 +14,7 @@ Rust, and C++ — and a byte-exact conformance gate proves the three behave iden
 | Study guide | [`70_concepts/idioms/`](../../70_concepts/idioms/) |
 | Plans | [`docs/superpowers/plans/`](../superpowers/plans/README.md) — one per sub-project, indexed |
 | Status | [`docs/polyglot/status.md`](status.md) — per-language test counts and the test evidence behind every feature |
+| **Evidence** | [`docs/polyglot/evidence.md`](evidence.md) — the completed slice's proof pack: per-stream scorecards, the sha256 triple, the demo transcript, and a command beside every claim |
 | Follow-ups | [`docs/TODO.md`](../TODO.md) — the repo-wide deferred-work register |
 | **Traps** | [`docs/polyglot/traps.md`](traps.md) — 34 things that went wrong, and which of them a check now catches. **Read this before adding a gate step or trusting a green build.** |
 
