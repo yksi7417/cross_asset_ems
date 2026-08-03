@@ -19,7 +19,7 @@ to:
 
 | | Java | Rust | C++ |
 |---|---:|---:|---:|
-| **Tests passing** | **2,398** | **119** | **97** |
+| **Tests passing** | **2,403** | **120** | **98** |
 | Failures / errors / skipped | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
 | Suites | 14 modules | 9 | 7 ctest targets |
 

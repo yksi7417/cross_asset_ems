@@ -11,6 +11,20 @@ below has a command next to it; nothing here is asserted that a reader cannot re
 > trust the command. The always-current equivalents are `scripts/ci/gate.sh full`,
 > `conformance/harness/run.sh` and `scripts/dev/demo-polyglot.sh`.
 
+## Post-snapshot note (T-8, T-9)
+
+Two register items closed after the snapshot commit, both worth a line here because they sharpen
+the evidence rather than dating it:
+
+- **T-8** — the generated `noTransition` now returns the unchanged context in all three languages
+  (Java used to return null); the contract is pinned by a test in each stream.
+- **T-9** — a case-by-case audit of the codec suites found the unit-test gap ran **toward the
+  reference**: the ports tested four hostile-input cases Java did not, and one hid a real
+  divergence — Java accepted a lone `\ud800` escape both ports reject. Fixed in Java, watched
+  failing first, conformance 24/24 throughout. The raw test counts (2,403 / 120 / 98) measure
+  scope, not rigor: on the one module where rigor was compared case-by-case, the reference was
+  the deficient one.
+
 ## Scoreboard
 
 | | | Verify with |
